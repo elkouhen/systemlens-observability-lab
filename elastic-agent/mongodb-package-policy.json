@@ -1,0 +1,68 @@
+{
+  "name": "mongodb-fleet",
+  "description": "Logs et métriques MongoDB du POC",
+  "namespace": "default",
+  "policy_ids": ["mongodb-hosts"],
+  "package": {
+    "name": "mongodb",
+    "title": "MongoDB",
+    "version": "1.24.0"
+  },
+  "inputs": [
+    {
+      "type": "logfile",
+      "policy_template": "mongodb",
+      "enabled": true,
+      "streams": [
+        {
+          "enabled": true,
+          "data_stream": {
+            "type": "logs",
+            "dataset": "mongodb.log"
+          },
+          "vars": {
+            "paths": {"type": "text", "value": ["/var/log/mongodb/mongod.log"]},
+            "tags": {"type": "text", "value": ["mongodb-logs"]},
+            "preserve_original_event": {"type": "bool", "value": false}
+          }
+        }
+      ]
+    },
+    {
+      "type": "mongodb/metrics",
+      "policy_template": "mongodb",
+      "enabled": true,
+      "vars": {
+        "hosts": {"type": "text", "value": ["192.168.33.10:27017"]},
+        "ssl.enabled": {"type": "bool", "value": false}
+      },
+      "streams": [
+        {
+          "enabled": true,
+          "data_stream": {"type": "metrics", "dataset": "mongodb.collstats"},
+          "vars": {"period": {"type": "text", "value": "60s"}}
+        },
+        {
+          "enabled": true,
+          "data_stream": {"type": "metrics", "dataset": "mongodb.dbstats"},
+          "vars": {"period": {"type": "text", "value": "60s"}}
+        },
+        {
+          "enabled": true,
+          "data_stream": {"type": "metrics", "dataset": "mongodb.metrics"},
+          "vars": {"period": {"type": "text", "value": "60s"}}
+        },
+        {
+          "enabled": false,
+          "data_stream": {"type": "metrics", "dataset": "mongodb.replstatus"},
+          "vars": {"period": {"type": "text", "value": "60s"}}
+        },
+        {
+          "enabled": true,
+          "data_stream": {"type": "metrics", "dataset": "mongodb.status"},
+          "vars": {"period": {"type": "text", "value": "60s"}}
+        }
+      ]
+    }
+  ]
+}

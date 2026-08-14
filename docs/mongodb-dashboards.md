@@ -21,6 +21,12 @@ Le dashboard **[Metrics MongoDB] Overview** centralise les indicateurs technique
 
 Ce tableau identifie l’instance MongoDB observée et synthétise le nombre de connexions, l’architecture ainsi que les volumes de mémoire résidente et virtuelle.
 
+Dans le déploiement Fleet actuel, le champ d'identité recommandé est
+`host.name`, dont la valeur est `mongodb-01`. Le champ `service.address` vaut
+`mongodb://192.168.33.10:27017` et représente la cible de collecte, pas le nom
+de l'hôte. Une visualisation affichant encore `localhost` doit donc utiliser
+`host.name` à la place de `service.address` pour sa colonne serveur.
+
 ![Widget Hosts](images/mongodb-dashboards/metrics-widget-01-hosts.png)
 
 ### Engine & Version
@@ -98,3 +104,14 @@ Lorsqu’une anomalie apparaît dans les métriques, la démarche conseillée es
 3. rechercher le détail dans **Error logs** puis dans **Logs MongoDB** ;
 4. corréler le message avec le composant et le contexte de connexion concernés.
 
+Pour limiter les dashboards à la VM gérée par Fleet, ajouter le filtre KQL :
+
+```text
+host.name: "mongodb-01"
+```
+
+Pour isoler le trafic généré par le workload du POC :
+
+```text
+host.name: "mongodb-01" and mongodb.log.attr.ns: observability_test*
+```

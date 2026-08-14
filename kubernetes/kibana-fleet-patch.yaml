@@ -1,0 +1,45 @@
+# Ce manifeste complète la ressource Kibana existante. Si son nom diffère,
+# adapter metadata.name ainsi que spec.kibanaRef dans fleet-server.yaml.
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: es-kb-quickstart-eck-kibana
+  namespace: elastic-stack
+spec:
+  config:
+    # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
+    xpack.fleet.agents.fleet_server.hosts:
+      - https://fleet.192-168-1-158.sslip.io:443
+    xpack.fleet.outputs:
+      - id: fleet-default-output
+        name: Elasticsearch ECK
+        type: elasticsearch
+        is_default: true
+        is_default_monitoring: true
+        hosts:
+          - https://elasticsearch.192-168-1-158.sslip.io:443
+        ssl:
+          # POC uniquement. En production, distribuer la CA à tous les agents.
+          verification_mode: none
+    xpack.fleet.packages:
+      - name: fleet_server
+        version: latest
+      - name: elastic_agent
+        version: latest
+      - name: system
+        version: latest
+      - name: mongodb
+        version: latest
+    xpack.fleet.agentPolicies:
+      - id: eck-fleet-server
+        name: Fleet Server on ECK
+        namespace: default
+        is_managed: true
+        monitoring_enabled:
+          - logs
+          - metrics
+        package_policies:
+          - id: fleet-server
+            name: fleet-server
+            package:
+              name: fleet_server

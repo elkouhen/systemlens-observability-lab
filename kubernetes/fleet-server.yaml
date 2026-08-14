@@ -1,0 +1,28 @@
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: fleet-server
+  namespace: elastic-stack
+spec:
+  version: 9.5.1
+  mode: fleet
+  fleetServerEnabled: true
+  policyID: eck-fleet-server
+  kibanaRef:
+    name: es-kb-quickstart-eck-kibana
+  elasticsearchRefs:
+    - name: elasticsearch
+  deployment:
+    replicas: 1
+    podTemplate:
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+          - name: agent
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
