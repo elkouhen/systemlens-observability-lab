@@ -30,6 +30,9 @@ spec:
         version: latest
       - name: mongodb
         version: latest
+      # Requis par APM Server 8+ pour initialiser les assets APM dans Kibana.
+      - name: apm
+        version: latest
     xpack.fleet.agentPolicies:
       - id: eck-fleet-server
         name: Fleet Server on ECK

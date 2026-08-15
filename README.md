@@ -1,8 +1,8 @@
 # Intégration MongoDB vers Elastic Fleet
 
 Ce POC collecte les logs et métriques d'un MongoDB exécuté dans une VM Rocky
-Linux avec Elastic Agent 9.5.1 géré par Fleet. Elasticsearch, Kibana et Fleet
-Server sont déployés par ECK dans k3d et exposés par Traefik.
+Linux avec Elastic Agent 9.5.1 géré par Fleet. Elasticsearch, Kibana, Fleet
+Server et APM Server sont déployés par ECK dans k3d et exposés par Traefik.
 
 Le mode standalone historique reste disponible dans
 [`elastic-agent/elastic-agent.yml`](elastic-agent/elastic-agent.yml), mais le
@@ -22,6 +22,11 @@ Fleet Server :443                 Elasticsearch :443
         │
         ▼
 Kibana Fleet
+
+Applications instrumentées
+        │ traces, métriques et erreurs
+        ▼
+APM Server :443 ─────────────────► Elasticsearch :443
 ```
 
 Fleet Server distribue les politiques et reçoit les check-ins. Les événements
@@ -33,12 +38,13 @@ Elasticsearch.
 | Elasticsearch | `https://elasticsearch.192-168-1-158.sslip.io` |
 | Kibana | `https://kibana.192-168-1-158.sslip.io` |
 | Fleet Server | `https://fleet.192-168-1-158.sslip.io` |
+| APM Server | `https://apm.192-168-1-158.sslip.io` |
 | MongoDB dans la VM | `192.168.33.10:27017` |
 
-Les trois endpoints Elastic passent par le port `443`. `sslip.io` résout les
+Les quatre endpoints Elastic passent par le port `443`. `sslip.io` résout les
 noms vers `192.168.1.158` sans modification de `/etc/hosts`.
 
-## 1. Déployer Fleet Server
+## 1. Déployer Fleet Server et APM Server
 
 Les manifestes supposent les ressources suivantes dans `elastic-stack` :
 
@@ -56,17 +62,22 @@ Adapter les références si les noms diffèrent, puis appliquer dans cet ordre :
 ```sh
 kubectl apply --server-side -f kubernetes/kibana-fleet-patch.yaml
 kubectl apply -f kubernetes/fleet-server.yaml
+kubectl apply -f kubernetes/apm-server.yaml
 kubectl apply -f kubernetes/elastic-ingress.yaml
 
 kubectl wait -n elastic-stack --for=condition=Ready pod \
   -l agent.k8s.elastic.co/name=fleet-server --timeout=5m
+kubectl wait -n elastic-stack --for=condition=Ready apmserver/apm-server \
+  --timeout=5m
 ```
 
 Vérifier ECK et l'endpoint public :
 
 ```sh
 kubectl -n elastic-stack get agent fleet-server
+kubectl -n elastic-stack get apmserver apm-server
 curl -k https://fleet.192-168-1-158.sslip.io/api/status
+curl -k https://apm.192-168-1-158.sslip.io/
 ```
 
 Résultat attendu :
@@ -74,6 +85,41 @@ Résultat attendu :
 ```json
 {"name":"fleet-server","status":"HEALTHY"}
 ```
+
+APM Server doit répondre `200` (ou `401` sans jeton), ce qui confirme que sa
+route publique est joignable.
+
+### Connecter une application instrumentée
+
+APM Server est déclaré dans
+[`kubernetes/apm-server.yaml`](kubernetes/apm-server.yaml). ECK gère ses
+références vers Elasticsearch et Kibana ; le jeton d'authentification est créé
+à l'exécution et n'est pas versionné :
+
+```sh
+kubectl -n elastic-stack get secret apm-server-apm-token \
+  -o go-template='{{index .data "secret-token" | base64decode}}'
+```
+
+Configurer l'agent APM de l'application avec les variables adaptées à son
+langage, par exemple :
+
+```sh
+ELASTIC_APM_SERVER_URL=https://apm.192-168-1-158.sslip.io
+ELASTIC_APM_SECRET_TOKEN='<jeton récupéré ci-dessus>'
+# POC uniquement : Traefik présente un certificat auto-signé.
+ELASTIC_APM_VERIFY_SERVER_CERT=false
+```
+
+En production, utiliser un certificat de confiance et supprimer la dernière
+variable. Les traces, erreurs et métriques applicatives seront visibles dans
+**Observability → APM** dans Kibana.
+
+Une démonstration Express instrumentée est fournie dans
+[`apm-demo/`](apm-demo/). Elle déploie une façade et un worker ; `/work`
+produit une trace distribuée entre les deux services et `/error` une erreur
+APM. Voir son [guide d'exécution](apm-demo/README.md) pour un lancement local
+ou Kubernetes.
 
 Le manifeste Kibana crée uniquement la politique ECK gérée de Fleet Server.
 La politique applicative MongoDB n'y est volontairement pas déclarée : une

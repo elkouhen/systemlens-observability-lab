@@ -1,0 +1,26 @@
+apiVersion: apm.k8s.elastic.co/v1
+kind: ApmServer
+metadata:
+  name: apm-server
+  namespace: elastic-stack
+spec:
+  version: 9.5.1
+  count: 1
+  # ECK configure automatiquement l'authentification et le TLS entre les
+  # composants référencés.
+  elasticsearchRef:
+    name: elasticsearch
+  # Requis à partir d'APM Server 8 pour l'application APM et la configuration
+  # centrale des agents.
+  kibanaRef:
+    name: es-kb-quickstart-eck-kibana
+  podTemplate:
+    spec:
+      containers:
+        - name: apm-server
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
