@@ -27,6 +27,11 @@ Applications instrumentées
         │ traces, métriques et erreurs
         ▼
 APM Server :443 ─────────────────► Elasticsearch :443
+
+Façade Spring Boot
+        │ cron (toutes les minutes par défaut)
+        ▼
+Kafka ───────────────────────────► Worker Spring Boot ───► MongoDB
 ```
 
 Fleet Server distribue les politiques et reçoit les check-ins. Les événements
@@ -69,7 +74,7 @@ l'environnement de laboratoire.
 | Sujet | Document |
 | --- | --- |
 | Ressources ECK, ingress et contrôles Kubernetes | [`kubernetes/README.md`](kubernetes/README.md) |
-| Façade et worker Express instrumentés | [`apm-demo/README.md`](apm-demo/README.md) |
+| Façade et worker Spring Boot instrumentés | [`apm-demo/README.md`](apm-demo/README.md) |
 | Lecture des dashboards MongoDB | [`docs/mongodb-dashboards.md`](docs/mongodb-dashboards.md) |
 | Configuration standalone historique | [`elastic-agent/elastic-agent.yml`](elastic-agent/elastic-agent.yml) |
 
@@ -144,11 +149,12 @@ En production, utiliser un certificat de confiance et supprimer la dernière
 variable. Les traces, erreurs et métriques applicatives seront visibles dans
 **Observability → APM** dans Kibana.
 
-Une démonstration Express instrumentée est fournie dans
-[`apm-demo/`](apm-demo/). Elle déploie une façade et un worker ; `/work`
-produit une trace distribuée entre les deux services et `/error` une erreur
-APM. Voir son [guide d'exécution](apm-demo/README.md) pour un lancement local
-ou Kubernetes.
+Une démonstration Spring Boot instrumentée est fournie dans
+[`apm-demo/`](apm-demo/). Elle déploie une façade et un worker ; `/api/work`
+produit une trace distribuée entre les deux services et `/api/error` une erreur
+APM. La façade publie aussi périodiquement un message Kafka que le worker
+traite et persiste dans MongoDB. Voir son [guide d'exécution](apm-demo/README.md)
+pour un lancement local ou Kubernetes.
 
 Le manifeste Kibana crée uniquement la politique ECK gérée de Fleet Server.
 La politique applicative MongoDB n'y est volontairement pas déclarée : une

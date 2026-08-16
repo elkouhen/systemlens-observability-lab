@@ -7,7 +7,9 @@ Ce répertoire contient :
 | `kibana-fleet-patch.yaml` | Configure la sortie Fleet, les packages requis et la politique Fleet Server dans Kibana |
 | `fleet-server.yaml` | Déploie Fleet Server 9.5.1 avec l'Agent CRD d'ECK |
 | `apm-server.yaml` | Déploie APM Server 9.5.1, relié à Elasticsearch et Kibana par ECK |
-| `apm-demo.yaml` | Déploie les deux services Express de démonstration instrumentés avec APM |
+| `apm-demo-namespace.yaml` | Crée le namespace isolé de la démonstration Spring Boot et Kafka |
+| `kafka.yaml` | Déploie un broker Kafka KRaft mono-nœud, réservé au POC |
+| `apm-demo.yaml` | Déploie les deux services Spring Boot de démonstration instrumentés avec APM |
 | `elastic-ingress.yaml` | Expose Elasticsearch, Kibana, Fleet Server et APM Server avec Traefik |
 
 Ces manifestes complètent un cluster existant : l'opérateur ECK, Traefik,
@@ -42,11 +44,14 @@ kubectl apply --server-side -f kubernetes/kibana-fleet-patch.yaml
 kubectl apply -f kubernetes/fleet-server.yaml
 kubectl apply -f kubernetes/apm-server.yaml
 kubectl apply -f kubernetes/elastic-ingress.yaml
+kubectl apply -f kubernetes/apm-demo-namespace.yaml
+kubectl apply -f kubernetes/kafka.yaml
 
 kubectl wait -n elastic-stack --for=condition=Ready pod \
   -l agent.k8s.elastic.co/name=fleet-server --timeout=5m
 kubectl wait -n elastic-stack --for=condition=Ready apmserver/apm-server \
   --timeout=5m
+kubectl -n apm-demo rollout status deployment/kafka --timeout=3m
 ```
 
 Les manifestes supposent qu'Elasticsearch s'appelle `elasticsearch` et Kibana
@@ -93,16 +98,21 @@ kubectl -n elastic-stack get service fleet-server-agent-http
 kubectl -n elastic-stack get endpoints fleet-server-agent-http
 kubectl -n elastic-stack get apmserver apm-server
 kubectl -n elastic-stack get service apm-server-apm-http
+kubectl -n apm-demo get deployment kafka
 ```
 
 L'Agent ECK doit être `green`, avec une instance disponible sur une attendue.
 
 ## Démonstration APM
 
-`apm-demo.yaml` suppose que l'image locale `apm-demo:1.0.0` a été construite
-et importée dans le cluster k3d. Le manifest déploie une façade et un worker,
-et lit le jeton depuis le Secret créé par ECK. Les commandes de construction,
-de déploiement et de vérification sont dans
+`apm-demo.yaml` suppose que les images locales `apm-demo:1.0.0` et
+`apm-demo-worker:1.0.0` ont été construites et importées dans le cluster k3d.
+Les services et Kafka résident dans le namespace `apm-demo`, distinct de la
+stack Elastic. Copier le Secret ECK `apm-server-apm-token` dans ce namespace
+avant d'appliquer la démo : les Secrets Kubernetes ne sont pas partageables
+entre namespaces. La façade publie un message Kafka selon son cron et le worker
+le consomme. Appliquer `kafka.yaml` avant `apm-demo.yaml`. Les commandes de
+construction, de déploiement et de vérification sont dans
 [`../apm-demo/README.md`](../apm-demo/README.md).
 
 ## TLS du POC
