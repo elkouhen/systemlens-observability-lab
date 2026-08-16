@@ -6,6 +6,20 @@ les deux services. L'agent Node.js injecte et lit automatiquement le contexte
 W3C `traceparent` sur l'appel HTTP : APM affiche donc une seule trace
 distribuée. L'endpoint `/error` de la façade remonte une erreur contrôlée.
 
+## Prérequis
+
+APM Server doit être déployé et accessible. Suivre d'abord le
+[guide principal](../README.md#1-déployer-fleet-server-et-apm-server), puis
+vérifier que son endpoint répond :
+
+```sh
+curl -k https://apm.192-168-1-158.sslip.io/
+```
+
+Pour l'exécution locale, utiliser une version de Node.js compatible avec
+l'image de démonstration (Node 22). Pour Kubernetes, Docker, k3d et `kubectl`
+sont nécessaires.
+
 ## Exécution locale
 
 Récupérer le jeton APM, puis lancer l'application :
@@ -42,6 +56,10 @@ curl http://localhost:3000/work # Trace apm-demo -> apm-demo-worker
 curl http://localhost:3000/error
 ```
 
+`/work` répond avec le résultat calculé par le worker ; `/error` répond `500`
+et crée une erreur APM volontaire. Si le worker n'est pas encore démarré,
+`/work` répond `502` après deux secondes.
+
 Les transactions apparaissent dans **Observability → APM → Services**. Ouvrir
 une transaction `/work` de `apm-demo` : son appel HTTP pointe vers
 `apm-demo-worker` et la transaction aval partage le même trace ID.
@@ -62,3 +80,9 @@ kubectl -n elastic-stack port-forward service/apm-demo 3000:3000
 Puis appeler les mêmes endpoints sur `http://localhost:3000`. Le manifeste
 récupère le jeton directement depuis le Secret ECK ; il ne doit jamais être
 copié dans le dépôt.
+
+Pour retirer la démonstration après vérification :
+
+```sh
+kubectl delete -f kubernetes/apm-demo.yaml
+```

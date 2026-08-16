@@ -44,6 +44,35 @@ Elasticsearch.
 Les quatre endpoints Elastic passent par le port `443`. `sslip.io` résout les
 noms vers `192.168.1.158` sans modification de `/etc/hosts`.
 
+## Prérequis et périmètre
+
+Le dépôt contient les manifestes et la configuration d'observabilité ; il ne
+crée pas le cluster Kubernetes ni n'installe MongoDB dans la VM. Avant de
+suivre le guide, disposer de :
+
+- `kubectl`, Docker et k3d, avec Traefik et l'opérateur ECK déjà installés ;
+- un namespace `elastic-stack` contenant Elasticsearch `elasticsearch` et
+  Kibana `es-kb-quickstart-eck-kibana` ;
+- Vagrant et VirtualBox pour la VM Rocky Linux 10 à l'adresse
+  `192.168.33.10` ;
+- une instance MongoDB joignable sur `192.168.33.10:27017`, qui écrit dans
+  `/var/log/mongodb/mongod.log` ;
+- l'archive Linux ARM64 d'Elastic Agent 9.5.1, extraite dans la VM si l'agent
+  n'est pas déjà installé.
+
+La [`Vagrantfile`](Vagrantfile) ne fait que créer la VM et son réseau privé :
+l'installation et la configuration de MongoDB restent à la charge de
+l'environnement de laboratoire.
+
+## Guides associés
+
+| Sujet | Document |
+| --- | --- |
+| Ressources ECK, ingress et contrôles Kubernetes | [`kubernetes/README.md`](kubernetes/README.md) |
+| Façade et worker Express instrumentés | [`apm-demo/README.md`](apm-demo/README.md) |
+| Lecture des dashboards MongoDB | [`docs/mongodb-dashboards.md`](docs/mongodb-dashboards.md) |
+| Configuration standalone historique | [`elastic-agent/elastic-agent.yml`](elastic-agent/elastic-agent.yml) |
+
 ## 1. Déployer Fleet Server et APM Server
 
 Les manifestes supposent les ressources suivantes dans `elastic-stack` :

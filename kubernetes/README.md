@@ -10,6 +10,11 @@ Ce répertoire contient :
 | `apm-demo.yaml` | Déploie les deux services Express de démonstration instrumentés avec APM |
 | `elastic-ingress.yaml` | Expose Elasticsearch, Kibana, Fleet Server et APM Server avec Traefik |
 
+Ces manifestes complètent un cluster existant : l'opérateur ECK, Traefik,
+Elasticsearch et Kibana doivent être prêts dans le namespace `elastic-stack`
+avant leur application. Le guide racine décrit les prérequis et l'enrôlement
+de l'agent MongoDB : [`../README.md`](../README.md).
+
 La politique applicative `mongodb-hosts` n'est pas préconfigurée dans la
 ressource Kibana. Elle est administrée dans Fleet et sa package policy est
 décrite par `../elastic-agent/mongodb-package-policy.json`. Cette séparation
@@ -91,6 +96,14 @@ kubectl -n elastic-stack get service apm-server-apm-http
 ```
 
 L'Agent ECK doit être `green`, avec une instance disponible sur une attendue.
+
+## Démonstration APM
+
+`apm-demo.yaml` suppose que l'image locale `apm-demo:1.0.0` a été construite
+et importée dans le cluster k3d. Le manifest déploie une façade et un worker,
+et lit le jeton depuis le Secret créé par ECK. Les commandes de construction,
+de déploiement et de vérification sont dans
+[`../apm-demo/README.md`](../apm-demo/README.md).
 
 ## TLS du POC
 
