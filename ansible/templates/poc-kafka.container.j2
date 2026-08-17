@@ -1,0 +1,38 @@
+[Unit]
+Description=Kafka KRaft POC
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/apache/kafka:3.9.2
+ContainerName=poc-kafka
+PublishPort=9092:9092
+PublishPort=9093:9093
+PublishPort=127.0.0.1:8778:8778
+Volume=kafka-data:/tmp/kraft-combined-logs:Z
+Volume=/var/log/kafka:/opt/kafka/logs:Z
+Volume=/opt/poc-observability/jolokia-agent.jar:/opt/jolokia/jolokia-agent.jar:ro,Z
+Memory=512m
+Environment=CLUSTER_ID={{ kafka_cluster_id }}
+Environment=KAFKA_NODE_ID={{ poc_node_id }}
+Environment=KAFKA_PROCESS_ROLES=broker,controller
+Environment=KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+Environment=KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://{{ poc_node_ip }}:9092
+Environment=KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+Environment=KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+Environment=KAFKA_CONTROLLER_QUORUM_VOTERS={{ kafka_controller_voters }}
+Environment=KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+Environment=KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+Environment=KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=2
+Environment=KAFKA_DEFAULT_REPLICATION_FACTOR=3
+Environment=KAFKA_MIN_INSYNC_REPLICAS=2
+Environment=KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+Environment=KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+Environment=KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+Environment=KAFKA_OPTS=-javaagent:/opt/jolokia/jolokia-agent.jar=port=8778,host=0.0.0.0
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

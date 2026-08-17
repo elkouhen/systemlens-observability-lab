@@ -1,0 +1,58 @@
+---
+- name: Vérifier MongoDB et Kafka sur les VM du POC
+  hosts: poc_data
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Vérifier les conteneurs POC
+      ansible.builtin.command: podman ps --format '{{ "{{" }}.Names{{ "}}" }} {{ "{{" }}.Status{{ "}}" }}'
+      register: podman_status
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les conteneurs par VM
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} — {{ podman_status.stdout_lines | default(['aucun conteneur']) }}"
+
+    - name: Lire l'état du replica set MongoDB
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - poc-mongodb
+          - mongosh
+          - --quiet
+          - --eval
+          - "JSON.stringify(rs.status().members.map(member => ({name: member.name, state: member.stateStr, health: member.health})))"
+      register: mongodb_replica_status
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Afficher l'état du replica set MongoDB
+      ansible.builtin.debug:
+        msg: "MongoDB replica set — {{ mongodb_replica_status.stdout | default('indisponible') }}"
+      run_once: true
+
+    - name: Lire le quorum Kafka KRaft
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-metadata-quorum.sh
+          - --bootstrap-server
+          - localhost:9092
+          - describe
+          - --status
+      register: kafka_quorum_status
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le quorum Kafka par VM
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} — {{ kafka_quorum_status.stdout | default('Kafka indisponible') }}"

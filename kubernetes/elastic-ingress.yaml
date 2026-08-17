@@ -5,7 +5,7 @@ metadata:
   namespace: elastic-stack
 spec:
   rootCAsSecrets:
-    - elasticsearch-es-http-ca-internal
+    - elasticsearch-es-http-certs-public
   serverName: elasticsearch-es-http.elastic-stack.svc
 ---
 apiVersion: traefik.io/v1alpha1
@@ -15,7 +15,7 @@ metadata:
   namespace: elastic-stack
 spec:
   rootCAsSecrets:
-    - es-kb-quickstart-eck-kibana-kb-http-ca-internal
+    - es-kb-quickstart-eck-kibana-kb-http-certs-public
   serverName: es-kb-quickstart-eck-kibana-kb-http.elastic-stack.svc
 ---
 apiVersion: traefik.io/v1alpha1
@@ -25,7 +25,7 @@ metadata:
   namespace: elastic-stack
 spec:
   rootCAsSecrets:
-    - fleet-server-agent-http-ca-internal
+    - fleet-server-agent-http-certs-public
   serverName: fleet-server-agent-http.elastic-stack.svc
 ---
 apiVersion: traefik.io/v1alpha1
@@ -35,7 +35,7 @@ metadata:
   namespace: elastic-stack
 spec:
   rootCAsSecrets:
-    - apm-server-apm-http-ca-internal
+    - apm-server-apm-http-certs-public
   serverName: apm-server-apm-http.elastic-stack.svc
 ---
 apiVersion: traefik.io/v1alpha1
@@ -72,7 +72,7 @@ spec:
         - name: es-kb-quickstart-eck-kibana-kb-http
           port: 5601
           scheme: https
-          serversTransport: eck-https
+          serversTransport: eck-kibana-https
   tls:
     secretName: elastic-public-tls
 ---

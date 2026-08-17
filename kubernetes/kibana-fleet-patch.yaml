@@ -10,12 +10,18 @@ spec:
     spec:
       containers:
         - name: kibana
+          env:
+            # Kibana/Fleet charge de nombreux assets au démarrage. La limite
+            # Node par défaut à l'intérieur d'un cgroup de 1 Gio est trop
+            # basse et provoque un "JavaScript heap out of memory".
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=1280
           resources:
             requests:
               cpu: 100m
-              memory: 512Mi
-            limits:
               memory: 1Gi
+            limits:
+              memory: 2Gi
   config:
     # URL utilisée par Kibana pour les redirections et les liens générés derrière
     # l'IngressRoute Traefik.

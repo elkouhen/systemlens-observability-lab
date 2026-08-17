@@ -1,0 +1,114 @@
+---
+# Exécuter depuis la racine du dépôt :
+# KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
+- name: Configurer les policies Fleet par VM du POC
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # L'Ingress Traefik local est publié sur 127.0.0.1. L'en-tête Host permet
+    # de sélectionner la route Kibana sans dépendre du DNS de l'hôte.
+    kibana_url: "{{ lookup('env', 'KIBANA_URL') | default('https://127.0.0.1', true) }}"
+    kibana_host: "{{ lookup('env', 'KIBANA_HOST') | default('kibana.poc.test', true) }}"
+    kibana_username: "{{ lookup('env', 'KIBANA_USERNAME') | default('elastic', true) }}"
+    kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') }}"
+    poc_project_dir: "{{ playbook_dir }}/.."
+    fleet_nodes:
+      - { name: data-01, ip: 192.168.33.10 }
+      - { name: data-02, ip: 192.168.33.11 }
+      - { name: data-03, ip: 192.168.33.12 }
+    fleet_packages:
+      - { file: elastic-agent/mongodb-package-policy.json, prefix: mongodb }
+      - { file: elastic-agent/kafka-package-policy.json, prefix: kafka }
+      - { file: elastic-agent/system-package-policy.json, prefix: system }
+
+  module_defaults:
+    ansible.builtin.uri:
+      validate_certs: false
+      user: "{{ kibana_username }}"
+      password: "{{ kibana_password }}"
+      force_basic_auth: true
+      headers:
+        Host: "{{ kibana_host }}"
+        kbn-xsrf: 'true'
+        Content-Type: application/json
+
+  pre_tasks:
+    - name: Vérifier le mot de passe Kibana
+      ansible.builtin.assert:
+        that: kibana_password | length > 0
+        fail_msg: Définir KIBANA_PASSWORD avant d’exécuter ce playbook.
+      no_log: true
+
+  tasks:
+    - name: Lire les policies Fleet existantes
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/agent_policies?perPage=100"
+        method: GET
+      register: fleet_policies
+
+    - name: Créer les policies Fleet par VM
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/agent_policies"
+        method: POST
+        body_format: json
+        body:
+          id: "mongodb-{{ item.name }}"
+          name: "MongoDB Kafka {{ item.name }}"
+          namespace: default
+          monitoring_enabled: [logs, metrics]
+      loop: "{{ fleet_nodes }}"
+      when: >-
+        (fleet_policies.json['items'] | selectattr('id', 'equalto', 'mongodb-' ~ item.name) | list | length) == 0
+
+    - name: Lire les package policies existantes
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/package_policies?perPage=100"
+        method: GET
+      register: existing_package_policies
+
+    - name: Créer les package policies dédiées à chaque VM
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/package_policies"
+        method: POST
+        body_format: json
+        body: >-
+          {{
+            (
+              lookup('file', poc_project_dir ~ '/' ~ item.1.file)
+              | regex_replace('(?m)^  "name": "[^"]+"', '  "name": "' ~ item.1.prefix ~ '-' ~ item.0.name ~ '"')
+              | regex_replace('"policy_ids": \["mongodb-hosts"\]', '"policy_ids": ["mongodb-' ~ item.0.name ~ '"]')
+              | regex_replace('"value": \["localhost:27017"\]', '"value": ["' ~ item.0.ip ~ ':27017"]')
+              | from_json
+            )
+          }}
+      loop: "{{ fleet_nodes | product(fleet_packages) | list }}"
+      when: >-
+        (existing_package_policies.json['items']
+          | selectattr('name', 'equalto', item.1.prefix ~ '-' ~ item.0.name)
+          | list | length) == 0
+
+    - name: Lire les agents Fleet
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/agents?perPage=100"
+        method: GET
+      register: fleet_agents
+
+    - name: Réaffecter chaque agent en ligne à sa policy dédiée
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/agents/{{ agent.id }}/reassign"
+        method: POST
+        body_format: json
+        body:
+          policy_id: "mongodb-{{ item.name }}"
+      vars:
+        agent: >-
+          {{
+            fleet_agents.json['items']
+            | selectattr('local_metadata.host.hostname', 'equalto', item.name)
+            | selectattr('status', 'equalto', 'online')
+            | list | first | default({})
+          }}
+      loop: "{{ fleet_nodes }}"
+      when: agent.id is defined and agent.policy_id != 'mongodb-' ~ item.name
