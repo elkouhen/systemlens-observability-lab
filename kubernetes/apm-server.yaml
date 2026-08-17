@@ -14,6 +14,15 @@ spec:
   # centrale des agents.
   kibanaRef:
     name: es-kb-quickstart-eck-kibana
+  # Le sidecar Metricbeat collecte les statistiques internes et les publie
+  # au format attendu par le dashboard [APM] Monitoring Overview.
+  config:
+    http:
+      enabled: true
+      host: 127.0.0.1
+      port: 5066
+    monitoring:
+      enabled: false
   podTemplate:
     spec:
       containers:
@@ -24,3 +33,49 @@ spec:
               memory: 512Mi
             limits:
               memory: 1Gi
+        - name: metricbeat-monitoring
+          image: docker.elastic.co/beats/metricbeat:9.5.1
+          args: ["-e", "-c", "/usr/share/metricbeat/metricbeat.yml"]
+          env:
+            - name: METRICBEAT_ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: metricbeat-monitoring-credentials
+                  key: METRICBEAT_ES_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: metricbeat-monitoring-config
+              mountPath: /usr/share/metricbeat/metricbeat.yml
+              subPath: metricbeat.yml
+              readOnly: true
+            - name: elasticsearch-certs
+              mountPath: /usr/share/metricbeat/certs
+              readOnly: true
+      volumes:
+        - name: metricbeat-monitoring-config
+          configMap:
+            name: metricbeat-monitoring-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metricbeat-monitoring-config
+  namespace: elastic-stack
+data:
+  metricbeat.yml: |
+    metricbeat.modules:
+      - module: beat
+        hosts: ["http://127.0.0.1:5066"]
+        period: 10s
+        xpack.enabled: true
+
+    output.elasticsearch:
+      hosts: ["https://elasticsearch-es-http.elastic-stack.svc:9200"]
+      username: metricbeat_monitoring_writer
+      password: "${METRICBEAT_ES_PASSWORD}"
+      ssl.certificate_authorities: ["/usr/share/metricbeat/certs/ca.crt"]
