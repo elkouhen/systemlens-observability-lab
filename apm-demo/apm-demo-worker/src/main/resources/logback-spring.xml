@@ -1,0 +1,13 @@
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="co.elastic.logging.logback.EcsEncoder">
+            <serviceName>${ELASTIC_APM_SERVICE_NAME:-apm-demo-worker}</serviceName>
+            <serviceEnvironment>${ELASTIC_APM_ENVIRONMENT:-local}</serviceEnvironment>
+            <serviceVersion>1.0.0</serviceVersion>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

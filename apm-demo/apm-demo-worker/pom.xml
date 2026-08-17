@@ -35,6 +35,10 @@
             <artifactId>elastic-apm-agent</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>co.elastic.logging</groupId>
+            <artifactId>logback-ecs-encoder</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

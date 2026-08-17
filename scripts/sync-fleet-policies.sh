@@ -51,20 +51,31 @@ sync_package_policy() {
     return
   fi
 
-  # Fleet 9.5 ne supporte pas le schema PUT expose par les versions
-  # precedentes de l'API. La suppression suivie de la creation converge vers
-  # le manifeste versionne sans laisser de doublon; les agents gardent leur
-  # agent policy et recoivent la nouvelle package policy au prochain check-in.
-  api -X DELETE "${kibana_url}/api/fleet/package_policies/${policy_id}" >/dev/null
-  api -X POST "${kibana_url}/api/fleet/package_policies" --data-binary "@${policy_file}" >/dev/null
-  printf 'Package policy replaced: %s\n' "${policy_name}"
+  # La mise a jour conserve l'identifiant de la package policy et evite une
+  # fenetre sans collecte. L'API Fleet accepte le meme schema que la creation.
+  api -X PUT "${kibana_url}/api/fleet/package_policies/${policy_id}" \
+    --data-binary "@${policy_file}" >/dev/null
+  printf 'Package policy updated: %s\n' "${policy_name}"
 }
 
 sync_package_policy "${project_dir}/elastic-agent/mongodb-package-policy.json"
 sync_package_policy "${project_dir}/elastic-agent/kafka-package-policy.json"
 sync_package_policy "${project_dir}/elastic-agent/system-package-policy.json"
-sync_package_policy "${project_dir}/elastic-agent/kafka-producer-client-package-policy.json"
-sync_package_policy "${project_dir}/elastic-agent/kafka-consumer-client-package-policy.json"
+
+# Les endpoints Jolokia applicatifs ne sont plus publies hors du cluster. Les
+# anciennes policies doivent donc etre retirees lors de la migration, sinon
+# les agents conservent des scrapes en erreur.
+remove_package_policy() {
+  local policy_name="$1" policy_id
+  policy_id="$(api "${kibana_url}/api/fleet/package_policies?perPage=100" | jq -r --arg name "${policy_name}" '.items[] | select(.name == $name) | .id' | head -n1)"
+  if [[ -n "${policy_id}" ]]; then
+    api -X DELETE "${kibana_url}/api/fleet/package_policies/${policy_id}" >/dev/null
+    printf 'Package policy removed: %s\n' "${policy_name}"
+  fi
+}
+
+remove_package_policy "kafka-producer-client-fleet"
+remove_package_policy "kafka-consumer-client-fleet"
 
 # Les pipelines @custom sont conserves lors des mises a jour de packages.
 curl "${elasticsearch_args[@]}" -X PUT \

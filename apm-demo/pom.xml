@@ -25,6 +25,7 @@
     <properties>
         <java.version>21</java.version>
         <elastic-apm.version>1.55.0</elastic-apm.version>
+        <ecs-logging.version>1.7.0</ecs-logging.version>
     </properties>
 
     <dependencyManagement>
@@ -38,6 +39,11 @@
                 <groupId>co.elastic.apm</groupId>
                 <artifactId>apm-agent-api</artifactId>
                 <version>${elastic-apm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>co.elastic.logging</groupId>
+                <artifactId>logback-ecs-encoder</artifactId>
+                <version>${ecs-logging.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

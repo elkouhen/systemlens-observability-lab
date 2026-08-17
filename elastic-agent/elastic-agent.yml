@@ -6,9 +6,6 @@ outputs:
     # Elastic Agent attend la forme non encodée "<id>:<api_key>".
     api_key: "${ELASTICSEARCH_API_KEY}"
     preset: balanced
-    ssl:
-      # Réservé au laboratoire : Traefik présente un certificat auto-signé.
-      verification_mode: none
 
 agent:
   monitoring:

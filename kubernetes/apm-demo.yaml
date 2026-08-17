@@ -29,10 +29,16 @@ spec:
               value: local
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.demo
+            # Reserve une future collecte Jolokia interne au cluster hors des
+            # transactions metier APM.
+            - name: ELASTIC_APM_TRANSACTION_IGNORE_URLS
+              value: /jolokia/*
+            # Jolokia embarque le serveur HTTP du JDK, distinct du serveur
+            # servlet Spring.
+            - name: ELASTIC_APM_DISABLE_INSTRUMENTATIONS
+              value: jdk-httpserver
             - name: ELASTIC_APM_SERVER_URL
               value: https://apm-server-apm-http.elastic-stack.svc:8200
-            # ECK émet un certificat interne. À remplacer par une CA de
-            # confiance et ELASTIC_APM_SERVER_CA_CERT_FILE en production.
             - name: ELASTIC_APM_VERIFY_SERVER_CERT
               value: "false"
             - name: ELASTIC_APM_SECRET_TOKEN
@@ -71,9 +77,6 @@ spec:
     - name: http
       port: 3000
       targetPort: http
-    - name: jmx-producer
-      port: 8775
-      targetPort: jmx-producer
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -106,10 +109,12 @@ spec:
               value: local
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.demo
+            - name: ELASTIC_APM_TRANSACTION_IGNORE_URLS
+              value: /jolokia/*
+            - name: ELASTIC_APM_DISABLE_INSTRUMENTATIONS
+              value: jdk-httpserver
             - name: ELASTIC_APM_SERVER_URL
               value: https://apm-server-apm-http.elastic-stack.svc:8200
-            # ECK émet un certificat interne. À remplacer par une CA de
-            # confiance et ELASTIC_APM_SERVER_CA_CERT_FILE en production.
             - name: ELASTIC_APM_VERIFY_SERVER_CERT
               value: "false"
             - name: ELASTIC_APM_SECRET_TOKEN
@@ -148,36 +153,3 @@ spec:
     - name: http
       port: 3001
       targetPort: http
-    - name: jmx-consumer
-      port: 8774
-      targetPort: jmx-consumer
----
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: kafka-producer-jolokia
-  namespace: apm-demo
-spec:
-  entryPoints:
-    - web
-  routes:
-    - kind: Rule
-      match: Host(`kafka-producer-jolokia.poc.test`)
-      services:
-        - name: apm-demo
-          port: 8775
----
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: kafka-consumer-jolokia
-  namespace: apm-demo
-spec:
-  entryPoints:
-    - web
-  routes:
-    - kind: Rule
-      match: Host(`kafka-consumer-jolokia.poc.test`)
-      services:
-        - name: apm-demo-worker
-          port: 8774

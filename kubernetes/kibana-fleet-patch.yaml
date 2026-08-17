@@ -32,10 +32,6 @@ spec:
         type: elasticsearch
         hosts:
           - https://elasticsearch-es-http.elastic-stack.svc:9200
-        ssl:
-          # Le certificat ECK interne n'est pas chargé dans la configuration
-          # préconfigurée de Kibana. À remplacer par la CA ECK en production.
-          verification_mode: none
       - id: fleet-default-output
         name: Elasticsearch ECK
         type: elasticsearch
@@ -43,20 +39,17 @@ spec:
         is_default_monitoring: true
         hosts:
           - https://elasticsearch.poc.test:443
-        ssl:
-          # POC uniquement. En production, distribuer la CA à tous les agents.
-          verification_mode: none
     xpack.fleet.packages:
       - name: fleet_server
         version: latest
       - name: elastic_agent
         version: latest
       - name: system
-        version: latest
+        version: 2.22.4
       - name: mongodb
-        version: latest
+        version: 1.24.0
       - name: kafka
-        version: latest
+        version: 1.27.2
       # Requis par APM Server 8+ pour initialiser les assets APM dans Kibana.
       - name: apm
         version: latest

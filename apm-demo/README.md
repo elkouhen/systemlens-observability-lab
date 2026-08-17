@@ -156,6 +156,11 @@ Après un rollout des deux deployments, les dashboards **[Metrics Kafka]
 Producer** et **Consumer** reçoivent respectivement les data streams
 `kafka.producer` et `kafka.consumer`.
 
+Les appels Fleet vers `/jolokia/*` sont exclus des transactions APM pour que
+les vues APM ne contiennent que les transactions métier et les échanges Kafka.
+L'instrumentation `jdk-httpserver`, utilisée uniquement par Jolokia dans ce
+POC, est également désactivée pour empêcher sa création de transactions APM.
+
 Pour retirer la démonstration :
 
 ```sh

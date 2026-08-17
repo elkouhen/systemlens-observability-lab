@@ -32,4 +32,4 @@ curl --fail --location --silent --show-error \
   -o "${work_dir}/${archive}"
 tar -xzf "${work_dir}/${archive}" -C "${work_dir}"
 "${work_dir}/elastic-agent-${agent_version}-linux-${agent_arch}/elastic-agent" install \
-  --non-interactive --url="${fleet_url}" --enrollment-token="${enrollment_token}" --insecure
+  --non-interactive --url="${fleet_url}" --enrollment-token="${enrollment_token}"

@@ -1,12 +1,42 @@
 apiVersion: traefik.io/v1alpha1
 kind: ServersTransport
 metadata:
-  name: eck-https
+  name: eck-elasticsearch-https
   namespace: elastic-stack
 spec:
-  # ECK generates an internal CA and certificates for its HTTP services.
-  # Traefik does not trust this CA by default.
-  insecureSkipVerify: true
+  rootCAsSecrets:
+    - elasticsearch-es-http-ca-internal
+  serverName: elasticsearch-es-http.elastic-stack.svc
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: eck-kibana-https
+  namespace: elastic-stack
+spec:
+  rootCAsSecrets:
+    - es-kb-quickstart-eck-kibana-kb-http-ca-internal
+  serverName: es-kb-quickstart-eck-kibana-kb-http.elastic-stack.svc
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: eck-fleet-https
+  namespace: elastic-stack
+spec:
+  rootCAsSecrets:
+    - fleet-server-agent-http-ca-internal
+  serverName: fleet-server-agent-http.elastic-stack.svc
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: eck-apm-https
+  namespace: elastic-stack
+spec:
+  rootCAsSecrets:
+    - apm-server-apm-http-ca-internal
+  serverName: apm-server-apm-http.elastic-stack.svc
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -23,8 +53,9 @@ spec:
         - name: elasticsearch-es-http
           port: 9200
           scheme: https
-          serversTransport: eck-https
-  tls: {}
+          serversTransport: eck-elasticsearch-https
+  tls:
+    secretName: elastic-public-tls
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -42,7 +73,8 @@ spec:
           port: 5601
           scheme: https
           serversTransport: eck-https
-  tls: {}
+  tls:
+    secretName: elastic-public-tls
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -59,8 +91,9 @@ spec:
         - name: fleet-server-agent-http
           port: 8220
           scheme: https
-          serversTransport: eck-https
-  tls: {}
+          serversTransport: eck-fleet-https
+  tls:
+    secretName: elastic-public-tls
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -77,5 +110,6 @@ spec:
         - name: apm-server-apm-http
           port: 8200
           scheme: https
-          serversTransport: eck-https
-  tls: {}
+          serversTransport: eck-apm-https
+  tls:
+    secretName: elastic-public-tls
