@@ -62,6 +62,7 @@ sync_package_policy() {
 
 sync_package_policy "${project_dir}/elastic-agent/mongodb-package-policy.json"
 sync_package_policy "${project_dir}/elastic-agent/kafka-package-policy.json"
+sync_package_policy "${project_dir}/elastic-agent/system-package-policy.json"
 sync_package_policy "${project_dir}/elastic-agent/kafka-producer-client-package-policy.json"
 sync_package_policy "${project_dir}/elastic-agent/kafka-consumer-client-package-policy.json"
 

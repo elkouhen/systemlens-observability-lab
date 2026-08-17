@@ -29,6 +29,6 @@ printf '\n== Kafka KRaft quorum ==\n'
 for node in "${nodes[@]}"; do
   printf '\n[%s]\n' "$node"
   run_on_vm "$node" \
-    'timeout 15 sudo podman exec poc-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status' \
+    'timeout 15 sudo podman exec -e KAFKA_OPTS= poc-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status' \
     || printf 'Kafka indisponible ou quorum non forme\n'
 done

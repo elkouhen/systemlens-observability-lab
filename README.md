@@ -220,6 +220,12 @@ Kafka 3.9.2 (attribut JMX `number-of-voters` absent) ; l'état KRaft reste
 vérifiable par `scripts/cluster-status.sh` en attendant une correction du
 package Elastic.
 
+La package policy [`elastic-agent/system-package-policy.json`](elastic-agent/system-package-policy.json)
+complète le monitoring des trois VMs : CPU, mémoire, charge, réseau, disques,
+résumé des processus, uptime, ainsi que `/var/log/messages` et
+`/var/log/secure`. Elle est appliquée à la même policy Fleet `mongodb-hosts`,
+donc aux agents `data-01`, `data-02` et `data-03`.
+
 ### Enrôlement Fleet via Vagrant
 
 L'enrôlement fait partie du provisionnement. Injecter un enrollment token de la
