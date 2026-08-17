@@ -56,3 +56,50 @@
     - name: Afficher le quorum Kafka par VM
       ansible.builtin.debug:
         msg: "{{ inventory_hostname }} — {{ kafka_quorum_status.stdout | default('Kafka indisponible') }}"
+
+    - name: Lire le décalage du consommateur de démonstration Kafka
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-consumer-groups.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --describe
+          - --group
+          - apm-demo-worker
+      register: kafka_demo_consumer_status
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Afficher le décalage du consommateur de démonstration Kafka
+      ansible.builtin.debug:
+        msg: "Kafka apm-demo-worker — {{ kafka_demo_consumer_status.stdout | default('groupe indisponible ou aucune consommation') }}"
+      run_once: true
+
+    - name: Compter les traitements Kafka persistés dans MongoDB
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - poc-mongodb
+          - mongosh
+          - --quiet
+          - observability_test
+          - --eval
+          - "JSON.stringify({count: db.apm_demo_work.countDocuments({trigger: 'kafka'}), latest: db.apm_demo_work.find({trigger: 'kafka'}).sort({createdAt: -1}).limit(1).toArray()})"
+      register: mongodb_demo_work_status
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Afficher les traitements Kafka persistés dans MongoDB
+      ansible.builtin.debug:
+        msg: "MongoDB apm_demo_work — {{ mongodb_demo_work_status.stdout | default('indisponible') }}"
+      run_once: true

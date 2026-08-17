@@ -78,6 +78,19 @@ spec:
       port: 3000
       targetPort: http
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apm-demo-jolokia
+  namespace: apm-demo
+spec:
+  selector:
+    app.kubernetes.io/name: apm-demo
+  ports:
+    - name: jolokia
+      port: 8775
+      targetPort: jmx-producer
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -153,3 +166,16 @@ spec:
     - name: http
       port: 3001
       targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apm-demo-worker-jolokia
+  namespace: apm-demo
+spec:
+  selector:
+    app.kubernetes.io/name: apm-demo-worker
+  ports:
+    - name: jolokia
+      port: 8774
+      targetPort: jmx-consumer

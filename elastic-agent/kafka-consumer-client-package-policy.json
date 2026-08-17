@@ -8,7 +8,7 @@
     "type": "jolokia/metrics",
     "policy_template": "kafka",
     "enabled": true,
-    "vars": {"metrics_path": {"type": "text", "value": "/jolokia"}, "http_method": {"type": "text", "value": "GET"}, "condition": {"type": "text", "value": "${host.name} == 'data-01'"}},
+    "vars": {"metrics_path": {"type": "text", "value": "/jolokia"}, "http_method": {"type": "text", "value": "GET"}, "condition": {"type": "text", "value": "false"}},
     "streams": [{
       "enabled": true,
       "data_stream": {"type": "metrics", "dataset": "kafka.consumer"},

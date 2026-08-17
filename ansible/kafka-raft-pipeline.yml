@@ -1,0 +1,41 @@
+---
+# Corrige la compatibilité Kafka 3.9 / intégration Kafka 1.27.2 :
+# le MBean raft-metrics ne publie pas number-of-voters. L'intégration émet
+# alors une chaîne d'erreur dans un champ attendu comme numérique, ce qui
+# rejette l'événement entier et masque current_leader dans Kibana.
+- name: Adapter l'indexation des métriques Kafka Raft
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    elasticsearch_url: "{{ lookup('env', 'ELASTICSEARCH_URL') | default('https://127.0.0.1', true) }}"
+    elasticsearch_host: "{{ lookup('env', 'ELASTICSEARCH_HOST') | default('elasticsearch.poc.test', true) }}"
+    elasticsearch_username: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') | default('elastic', true) }}"
+    elasticsearch_password: "{{ lookup('env', 'ELASTICSEARCH_PASSWORD') }}"
+
+  tasks:
+    - name: Vérifier le mot de passe Elasticsearch
+      ansible.builtin.assert:
+        that: elasticsearch_password | length > 0
+        fail_msg: Définir ELASTICSEARCH_PASSWORD avant d’exécuter ce playbook.
+      no_log: true
+
+    - name: Installer le pipeline de compatibilité Kafka Raft
+      ansible.builtin.uri:
+        url: "{{ elasticsearch_url }}/_ingest/pipeline/metrics-kafka.raft@custom"
+        method: PUT
+        user: "{{ elasticsearch_username }}"
+        password: "{{ elasticsearch_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        headers:
+          Host: "{{ elasticsearch_host }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          description: Ignore l'attribut Raft absent dans Kafka 3.9 pour préserver le leader.
+          processors:
+            - script:
+                if: "ctx.kafka != null && ctx.kafka.raft != null && ctx.kafka.raft.number_of_voters instanceof String"
+                source: "ctx.kafka.raft.remove('number_of_voters')"

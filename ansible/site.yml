@@ -50,7 +50,10 @@
     - name: Corriger immédiatement un éventuel décalage d'horloge
       ansible.builtin.command: chronyc -a makestep
       register: chrony_step
-      changed_when: chrony_step.rc == 0
+      # chronyc retourne 0 même si aucun ajustement n'est nécessaire. L'agent
+      # se recale seul avec Fleet ; ne pas provoquer de redémarrage à chaque
+      # provisionnement.
+      changed_when: false
       failed_when: false
 
     - name: Redémarrer Elastic Agent après une correction d'horloge
@@ -58,7 +61,7 @@
         name: elastic-agent
         state: restarted
       when:
-        - chrony_step.rc == 0
+        - chrony_step.changed
         - ansible_facts.services['elastic-agent.service'] is defined
 
     - name: Identifier l'interface du réseau privé VirtualBox
@@ -202,6 +205,89 @@
       loop: [poc-mongodb, poc-kafka]
       when: quadlet_units.changed or (poc_redeploy_services | bool)
 
+    - name: Attendre que le broker Kafka local accepte les requêtes d'administration
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --list
+      register: kafka_ready
+      retries: 30
+      delay: 2
+      until: kafka_ready.rc == 0
+      changed_when: false
+
+    - name: Créer le topic de travail de la démonstration Kafka
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - apm-demo.work.requested
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '3'
+          - --config
+          - min.insync.replicas=2
+      register: kafka_demo_topic
+      changed_when: "'Created topic' in kafka_demo_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Lire le nombre de partitions du topic de démonstration
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --describe
+          - --topic
+          - apm-demo.work.requested
+      register: kafka_demo_topic_description
+      changed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Augmenter le topic de démonstration à trois partitions si nécessaire
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --alter
+          - --topic
+          - apm-demo.work.requested
+          - --partitions
+          - '3'
+      when: "'PartitionCount: 1' in kafka_demo_topic_description.stdout or 'PartitionCount: 2' in kafka_demo_topic_description.stdout"
+      run_once: true
+      delegate_to: data-01
+
     - name: Attendre MongoDB local
       ansible.builtin.command: "podman exec poc-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'"
       register: mongodb_ping
@@ -221,7 +307,7 @@
           - --eval
           - "try { rs.status(); print('already-initialized') } catch (_) { rs.initiate({_id: '{{ mongodb_replica_set }}', members: [{_id: 0, host: '{{ mongodb_primary_ip }}:27017'}]}); print('initialized') }"
       register: mongodb_init
-      changed_when: "'initialized' in mongodb_init.stdout"
+      changed_when: mongodb_init.stdout | trim == 'initialized'
       when: poc_node_id | int == 1
 
     - name: Ajouter ce nœud au replica set

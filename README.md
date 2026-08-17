@@ -149,7 +149,10 @@ téléchargement.
   `collstats`, `dbstats`, `metrics`, `replstatus` et `status` toutes les 60 s.
 - Kafka : l’intégration lit `/var/log/kafka`, interroge le broker local et
   Jolokia local (`127.0.0.1:8778`) pour les métriques KRaft, JVM, réseau,
-  réplication et topics. Le port Jolokia n’est pas publié sur le réseau privé.
+  réplication et topics. Les métriques JMX des clients producteur et consommateur
+  sont aussi collectées depuis `data-01` ; les policies Fleet par VM les
+  déploient avec une condition empêchant leur exécution sur les autres VM. Le
+  port Jolokia des brokers n’est pas publié sur le réseau privé.
 - Système : CPU, mémoire, charge, réseau, processus, disponibilité et disques
   sont remontés ; les pseudo-systèmes de fichiers sont exclus. Les journaux
   Rocky `/var/log/messages*` et `/var/log/secure*` sont collectés.
@@ -180,11 +183,20 @@ conteneur concerné.
 ### Statut des clusters avec Ansible
 
 Depuis la racine du dépôt, la commande suivante vérifie les conteneurs sur les
-trois VM, affiche les membres et rôles du replica set MongoDB, puis l'état du
-quorum Kafka KRaft de chaque nœud :
+trois VM, affiche les membres et rôles du replica set MongoDB, l'état du quorum
+Kafka KRaft, le lag du groupe `apm-demo-worker` et le dernier traitement Kafka
+persisté dans MongoDB :
 
 ```bash
 ansible-playbook -i ansible/inventory/vagrant.yml ansible/status.yml
+```
+
+Pour Kafka 3.9, appliquer également le correctif Raft suivant : il retire
+l'attribut JMX absent `number-of-voters` afin que le champ `current_leader`
+soit indexé et visible dans la vue Raft.
+
+```bash
+ELASTICSEARCH_PASSWORD='…' ansible-playbook ansible/kafka-raft-pipeline.yml
 ```
 
 L’inventaire utilise les ports SSH et clés privées générés par Vagrant ; il est
@@ -193,10 +205,10 @@ dépôt.
 
 ### Policies Fleet par VM
 
-MongoDB Overview utilise `service.address`. La collecte locale affichait donc
-`mongodb://127.0.0.1:27017`. Le playbook suivant crée trois policies Fleet,
-une par VM, configure respectivement `192.168.33.10`, `.11` et `.12` pour
-MongoDB, puis réaffecte les agents en ligne à leur policy dédiée :
+MongoDB Overview et les vues Kafka utilisent `service.address`. Le playbook
+suivant crée trois policies Fleet d'observabilité, une par VM, configure
+respectivement `192.168.33.10`, `.11` et `.12` pour MongoDB (`27017`) et Kafka
+(`9092`), puis réaffecte les agents en ligne à leur policy dédiée :
 
 ```bash
 KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
@@ -219,22 +231,24 @@ opérationnel mais `yellow` car il ne possède qu’un nœud : les réplicas non
 alloués sont attendus dans cette topologie de POC, mais cet état ne convient pas
 à une validation de haute disponibilité.
 
-La recette fonctionnelle Kafka/MongoDB n’est toutefois pas validée à cette
-date : depuis le pod `apm-demo`, les trois adresses Vagrant
-`192.168.33.10:9092` à `.12:9092` sont injoignables. Les logs du producteur et
-du consommateur confirment des `TimeoutException` et `DisconnectException`.
-Un Kafka mono-nœud distinct est actuellement présent dans Kubernetes et
-joignable via `kafka:9092`, mais il ne représente pas le cluster KRaft à trois
-nœuds défini par ce dépôt ; il ne doit donc pas masquer cette anomalie.
+Kafka est déployé exclusivement sur les trois VM Vagrant (`data-01` à
+`data-03`). Il n'existe volontairement aucun Deployment ou Service Kafka dans
+Kubernetes : les applications doivent joindre les brokers
+`192.168.33.10:9092` à `.12:9092`. Cette règle évite qu'un Kafka mono-nœud de
+test dans Kubernetes masque une erreur de connectivité ou de réplication du
+cluster KRaft de référence.
 
-Les VM sont déclarées *running* par Vagrant, mais `data-02` et `data-03` ne
-répondent pas à la bannière SSH sur leurs ports redirigés. Il faut d’abord
-restaurer ces deux VM, puis fournir un chemin réseau entre le réseau k3d et le
-réseau VirtualBox `192.168.33.0/24`. Après correction, rejouer les commandes de
-recette et vérifier que le Kafka Kubernetes de test n’est plus utilisé par les
-applications. Les logs de l’Agent Kubernetes ont également signalé des rejets
-ponctuels `timestamp_error`; contrôler la synchronisation d’horloge de tous les
-nœuds avant d’interpréter une absence de logs dans Kibana.
+La recette fonctionnelle doit donc valider un cycle complet
+producteur → Kafka sur VM → consommateur → MongoDB. Tout `TimeoutException`,
+`DisconnectException`, `UNKNOWN_TOPIC_OR_PARTITION` ou échec de commit Kafka
+est un défaut à corriger sur ce chemin, et non un motif pour basculer vers un
+broker Kubernetes.
+
+La validation du 17 août confirme que les trois VM sont joignables en SSH et
+que les pods Kubernetes atteignent les trois brokers Kafka (`9092`) et les trois
+membres MongoDB (`27017`) sur le réseau VirtualBox `192.168.33.0/24`. Rejouer
+la recette après chaque redéploiement afin de vérifier la production, la
+consommation et la persistance du message, pas seulement l'ouverture des ports.
 
 ## Correction appliquée
 

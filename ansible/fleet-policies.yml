@@ -21,6 +21,8 @@
     fleet_packages:
       - { file: elastic-agent/mongodb-package-policy.json, prefix: mongodb }
       - { file: elastic-agent/kafka-package-policy.json, prefix: kafka }
+      - { file: elastic-agent/kafka-producer-client-package-policy.json, prefix: kafka-producer-client }
+      - { file: elastic-agent/kafka-consumer-client-package-policy.json, prefix: kafka-consumer-client }
       - { file: elastic-agent/system-package-policy.json, prefix: system }
 
   module_defaults:
@@ -55,7 +57,7 @@
         body_format: json
         body:
           id: "mongodb-{{ item.name }}"
-          name: "MongoDB Kafka {{ item.name }}"
+          name: "Observabilité {{ item.name }}"
           namespace: default
           monitoring_enabled: [logs, metrics]
       loop: "{{ fleet_nodes }}"
@@ -80,6 +82,7 @@
               | regex_replace('(?m)^  "name": "[^"]+"', '  "name": "' ~ item.1.prefix ~ '-' ~ item.0.name ~ '"')
               | regex_replace('"policy_ids": \["mongodb-hosts"\]', '"policy_ids": ["mongodb-' ~ item.0.name ~ '"]')
               | regex_replace('"value": \["localhost:27017"\]', '"value": ["' ~ item.0.ip ~ ':27017"]')
+              | regex_replace('"value": \["localhost:9092"\]', '"value": ["' ~ item.0.ip ~ ':9092"]')
               | from_json
             )
           }}
@@ -88,6 +91,34 @@
         (existing_package_policies.json['items']
           | selectattr('name', 'equalto', item.1.prefix ~ '-' ~ item.0.name)
           | list | length) == 0
+
+    - name: Mettre à jour les package policies dédiées existantes
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/package_policies/{{ existing_policy.id }}"
+        method: PUT
+        body_format: json
+        # Le format historique de Fleet conserve une liste d'inputs pour les
+        # policies créées par ce POC. Les identifiants et révisions internes ne
+        # font pas partie du corps de mise à jour.
+        body: "{{ desired_policy }}"
+      vars:
+        existing_policy: >-
+          {{
+            existing_package_policies.json['items']
+            | selectattr('name', 'equalto', item.1.prefix ~ '-' ~ item.0.name)
+            | list | first | default({})
+          }}
+        desired_policy: >-
+          {{
+            lookup('file', poc_project_dir ~ '/' ~ item.1.file)
+            | regex_replace('(?m)^  "name": "[^"]+"', '  "name": "' ~ item.1.prefix ~ '-' ~ item.0.name ~ '"')
+            | regex_replace('"policy_ids": \["mongodb-hosts"\]', '"policy_ids": ["mongodb-' ~ item.0.name ~ '"]')
+            | regex_replace('"value": \["localhost:27017"\]', '"value": ["' ~ item.0.ip ~ ':27017"]')
+            | regex_replace('"value": \["localhost:9092"\]', '"value": ["' ~ item.0.ip ~ ':9092"]')
+            | from_json
+          }}
+      loop: "{{ fleet_nodes | product(fleet_packages) | list }}"
+      when: existing_policy.id is defined
 
     - name: Lire les agents Fleet
       ansible.builtin.uri:
