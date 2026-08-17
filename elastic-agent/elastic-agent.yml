@@ -2,7 +2,7 @@ outputs:
   default:
     type: elasticsearch
     hosts:
-      - https://elasticsearch.192-168-1-158.sslip.io:443
+      - https://elasticsearch.poc.test:443
     # Elastic Agent attend la forme non encodée "<id>:<api_key>".
     api_key: "${ELASTICSEARCH_API_KEY}"
     preset: balanced

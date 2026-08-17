@@ -25,9 +25,10 @@ Déployer d'abord APM Server en suivant le
 lancement local, installer un JDK 21 et Maven 3.9+. Docker, k3d et `kubectl`
 sont requis pour le déploiement Kubernetes.
 
-MongoDB doit être accessible sur `192.168.33.10:27017` ou via une URI fournie
-dans `SPRING_DATA_MONGODB_URI`. Kafka doit être accessible via
-`SPRING_KAFKA_BOOTSTRAP_SERVERS` (par défaut : `kafka:9092`).
+MongoDB est un replica set `poc-rs` réparti entre `192.168.33.10` à `.12`.
+Kafka KRaft est réparti sur les mêmes trois VMs. Les valeurs par défaut de
+`SPRING_DATA_MONGODB_URI` et `SPRING_KAFKA_BOOTSTRAP_SERVERS` ciblent les trois
+nœuds ; elles peuvent être remplacées par l'environnement.
 
 ## Indexation avec SystemLens
 
@@ -55,34 +56,23 @@ L'index doit identifier les deux microservices, la relation REST
 
 ## Exécution locale
 
-Démarrer d'abord un broker Kafka KRaft mono-nœud dans un troisième terminal :
+Démarrer les trois VMs afin d'installer et de démarrer les clusters MongoDB et
+Kafka :
 
 ```sh
-docker run --rm --name apm-demo-kafka -p 9092:9092 \
-  -e KAFKA_NODE_ID=1 \
-  -e KAFKA_PROCESS_ROLES=broker,controller \
-  -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-  -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
-  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-  -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
-  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
-  -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 \
-  -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1 \
-  -e KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0 \
-  -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
-  apache/kafka:3.9.2
+vagrant up data-01 data-02 data-03
+vagrant ssh data-01 -c 'sudo podman ps'
 ```
 
 Définir la configuration APM dans les deux terminaux :
 
 ```sh
-export ELASTIC_APM_SERVER_URL=https://apm.192-168-1-158.sslip.io
+export ELASTIC_APM_SERVER_URL=https://apm.poc.test
 export ELASTIC_APM_SECRET_TOKEN="$(kubectl -n elastic-stack get secret \
   apm-server-apm-token -o go-template='{{index .data "secret-token" | base64decode}}')"
 export ELASTIC_APM_VERIFY_SERVER_CERT=false
 export ELASTIC_APM_ENVIRONMENT=local
-export SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+export SPRING_KAFKA_BOOTSTRAP_SERVERS=192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092
 ```
 
 Dans le premier terminal, démarrer le worker :
@@ -90,7 +80,7 @@ Dans le premier terminal, démarrer le worker :
 ```sh
 cd apm-demo
 export ELASTIC_APM_SERVICE_NAME=apm-demo-worker
-export SPRING_DATA_MONGODB_URI=mongodb://192.168.33.10:27017/observability_test
+export SPRING_DATA_MONGODB_URI='mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs'
 mvn --projects apm-demo-worker spring-boot:run
 ```
 
@@ -116,15 +106,17 @@ dans **Observability → APM → Services**. Après le prochain cron, vérifier
 l'arrivée d'un traitement Kafka :
 
 ```sh
-vagrant ssh -c 'mongosh --quiet mongodb://127.0.0.1:27017/observability_test \
+vagrant ssh data-01 -c 'sudo podman exec poc-mongodb mongosh --quiet \
+  mongodb://127.0.0.1:27017/observability_test \
   --eval "db.apm_demo_work.find({trigger: \"kafka\"}).sort({createdAt: -1}).limit(5)"'
 ```
 
 ## Déploiement Kubernetes
 
 Construire les deux images depuis le Dockerfile multi-stage, les importer dans
-k3d, créer le namespace isolé et y synchroniser le Secret APM, démarrer Kafka,
-puis déployer les manifestes. Le Secret est recopié, jamais versionné :
+k3d, créer le namespace isolé et y synchroniser le Secret APM, puis déployer
+les manifestes. Les trois VMs doivent déjà être démarrées avec
+`vagrant up data-01 data-02 data-03`. Le Secret est recopié, jamais versionné :
 
 ```sh
 docker build --target frontend -t apm-demo:1.0.0 apm-demo
@@ -139,8 +131,6 @@ kubectl -n apm-demo create secret generic apm-server-apm-token \
   --dry-run=client -o yaml | kubectl apply -f -
 unset APM_TOKEN
 
-kubectl apply -f kubernetes/kafka.yaml
-kubectl -n apm-demo rollout status deployment/kafka --timeout=3m
 kubectl apply -f kubernetes/apm-demo.yaml
 kubectl -n apm-demo rollout status deployment/apm-demo --timeout=2m
 kubectl -n apm-demo rollout status deployment/apm-demo-worker --timeout=2m
@@ -150,13 +140,25 @@ kubectl -n apm-demo port-forward service/apm-demo 3000:3000
 Dans un autre terminal, appeler `http://localhost:3000/api/work` et
 `http://localhost:3000/api/error`. Le manifeste transmet les paramètres APM
 et lit le jeton depuis le Secret ECK, sans le copier dans le dépôt. Le broker
-Kafka est un mono-nœud KRaft sans stockage persistant, adapté uniquement au
-laboratoire.
+Kafka est un cluster KRaft de trois nœuds avec des volumes Podman persistants,
+adapté uniquement au laboratoire.
+
+### Métriques Kafka Producer et Consumer
+
+Les deux images exposent Jolokia : port `8775` pour le producteur `apm-demo`
+et port `8774` pour le consommateur `apm-demo-worker`. Les routes Traefik du
+laboratoire les rendent joignables uniquement depuis le réseau host-only, sous
+`kafka-producer-jolokia.poc.test` et `kafka-consumer-jolokia.poc.test`.
+L'agent Fleet de `data-01` les collecte ; les agents des deux autres VMs sont
+exclus par une condition de policy pour éviter les doublons.
+
+Après un rollout des deux deployments, les dashboards **[Metrics Kafka]
+Producer** et **Consumer** reçoivent respectivement les data streams
+`kafka.producer` et `kafka.consumer`.
 
 Pour retirer la démonstration :
 
 ```sh
 kubectl delete -f kubernetes/apm-demo.yaml
-kubectl delete -f kubernetes/kafka.yaml
 kubectl delete -f kubernetes/apm-demo-namespace.yaml
 ```

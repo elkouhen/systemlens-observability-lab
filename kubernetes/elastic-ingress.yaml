@@ -18,7 +18,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`elasticsearch.192-168-1-158.sslip.io`)
+      match: Host(`elasticsearch.poc.test`)
       services:
         - name: elasticsearch-es-http
           port: 9200
@@ -36,7 +36,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`kibana.192-168-1-158.sslip.io`)
+      match: Host(`kibana.poc.test`)
       services:
         - name: es-kb-quickstart-eck-kibana-kb-http
           port: 5601
@@ -54,7 +54,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`fleet.192-168-1-158.sslip.io`)
+      match: Host(`fleet.poc.test`)
       services:
         - name: fleet-server-agent-http
           port: 8220
@@ -72,7 +72,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`apm.192-168-1-158.sslip.io`)
+      match: Host(`apm.poc.test`)
       services:
         - name: apm-server-apm-http
           port: 8200

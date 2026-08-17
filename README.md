@@ -1,7 +1,8 @@
 # Intégration MongoDB vers Elastic Fleet
 
-Ce POC collecte les logs et métriques d'un MongoDB exécuté dans une VM Rocky
-Linux avec Elastic Agent 9.5.1 géré par Fleet. Elasticsearch, Kibana, Fleet
+Ce POC collecte les logs et métriques d'un replica set MongoDB et d'un cluster
+Kafka KRaft répartis sur trois VMs Rocky Linux, avec Elastic Agent 9.5.1 géré
+par Fleet. Elasticsearch, Kibana, Fleet
 Server et APM Server sont déployés par ECK dans k3d et exposés par Traefik.
 
 Le mode standalone historique reste disponible dans
@@ -11,10 +12,11 @@ parcours principal du projet utilise désormais Fleet.
 ## Architecture
 
 ```text
-MongoDB 192.168.33.10:27017
+data-01, data-02, data-03
+MongoDB replica set :27017 + Kafka KRaft :9092
         │ logs + métriques
         ▼
-Elastic Agent 9.5.1 (VM mongodb-01)
+Elastic Agent 9.5.1 (data-01 à data-03)
         │                               │
         │ check-in et politique         │ événements
         ▼                               ▼
@@ -31,7 +33,7 @@ APM Server :443 ─────────────────► Elasticse
 Façade Spring Boot
         │ cron (toutes les minutes par défaut)
         ▼
-Kafka ───────────────────────────► Worker Spring Boot ───► MongoDB
+Kafka KRaft (3 nœuds) ─────────────► Worker Spring Boot ───► MongoDB replica set
 ```
 
 Fleet Server distribue les politiques et reçoit les check-ins. Les événements
@@ -40,34 +42,33 @@ Elasticsearch.
 
 | Composant | Adresse externe |
 | --- | --- |
-| Elasticsearch | `https://elasticsearch.192-168-1-158.sslip.io` |
-| Kibana | `https://kibana.192-168-1-158.sslip.io` |
-| Fleet Server | `https://fleet.192-168-1-158.sslip.io` |
-| APM Server | `https://apm.192-168-1-158.sslip.io` |
-| MongoDB dans la VM | `192.168.33.10:27017` |
+| Elasticsearch | `https://elasticsearch.poc.test` |
+| Kibana | `https://kibana.poc.test` |
+| Fleet Server | `https://fleet.poc.test` |
+| APM Server | `https://apm.poc.test` |
+| MongoDB replica set | `192.168.33.10:27017`, `.11:27017`, `.12:27017` |
+| Kafka KRaft | `192.168.33.10:9092`, `.11:9092`, `.12:9092` |
 
-Les quatre endpoints Elastic passent par le port `443`. `sslip.io` résout les
-noms vers `192.168.1.158` sans modification de `/etc/hosts`.
+Les quatre endpoints Elastic passent par le port `443`. Les VMs les resolvent
+vers l'interface host-only stable `192.168.33.1` via `/etc/hosts`.
 
 ## Prérequis et périmètre
 
 Le dépôt contient les manifestes et la configuration d'observabilité ; il ne
-crée pas le cluster Kubernetes ni n'installe MongoDB dans la VM. Avant de
+crée pas le cluster Kubernetes. Avant de
 suivre le guide, disposer de :
 
 - `kubectl`, Docker et k3d, avec Traefik et l'opérateur ECK déjà installés ;
 - un namespace `elastic-stack` contenant Elasticsearch `elasticsearch` et
   Kibana `es-kb-quickstart-eck-kibana` ;
-- Vagrant et VirtualBox pour la VM Rocky Linux 10 à l'adresse
-  `192.168.33.10` ;
-- une instance MongoDB joignable sur `192.168.33.10:27017`, qui écrit dans
-  `/var/log/mongodb/mongod.log` ;
+- Vagrant et VirtualBox pour trois VMs Rocky Linux 10 aux adresses
+  `192.168.33.10` à `192.168.33.12` ;
 - l'archive Linux ARM64 d'Elastic Agent 9.5.1, extraite dans la VM si l'agent
   n'est pas déjà installé.
 
-La [`Vagrantfile`](Vagrantfile) ne fait que créer la VM et son réseau privé :
-l'installation et la configuration de MongoDB restent à la charge de
-l'environnement de laboratoire.
+La [`Vagrantfile`](Vagrantfile) crée les trois VMs et provisionne sur chacune
+un membre MongoDB et un broker/controller Kafka dans Podman. Le replica set
+MongoDB est `poc-rs` et Kafka utilise un quorum KRaft de trois contrôleurs.
 
 ## Guides associés
 
@@ -110,8 +111,8 @@ Vérifier ECK et l'endpoint public :
 ```sh
 kubectl -n elastic-stack get agent fleet-server
 kubectl -n elastic-stack get apmserver apm-server
-curl -k https://fleet.192-168-1-158.sslip.io/api/status
-curl -k https://apm.192-168-1-158.sslip.io/
+curl -k https://fleet.poc.test/api/status
+curl -k https://apm.poc.test/
 ```
 
 Résultat attendu :
@@ -139,7 +140,7 @@ Configurer l'agent APM de l'application avec les variables adaptées à son
 langage, par exemple :
 
 ```sh
-ELASTIC_APM_SERVER_URL=https://apm.192-168-1-158.sslip.io
+ELASTIC_APM_SERVER_URL=https://apm.poc.test
 ELASTIC_APM_SECRET_TOKEN='<jeton récupéré ci-dessus>'
 # POC uniquement : Traefik présente un certificat auto-signé.
 ELASTIC_APM_VERIFY_SERVER_CERT=false
@@ -161,7 +162,7 @@ La politique applicative MongoDB n'y est volontairement pas déclarée : une
 politique vide préconfigurée par Kibana écraserait ses intégrations lors d'un
 redémarrage.
 
-## 2. Configurer la politique MongoDB
+## 2. Configurer la politique Fleet des services de donnees
 
 La politique d'agent attendue est :
 
@@ -174,45 +175,73 @@ Sa package policy reproductible est décrite dans
 Elle configure :
 
 - les logs `/var/log/mongodb/mongod.log` ;
-- la cible métrique `192.168.33.10:27017` ;
+- les metriques MongoDB locales de chaque VM ;
 - une période de `60s` ;
 - `collstats`, `dbstats`, `metrics` et `status` ;
-- `replstatus` désactivé, car le POC MongoDB n'est pas un replica set.
+- `replstatus` activé pour suivre l'état du replica set.
+
+La package policy Kafka complementaire est
+[`elastic-agent/kafka-package-policy.json`](elastic-agent/kafka-package-policy.json).
+Elle collecte les logs de `/var/log/kafka` ainsi que les metriques broker et
+KRaft via Jolokia sur `127.0.0.1:8778`. Ce port est publie uniquement sur la
+boucle locale de chaque VM ; il n'est pas expose sur le reseau prive.
 
 ### Création dans Kibana
 
 Dans **Management → Fleet → Agent policies**, créer `MongoDB hosts`, puis
 ajouter l'intégration **MongoDB** avec les valeurs ci-dessus.
 
-### Création reproductible par API
+### Synchronisation reproductible par API
 
-Si la politique `mongodb-hosts` existe déjà, créer la package policy avec :
+Le script idempotent crée la politique `mongodb-hosts` si nécessaire, puis crée
+ou remplace les deux package policies. Il est donc la seule commande à
+rejouer après un redéploiement :
 
 ```sh
-ELASTIC_PASSWORD="$(kubectl -n elastic-stack get secret \
+KIBANA_PASSWORD="$(kubectl -n elastic-stack get secret \
   elasticsearch-es-elastic-user \
   -o go-template='{{.data.elastic | base64decode}}')"
 
-curl -k -u "elastic:${ELASTIC_PASSWORD}" \
-  -H 'kbn-xsrf: true' \
-  -H 'Content-Type: application/json' \
-  -X POST \
-  https://kibana.192-168-1-158.sslip.io/api/fleet/package_policies \
-  --data-binary @elastic-agent/mongodb-package-policy.json
-
-unset ELASTIC_PASSWORD
+KIBANA_PASSWORD="$KIBANA_PASSWORD" ./scripts/sync-fleet-policies.sh
+unset KIBANA_PASSWORD
 ```
 
-Ne pas rejouer le `POST` si `mongodb-fleet` existe déjà. Pour une modification,
-utiliser l'interface Fleet ou un `PUT` sur l'identifiant de la package policy.
+La policy Kafka active les streams `broker`, `partition`, `consumergroup` et
+`topic`. Les trois premiers alimentent **[Metrics Kafka] Overview** ; le stream
+`topic` est indispensable au dashboard **[Metrics Kafka] Topic**.
+Le pipeline Elasticsearch versionné `metrics-kafka.topic@custom` normalise le
+champ `kafka.topic.name`, attendu par le dashboard du package Kafka 1.27.2.
+
+Les dashboards **Consumer** et **Producer** ne sont pas des métriques de
+broker : ils exigent un endpoint Jolokia dans chaque application cliente. Ils
+restent donc volontairement vides tant qu'un agent Fleet n'est pas déployé à
+côté des clients Kafka. Le stream Raft du package 1.27.2 est incompatible avec
+Kafka 3.9.2 (attribut JMX `number-of-voters` absent) ; l'état KRaft reste
+vérifiable par `scripts/cluster-status.sh` en attendant une correction du
+package Elastic.
+
+### Enrôlement Fleet via Vagrant
+
+L'enrôlement fait partie du provisionnement. Injecter un enrollment token de la
+policy `mongodb-hosts` au lancement, sans l'écrire dans un fichier :
+
+```sh
+export FLEET_ENROLLMENT_TOKEN='…token Fleet mongodb-hosts…'
+vagrant provision data-01 data-02 data-03
+unset FLEET_ENROLLMENT_TOKEN
+```
+
+Le script `scripts/install-elastic-agent.sh` est idempotent : sur une VM déjà
+enrôlée il redémarre le service seulement s'il était arrêté. Les policies sont
+ensuite synchronisées par `scripts/sync-fleet-policies.sh`.
 
 ## 3. Préparer et enrôler la VM
 
-Le nom affiché dans Fleet vient du hostname de l'OS. Le définir avant
-l'enrôlement :
+Le nom affiché dans Fleet vient du hostname de l'OS. Les VMs créées par
+Vagrant sont déjà nommées `data-01`, `data-02` et `data-03`. Enrôler un agent
+Fleet sur chaque VM, en remplaçant le nom de VM dans les commandes suivantes :
 
 ```sh
-sudo hostnamectl set-hostname mongodb-01
 hostnamectl
 ```
 
@@ -238,7 +267,7 @@ jeton d'enrôlement, puis exécuter dans la VM :
 
 ```sh
 sudo ./elastic-agent install \
-  --url=https://fleet.192-168-1-158.sslip.io:443 \
+  --url=https://fleet.poc.test:443 \
   --enrollment-token='<enrollment-token>' \
   --insecure \
   --tag mongodb,poc
@@ -266,17 +295,17 @@ mongodb/metrics-default   Healthy
 ```
 
 Dans Kibana, ouvrir **Management → Fleet → Agents**. L'hôte doit apparaître
-sous le nom `mongodb-01`, avec la politique `MongoDB hosts`.
+sous les noms `data-01`, `data-02` et `data-03`, avec la politique `MongoDB hosts`.
 
 Deux champs ont des rôles différents :
 
 ```text
-host.name: mongodb-01
-service.address: mongodb://192.168.33.10:27017
+host.name: data-01
+service.address: mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017
 ```
 
-`host.name` identifie la VM ; `service.address` indique l'adresse utilisée par
-l'intégration pour joindre MongoDB.
+`host.name` identifie une VM ; `service.address` indique les membres utilisés
+par l'intégration pour joindre MongoDB.
 
 ## 5. Générer du trafic MongoDB
 
@@ -288,10 +317,13 @@ MongoDB pour rendre ces opérations visibles dans `mongod.log`.
 ```sh
 vagrant upload \
   scripts/mongodb-elk-workload.js \
-  /tmp/mongodb-elk-workload.js
+  /tmp/mongodb-elk-workload.js \
+  data-01
 
-vagrant ssh -c \
-  'mongosh --quiet mongodb://127.0.0.1:27017 /tmp/mongodb-elk-workload.js'
+vagrant ssh data-01 -c \
+  'sudo podman cp /tmp/mongodb-elk-workload.js poc-mongodb:/tmp/mongodb-elk-workload.js && \
+   sudo podman exec poc-mongodb mongosh --quiet mongodb://127.0.0.1:27017 \
+   /tmp/mongodb-elk-workload.js'
 ```
 
 Chaque exécution affiche un `run_id`, insère 200 documents, en supprime 10 et
@@ -302,19 +334,19 @@ en conserve 190.
 Dans **Discover**, utiliser une période récente et filtrer sur l'hôte Fleet :
 
 ```text
-host.name: "mongodb-01" and data_stream.dataset: mongodb.*
+host.name: data-* and data_stream.dataset: mongodb.*
 ```
 
 Logs MongoDB :
 
 ```text
-host.name: "mongodb-01" and data_stream.dataset: "mongodb.log"
+host.name: data-* and data_stream.dataset: "mongodb.log"
 ```
 
 Commandes du workload :
 
 ```text
-host.name: "mongodb-01" and mongodb.log.attr.ns: observability_test*
+host.name: data-* and mongodb.log.attr.ns: observability_test*
 ```
 
 Data streams attendus :

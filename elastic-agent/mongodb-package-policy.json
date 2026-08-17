@@ -33,7 +33,7 @@
       "policy_template": "mongodb",
       "enabled": true,
       "vars": {
-        "hosts": {"type": "text", "value": ["192.168.33.10:27017"]},
+        "hosts": {"type": "text", "value": ["localhost:27017"]},
         "ssl.enabled": {"type": "bool", "value": false}
       },
       "streams": [
@@ -53,7 +53,7 @@
           "vars": {"period": {"type": "text", "value": "60s"}}
         },
         {
-          "enabled": false,
+          "enabled": true,
           "data_stream": {"type": "metrics", "dataset": "mongodb.replstatus"},
           "vars": {"period": {"type": "text", "value": "60s"}}
         },

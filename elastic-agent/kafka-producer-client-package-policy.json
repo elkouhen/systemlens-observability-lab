@@ -1,0 +1,18 @@
+{
+  "name": "kafka-producer-client-fleet",
+  "description": "Metriques JMX du producteur Kafka de apm-demo",
+  "namespace": "default",
+  "policy_ids": ["mongodb-hosts"],
+  "package": {"name": "kafka", "title": "Kafka", "version": "1.27.2"},
+  "inputs": [{
+    "type": "jolokia/metrics",
+    "policy_template": "kafka",
+    "enabled": true,
+    "vars": {"metrics_path": {"type": "text", "value": "/jolokia"}, "http_method": {"type": "text", "value": "GET"}, "condition": {"type": "text", "value": "${host.name} == 'data-01'"}},
+    "streams": [{
+      "enabled": true,
+      "data_stream": {"type": "metrics", "dataset": "kafka.producer"},
+      "vars": {"jolokia_hosts": {"type": "text", "value": ["http://kafka-producer-jolokia.poc.test"]}, "period": {"type": "text", "value": "60s"}}
+    }]
+  }]
+}

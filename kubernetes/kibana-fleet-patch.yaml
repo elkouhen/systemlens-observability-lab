@@ -6,18 +6,43 @@ metadata:
   name: es-kb-quickstart-eck-kibana
   namespace: elastic-stack
 spec:
+  podTemplate:
+    spec:
+      containers:
+        - name: kibana
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
   config:
+    # URL utilisée par Kibana pour les redirections et les liens générés derrière
+    # l'IngressRoute Traefik.
+    server.publicBaseUrl: https://kibana.poc.test
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
-      - https://fleet.192-168-1-158.sslip.io:443
+      - https://fleet.poc.test:443
     xpack.fleet.outputs:
+      # Fleet Server s'exécute dans le cluster : il doit utiliser le service
+      # Elasticsearch interne, et non l'Ingress public qui n'est pas
+      # nécessairement joignable depuis les pods.
+      - id: fleet-server-output
+        name: Elasticsearch interne pour Fleet Server
+        type: elasticsearch
+        hosts:
+          - https://elasticsearch-es-http.elastic-stack.svc:9200
+        ssl:
+          # Le certificat ECK interne n'est pas chargé dans la configuration
+          # préconfigurée de Kibana. À remplacer par la CA ECK en production.
+          verification_mode: none
       - id: fleet-default-output
         name: Elasticsearch ECK
         type: elasticsearch
         is_default: true
         is_default_monitoring: true
         hosts:
-          - https://elasticsearch.192-168-1-158.sslip.io:443
+          - https://elasticsearch.poc.test:443
         ssl:
           # POC uniquement. En production, distribuer la CA à tous les agents.
           verification_mode: none
@@ -30,6 +55,8 @@ spec:
         version: latest
       - name: mongodb
         version: latest
+      - name: kafka
+        version: latest
       # Requis par APM Server 8+ pour initialiser les assets APM dans Kibana.
       - name: apm
         version: latest
@@ -38,6 +65,8 @@ spec:
         name: Fleet Server on ECK
         namespace: default
         is_managed: true
+        data_output_id: fleet-server-output
+        monitoring_output_id: fleet-server-output
         monitoring_enabled:
           - logs
           - metrics
