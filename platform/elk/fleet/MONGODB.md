@@ -1,8 +1,10 @@
 # MongoDB dans Fleet
 
-Ce guide explique la package policy [`mongodb-package-policy.json`](mongodb-package-policy.json).
+Ce guide explique la package policy MongoDB déclarée dans
+[`../kubernetes/kibana-fleet-patch.yaml`](../kubernetes/kibana-fleet-patch.yaml).
 Elle observe le replica set MongoDB du POC depuis un Elastic Agent installé sur
-chacune des VM `data-01` à `data-03`.
+chacune des VM `data-01` à `data-03`. Le JSON voisin reste un modèle pour le
+cas optionnel des policies Ansible par VM.
 
 ## Chemin des données
 

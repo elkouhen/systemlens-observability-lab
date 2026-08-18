@@ -1,7 +1,9 @@
 # Policies Fleet et Elastic Agent
 
-Ces fichiers JSON décrivent les intégrations Fleet synchronisées vers Kibana.
-Ils ne contiennent pas de secret : les identifiants sont chargés à l'exécution.
+La configuration Fleet de référence est déclarée dans
+[`../kubernetes/kibana-fleet-patch.yaml`](../kubernetes/kibana-fleet-patch.yaml),
+dans `xpack.fleet`. ECK la transmet à Kibana au démarrage : aucun script hôte
+ne crée les package policies standards MongoDB/Kafka.
 
 ## Parcours de lecture
 
@@ -9,8 +11,9 @@ Ils ne contiennent pas de secret : les identifiants sont chargés à l'exécutio
   `mongodb-fleet`.
 - [`KAFKA.md`](KAFKA.md) : fonctionnement et adaptation de la policy
   `kafka-fleet` et de Jolokia.
-- `mongodb-package-policy.json` : définition machine de la policy MongoDB.
-- `kafka-package-policy.json` : définition machine de la policy Kafka.
+- `mongodb-package-policy.json` et `kafka-package-policy.json` : modèles API
+  réservés au playbook Ansible de policies dédiées par VM ; ils ne sont pas la
+  source de vérité du déploiement Kubernetes.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
 - `system-package-policy.json` : exemple de policy système conservé comme
   référence ; elle n'est pas synchronisée par le script actuel.
@@ -20,10 +23,9 @@ Les deux package policies sont associées à l'agent policy `mongodb-hosts`. Dan
 ce POC, un Elastic Agent tourne sur chaque VM : `localhost` désigne donc le
 service local à la VM, jamais le poste qui exécute `make fleet-sync`.
 
-Lancer `make fleet-sync` après avoir chargé les identifiants. Le script appelle
-l'API Fleet pour créer ou mettre à jour les package policies, puis l'API
-Elasticsearch pour les pipelines `@custom`. Il est idempotent, mais une mise à
-jour de version de package doit toujours être vérifiée dans Kibana > Fleet.
+Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
+déclarer les policies. `make fleet-sync` ne met plus à jour que les pipelines
+Elasticsearch `@custom`, qui ne font pas partie de la configuration Kibana.
 
 ## Documentation externe
 

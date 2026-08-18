@@ -14,7 +14,7 @@ ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 
 .PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import \
-	elk-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
+	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
 	otel-infrastructure-deploy \
 	dashboard-deploy \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -59,7 +59,10 @@ otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôt
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-collector-daemon --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-cluster --timeout=180s
 
-elk-deploy: otel-infrastructure-deploy otel-gateway-deploy ## Déployer les composants ELK liés aux applications
+kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
+	@$(KUBECTL) apply -f platform/elk/kubernetes/kibana-fleet-patch.yaml
+
+elk-deploy: kibana-fleet-config-deploy otel-infrastructure-deploy otel-gateway-deploy ## Déployer les composants ELK liés aux applications
 	@$(KUBECTL) apply -f platform/elk/kubernetes/apm-server.yaml
 
 apps-deploy: ## Déployer uniquement l'application de démonstration
@@ -72,7 +75,7 @@ apm-deploy: elk-deploy apps-deploy ## Alias historique : déployer ELK et l'appl
 
 platform-deploy: apps-build images-import elk-deploy apps-deploy ## Construire, importer et déployer l'ensemble
 
-fleet-sync: ## Synchroniser les intégrations Fleet MongoDB/Kafka (requiert KIBANA_PASSWORD)
+fleet-sync: ## Synchroniser les pipelines Kafka (policies Fleet déclarées dans Kubernetes)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
 
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)

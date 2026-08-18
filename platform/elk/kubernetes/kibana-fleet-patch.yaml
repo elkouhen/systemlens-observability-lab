@@ -74,3 +74,87 @@ spec:
             name: fleet-server
             package:
               name: fleet_server
+      # Cette policy est remise aux Elastic Agents installés sur les VM. Les
+      # intégrations sont déclarées ici, au démarrage de Kibana, plutôt que
+      # créées par un script hôte via l'API Fleet.
+      - id: mongodb-hosts
+        name: MongoDB and Kafka hosts
+        namespace: default
+        monitoring_enabled:
+          - logs
+          - metrics
+        package_policies:
+          - id: mongodb-fleet
+            name: mongodb-fleet
+            package:
+              name: mongodb
+              version: 1.24.0
+            inputs:
+              mongodb-logfile:
+                enabled: false
+              mongodb-mongodb/metrics:
+                enabled: true
+                vars:
+                  hosts:
+                    - localhost:27017
+                  ssl.enabled: false
+                streams:
+                  '[mongodb.collstats]':
+                    enabled: true
+                    vars:
+                      period: 60s
+                  '[mongodb.dbstats]':
+                    enabled: true
+                    vars:
+                      period: 60s
+                  '[mongodb.metrics]':
+                    enabled: true
+                    vars:
+                      period: 60s
+                  '[mongodb.replstatus]':
+                    enabled: true
+                    vars:
+                      period: 60s
+                  '[mongodb.status]':
+                    enabled: true
+                    vars:
+                      period: 60s
+          - id: kafka-fleet
+            name: kafka-fleet
+            package:
+              name: kafka
+              version: 1.27.2
+            inputs:
+              kafka-logfile:
+                enabled: false
+              kafka-kafka/metrics:
+                enabled: true
+                vars:
+                  hosts:
+                    - localhost:9092
+                  period: 60s
+                streams:
+                  '[kafka.broker]':
+                    enabled: true
+                    vars:
+                      jolokia_hosts:
+                        - http://127.0.0.1:8778
+                  '[kafka.partition]':
+                    enabled: true
+                  '[kafka.consumergroup]':
+                    enabled: true
+              kafka-jolokia/metrics:
+                enabled: true
+                vars:
+                  hosts:
+                    - http://127.0.0.1:8778
+                  metrics_path: /jolokia
+                  http_method: GET
+                streams:
+                  '[kafka.controller]': { enabled: true, vars: { period: 60s } }
+                  '[kafka.jvm]': { enabled: true, vars: { period: 60s } }
+                  '[kafka.network]': { enabled: true, vars: { period: 60s } }
+                  '[kafka.log_manager]': { enabled: true, vars: { period: 60s } }
+                  '[kafka.replica_manager]': { enabled: true, vars: { period: 60s } }
+                  '[kafka.topic]': { enabled: true, vars: { period: 60s } }
+                  '[kafka.raft]': { enabled: true, vars: { period: 60s } }

@@ -1,7 +1,9 @@
 # Kafka dans Fleet
 
-Ce guide explique [`kafka-package-policy.json`](kafka-package-policy.json) et
-le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
+Ce guide explique la package policy Kafka déclarée dans
+[`../kubernetes/kibana-fleet-patch.yaml`](../kubernetes/kibana-fleet-patch.yaml)
+et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
+Le JSON voisin reste un modèle pour le cas optionnel des policies Ansible par VM.
 Chaque VM héberge un broker/controller Kafka KRaft dans Podman et un Elastic
 Agent sur l'hôte.
 
@@ -60,9 +62,10 @@ plutôt que de montrer trois fois `127.0.0.1:8778`.
 | Kafka sans Jolokia | conserver broker/partition/consumergroup et désactiver les streams JMX |
 | Topics très nombreux | surveiller le volume du stream `kafka.topic` et ajuster l'intervalle avant d'augmenter la capacité |
 
-Après une modification du JSON, lancer `make fleet-sync`. Le script fait un
-`PUT` de la policy existante, puis met à jour les pipelines `@custom`. Vérifier
-ensuite l'état de l'Agent dans Fleet et les data streams dans Discover.
+Après une modification de la policy, appliquer
+`make kibana-fleet-config-deploy` et attendre le redémarrage piloté par ECK.
+Lancer ensuite `make fleet-sync` pour mettre à jour les pipelines `@custom`.
+Vérifier l'état de l'Agent dans Fleet et les data streams dans Discover.
 
 ## Vérification et dépannage
 

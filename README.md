@@ -131,19 +131,20 @@ allocations natives.
    kubectl -n apm-demo get deploy,pods,svc
    ```
 
-3. Synchroniser les intégrations Fleet MongoDB/Kafka depuis l’hôte :
+3. La configuration Fleet MongoDB/Kafka est déclarée dans
+   `platform/elk/kubernetes/kibana-fleet-patch.yaml` et est appliquée avec
+   Kibana. Depuis l'hôte, ne synchroniser que les pipelines Elasticsearch
+   complémentaires :
 
    ```bash
    export KIBANA_PASSWORD='…'
    ./platform/elk/scripts/sync-fleet-policies.sh
    ```
 
-   Le script crée la policy `mongodb-hosts`, configure les packages MongoDB et
-   Kafka (sans les entrées System désormais prises en charge par les Beats),
-   importe également le dashboard MongoDB et installe le pipeline
-   `metrics-kafka.topic@custom`. Il retire intentionnellement les anciennes
-   policies Jolokia applicatives : leurs endpoints ne sont plus exposés hors du
-   cluster.
+   Le script installe le pipeline `metrics-kafka.topic@custom` et les pipelines
+   Kafka associés. Les dashboards s'importent séparément avec
+   `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka restent visibles
+   et gérées par la préconfiguration Kibana déclarée dans Kubernetes.
 
 ### Redéployer et corriger
 

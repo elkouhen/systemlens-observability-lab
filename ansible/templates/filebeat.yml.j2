@@ -33,6 +33,13 @@ filebeat.inputs:
 processors:
   - add_host_metadata: ~
 
+# Les index de ce POC sont sélectionnés explicitement ci-dessous. Filebeat ne
+# doit donc ni installer de template ni vérifier/créer sa policy ILM générique.
+# Cette vérification bloquait toute publication avec une clé d'écriture limitée
+# qui ne possède pas le privilège `read_ilm`.
+setup.template.enabled: false
+setup.ilm.enabled: false
+
 output.elasticsearch:
   hosts: ["{{ elasticsearch_url }}"]
   api_key: "{{ elasticsearch_api_key }}"

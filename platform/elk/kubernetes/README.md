@@ -8,7 +8,8 @@ installé avant leur application.
 
 1. `elasticsearch-resources.yaml` : stockage et Kibana de base.
 2. `kibana-fleet-patch.yaml`, puis `fleet-server.yaml` : gestion centralisée des
-   Elastic Agents.
+   Elastic Agents. Le patch contient aussi les outputs, packages et policies
+   MongoDB/Kafka préconfigurés dans `xpack.fleet`.
 3. `apm-server.yaml` : endpoint d'ingestion APM.
 4. `otel-collector-gateway.yaml` : point d'entrée OTLP des applications.
 5. `otel-collector-infrastructure.yaml` : métriques nœud, Kubelet et cluster.
