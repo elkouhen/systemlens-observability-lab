@@ -17,7 +17,7 @@ RUN curl --fail --location --silent --show-error \
   "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar" \
   -o /opt/opentelemetry-javaagent.jar
 
-FROM eclipse-temurin:21-jre AS frontend
+FROM eclipse-temurin:21.0.7_6-jre-noble AS frontend
 
 WORKDIR /app
 COPY --from=build /workspace/apm-demo/target/apm-demo-1.0.0.jar application.jar
@@ -26,7 +26,7 @@ USER 10001
 EXPOSE 3000
 ENTRYPOINT ["java", "-javaagent:/opt/opentelemetry-javaagent.jar", "-jar", "/app/application.jar"]
 
-FROM eclipse-temurin:21-jre AS worker
+FROM eclipse-temurin:21.0.7_6-jre-noble AS worker
 
 WORKDIR /app
 COPY --from=build /workspace/apm-demo-worker/target/apm-demo-worker-1.0.0.jar application.jar

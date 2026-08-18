@@ -6,8 +6,8 @@ OpenTelemetry et Elastic Agent acheminent les données vers Elasticsearch.
 
 ## Ordre de lecture
 
-1. [`kubernetes/README.md`](kubernetes/README.md) : les ressources qui tournent
-   dans le cluster et leurs dépendances.
+1. [`../kubernetes/README.md`](../kubernetes/README.md) : le point d'entrée
+   Kustomize des ressources qui tournent dans le cluster.
 2. [`fleet/README.md`](fleet/README.md) : les policies qui observent les VM
    MongoDB et Kafka.
 3. [`scripts/README.md`](scripts/README.md) : l'initialisation des secrets et

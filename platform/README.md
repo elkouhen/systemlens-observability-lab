@@ -6,9 +6,10 @@ Kubernetes.
 
 ## Parcours conseillé
 
-1. Lire [`elk/README.md`](elk/README.md) pour suivre le flux de télémétrie de
-   bout en bout.
-2. Lire ensuite `elk/kubernetes/`, puis `elk/fleet/`.
+1. Lire [`kubernetes/README.md`](kubernetes/README.md) pour le point d'entrée
+   IaC Kustomize et les overlays d'environnement.
+2. Lire [`elk/README.md`](elk/README.md) pour suivre le flux de télémétrie de
+   bout en bout, puis `elk/fleet/`.
 3. Consulter les scripts et dashboards une fois le déploiement compris.
 
 ## Documentation externe

@@ -1,7 +1,7 @@
 # Kafka dans Fleet
 
 Ce guide explique la package policy Kafka déclarée dans
-[`../kubernetes/kibana-fleet-patch.yaml`](../kubernetes/kibana-fleet-patch.yaml)
+[`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml)
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
 Le JSON voisin reste un modèle pour le cas optionnel des policies Ansible par VM.
 Chaque VM héberge un broker/controller Kafka KRaft dans Podman et un Elastic
@@ -25,9 +25,8 @@ les MBeans JMX nécessaires aux métriques JVM et broker détaillées. Le bind s
 
 ## Lire la policy
 
-1. `policy_ids: ["mongodb-hosts"]` rattache aussi Kafka à l'agent policy
-   commune aux trois VM ; le nom historique ne limite pas son contenu à
-   MongoDB.
+1. La policy `mongodb-hosts` rattache aussi Kafka à l'agent policy commune aux
+   trois VM ; son nom historique ne limite pas son contenu à MongoDB.
 2. Le bloc `logfile` est désactivé, car Filebeat collecte déjà les logs Kafka.
    Ne l'activer qu'en supprimant cette autre source pour éviter les doublons.
 3. `kafka/metrics` utilise `localhost:9092` toutes les 60 secondes et produit

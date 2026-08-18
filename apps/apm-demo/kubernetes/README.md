@@ -1,6 +1,7 @@
 # Déploiement Kubernetes de l'application
 
-`namespace.yaml` isole l'application dans le namespace `apm-demo`.
+`kustomization.yaml` est le point d'entrée IaC de l'application. `namespace.yaml`
+isole l'application dans le namespace `apm-demo`.
 `deployment.yaml` décrit ses Deployments, Services et variables
 d'environnement : adresses Kafka/MongoDB, identité du service et endpoint OTLP.
 

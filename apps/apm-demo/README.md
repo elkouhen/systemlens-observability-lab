@@ -22,3 +22,9 @@ l'application avec `make apps-deploy`.
 - [Instrumentation Java OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/)
 - [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/)
 - [Observabilité Kafka avec OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/supported-libraries/)
+
+## Versions d'images
+
+Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
+d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
+être testée puis effectuée dans une modification dédiée.

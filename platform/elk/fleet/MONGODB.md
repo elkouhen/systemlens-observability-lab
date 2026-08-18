@@ -1,7 +1,7 @@
 # MongoDB dans Fleet
 
 Ce guide explique la package policy MongoDB déclarée dans
-[`../kubernetes/kibana-fleet-patch.yaml`](../kubernetes/kibana-fleet-patch.yaml).
+[`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
 Elle observe le replica set MongoDB du POC depuis un Elastic Agent installé sur
 chacune des VM `data-01` à `data-03`. Le JSON voisin reste un modèle pour le
 cas optionnel des policies Ansible par VM.
@@ -23,9 +23,9 @@ MongoDB. La policy est donc réutilisable sur les trois VM, tout en conservant
 
 ## Lire la policy
 
-1. `policy_ids: ["mongodb-hosts"]` rattache l'intégration à l'agent policy
-   créée par `sync-fleet-policies.sh`. Un Agent ne reçoit la configuration que
-   s'il est enrôlé dans cette policy.
+1. La policy `mongodb-hosts` est créée par la préconfiguration Kibana dans
+   Kubernetes. Un Agent ne reçoit la configuration que s'il est enrôlé avec le
+   token de cette policy commune.
 2. L'entrée `logfile` est désactivée. Les logs MongoDB passent déjà par
    Filebeat : l'activer ici créerait des doublons dans `logs-mongodb.log-*`.
 3. L'entrée `mongodb/metrics` utilise `localhost:27017` et un intervalle de

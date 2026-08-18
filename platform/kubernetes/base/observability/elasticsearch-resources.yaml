@@ -4,6 +4,7 @@ metadata:
   name: elasticsearch
   namespace: elastic-stack
 spec:
+  version: 9.5.1
   nodeSets:
     - name: default
       podTemplate:
@@ -16,3 +17,11 @@ spec:
                   memory: 2Gi
                 limits:
                   memory: 2Gi
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: [ReadWriteOnce]
+            resources:
+              requests:
+                storage: 20Gi

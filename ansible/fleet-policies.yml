@@ -1,7 +1,7 @@
 ---
-# Exécuter depuis la racine du dépôt :
+# Migration optionnelle vers la policy commune déclarée par Kubernetes :
 # KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
-- name: Configurer les policies Fleet par VM du POC
+- name: Réaffecter les agents du POC à la policy Fleet commune
   hosts: localhost
   connection: local
   gather_facts: false
@@ -13,20 +13,8 @@
     kibana_host: "{{ lookup('env', 'KIBANA_HOST') | default('kibana.poc.test', true) }}"
     kibana_username: "{{ lookup('env', 'KIBANA_USERNAME') | default('elastic', true) }}"
     kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') }}"
-    poc_project_dir: "{{ playbook_dir }}/.."
-    fleet_nodes:
-      - { name: data-01, ip: 192.168.33.10 }
-      - { name: data-02, ip: 192.168.33.11 }
-      - { name: data-03, ip: 192.168.33.12 }
-    fleet_packages:
-      - { file: platform/elk/fleet/mongodb-package-policy.json, prefix: mongodb }
-      - { file: platform/elk/fleet/kafka-package-policy.json, prefix: kafka }
-    # Les métriques JMX des applications sont collectées depuis Kubernetes.
-    # Les anciennes package policies Fleet sur les VM interrogent des endpoints
-    # retirés et font passer l'agent en état degraded (HTTP 404).
-    obsolete_fleet_package_prefixes:
-      - kafka-producer-client
-      - kafka-consumer-client
+    fleet_policy_id: mongodb-hosts
+    fleet_nodes: [data-01, data-02, data-03]
 
   module_defaults:
     ansible.builtin.uri:
@@ -47,95 +35,21 @@
       no_log: true
 
   tasks:
-    - name: Lire les policies Fleet existantes
+    - name: Lire les policies Fleet déclarées dans Kibana
       ansible.builtin.uri:
         url: "{{ kibana_url }}/api/fleet/agent_policies?perPage=100"
         method: GET
       register: fleet_policies
 
-    - name: Créer les policies Fleet par VM
-      ansible.builtin.uri:
-        url: "{{ kibana_url }}/api/fleet/agent_policies"
-        method: POST
-        body_format: json
-        body:
-          id: "mongodb-{{ item.name }}"
-          name: "Observabilité {{ item.name }}"
-          namespace: default
-          monitoring_enabled: [logs, metrics]
-      loop: "{{ fleet_nodes }}"
-      when: >-
-        (fleet_policies.json['items'] | selectattr('id', 'equalto', 'mongodb-' ~ item.name) | list | length) == 0
-
-    - name: Lire les package policies existantes
-      ansible.builtin.uri:
-        url: "{{ kibana_url }}/api/fleet/package_policies?perPage=100"
-        method: GET
-      register: existing_package_policies
-
-    - name: Supprimer les anciennes package policies Jolokia applicatives
-      ansible.builtin.uri:
-        url: "{{ kibana_url }}/api/fleet/package_policies/{{ existing_policy.id }}"
-        method: DELETE
-      vars:
-        existing_policy: >-
-          {{
-            existing_package_policies.json['items']
-            | selectattr('name', 'equalto', item.1 ~ '-' ~ item.0.name)
-            | list | first | default({})
-          }}
-      loop: "{{ fleet_nodes | product(obsolete_fleet_package_prefixes) | list }}"
-      when: existing_policy.id is defined
-
-    - name: Créer les package policies dédiées à chaque VM
-      ansible.builtin.uri:
-        url: "{{ kibana_url }}/api/fleet/package_policies"
-        method: POST
-        body_format: json
-        body: >-
-          {{
-            (
-              lookup('file', poc_project_dir ~ '/' ~ item.1.file)
-              | regex_replace('(?m)^  "name": "[^"]+"', '  "name": "' ~ item.1.prefix ~ '-' ~ item.0.name ~ '"')
-              | regex_replace('"policy_ids": \["mongodb-hosts"\]', '"policy_ids": ["mongodb-' ~ item.0.name ~ '"]')
-              | regex_replace('"value": \["localhost:27017"\]', '"value": ["' ~ item.0.ip ~ ':27017"]')
-              | regex_replace('"value": \["localhost:9092"\]', '"value": ["' ~ item.0.ip ~ ':9092"]')
-              | from_json
-            )
-          }}
-      loop: "{{ fleet_nodes | product(fleet_packages) | list }}"
-      when: >-
-        (existing_package_policies.json['items']
-          | selectattr('name', 'equalto', item.1.prefix ~ '-' ~ item.0.name)
-          | list | length) == 0
-
-    - name: Mettre à jour les package policies dédiées existantes
-      ansible.builtin.uri:
-        url: "{{ kibana_url }}/api/fleet/package_policies/{{ existing_policy.id }}"
-        method: PUT
-        body_format: json
-        # Le format historique de Fleet conserve une liste d'inputs pour les
-        # policies créées par ce POC. Les identifiants et révisions internes ne
-        # font pas partie du corps de mise à jour.
-        body: "{{ desired_policy }}"
-      vars:
-        existing_policy: >-
-          {{
-            existing_package_policies.json['items']
-            | selectattr('name', 'equalto', item.1.prefix ~ '-' ~ item.0.name)
-            | list | first | default({})
-          }}
-        desired_policy: >-
-          {{
-            lookup('file', poc_project_dir ~ '/' ~ item.1.file)
-            | regex_replace('(?m)^  "name": "[^"]+"', '  "name": "' ~ item.1.prefix ~ '-' ~ item.0.name ~ '"')
-            | regex_replace('"policy_ids": \["mongodb-hosts"\]', '"policy_ids": ["mongodb-' ~ item.0.name ~ '"]')
-            | regex_replace('"value": \["localhost:27017"\]', '"value": ["' ~ item.0.ip ~ ':27017"]')
-            | regex_replace('"value": \["localhost:9092"\]', '"value": ["' ~ item.0.ip ~ ':9092"]')
-            | from_json
-          }}
-      loop: "{{ fleet_nodes | product(fleet_packages) | list }}"
-      when: existing_policy.id is defined
+    - name: Vérifier la policy commune déclarée par Kubernetes
+      ansible.builtin.assert:
+        that: >-
+          fleet_policies.json['items']
+          | selectattr('id', 'equalto', fleet_policy_id)
+          | list | length == 1
+        fail_msg: >-
+          La policy {{ fleet_policy_id }} est absente. Appliquer d'abord
+          platform/kubernetes/overlays/local via Kubernetes.
 
     - name: Lire les agents Fleet
       ansible.builtin.uri:
@@ -143,21 +57,21 @@
         method: GET
       register: fleet_agents
 
-    - name: Réaffecter chaque agent actif à sa policy dédiée
+    - name: Réaffecter les agents actifs à la policy commune
       ansible.builtin.uri:
         url: "{{ kibana_url }}/api/fleet/agents/{{ agent.id }}/reassign"
         method: POST
         body_format: json
         body:
-          policy_id: "mongodb-{{ item.name }}"
+          policy_id: "{{ fleet_policy_id }}"
       vars:
         agent: >-
           {{
             fleet_agents.json['items']
-            | selectattr('local_metadata.host.hostname', 'equalto', item.name)
+            | selectattr('local_metadata.host.hostname', 'equalto', item)
             | selectattr('active', 'equalto', true)
             | rejectattr('status', 'equalto', 'offline')
             | list | first | default({})
           }}
       loop: "{{ fleet_nodes }}"
-      when: agent.id is defined and agent.policy_id != 'mongodb-' ~ item.name
+      when: agent.id is defined and agent.policy_id != fleet_policy_id

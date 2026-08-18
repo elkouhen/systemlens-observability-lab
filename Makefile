@@ -13,7 +13,7 @@ KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
 ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 
-.PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import \
+.PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
 	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
 	otel-infrastructure-deploy \
 	dashboard-deploy \
@@ -50,30 +50,33 @@ otel-gateway-api-key-sync: ## Créer la clé writer du gateway si son secret est
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
 
 otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer le gateway OpenTelemetry interne
-	@$(KUBECTL) apply -f platform/elk/kubernetes/otel-collector-gateway.yaml
+	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-gateway
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-gateway --timeout=180s
 
 otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôte
-	@$(KUBECTL) apply -f platform/elk/kubernetes/otel-collector-infrastructure.yaml
+	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-collector-daemon --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-cluster --timeout=180s
 
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
-	@$(KUBECTL) apply -f platform/elk/kubernetes/kibana-fleet-patch.yaml
+	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
-elk-deploy: kibana-fleet-config-deploy otel-infrastructure-deploy otel-gateway-deploy ## Déployer les composants ELK liés aux applications
-	@$(KUBECTL) apply -f platform/elk/kubernetes/apm-server.yaml
+elk-deploy: ## Déployer la plateforme d'observabilité déclarative
+	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
 apps-deploy: ## Déployer uniquement l'application de démonstration
-	@$(KUBECTL) apply -f apps/apm-demo/kubernetes/namespace.yaml
-	@$(KUBECTL) apply -f apps/apm-demo/kubernetes/deployment.yaml
+	@$(KUBECTL) apply -k apps/apm-demo/kubernetes
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo-worker --timeout=180s
 
 apm-deploy: elk-deploy apps-deploy ## Alias historique : déployer ELK et l'application
 
 platform-deploy: apps-build images-import elk-deploy apps-deploy ## Construire, importer et déployer l'ensemble
+
+kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
+	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
+	@$(KUBECTL) kustomize apps/apm-demo/kubernetes >/dev/null
 
 fleet-sync: ## Synchroniser les pipelines Kafka (policies Fleet déclarées dans Kubernetes)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh

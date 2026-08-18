@@ -86,7 +86,9 @@ afficher cette commande).
 
    ```bash
    export ELASTICSEARCH_API_KEY='id:api_key'
-   export FLEET_ENROLLMENT_TOKEN='…' # métriques MongoDB/Kafka spécialisées
+   # Token d'enrôlement unique de la policy Fleet `mongodb-hosts`.
+   # Cette policy est déclarée dans le manifest Kibana Kubernetes.
+   export FLEET_ENROLLMENT_TOKEN='…'
    vagrant up
    ./scripts/cluster-status.sh
    ```
@@ -107,9 +109,10 @@ est borné à `1280 Mio` (`NODE_OPTIONS=--max-old-space-size=1280`) afin d'évit
 une erreur `JavaScript heap out of memory` tout en gardant une marge pour les
 allocations natives.
 
-2. Déployer la partie Elastic et les applications. Appliquer le patch Kibana
-   après la ressource Kibana de base ; son nom doit être
-   `es-kb-quickstart-eck-kibana` ou être adapté dans les manifestes concernés.
+2. Déployer la partie Elastic et les applications. Kubernetes est rendu par
+   Kustomize ; la ressource Kibana est entièrement gérée dans le dépôt. Son nom
+   `es-kb-quickstart-eck-kibana` doit rester cohérent avec les références Fleet
+   et APM.
    Les artefacts sont séparés par responsabilité : `platform/elk/` contient
    toute la plateforme Elastic (manifests Kubernetes, Fleet, dashboards et
    scripts), tandis que `apps/apm-demo/` contient le code et les manifests de
@@ -117,22 +120,14 @@ allocations natives.
    plateforme ELK : ils constituent la chaîne d'ingestion, pas l'application.
 
    ```bash
-   kubectl apply -f platform/elk/kubernetes/elasticsearch-resources.yaml
-   kubectl apply -f platform/elk/kubernetes/kibana-fleet-patch.yaml
-   kubectl apply -f platform/elk/kubernetes/fleet-server.yaml
-   kubectl apply -f platform/elk/kubernetes/apm-server.yaml
-   kubectl apply -f platform/elk/kubernetes/otel-collector-gateway.yaml
-   kubectl apply -f platform/elk/kubernetes/otel-collector-infrastructure.yaml
-   kubectl apply -f platform/elk/kubernetes/elastic-ingress.yaml
-   kubectl apply -f platform/elk/kubernetes/kubernetes-logs-agent.yaml
-   kubectl apply -f apps/apm-demo/kubernetes/namespace.yaml
-   kubectl apply -f apps/apm-demo/kubernetes/deployment.yaml
+   kubectl apply -k platform/kubernetes/overlays/local
+   kubectl apply -k apps/apm-demo/kubernetes
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
    kubectl -n apm-demo get deploy,pods,svc
    ```
 
 3. La configuration Fleet MongoDB/Kafka est déclarée dans
-   `platform/elk/kubernetes/kibana-fleet-patch.yaml` et est appliquée avec
+   `platform/kubernetes/base/observability/kibana.yaml` et est appliquée avec
    Kibana. Depuis l'hôte, ne synchroniser que les pipelines Elasticsearch
    complémentaires :
 
@@ -272,18 +267,23 @@ L’inventaire utilise les ports SSH et clés privées générés par Vagrant ; 
 donc valide après un `vagrant up` et doit être exécuté depuis la racine du
 dépôt.
 
-### Policies Fleet par VM
+### Policy Fleet commune aux VM
 
-MongoDB Overview et les vues Kafka utilisent `service.address`. Le playbook
-suivant crée trois policies Fleet d'observabilité, une par VM, configure
-respectivement `192.168.33.10`, `.11` et `.12` pour MongoDB (`27017`) et Kafka
-(`9092`), puis réaffecte les agents en ligne à leur policy dédiée :
+La policy `mongodb-hosts` et ses intégrations MongoDB/Kafka sont déclarées dans
+`platform/kubernetes/base/observability/kibana.yaml`. Les trois Agents sur
+`data-01`, `data-02` et `data-03` doivent être enrôlés avec le **même** token de
+cette policy. Comme chaque Agent collecte `localhost`, les métriques restent
+correctement attribuées à leur VM avec `host.name` et `service.address`.
+
+Pour migrer des Agents déjà inscrits dans des policies historiques vers cette
+policy commune, exécuter :
 
 ```bash
 KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
 ```
 
-Le playbook cible par défaut l’Ingress local `127.0.0.1` avec le nom d’hôte
+Le playbook ne crée ni policy ni package policy : Kubernetes reste la source de
+vérité. Il cible par défaut l’Ingress local `127.0.0.1` avec le nom d’hôte
 `kibana.poc.test`. Si Kibana est exposé ailleurs, remplacer ces valeurs sans
 modifier le playbook :
 

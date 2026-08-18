@@ -1,13 +1,13 @@
-# Kubernetes ELK
+# Observabilité Kubernetes : base
 
-Les manifests de ce dossier constituent la couche d'observabilité Kubernetes.
+Les manifests de ce dossier constituent la base de la couche d'observabilité Kubernetes.
 Ils utilisent les ressources personnalisées ECK ; l'opérateur ECK doit donc être
 installé avant leur application.
 
 ## Lire les manifests dans cet ordre
 
 1. `elasticsearch-resources.yaml` : stockage et Kibana de base.
-2. `kibana-fleet-patch.yaml`, puis `fleet-server.yaml` : gestion centralisée des
+2. `kibana.yaml`, puis `fleet-server.yaml` : gestion centralisée des
    Elastic Agents. Le patch contient aussi les outputs, packages et policies
    MongoDB/Kafka préconfigurés dans `xpack.fleet`.
 3. `apm-server.yaml` : endpoint d'ingestion APM.
@@ -16,9 +16,8 @@ installé avant leur application.
 6. `kubernetes-logs-agent.yaml` : collecte des logs des pods.
 7. `elastic-ingress.yaml` : exposition TLS via Traefik.
 
-Utiliser `make elk-deploy` pour les éléments liés aux applications. Les
-ressources de base et l'Ingress restent applicables explicitement, comme décrit
-dans le README racine.
+Utiliser `make elk-deploy` ou `kubectl apply -k
+platform/kubernetes/overlays/local` pour appliquer ce bundle complet.
 
 ## Documentation externe
 

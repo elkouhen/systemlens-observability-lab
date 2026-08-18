@@ -1,7 +1,7 @@
 # Policies Fleet et Elastic Agent
 
 La configuration Fleet de référence est déclarée dans
-[`../kubernetes/kibana-fleet-patch.yaml`](../kubernetes/kibana-fleet-patch.yaml),
+[`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml),
 dans `xpack.fleet`. ECK la transmet à Kibana au démarrage : aucun script hôte
 ne crée les package policies standards MongoDB/Kafka.
 
