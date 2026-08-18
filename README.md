@@ -19,6 +19,20 @@ Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
 `apm-demo-worker` la consomme puis écrit le résultat dans MongoDB. L’endpoint
 `/api/work` exerce également le chemin HTTP entre les deux applications.
 
+## Guides de lecture
+
+Avant de modifier une configuration, suivre les README locaux :
+
+- [`platform/README.md`](platform/README.md) : point d'entrée de la plateforme ;
+- [`platform/elk/README.md`](platform/elk/README.md) : chaîne de télémétrie
+  Elastic et ses sous-répertoires ;
+- [`apps/README.md`](apps/README.md) : séparation entre plateforme et workloads ;
+- [`ansible/README.md`](ansible/README.md) : infrastructure des VM et templates ;
+- [`scripts/README.md`](scripts/README.md) : outils de diagnostic partagés.
+
+Ces documents listent un ordre de lecture, les commandes associées et les
+références officielles nécessaires pour comprendre les choix de configuration.
+
 ## Organisation du dépôt
 
 ```
