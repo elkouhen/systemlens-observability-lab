@@ -42,10 +42,11 @@ data streams `logs-*` et `metrics-*`; elle est fournie à Vagrant par
 `ELASTICSEARCH_API_KEY` et n’est jamais versionnée.
 
 Les opérations courantes sont regroupées dans le `Makefile` : `make help`
-affiche les cibles disponibles, notamment `make elastic-password`, `make
-apm-token`, `make elasticsearch-api-key`, `make deploy` et `make vm-provision`.
+affiche les cibles disponibles, sous la convention `ressource-action`, notamment
+`make elastic-password-show`, `make apm-token-show`,
+`make elasticsearch-api-key-create`, `make platform-deploy` et `make vm-provision`.
 Pour charger les secrets nécessaires dans le shell courant sans les afficher,
-utiliser `source ./scripts/load-credentials.sh` (ou `make credentials` pour
+utiliser `source ./scripts/load-credentials.sh` (ou `make credentials-show` pour
 afficher cette commande).
 
 ## Déploiement
@@ -88,13 +89,10 @@ allocations natives.
    kubectl apply -f kubernetes/kibana-fleet-patch.yaml
    kubectl apply -f kubernetes/fleet-server.yaml
    kubectl apply -f kubernetes/apm-server.yaml
+   kubectl apply -f kubernetes/otel-collector-gateway.yaml
    kubectl apply -f kubernetes/elastic-ingress.yaml
    kubectl apply -f kubernetes/kubernetes-logs-agent.yaml
    kubectl apply -f kubernetes/apm-demo-namespace.yaml
-   kubectl -n elastic-stack get secret apm-server-apm-http-certs-public \
-     -o jsonpath='{.data.ca\.crt}' | base64 --decode | \
-     kubectl -n apm-demo create secret generic apm-server-apm-http-certs-public \
-       --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
    kubectl apply -f kubernetes/apm-demo.yaml
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
    kubectl -n apm-demo get deploy,pods,svc
@@ -142,11 +140,16 @@ téléchargement.
 
 - Tracing et logs applicatifs : l’agent Java OpenTelemetry est chargé dans les
   deux images. Les Deployments injectent l’identité de service (nom, version,
-  namespace et environnement), le token APM, le CA ECK et l’endpoint OTLP
-  HTTP/protobuf. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
+  namespace et environnement) et l’endpoint OTLP HTTP/protobuf du gateway.
+  Celui-ci est répliqué, limite la mémoire, regroupe les événements et les
+  retransmet avec retry vers APM Server en TLS ; le token APM reste uniquement
+  dans le namespace `elastic-stack`. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
   le MDC du Java agent y ajoute les identifiants de trace. L’Agent Kubernetes
   les normalise en `trace.id` et `span.id` avant indexation pour naviguer d’un
-  log à la trace correspondante.
+  log à la trace correspondante. Le récepteur OTLP du gateway est un Service
+  Kubernetes interne sans TLS, approprié au réseau isolé de ce POC. En
+  production, le protéger par une `NetworkPolicy` et chiffrer ce tronçon avec
+  mTLS ou le service mesh retenu.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
   namespace `apm-demo`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.
@@ -154,10 +157,10 @@ téléchargement.
   `replstatus` et `status` toutes les 60 s.
 - Kafka : l’intégration interroge le broker local et Jolokia local
   (`127.0.0.1:8778`) pour les métriques KRaft, JVM, réseau,
-  réplication et topics. Les métriques JMX des clients producteur et consommateur
-  sont aussi collectées depuis `data-01` ; les policies Fleet par VM les
-  déploient avec une condition empêchant leur exécution sur les autres VM. Le
-  port Jolokia des brokers n’est pas publié sur le réseau privé.
+  réplication et topics. Les métriques JMX des applications producteur et
+  consommateur sont collectées depuis Kubernetes ; elles ne sont pas interrogées
+  par les agents des VM. Le port Jolokia des brokers n’est pas publié sur le
+  réseau privé.
   Les événements Jolokia sont étiquetés avec l’IP de la VM dans
   `service.address`, jamais avec l’adresse locale de scrape.
 - Filebeat remonte les journaux Rocky, MongoDB et Kafka des VM. Metricbeat

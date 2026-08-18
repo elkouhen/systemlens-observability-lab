@@ -21,8 +21,12 @@
     fleet_packages:
       - { file: elastic-agent/mongodb-package-policy.json, prefix: mongodb }
       - { file: elastic-agent/kafka-package-policy.json, prefix: kafka }
-      - { file: elastic-agent/kafka-producer-client-package-policy.json, prefix: kafka-producer-client }
-      - { file: elastic-agent/kafka-consumer-client-package-policy.json, prefix: kafka-consumer-client }
+    # Les métriques JMX des applications sont collectées depuis Kubernetes.
+    # Les anciennes package policies Fleet sur les VM interrogent des endpoints
+    # retirés et font passer l'agent en état degraded (HTTP 404).
+    obsolete_fleet_package_prefixes:
+      - kafka-producer-client
+      - kafka-consumer-client
 
   module_defaults:
     ansible.builtin.uri:
@@ -68,6 +72,20 @@
         url: "{{ kibana_url }}/api/fleet/package_policies?perPage=100"
         method: GET
       register: existing_package_policies
+
+    - name: Supprimer les anciennes package policies Jolokia applicatives
+      ansible.builtin.uri:
+        url: "{{ kibana_url }}/api/fleet/package_policies/{{ existing_policy.id }}"
+        method: DELETE
+      vars:
+        existing_policy: >-
+          {{
+            existing_package_policies.json['items']
+            | selectattr('name', 'equalto', item.1 ~ '-' ~ item.0.name)
+            | list | first | default({})
+          }}
+      loop: "{{ fleet_nodes | product(obsolete_fleet_package_prefixes) | list }}"
+      when: existing_policy.id is defined
 
     - name: Créer les package policies dédiées à chaque VM
       ansible.builtin.uri:
@@ -125,7 +143,7 @@
         method: GET
       register: fleet_agents
 
-    - name: Réaffecter chaque agent en ligne à sa policy dédiée
+    - name: Réaffecter chaque agent actif à sa policy dédiée
       ansible.builtin.uri:
         url: "{{ kibana_url }}/api/fleet/agents/{{ agent.id }}/reassign"
         method: POST
@@ -137,7 +155,8 @@
           {{
             fleet_agents.json['items']
             | selectattr('local_metadata.host.hostname', 'equalto', item.name)
-            | selectattr('status', 'equalto', 'online')
+            | selectattr('active', 'equalto', true)
+            | rejectattr('status', 'equalto', 'offline')
             | list | first | default({})
           }}
       loop: "{{ fleet_nodes }}"
