@@ -101,7 +101,10 @@ spec:
                 vars:
                   hosts:
                     - localhost:27017
-                  ssl.enabled: false
+                  # Les clés de variables contenant un point doivent être
+                  # protégées par des crochets : sinon Kibana les interprète
+                  # comme une arborescence de configuration (`ssl.enabled`).
+                  '[ssl.enabled]': false
                 streams:
                   '[mongodb.collstats]':
                     enabled: true
