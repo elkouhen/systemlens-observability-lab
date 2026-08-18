@@ -14,7 +14,14 @@ Déployer l'environnement local :
 kubectl apply -k platform/kubernetes/overlays/local
 ```
 
-Les CRD ECK et Traefik restent des prérequis de bootstrap du cluster. Les
-secrets ne sont volontairement pas stockés ici : ils doivent être fournis par
-un gestionnaire de secrets (SOPS ou External Secrets) avant un déploiement
-GitOps autonome.
+Les CRD ECK, Traefik et Elasticsearch restent des prérequis de bootstrap du
+cluster. Dans l'environnement actuel, Elasticsearch est possédé par la release
+Helm `es-kb-quickstart` ; il est donc volontairement exclu de ce bundle pour
+éviter deux contrôleurs de cycle de vie sur la même ressource. Les secrets ne
+sont pas stockés ici : ils doivent être fournis par un gestionnaire de secrets
+(SOPS ou External Secrets) avant un déploiement GitOps autonome.
+
+Pour un Elasticsearch déjà existant, la configuration de stockage ne doit pas
+être ajoutée rétrospectivement : ECK interdit ce changement. Prévoir une
+migration dédiée par snapshot/restauration vers un nouveau cluster avec ses
+`volumeClaimTemplates` déclarés dès la création.

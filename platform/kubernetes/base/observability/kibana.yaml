@@ -92,7 +92,6 @@ spec:
             name: mongodb-fleet
             package:
               name: mongodb
-              version: 1.24.0
             inputs:
               mongodb-logfile:
                 enabled: false
@@ -130,7 +129,6 @@ spec:
             name: kafka-fleet
             package:
               name: kafka
-              version: 1.27.2
             inputs:
               kafka-logfile:
                 enabled: false

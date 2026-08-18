@@ -1,3 +1,6 @@
+# Référence de configuration pour une future migration d'Elasticsearch vers
+# GitOps. Ne pas ajouter ce fichier au kustomization tant que la release Helm
+# `es-kb-quickstart` en est propriétaire.
 apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
 metadata:
@@ -17,11 +20,3 @@ spec:
                   memory: 2Gi
                 limits:
                   memory: 2Gi
-      volumeClaimTemplates:
-        - metadata:
-            name: elasticsearch-data
-          spec:
-            accessModes: [ReadWriteOnce]
-            resources:
-              requests:
-                storage: 20Gi
