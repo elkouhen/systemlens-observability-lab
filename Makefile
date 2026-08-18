@@ -29,12 +29,12 @@ k8s-status: ## Afficher l’état Elastic, APM Server et applications
 vm-status: ## Vérifier les conteneurs MongoDB et Kafka des VM
 	@./scripts/cluster-status.sh
 
-build: ## Construire les images applicatives OpenTelemetry (version 1.0.2)
-	@docker build --target frontend -t apm-demo:1.0.2 apm-demo
-	@docker build --target worker -t apm-demo-worker:1.0.2 apm-demo
+build: ## Construire les images applicatives OpenTelemetry (version 1.0.3)
+	@docker build --target frontend -t apm-demo:1.0.3 apm-demo
+	@docker build --target worker -t apm-demo-worker:1.0.3 apm-demo
 
 import-images: ## Importer les images dans le cluster k3d
-	@k3d image import -c $(K3D_CLUSTER) apm-demo:1.0.2 apm-demo-worker:1.0.2
+	@k3d image import -c $(K3D_CLUSTER) apm-demo:1.0.3 apm-demo-worker:1.0.3
 
 copy-apm-ca: ## Copier le CA public APM Server vers le namespace applicatif
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-http-certs-public \

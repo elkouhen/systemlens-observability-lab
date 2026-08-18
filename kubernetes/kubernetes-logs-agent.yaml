@@ -110,3 +110,16 @@ spec:
                   target: ""
                   overwrite_keys: true
                   expand_keys: true
+              # Le Java agent OpenTelemetry renseigne le MDC avec les noms
+              # trace_id/span_id. Les normaliser ici conserve un JSON ECS
+              # strict dans Elasticsearch et active la navigation log-trace.
+              - rename:
+                  fields:
+                    - from: trace_id
+                      to: trace.id
+                    - from: span_id
+                      to: span.id
+                    - from: trace_flags
+                      to: labels.otel_trace_flags
+                  ignore_missing: true
+                  fail_on_error: false

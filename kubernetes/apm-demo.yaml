@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: apm-demo
-          image: apm-demo:1.0.2
+          image: apm-demo:1.0.3
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -25,8 +25,16 @@ spec:
           env:
             - name: OTEL_SERVICE_NAME
               value: apm-demo
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: local
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: deployment.environment.name=local
+              value: service.namespace=apm-demo,service.version=1.0.0,deployment.environment.name=local
+            # Le Java agent ajoute trace_id/span_id au MDC Logback. L'encodeur
+            # ECS les sérialise en trace.id/span.id pour la navigation log-trace.
+            - name: OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED
+              value: "true"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: https://apm-server-apm-http.elastic-stack.svc:8200
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
@@ -110,7 +118,7 @@ spec:
     spec:
       containers:
         - name: apm-demo-worker
-          image: apm-demo-worker:1.0.2
+          image: apm-demo-worker:1.0.3
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -120,8 +128,14 @@ spec:
           env:
             - name: OTEL_SERVICE_NAME
               value: apm-demo-worker
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: local
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: deployment.environment.name=local
+              value: service.namespace=apm-demo,service.version=1.0.0,deployment.environment.name=local
+            - name: OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED
+              value: "true"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: https://apm-server-apm-http.elastic-stack.svc:8200
             - name: OTEL_EXPORTER_OTLP_PROTOCOL

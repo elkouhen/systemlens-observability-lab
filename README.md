@@ -29,7 +29,7 @@ Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
   ```
 - un cluster Kubernetes avec l’opérateur ECK, Traefik et les ressources
   Elasticsearch/Kibana initiales dans `elastic-stack` ;
-- une image locale multi-stage `apm-demo:1.0.2` / `apm-demo-worker:1.0.2`
+- une image locale multi-stage `apm-demo:1.0.3` / `apm-demo-worker:1.0.3`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -140,9 +140,13 @@ téléchargement.
 
 ## Configurations d’observabilité réalisées
 
-- Tracing : l’agent Java OpenTelemetry est chargé dans les deux images. Les
-  services, l’environnement `local`, le token APM, le CA ECK et l’endpoint
-  OTLP HTTP/protobuf de l’APM Server sont injectés par les Deployments.
+- Tracing et logs applicatifs : l’agent Java OpenTelemetry est chargé dans les
+  deux images. Les Deployments injectent l’identité de service (nom, version,
+  namespace et environnement), le token APM, le CA ECK et l’endpoint OTLP
+  HTTP/protobuf. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
+  le MDC du Java agent y ajoute les identifiants de trace. L’Agent Kubernetes
+  les normalise en `trace.id` et `span.id` avant indexation pour naviguer d’un
+  log à la trace correspondante.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
   namespace `apm-demo`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.

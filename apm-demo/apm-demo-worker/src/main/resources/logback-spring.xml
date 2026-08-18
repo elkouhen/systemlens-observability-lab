@@ -1,9 +1,11 @@
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="co.elastic.logging.logback.EcsEncoder">
-            <serviceName>${ELASTIC_APM_SERVICE_NAME:-apm-demo-worker}</serviceName>
-            <serviceEnvironment>${ELASTIC_APM_ENVIRONMENT:-local}</serviceEnvironment>
-            <serviceVersion>1.0.0</serviceVersion>
+            <serviceName>${OTEL_SERVICE_NAME:-apm-demo-worker}</serviceName>
+            <serviceEnvironment>${DEPLOYMENT_ENVIRONMENT:-local}</serviceEnvironment>
+            <serviceVersion>${SERVICE_VERSION:-1.0.0}</serviceVersion>
+            <serviceNodeName>${HOSTNAME:-unknown}</serviceNodeName>
+            <eventDataset>${OTEL_SERVICE_NAME:-apm-demo-worker}</eventDataset>
         </encoder>
     </appender>
 
