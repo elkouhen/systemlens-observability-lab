@@ -41,12 +41,13 @@ ensure_agent_policy() {
 ensure_agent_policy "mongodb-hosts" "MongoDB hosts"
 
 sync_package_policy() {
-  local policy_file="$1" policy_name policy_id
+  local policy_file="$1" policy_name policy_id policy_payload
   policy_name="$(jq -r '.name' "${policy_file}")"
+  policy_payload="$(<"${policy_file}")"
   policy_id="$(api "${kibana_url}/api/fleet/package_policies?perPage=100" | jq -r --arg name "${policy_name}" '.items[] | select(.name == $name) | .id' | head -n1)"
 
   if [[ -z "${policy_id}" ]]; then
-    api -X POST "${kibana_url}/api/fleet/package_policies" --data-binary "@${policy_file}" >/dev/null
+  api -X POST "${kibana_url}/api/fleet/package_policies" --data "${policy_payload}" >/dev/null
     printf 'Package policy created: %s\n' "${policy_name}"
     return
   fi
@@ -54,13 +55,12 @@ sync_package_policy() {
   # La mise a jour conserve l'identifiant de la package policy et evite une
   # fenetre sans collecte. L'API Fleet accepte le meme schema que la creation.
   api -X PUT "${kibana_url}/api/fleet/package_policies/${policy_id}" \
-    --data-binary "@${policy_file}" >/dev/null
+    --data "${policy_payload}" >/dev/null
   printf 'Package policy updated: %s\n' "${policy_name}"
 }
 
 sync_package_policy "${project_dir}/elastic-agent/mongodb-package-policy.json"
 sync_package_policy "${project_dir}/elastic-agent/kafka-package-policy.json"
-sync_package_policy "${project_dir}/elastic-agent/system-package-policy.json"
 
 # Les endpoints Jolokia applicatifs ne sont plus publies hors du cluster. Les
 # anciennes policies doivent donc etre retirees lors de la migration, sinon
@@ -76,9 +76,29 @@ remove_package_policy() {
 
 remove_package_policy "kafka-producer-client-fleet"
 remove_package_policy "kafka-consumer-client-fleet"
+remove_package_policy "system-fleet"
 
 # Les pipelines @custom sont conserves lors des mises a jour de packages.
 curl "${elasticsearch_args[@]}" -X PUT \
   "${elasticsearch_url}/_ingest/pipeline/metrics-kafka.topic@custom" \
   --data-binary "@${project_dir}/elastic-agent/kafka-topic-ingest-pipeline.json" >/dev/null
 printf 'Ingest pipeline updated: metrics-kafka.topic@custom\n'
+
+# L'endpoint Jolokia reste volontairement local à chaque VM. Les métriques
+# doivent toutefois identifier le broker qui les a produites, pas localhost.
+for dataset in controller jvm network log_manager replica_manager topic raft; do
+  pipeline="metrics-kafka.${dataset}@custom"
+  existing="$(curl "${elasticsearch_args[@]}" "${elasticsearch_url}/_ingest/pipeline/${pipeline}" 2>/dev/null || printf '{}')"
+  payload="$(jq --arg pipeline "${pipeline}" '
+    .[$pipeline] // {description: "Kafka custom processors", processors: []}
+    # L API GET ajoute ces champs en lecture seule ; ne jamais les renvoyer
+    # dans le PUT, sinon Elasticsearch repond 400.
+    | del(.created_date_millis, .modified_date_millis)
+    | .processors = ([.processors[] | select(.set.tag != "set-kafka-service-address")] +
+        [{set: {tag: "set-kafka-service-address", field: "service.address", value: "{{{host.name}}}", override: true}}])
+  ' <<<"${existing}")"
+  curl "${elasticsearch_args[@]}" -X PUT \
+    "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \
+    --data "${payload}" >/dev/null
+done
+printf 'Kafka service.address pipelines updated\n'

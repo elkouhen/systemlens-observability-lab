@@ -1,6 +1,6 @@
 {
   "name": "kafka-fleet",
-  "description": "Logs et metriques Kafka KRaft du POC via Podman et Jolokia",
+  "description": "Metriques Kafka KRaft du POC via Podman et Jolokia (logs gérés par Filebeat)",
   "namespace": "default",
   "policy_ids": ["mongodb-hosts"],
   "package": {
@@ -12,7 +12,7 @@
     {
       "type": "logfile",
       "policy_template": "kafka",
-      "enabled": true,
+      "enabled": false,
       "streams": [
         {
           "enabled": true,

@@ -2,14 +2,14 @@
 
 Ce dépôt déploie un environnement de recette destiné à valider la visibilité
 de bout en bout dans Elastic : infrastructure, Kafka, MongoDB et deux
-applications Java instrumentées APM.
+applications Java instrumentées avec OpenTelemetry.
 
 ## Architecture
 
 | Composant | Implantation | Configuration principale | Données observées |
 | --- | --- | --- | --- |
 | Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | ECK 9.5.1, TLS ECK, accès Traefik | APM, logs et métriques |
-| `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM | métriques System, journaux système |
+| `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM, Filebeat et Metricbeat | métriques System, journaux système |
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
 | `apm-demo` | Kubernetes, namespace `apm-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
@@ -29,7 +29,7 @@ Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
   ```
 - un cluster Kubernetes avec l’opérateur ECK, Traefik et les ressources
   Elasticsearch/Kibana initiales dans `elastic-stack` ;
-- une image locale multi-stage `apm-demo:1.0.0` / `apm-demo-worker:1.0.0`
+- une image locale multi-stage `apm-demo:1.0.2` / `apm-demo-worker:1.0.2`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -37,24 +37,36 @@ Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
 Les certificats publics ne sont pas inclus : créer le secret TLS
 `elastic-public-tls` dans `elastic-stack` avant d’appliquer les IngressRoutes.
 Les secrets ECK, notamment `apm-server-apm-token`, sont créés et gérés par ECK.
+Créer également une clé API Elasticsearch ayant les droits d’écriture sur les
+data streams `logs-*` et `metrics-*`; elle est fournie à Vagrant par
+`ELASTICSEARCH_API_KEY` et n’est jamais versionnée.
+
+Les opérations courantes sont regroupées dans le `Makefile` : `make help`
+affiche les cibles disponibles, notamment `make elastic-password`, `make
+apm-token`, `make elasticsearch-api-key`, `make deploy` et `make vm-provision`.
+Pour charger les secrets nécessaires dans le shell courant sans les afficher,
+utiliser `source ./scripts/load-credentials.sh` (ou `make credentials` pour
+afficher cette commande).
 
 ## Déploiement
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
    `ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
-   MongoDB/Kafka, les limites mémoire et Elastic Agent. Le token Fleet n’est
-   jamais enregistré dans Git : le fournir seulement dans l’environnement de
-   la commande.
+   MongoDB/Kafka, les limites mémoire, Filebeat et Metricbeat. La clé API
+   Elasticsearch n’est jamais enregistrée dans Git : la fournir seulement dans
+   l’environnement de la commande.
 
    ```bash
-   export FLEET_ENROLLMENT_TOKEN='…'
+   export ELASTICSEARCH_API_KEY='id:api_key'
+   export FLEET_ENROLLMENT_TOKEN='…' # métriques MongoDB/Kafka spécialisées
    vagrant up
    ./scripts/cluster-status.sh
    ```
 
    Chaque VM installe MongoDB 8.0 et Kafka 3.9.2 sous Podman, via des unités
    systemd Quadlet. Ansible ouvre uniquement les ports inter-nœuds nécessaires
-   et enrôle l’agent dans la policy Fleet `mongodb-hosts`.
+   et démarre Filebeat et Metricbeat. Avec le token Fleet, il conserve aussi
+   les intégrations MongoDB/Kafka dédiées à leurs métriques métier.
 
 Chaque conteneur MongoDB et Kafka est plafonné à `512 Mio`. Kafka utilise un
 heap JVM fixe de `256 Mio` et MongoDB limite le cache WiredTiger à `256 Mio`.
@@ -79,22 +91,24 @@ allocations natives.
    kubectl apply -f kubernetes/elastic-ingress.yaml
    kubectl apply -f kubernetes/kubernetes-logs-agent.yaml
    kubectl apply -f kubernetes/apm-demo-namespace.yaml
+   kubectl -n elastic-stack get secret apm-server-apm-http-certs-public \
+     -o jsonpath='{.data.ca\.crt}' | base64 --decode | \
+     kubectl -n apm-demo create secret generic apm-server-apm-http-certs-public \
+       --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
    kubectl apply -f kubernetes/apm-demo.yaml
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
    kubectl -n apm-demo get deploy,pods,svc
    ```
 
-3. Créer ou récupérer dans Fleet un token d’enrôlement de la policy
-   `mongodb-hosts`, puis exécuter `vagrant provision` si les VM existent déjà.
-   Synchroniser ensuite les intégrations Fleet depuis l’hôte :
+3. Synchroniser les intégrations Fleet MongoDB/Kafka depuis l’hôte :
 
    ```bash
    export KIBANA_PASSWORD='…'
    ./scripts/sync-fleet-policies.sh
    ```
 
-   Le script crée la policy `mongodb-hosts`, configure les packages System,
-   MongoDB et Kafka, et installe le pipeline
+   Le script crée la policy `mongodb-hosts`, configure les packages MongoDB et
+   Kafka (sans les entrées System désormais prises en charge par les Beats), et installe le pipeline
    `metrics-kafka.topic@custom`. Il retire intentionnellement les anciennes
    policies Jolokia applicatives : leurs endpoints ne sont plus exposés hors
    du cluster.
@@ -112,50 +126,39 @@ POC_REDEPLOY_SERVICES=true vagrant provision
 
 La relance recrée les conteneurs à partir des unités Quadlet, attend MongoDB,
 réinitialise seulement si nécessaire le replica set et réajoute idempotemment
-les membres. Pour refaire également l’enrôlement Fleet, fournir un nouveau
-token et activer le mode dédié :
-
-```bash
-FLEET_ENROLLMENT_TOKEN='…' ELASTIC_AGENT_FORCE_REENROLL=true \
-  POC_REDEPLOY_SERVICES=true vagrant provision
-```
-
-Ce dernier mode désinstalle puis réinstalle Elastic Agent sur chaque VM ; il ne
-supprime ni les données MongoDB/Kafka ni les policies Fleet.
-
-Le certificat Fleet public du POC est auto-signé. Le playbook installe le
+les membres. Le playbook installe le
 certificat public d’Elasticsearch dans le magasin de confiance système de
 chaque VM avant de démarrer les collecteurs ; cette opération est gérée
-uniquement par Ansible. `--insecure` reste limité à l’enrôlement initial.
-Pour un environnement non-POC, déployer une PKI de confiance et définir
-`fleet_insecure: false`.
+uniquement par Ansible. Pour un environnement non-POC, déployer une PKI de
+confiance.
 
-Les artefacts Jolokia et Elastic Agent sont conservés respectivement sous
+Les artefacts Jolokia, Filebeat et Metricbeat sont conservés sous
 `/opt/poc-observability` et `/var/cache/poc-observability`. Ansible utilise
 `force: false` : une nouvelle exécution ne télécharge donc pas une version déjà
-présente ; seul un changement de version Elastic Agent déclenche un nouveau
+présente ; seul un changement de version des Beats déclenche un nouveau
 téléchargement.
 
 ## Configurations d’observabilité réalisées
 
-- APM : les agents Java Elastic sont chargés dans les deux images. Les services
-  `apm-demo` et `apm-demo-worker`, l’environnement `local`, le token APM et
-  l’URL APM Server sont injectés par les Deployments. Jolokia est exclu des
-  transactions APM pour ne pas polluer les données métier.
+- Tracing : l’agent Java OpenTelemetry est chargé dans les deux images. Les
+  services, l’environnement `local`, le token APM, le CA ECK et l’endpoint
+  OTLP HTTP/protobuf de l’APM Server sont injectés par les Deployments.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
   namespace `apm-demo`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.
-- MongoDB : l’intégration Fleet lit `/var/log/mongodb/mongod.log` et collecte
-  `collstats`, `dbstats`, `metrics`, `replstatus` et `status` toutes les 60 s.
-- Kafka : l’intégration lit `/var/log/kafka`, interroge le broker local et
-  Jolokia local (`127.0.0.1:8778`) pour les métriques KRaft, JVM, réseau,
+- MongoDB : l’intégration Fleet collecte `collstats`, `dbstats`, `metrics`,
+  `replstatus` et `status` toutes les 60 s.
+- Kafka : l’intégration interroge le broker local et Jolokia local
+  (`127.0.0.1:8778`) pour les métriques KRaft, JVM, réseau,
   réplication et topics. Les métriques JMX des clients producteur et consommateur
   sont aussi collectées depuis `data-01` ; les policies Fleet par VM les
   déploient avec une condition empêchant leur exécution sur les autres VM. Le
   port Jolokia des brokers n’est pas publié sur le réseau privé.
-- Système : CPU, mémoire, charge, réseau, processus, disponibilité et disques
-  sont remontés ; les pseudo-systèmes de fichiers sont exclus. Les journaux
-  Rocky `/var/log/messages*` et `/var/log/secure*` sont collectés.
+  Les événements Jolokia sont étiquetés avec l’IP de la VM dans
+  `service.address`, jamais avec l’adresse locale de scrape.
+- Filebeat remonte les journaux Rocky, MongoDB et Kafka des VM. Metricbeat
+  remonte CPU, mémoire, charge, réseau, processus, disponibilité et disques;
+  les pseudo-systèmes de fichiers sont exclus.
 
 ## Recette des dashboards
 
@@ -168,12 +171,12 @@ doit créer une erreur APM contrôlée.
 | Vue Kibana | Contrôles attendus | Diagnostic si absent |
 | --- | --- | --- |
 | Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB ; erreur de démonstration | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods et le trafic généré |
-| Observability > Infrastructure > Hosts | `data-01`, `data-02`, `data-03` avec CPU, mémoire, disques et réseau | vérifier dans Fleet que les trois agents sont Healthy et la policy `system-fleet` |
+| Observability > Infrastructure > Hosts | `data-01`, `data-02`, `data-03` avec CPU, mémoire, disques et réseau | vérifier `systemctl status metricbeat` et la clé API Elasticsearch |
 | Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des deux pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
 | Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
 | Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
 
-Une validation est réussie si les trois hôtes sont sains dans Fleet, les trois
+Une validation est réussie si Filebeat et Metricbeat sont actifs sur les trois hôtes, les trois
 membres MongoDB sont `PRIMARY`/`SECONDARY`, le quorum Kafka présente trois
 voters, les deux services APM reçoivent des données et toutes les vues ci-dessus
 contiennent des événements récents. Pour isoler une panne, commencer par

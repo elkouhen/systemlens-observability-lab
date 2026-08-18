@@ -31,11 +31,6 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>co.elastic.apm</groupId>
-            <artifactId>elastic-apm-agent</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>co.elastic.logging</groupId>
             <artifactId>logback-ecs-encoder</artifactId>
         </dependency>
@@ -46,9 +41,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <jvmArguments>-javaagent:${settings.localRepository}/co/elastic/apm/elastic-apm-agent/${elastic-apm.version}/elastic-apm-agent-${elastic-apm.version}.jar</jvmArguments>
-                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -17,6 +17,9 @@ spec:
   # Le sidecar Metricbeat collecte les statistiques internes et les publie
   # au format attendu par le dashboard [APM] Monitoring Overview.
   config:
+    apm-server:
+      otlp:
+        enabled: true
     http:
       enabled: true
       host: 127.0.0.1

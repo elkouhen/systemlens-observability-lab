@@ -1,0 +1,18 @@
+metricbeat.modules:
+  - module: system
+    period: 30s
+    metricsets: [cpu, load, memory, network, process_summary, uptime]
+  - module: system
+    period: 1m
+    metricsets: [filesystem, fsstat]
+    processors:
+      - drop_event.when.regexp:
+          system.filesystem.mount_point: '^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)'
+
+processors:
+  - add_host_metadata: ~
+
+output.elasticsearch:
+  hosts: ["{{ elasticsearch_url }}"]
+  api_key: "{{ elasticsearch_api_key }}"
+  ssl.certificate_authorities: ["/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"]

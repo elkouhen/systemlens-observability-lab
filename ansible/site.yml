@@ -13,13 +13,14 @@
     mongodb_primary_ip: 192.168.33.10
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093
+    beats_version: 9.5.1
     elastic_agent_version: 9.5.1
+    # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
+    # HTTP interne du service Kubernetes.
+    elasticsearch_url: https://elasticsearch.poc.test:443
     fleet_url: https://fleet.poc.test
-    # Le certificat public du POC est auto-signé. En production, placer le CA
-    # Fleet sur les VM puis basculer cette variable à false.
     fleet_insecure: true
     poc_redeploy_services: false
-    elastic_agent_force_reenroll: false
 
   pre_tasks:
     - name: Vérifier les variables injectées par Vagrant
@@ -55,14 +56,6 @@
       # provisionnement.
       changed_when: false
       failed_when: false
-
-    - name: Redémarrer Elastic Agent après une correction d'horloge
-      ansible.builtin.systemd_service:
-        name: elastic-agent
-        state: restarted
-      when:
-        - chrony_step.changed
-        - ansible_facts.services['elastic-agent.service'] is defined
 
     - name: Identifier l'interface du réseau privé VirtualBox
       ansible.builtin.shell: |
@@ -132,14 +125,6 @@
       ansible.builtin.command: update-ca-trust extract
       when: elasticsearch_ca.changed
       changed_when: true
-
-    - name: Redémarrer Elastic Agent après mise à jour du certificat
-      ansible.builtin.systemd_service:
-        name: elastic-agent
-        state: restarted
-      when:
-        - elasticsearch_ca.changed
-        - ansible_facts.services['elastic-agent.service'] is defined
 
   tasks:
     - name: Créer les répertoires de logs
@@ -289,7 +274,10 @@
       delegate_to: data-01
 
     - name: Attendre MongoDB local
-      ansible.builtin.command: "podman exec poc-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'"
+      # `retries` ne protège pas contre un mongosh bloqué : borner chaque
+      # tentative permet à Ansible de continuer les contrôles et d'échouer
+      # explicitement après le délai global plutôt que de rester suspendu.
+      ansible.builtin.command: "timeout 15 podman exec poc-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'"
       register: mongodb_ping
       retries: 30
       delay: 2
@@ -329,16 +317,71 @@
       changed_when: "'added' in mongodb_member.stdout"
       when: poc_node_id | int > 1
 
-    - name: Installer Elastic Agent et l'enrôler dans Fleet
-      when: fleet_enrollment_token | length > 0
-      block:
-        - name: Désinstaller l'agent existant avant un réenrôlement forcé
-          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent uninstall --force
-          when:
-            - elastic_agent_force_reenroll | bool
-            - ansible_facts.services['elastic-agent.service'] is defined
-          changed_when: true
+    - name: Vérifier la clé API Elasticsearch des Beats
+      ansible.builtin.assert:
+        that: elasticsearch_api_key | default('') | length > 0
+        fail_msg: Définir ELASTICSEARCH_API_KEY avant de provisionner les VM.
 
+    - name: Installer et configurer Filebeat et Metricbeat
+      block:
+        - name: Déterminer l'architecture des Beats
+          ansible.builtin.set_fact:
+            beats_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+        - name: Télécharger les archives Filebeat et Metricbeat
+          ansible.builtin.get_url:
+            url: "https://artifacts.elastic.co/downloads/beats/{{ item }}/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
+            dest: "/var/cache/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
+            mode: '0644'
+            force: false
+          loop: [filebeat, metricbeat]
+
+        - name: Extraire Filebeat et Metricbeat
+          ansible.builtin.unarchive:
+            src: "/var/cache/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
+            dest: /opt/poc-observability
+            remote_src: true
+            creates: "/opt/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}/{{ item }}"
+          loop: [filebeat, metricbeat]
+
+        - name: Créer les répertoires de configuration des Beats
+          ansible.builtin.file:
+            path: "/etc/{{ item }}"
+            state: directory
+            mode: '0750'
+          loop: [filebeat, metricbeat]
+
+        - name: Déployer la configuration des Beats
+          ansible.builtin.template:
+            src: "{{ item }}.yml.j2"
+            dest: "/etc/{{ item }}/{{ item }}.yml"
+            mode: '0600'
+          loop: [filebeat, metricbeat]
+          no_log: true
+
+        - name: Installer les services systemd des Beats
+          ansible.builtin.template:
+            src: beat.service.j2
+            dest: "/etc/systemd/system/{{ item }}.service"
+            mode: '0644'
+          loop: [filebeat, metricbeat]
+
+        - name: Recharger systemd après l'installation des Beats
+          ansible.builtin.systemd_service:
+            daemon_reload: true
+
+        - name: Redémarrer Filebeat et Metricbeat après mise à jour de leur configuration
+          ansible.builtin.systemd_service:
+            name: "{{ item }}"
+            enabled: true
+            state: restarted
+          loop: [filebeat, metricbeat]
+
+    # Fleet demeure utilisé uniquement pour les intégrations MongoDB et Kafka.
+    # Les entrées System et les fichiers de logs y sont explicitement désactivés.
+    - name: Installer Elastic Agent pour les intégrations MongoDB et Kafka
+      when: fleet_enrollment_token | default('') | length > 0
+      block:
         - name: Déterminer l'architecture Elastic Agent
           ansible.builtin.set_fact:
             elastic_agent_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"

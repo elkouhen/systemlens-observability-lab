@@ -1,0 +1,30 @@
+filebeat.inputs:
+  - type: filestream
+    id: rocky-system-logs
+    paths:
+      - /var/log/messages*
+      - /var/log/secure*
+    exclude_files: ['\\.gz$']
+    fields_under_root: true
+    fields:
+      event.dataset: system.syslog
+  - type: filestream
+    id: mongodb-logs
+    paths: [/var/log/mongodb/mongod.log]
+    fields_under_root: true
+    fields:
+      event.dataset: mongodb.log
+  - type: filestream
+    id: kafka-logs
+    paths: [/var/log/kafka/*.log]
+    fields_under_root: true
+    fields:
+      event.dataset: kafka.log
+
+processors:
+  - add_host_metadata: ~
+
+output.elasticsearch:
+  hosts: ["{{ elasticsearch_url }}"]
+  api_key: "{{ elasticsearch_api_key }}"
+  ssl.certificate_authorities: ["/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"]

@@ -23,7 +23,6 @@
       - { file: elastic-agent/kafka-package-policy.json, prefix: kafka }
       - { file: elastic-agent/kafka-producer-client-package-policy.json, prefix: kafka-producer-client }
       - { file: elastic-agent/kafka-consumer-client-package-policy.json, prefix: kafka-consumer-client }
-      - { file: elastic-agent/system-package-policy.json, prefix: system }
 
   module_defaults:
     ansible.builtin.uri:

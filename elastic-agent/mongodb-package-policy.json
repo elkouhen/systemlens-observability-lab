@@ -1,6 +1,6 @@
 {
   "name": "mongodb-fleet",
-  "description": "Logs et métriques MongoDB du POC",
+  "description": "Métriques MongoDB du POC (logs gérés par Filebeat)",
   "namespace": "default",
   "policy_ids": ["mongodb-hosts"],
   "package": {
@@ -12,7 +12,7 @@
     {
       "type": "logfile",
       "policy_template": "mongodb",
-      "enabled": true,
+      "enabled": false,
       "streams": [
         {
           "enabled": true,

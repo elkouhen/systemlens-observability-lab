@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: apm-demo
-          image: apm-demo:1.0.0
+          image: apm-demo:1.0.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -23,29 +23,23 @@ spec:
             - name: jmx-producer
               containerPort: 8775
           env:
-            - name: ELASTIC_APM_SERVICE_NAME
+            - name: OTEL_SERVICE_NAME
               value: apm-demo
-            - name: ELASTIC_APM_ENVIRONMENT
-              value: local
-            - name: ELASTIC_APM_APPLICATION_PACKAGES
-              value: io.systemlens.demo
-            # Reserve une future collecte Jolokia interne au cluster hors des
-            # transactions metier APM.
-            - name: ELASTIC_APM_TRANSACTION_IGNORE_URLS
-              value: /jolokia/*
-            # Jolokia embarque le serveur HTTP du JDK, distinct du serveur
-            # servlet Spring.
-            - name: ELASTIC_APM_DISABLE_INSTRUMENTATIONS
-              value: jdk-httpserver
-            - name: ELASTIC_APM_SERVER_URL
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment.name=local
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: https://apm-server-apm-http.elastic-stack.svc:8200
-            - name: ELASTIC_APM_VERIFY_SERVER_CERT
-              value: "false"
-            - name: ELASTIC_APM_SECRET_TOKEN
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: APM_SERVER_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: apm-server-apm-token
                   key: secret-token
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: Authorization=Bearer $(APM_SERVER_TOKEN)
+            - name: OTEL_EXPORTER_OTLP_CERTIFICATE
+              value: /etc/otel/certs/ca.crt
             - name: APM_DEMO_WORKER_URL
               value: http://apm-demo-worker:3001
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
@@ -64,6 +58,14 @@ spec:
               memory: 128Mi
             limits:
               memory: 512Mi
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /etc/otel/certs
+              readOnly: true
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: apm-server-apm-http-certs-public
 ---
 apiVersion: v1
 kind: Service
@@ -108,7 +110,7 @@ spec:
     spec:
       containers:
         - name: apm-demo-worker
-          image: apm-demo-worker:1.0.0
+          image: apm-demo-worker:1.0.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -116,25 +118,23 @@ spec:
             - name: jmx-consumer
               containerPort: 8774
           env:
-            - name: ELASTIC_APM_SERVICE_NAME
+            - name: OTEL_SERVICE_NAME
               value: apm-demo-worker
-            - name: ELASTIC_APM_ENVIRONMENT
-              value: local
-            - name: ELASTIC_APM_APPLICATION_PACKAGES
-              value: io.systemlens.demo
-            - name: ELASTIC_APM_TRANSACTION_IGNORE_URLS
-              value: /jolokia/*
-            - name: ELASTIC_APM_DISABLE_INSTRUMENTATIONS
-              value: jdk-httpserver
-            - name: ELASTIC_APM_SERVER_URL
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment.name=local
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: https://apm-server-apm-http.elastic-stack.svc:8200
-            - name: ELASTIC_APM_VERIFY_SERVER_CERT
-              value: "false"
-            - name: ELASTIC_APM_SECRET_TOKEN
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: APM_SERVER_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: apm-server-apm-token
                   key: secret-token
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: Authorization=Bearer $(APM_SERVER_TOKEN)
+            - name: OTEL_EXPORTER_OTLP_CERTIFICATE
+              value: /etc/otel/certs/ca.crt
             - name: SPRING_DATA_MONGODB_URI
               value: mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
@@ -153,6 +153,14 @@ spec:
               memory: 128Mi
             limits:
               memory: 512Mi
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /etc/otel/certs
+              readOnly: true
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: apm-server-apm-http-certs-public
 ---
 apiVersion: v1
 kind: Service

@@ -1,6 +1,5 @@
 package io.systemlens.demo.frontend;
 
-import co.elastic.apm.api.ElasticApm;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -42,7 +41,6 @@ public class WorkController {
     @ExceptionHandler(DemoException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     Map<String, String> handleDemoException(DemoException exception) {
-        ElasticApm.currentTransaction().captureException(exception);
         return Map.of("error", exception.getMessage());
     }
 

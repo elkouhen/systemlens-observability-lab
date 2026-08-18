@@ -10,9 +10,9 @@ NODES = [
 Vagrant.configure("2") do |config|
   config.vm.box = "cloud-image/rocky-10"
   # Secret injecte au provisionnement, jamais versionne dans le depot.
+  elasticsearch_api_key = ENV["ELASTICSEARCH_API_KEY"]
   fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
   redeploy_services = ENV.fetch("POC_REDEPLOY_SERVICES", "false") == "true"
-  force_agent_reenroll = ENV.fetch("ELASTIC_AGENT_FORCE_REENROLL", "false") == "true"
 
   NODES.each do |node_config|
     config.vm.define node_config[:name] do |node|
@@ -27,16 +27,16 @@ Vagrant.configure("2") do |config|
       end
 
       # Le playbook est idempotent : il configure le réseau, les conteneurs
-      # MongoDB/Kafka et l'agent Fleet. Le token est passé comme extra-var et
-      # n'est jamais écrit dans le dépôt.
+      # MongoDB/Kafka, Filebeat et Metricbeat. La clé API Elasticsearch est
+      # passée comme extra-var et n'est jamais écrite dans le dépôt.
       node.vm.provision "ansible" do |ansible|
         ansible.playbook = "ansible/site.yml"
         ansible.extra_vars = {
           "poc_node_id" => node_config[:id],
           "poc_node_ip" => node_config[:ip],
+          "elasticsearch_api_key" => elasticsearch_api_key || "",
           "fleet_enrollment_token" => fleet_enrollment_token || "",
-          "poc_redeploy_services" => redeploy_services,
-          "elastic_agent_force_reenroll" => force_agent_reenroll
+          "poc_redeploy_services" => redeploy_services
         }
       end
     end
