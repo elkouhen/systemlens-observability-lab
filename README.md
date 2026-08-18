@@ -29,7 +29,7 @@ Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
   ```
 - un cluster Kubernetes avec l’opérateur ECK, Traefik et les ressources
   Elasticsearch/Kibana initiales dans `elastic-stack` ;
-- une image locale multi-stage `apm-demo:1.0.3` / `apm-demo-worker:1.0.3`
+- une image locale multi-stage `apm-demo:1.0.4` / `apm-demo-worker:1.0.4`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -142,11 +142,14 @@ téléchargement.
   deux images. Les Deployments injectent l’identité de service (nom, version,
   namespace et environnement) et l’endpoint OTLP HTTP/protobuf du gateway.
   Celui-ci est répliqué, limite la mémoire, regroupe les événements et les
-  retransmet avec retry vers APM Server en TLS ; le token APM reste uniquement
-  dans le namespace `elastic-stack`. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
+  exporte directement vers Elasticsearch en TLS, avec une clé API dédiée au
+  gateway et limitée aux data streams `logs-*`, `metrics-*` et `traces-*`.
+  Le processeur `cumulativetodelta` conserve les histogrammes Micrometer. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
   le MDC du Java agent y ajoute les identifiants de trace. L’Agent Kubernetes
   les normalise en `trace.id` et `span.id` avant indexation pour naviguer d’un
-  log à la trace correspondante. Le récepteur OTLP du gateway est un Service
+  log à la trace correspondante. Les métriques Actuator/Micrometer sont exportées
+  par OTLP vers le même gateway ; les logs restent collectés sur stdout par
+  Elastic Agent, donc l’exporteur OTLP Logs est explicitement désactivé. Le récepteur OTLP du gateway est un Service
   Kubernetes interne sans TLS, approprié au réseau isolé de ce POC. En
   production, le protéger par une `NetworkPolicy` et chiffrer ce tronçon avec
   mTLS ou le service mesh retenu.
@@ -157,10 +160,10 @@ téléchargement.
   `replstatus` et `status` toutes les 60 s.
 - Kafka : l’intégration interroge le broker local et Jolokia local
   (`127.0.0.1:8778`) pour les métriques KRaft, JVM, réseau,
-  réplication et topics. Les métriques JMX des applications producteur et
-  consommateur sont collectées depuis Kubernetes ; elles ne sont pas interrogées
-  par les agents des VM. Le port Jolokia des brokers n’est pas publié sur le
-  réseau privé.
+  réplication et topics. Les applications Spring publient leurs métriques JVM,
+  HTTP, Kafka et métier via Actuator/Micrometer en OTLP vers le gateway ; elles
+  ne dépendent plus de Jolokia. Le port Jolokia des brokers n’est pas publié sur
+  le réseau privé.
   Les événements Jolokia sont étiquetés avec l’IP de la VM dans
   `service.address`, jamais avec l’adresse locale de scrape.
 - Filebeat remonte les journaux Rocky, MongoDB et Kafka des VM. Metricbeat

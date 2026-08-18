@@ -69,22 +69,6 @@ spec:
               path: /var/log/pods
   config:
     inputs:
-      - id: apm-demo-kafka-producer-jolokia
-        type: jolokia/metrics
-        streams:
-          - id: apm-demo-kafka-producer
-            data_stream: {type: metrics, dataset: kafka.producer}
-            hosts: ["http://apm-demo-jolokia.apm-demo.svc:8775"]
-            metrics_path: /jolokia
-            period: 60s
-      - id: apm-demo-kafka-consumer-jolokia
-        type: jolokia/metrics
-        streams:
-          - id: apm-demo-kafka-consumer
-            data_stream: {type: metrics, dataset: kafka.consumer}
-            hosts: ["http://apm-demo-worker-jolokia.apm-demo.svc:8774"]
-            metrics_path: /jolokia
-            period: 60s
       - id: apm-demo-container-logs
         type: filestream
         streams:

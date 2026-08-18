@@ -18,6 +18,10 @@ data:
             endpoint: ${env:MY_POD_IP}:4318
 
     processors:
+      elasticapm:
+      # Micrometer émet des histogrammes cumulatifs ; Elasticsearch OTEL les
+      # indexe en temporality delta.
+      cumulativetodelta:
       memory_limiter:
         check_interval: 1s
         limit_mib: 384
@@ -26,35 +30,38 @@ data:
         timeout: 5s
         send_batch_size: 8192
 
+    connectors:
+      elasticapm:
+
     exporters:
-      otlp_http/apm-server:
-        endpoint: https://apm-server-apm-http.elastic-stack.svc:8200
-        headers:
-          Authorization: Bearer ${env:APM_SERVER_TOKEN}
+      elasticsearch/otel:
+        endpoints: ["${env:ELASTIC_ENDPOINT}"]
+        # L'exporter attend la valeur de l'en-tête ApiKey (id:clé encodé Base64).
+        api_key: ${env:ELASTIC_API_KEY_BASE64}
+        mapping:
+          mode: otel
         tls:
-          ca_file: /etc/otel/apm-ca/ca.crt
-        compression: gzip
+          ca_file: /etc/otel/elasticsearch-ca/ca.crt
         sending_queue:
           enabled: true
           num_consumers: 4
           queue_size: 10000
-        retry_on_failure:
-          enabled: true
-          initial_interval: 1s
-          max_interval: 30s
-          max_elapsed_time: 5m
 
     service:
       extensions: [health_check]
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, batch]
-          exporters: [otlp_http/apm-server]
+          processors: [memory_limiter, elasticapm, batch]
+          exporters: [elasticapm, elasticsearch/otel]
         metrics:
           receivers: [otlp]
+          processors: [memory_limiter, cumulativetodelta, batch]
+          exporters: [elasticsearch/otel]
+        metrics/aggregated-metrics:
+          receivers: [elasticapm]
           processors: [memory_limiter, batch]
-          exporters: [otlp_http/apm-server]
+          exporters: [elasticsearch/otel]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -99,11 +106,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: APM_SERVER_TOKEN
+            - name: ELASTIC_ENDPOINT
+              value: https://elasticsearch-es-http.elastic-stack.svc:9200
+            - name: ELASTIC_API_KEY_BASE64
               valueFrom:
                 secretKeyRef:
-                  name: apm-server-apm-token
-                  key: secret-token
+                  name: otel-collector-elasticsearch-api-key
+                  key: api-key
           resources:
             requests:
               cpu: 250m
@@ -127,16 +136,16 @@ spec:
             - name: config
               mountPath: /etc/otelcol
               readOnly: true
-            - name: apm-ca
-              mountPath: /etc/otel/apm-ca
+            - name: elasticsearch-ca
+              mountPath: /etc/otel/elasticsearch-ca
               readOnly: true
       volumes:
         - name: config
           configMap:
             name: otel-collector-gateway-config
-        - name: apm-ca
+        - name: elasticsearch-ca
           secret:
-            secretName: apm-server-apm-http-certs-public
+            secretName: elasticsearch-es-http-certs-public
 ---
 apiVersion: v1
 kind: Service

@@ -23,13 +23,11 @@ spec:
     spec:
       containers:
         - name: apm-demo
-          image: apm-demo:1.0.3
+          image: apm-demo:1.0.4
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3000
-            - name: jmx-producer
-              containerPort: 8775
           env:
             - name: OTEL_SERVICE_NAME
               value: apm-demo
@@ -47,6 +45,12 @@ spec:
               value: http://otel-collector-gateway.elastic-stack.svc:4318
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: http/protobuf
+            # Les logs ECS sont collectés sur stdout par Elastic Agent : éviter
+            # l'export OTLP Logs, dont le gateway n'expose pas de pipeline logs.
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: http://otel-collector-gateway.elastic-stack.svc:4318/v1/metrics
             - name: APM_DEMO_WORKER_URL
               value: http://apm-demo-worker:3001
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
@@ -78,20 +82,6 @@ spec:
     - name: http
       port: 3000
       targetPort: http
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: apm-demo-jolokia
-  namespace: apm-demo
-spec:
-  selector:
-    app.kubernetes.io/name: apm-demo
-  ports:
-    - name: jolokia
-      port: 8775
-      targetPort: jmx-producer
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -114,13 +104,11 @@ spec:
     spec:
       containers:
         - name: apm-demo-worker
-          image: apm-demo-worker:1.0.3
+          image: apm-demo-worker:1.0.4
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3001
-            - name: jmx-consumer
-              containerPort: 8774
           env:
             - name: OTEL_SERVICE_NAME
               value: apm-demo-worker
@@ -136,6 +124,10 @@ spec:
               value: http://otel-collector-gateway.elastic-stack.svc:4318
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: http/protobuf
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: http://otel-collector-gateway.elastic-stack.svc:4318/v1/metrics
             - name: SPRING_DATA_MONGODB_URI
               value: mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
@@ -167,16 +159,3 @@ spec:
     - name: http
       port: 3001
       targetPort: http
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: apm-demo-worker-jolokia
-  namespace: apm-demo
-spec:
-  selector:
-    app.kubernetes.io/name: apm-demo-worker
-  ports:
-    - name: jolokia
-      port: 8774
-      targetPort: jmx-consumer

@@ -11,3 +11,15 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  otlp:
+    metrics:
+      export:
+        url: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:http://otel-collector-gateway.elastic-stack.svc:4318/v1/metrics}
+        step: 60s
+        compression-mode: gzip
