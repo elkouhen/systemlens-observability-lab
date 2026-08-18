@@ -83,17 +83,20 @@ allocations natives.
 2. Déployer la partie Elastic et les applications. Appliquer le patch Kibana
    après la ressource Kibana de base ; son nom doit être
    `es-kb-quickstart-eck-kibana` ou être adapté dans les manifestes concernés.
+   Les manifests sont séparés entre `kubernetes/elastic-stack/` (Elastic,
+   Kibana, Fleet et APM Server) et `kubernetes/applications/` (collecteurs et
+   applications de démonstration).
 
    ```bash
-   kubectl apply -f kubernetes/elasticsearch-resources.yaml
-   kubectl apply -f kubernetes/kibana-fleet-patch.yaml
-   kubectl apply -f kubernetes/fleet-server.yaml
-   kubectl apply -f kubernetes/apm-server.yaml
-   kubectl apply -f kubernetes/otel-collector-gateway.yaml
-   kubectl apply -f kubernetes/elastic-ingress.yaml
-   kubectl apply -f kubernetes/kubernetes-logs-agent.yaml
-   kubectl apply -f kubernetes/apm-demo-namespace.yaml
-   kubectl apply -f kubernetes/apm-demo.yaml
+   kubectl apply -f kubernetes/elastic-stack/elasticsearch-resources.yaml
+   kubectl apply -f kubernetes/elastic-stack/kibana-fleet-patch.yaml
+   kubectl apply -f kubernetes/elastic-stack/fleet-server.yaml
+   kubectl apply -f kubernetes/elastic-stack/apm-server.yaml
+   kubectl apply -f kubernetes/applications/otel-collector-gateway.yaml
+   kubectl apply -f kubernetes/elastic-stack/elastic-ingress.yaml
+   kubectl apply -f kubernetes/elastic-stack/kubernetes-logs-agent.yaml
+   kubectl apply -f kubernetes/applications/apm-demo-namespace.yaml
+   kubectl apply -f kubernetes/applications/apm-demo.yaml
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
    kubectl -n apm-demo get deploy,pods,svc
    ```
@@ -106,10 +109,11 @@ allocations natives.
    ```
 
    Le script crée la policy `mongodb-hosts`, configure les packages MongoDB et
-   Kafka (sans les entrées System désormais prises en charge par les Beats), et installe le pipeline
+   Kafka (sans les entrées System désormais prises en charge par les Beats),
+   importe également le dashboard MongoDB et installe le pipeline
    `metrics-kafka.topic@custom`. Il retire intentionnellement les anciennes
-   policies Jolokia applicatives : leurs endpoints ne sont plus exposés hors
-   du cluster.
+   policies Jolokia applicatives : leurs endpoints ne sont plus exposés hors du
+   cluster.
 
 ### Redéployer et corriger
 
@@ -153,6 +157,11 @@ téléchargement.
   Kubernetes interne sans TLS, approprié au réseau isolé de ce POC. En
   production, le protéger par une `NetworkPolicy` et chiffrer ce tronçon avec
   mTLS ou le service mesh retenu.
+- Infrastructure Kubernetes : un collector EDOT DaemonSet collecte les métriques
+  hôte et Kubelet (nœuds, pods, conteneurs), tandis qu’un collector de cluster
+  collecte l’état des ressources Kubernetes. Le gateway les convertit avec
+  `elasticinframetrics` pour les vues Inventory/Infrastructure et enrichit les
+  traces et métriques applicatives avec `k8sattributes`.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
   namespace `apm-demo`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.
@@ -171,6 +180,22 @@ téléchargement.
   les pseudo-systèmes de fichiers sont exclus.
 
 ## Recette des dashboards
+
+### Dashboard MongoDB : clusters et primary
+
+Déployer ou mettre à jour le dashboard automatiquement avec :
+
+```bash
+source ./scripts/load-credentials.sh
+make dashboard-deploy
+```
+
+La commande importe [`kibana-mongodb-cluster-primary-dashboard.ndjson`](kibana-mongodb-cluster-primary-dashboard.ndjson)
+dans Kibana et remplace les objets SystemLens existants. Le dashboard
+**SystemLens · MongoDB clusters** affiche un replica set par ligne, son primary
+issu du relevé `mongodb.replstatus` le plus récent, et l'horodatage de ce
+relevé. Il restaure une fenêtre de temps de 24 heures et se rafraîchit toutes
+les minutes.
 
 Générer de l’activité avant la recette : ouvrir `https://kibana.poc.test`,
 puis appeler l’endpoint de l’application via son Service/Ingress disponible.

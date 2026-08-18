@@ -9,11 +9,14 @@ APP_NAMESPACE ?= apm-demo
 ELASTICSEARCH_URL ?= https://elasticsearch.poc.test:443
 KIBANA_URL ?= https://kibana.poc.test
 KIBANA_HOST ?= kibana.poc.test
+KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
 ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 
 .PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import \
 	otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
+	otel-infrastructure-deploy \
+	dashboard-deploy \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create apm-demo-logs-follow apm-demo-worker-logs-follow
 
@@ -47,13 +50,18 @@ otel-gateway-api-key-sync: ## Créer la clé writer du gateway si son secret est
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
 
 otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer le gateway OpenTelemetry interne
-	@$(KUBECTL) apply -f kubernetes/otel-collector-gateway.yaml
+	@$(KUBECTL) apply -f kubernetes/applications/otel-collector-gateway.yaml
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-gateway
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-gateway --timeout=180s
 
-apm-deploy: otel-gateway-deploy ## Déployer les composants APM et les applications OpenTelemetry
-	@$(KUBECTL) apply -f kubernetes/apm-server.yaml
-	@$(KUBECTL) apply -f kubernetes/apm-demo.yaml
+otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôte
+	@$(KUBECTL) apply -f kubernetes/applications/otel-collector-infrastructure.yaml
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-collector-daemon --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-cluster --timeout=180s
+
+apm-deploy: otel-infrastructure-deploy otel-gateway-deploy ## Déployer les composants APM et les applications OpenTelemetry
+	@$(KUBECTL) apply -f kubernetes/elastic-stack/apm-server.yaml
+	@$(KUBECTL) apply -f kubernetes/applications/apm-demo.yaml
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo-worker --timeout=180s
 
@@ -61,6 +69,9 @@ platform-deploy: apps-build images-import apm-deploy ## Construire, importer et 
 
 fleet-sync: ## Synchroniser les intégrations Fleet MongoDB/Kafka (requiert KIBANA_PASSWORD)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./scripts/sync-fleet-policies.sh
+
+dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
+	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./scripts/deploy-kibana-dashboard.sh
 
 vm-provision: ## Provisionner Filebeat/Metricbeat (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }

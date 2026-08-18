@@ -40,6 +40,10 @@ ensure_agent_policy() {
 
 ensure_agent_policy "mongodb-hosts" "MongoDB hosts"
 
+# Les assets Kibana du POC suivent la même cadence que les intégrations Fleet :
+# une synchronisation applique donc aussi les évolutions du dashboard MongoDB.
+KIBANA_URL="${kibana_url}" "${script_dir}/deploy-kibana-dashboard.sh"
+
 sync_package_policy() {
   local policy_file="$1" policy_name policy_id policy_payload
   policy_name="$(jq -r '.name' "${policy_file}")"
