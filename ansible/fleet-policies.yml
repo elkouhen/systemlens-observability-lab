@@ -19,8 +19,8 @@
       - { name: data-02, ip: 192.168.33.11 }
       - { name: data-03, ip: 192.168.33.12 }
     fleet_packages:
-      - { file: elastic-agent/mongodb-package-policy.json, prefix: mongodb }
-      - { file: elastic-agent/kafka-package-policy.json, prefix: kafka }
+      - { file: platform/elk/fleet/mongodb-package-policy.json, prefix: mongodb }
+      - { file: platform/elk/fleet/kafka-package-policy.json, prefix: kafka }
     # Les métriques JMX des applications sont collectées depuis Kubernetes.
     # Les anciennes package policies Fleet sur les VM interrogent des endpoints
     # retirés et font passer l'agent en état degraded (HTTP 404).

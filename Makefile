@@ -14,7 +14,7 @@ ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 
 .PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import \
-	otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
+	elk-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
 	otel-infrastructure-deploy \
 	dashboard-deploy \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -24,7 +24,7 @@ help: ## Afficher les tâches disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
-	@printf 'source ./scripts/load-credentials.sh\n'
+	@printf 'source ./platform/elk/scripts/load-credentials.sh\n'
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -36,8 +36,8 @@ vm-status: ## Vérifier les conteneurs MongoDB et Kafka des VM
 	@./scripts/cluster-status.sh
 
 apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4)
-	@docker build --target frontend -t apm-demo:1.0.4 apm-demo
-	@docker build --target worker -t apm-demo-worker:1.0.4 apm-demo
+	@docker build --target frontend -t apm-demo:1.0.4 apps/apm-demo
+	@docker build --target worker -t apm-demo-worker:1.0.4 apps/apm-demo
 
 images-import: ## Importer les images dans le cluster k3d
 	@k3d image import -c $(K3D_CLUSTER) apm-demo:1.0.4 apm-demo-worker:1.0.4
@@ -50,28 +50,33 @@ otel-gateway-api-key-sync: ## Créer la clé writer du gateway si son secret est
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
 
 otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer le gateway OpenTelemetry interne
-	@$(KUBECTL) apply -f kubernetes/applications/otel-collector-gateway.yaml
+	@$(KUBECTL) apply -f platform/elk/kubernetes/otel-collector-gateway.yaml
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-gateway
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-gateway --timeout=180s
 
 otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôte
-	@$(KUBECTL) apply -f kubernetes/applications/otel-collector-infrastructure.yaml
+	@$(KUBECTL) apply -f platform/elk/kubernetes/otel-collector-infrastructure.yaml
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-collector-daemon --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-cluster --timeout=180s
 
-apm-deploy: otel-infrastructure-deploy otel-gateway-deploy ## Déployer les composants APM et les applications OpenTelemetry
-	@$(KUBECTL) apply -f kubernetes/elastic-stack/apm-server.yaml
-	@$(KUBECTL) apply -f kubernetes/applications/apm-demo.yaml
+elk-deploy: otel-infrastructure-deploy otel-gateway-deploy ## Déployer les composants ELK liés aux applications
+	@$(KUBECTL) apply -f platform/elk/kubernetes/apm-server.yaml
+
+apps-deploy: ## Déployer uniquement l'application de démonstration
+	@$(KUBECTL) apply -f apps/apm-demo/kubernetes/namespace.yaml
+	@$(KUBECTL) apply -f apps/apm-demo/kubernetes/deployment.yaml
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo-worker --timeout=180s
 
-platform-deploy: apps-build images-import apm-deploy ## Construire, importer et déployer les applications
+apm-deploy: elk-deploy apps-deploy ## Alias historique : déployer ELK et l'application
+
+platform-deploy: apps-build images-import elk-deploy apps-deploy ## Construire, importer et déployer l'ensemble
 
 fleet-sync: ## Synchroniser les intégrations Fleet MongoDB/Kafka (requiert KIBANA_PASSWORD)
-	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./scripts/sync-fleet-policies.sh
+	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
 
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
-	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./scripts/deploy-kibana-dashboard.sh
+	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./platform/elk/scripts/deploy-kibana-dashboard.sh
 
 vm-provision: ## Provisionner Filebeat/Metricbeat (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }

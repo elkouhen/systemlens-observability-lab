@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# À charger, ne pas exécuter : source ./scripts/load-credentials.sh
+# À charger, ne pas exécuter : source ./platform/elk/scripts/load-credentials.sh
 # Les secrets restent uniquement dans l'environnement du shell courant.
 
 if [[ "${BASH_SOURCE[0]:-}" == "$0" ]]; then

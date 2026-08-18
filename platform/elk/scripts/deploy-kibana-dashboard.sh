@@ -3,8 +3,8 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-project_dir="$(cd "${script_dir}/.." && pwd)"
-dashboard_file="${1:-${project_dir}/kibana-mongodb-cluster-primary-dashboard.ndjson}"
+elk_dir="$(cd "${script_dir}/.." && pwd)"
+dashboard_file="${1:-${elk_dir}/dashboards/mongodb-cluster-primary.ndjson}"
 kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
 kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.poc.test:443:127.0.0.1}"

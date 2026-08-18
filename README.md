@@ -19,6 +19,19 @@ Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
 `apm-demo-worker` la consomme puis écrit le résultat dans MongoDB. L’endpoint
 `/api/work` exerce également le chemin HTTP entre les deux applications.
 
+## Organisation du dépôt
+
+```
+platform/elk/       # Kubernetes ELK, Fleet, dashboards et scripts Elastic
+apps/apm-demo/      # code Java, Dockerfile et manifests de l'application
+ansible/             # infrastructure partagée des VM MongoDB/Kafka
+scripts/             # utilitaires partagés aux VM
+```
+
+Les cibles `make elk-deploy` et `make apps-deploy` permettent de déployer les
+deux périmètres séparément ; `make apm-deploy` reste disponible comme alias de
+compatibilité pour les déployer ensemble.
+
 ## Prérequis
 
 - VirtualBox et Vagrant ;
@@ -46,7 +59,7 @@ affiche les cibles disponibles, sous la convention `ressource-action`, notamment
 `make elastic-password-show`, `make apm-token-show`,
 `make elasticsearch-api-key-create`, `make platform-deploy` et `make vm-provision`.
 Pour charger les secrets nécessaires dans le shell courant sans les afficher,
-utiliser `source ./scripts/load-credentials.sh` (ou `make credentials-show` pour
+utiliser `source ./platform/elk/scripts/load-credentials.sh` (ou `make credentials-show` pour
 afficher cette commande).
 
 ## Déploiement
@@ -83,20 +96,23 @@ allocations natives.
 2. Déployer la partie Elastic et les applications. Appliquer le patch Kibana
    après la ressource Kibana de base ; son nom doit être
    `es-kb-quickstart-eck-kibana` ou être adapté dans les manifestes concernés.
-   Les manifests sont séparés entre `kubernetes/elastic-stack/` (Elastic,
-   Kibana, Fleet et APM Server) et `kubernetes/applications/` (collecteurs et
-   applications de démonstration).
+   Les artefacts sont séparés par responsabilité : `platform/elk/` contient
+   toute la plateforme Elastic (manifests Kubernetes, Fleet, dashboards et
+   scripts), tandis que `apps/apm-demo/` contient le code et les manifests de
+   l'application de démonstration. Les collecteurs OpenTelemetry sont dans la
+   plateforme ELK : ils constituent la chaîne d'ingestion, pas l'application.
 
    ```bash
-   kubectl apply -f kubernetes/elastic-stack/elasticsearch-resources.yaml
-   kubectl apply -f kubernetes/elastic-stack/kibana-fleet-patch.yaml
-   kubectl apply -f kubernetes/elastic-stack/fleet-server.yaml
-   kubectl apply -f kubernetes/elastic-stack/apm-server.yaml
-   kubectl apply -f kubernetes/applications/otel-collector-gateway.yaml
-   kubectl apply -f kubernetes/elastic-stack/elastic-ingress.yaml
-   kubectl apply -f kubernetes/elastic-stack/kubernetes-logs-agent.yaml
-   kubectl apply -f kubernetes/applications/apm-demo-namespace.yaml
-   kubectl apply -f kubernetes/applications/apm-demo.yaml
+   kubectl apply -f platform/elk/kubernetes/elasticsearch-resources.yaml
+   kubectl apply -f platform/elk/kubernetes/kibana-fleet-patch.yaml
+   kubectl apply -f platform/elk/kubernetes/fleet-server.yaml
+   kubectl apply -f platform/elk/kubernetes/apm-server.yaml
+   kubectl apply -f platform/elk/kubernetes/otel-collector-gateway.yaml
+   kubectl apply -f platform/elk/kubernetes/otel-collector-infrastructure.yaml
+   kubectl apply -f platform/elk/kubernetes/elastic-ingress.yaml
+   kubectl apply -f platform/elk/kubernetes/kubernetes-logs-agent.yaml
+   kubectl apply -f apps/apm-demo/kubernetes/namespace.yaml
+   kubectl apply -f apps/apm-demo/kubernetes/deployment.yaml
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
    kubectl -n apm-demo get deploy,pods,svc
    ```
@@ -105,7 +121,7 @@ allocations natives.
 
    ```bash
    export KIBANA_PASSWORD='…'
-   ./scripts/sync-fleet-policies.sh
+   ./platform/elk/scripts/sync-fleet-policies.sh
    ```
 
    Le script crée la policy `mongodb-hosts`, configure les packages MongoDB et
@@ -186,11 +202,11 @@ téléchargement.
 Déployer ou mettre à jour le dashboard automatiquement avec :
 
 ```bash
-source ./scripts/load-credentials.sh
+source ./platform/elk/scripts/load-credentials.sh
 make dashboard-deploy
 ```
 
-La commande importe [`kibana-mongodb-cluster-primary-dashboard.ndjson`](kibana-mongodb-cluster-primary-dashboard.ndjson)
+La commande importe [`mongodb-cluster-primary.ndjson`](platform/elk/dashboards/mongodb-cluster-primary.ndjson)
 dans Kibana et remplace les objets SystemLens existants. Le dashboard
 **SystemLens · MongoDB clusters** affiche un replica set par ligne, son primary
 issu du relevé `mongodb.replstatus` le plus récent, et l'horodatage de ce

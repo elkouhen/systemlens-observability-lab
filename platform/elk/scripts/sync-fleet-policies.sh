@@ -4,7 +4,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-project_dir="$(cd "${script_dir}/.." && pwd)"
+elk_dir="$(cd "${script_dir}/.." && pwd)"
 kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
 elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
@@ -63,8 +63,8 @@ sync_package_policy() {
   printf 'Package policy updated: %s\n' "${policy_name}"
 }
 
-sync_package_policy "${project_dir}/elastic-agent/mongodb-package-policy.json"
-sync_package_policy "${project_dir}/elastic-agent/kafka-package-policy.json"
+sync_package_policy "${elk_dir}/fleet/mongodb-package-policy.json"
+sync_package_policy "${elk_dir}/fleet/kafka-package-policy.json"
 
 # Les endpoints Jolokia applicatifs ne sont plus publies hors du cluster. Les
 # anciennes policies doivent donc etre retirees lors de la migration, sinon
@@ -85,7 +85,7 @@ remove_package_policy "system-fleet"
 # Les pipelines @custom sont conserves lors des mises a jour de packages.
 curl "${elasticsearch_args[@]}" -X PUT \
   "${elasticsearch_url}/_ingest/pipeline/metrics-kafka.topic@custom" \
-  --data-binary "@${project_dir}/elastic-agent/kafka-topic-ingest-pipeline.json" >/dev/null
+  --data-binary "@${elk_dir}/fleet/kafka-topic-ingest-pipeline.json" >/dev/null
 printf 'Ingest pipeline updated: metrics-kafka.topic@custom\n'
 
 # L'endpoint Jolokia reste volontairement local à chaque VM. Les métriques
