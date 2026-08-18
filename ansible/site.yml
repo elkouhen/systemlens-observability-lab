@@ -30,14 +30,16 @@
           - poc_node_ip is defined
         fail_msg: Vagrant doit fournir poc_node_id et poc_node_ip au playbook.
 
-    - name: Installer les dépendances système
+    - name: Inventorier les paquets déjà installés
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Installer les dépendances système absentes
       ansible.builtin.dnf:
-        name:
-          - podman
-          - curl
-          - openssl
-          - chrony
+        name: "{{ item }}"
         state: present
+      loop: [podman, curl, openssl, chrony]
+      when: item not in ansible_facts.packages
 
     - name: Collecter l'état des services
       ansible.builtin.service_facts:
@@ -47,6 +49,19 @@
         name: chronyd
         enabled: true
         state: started
+
+    - name: Autoriser Chrony à corriger immédiatement les grands décalages
+      ansible.builtin.lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^makestep\\s+'
+        line: 'makestep 1.0 -1'
+      register: chrony_makestep_config
+
+    - name: Redémarrer Chrony après une modification de sa stratégie de correction
+      ansible.builtin.systemd_service:
+        name: chronyd
+        state: restarted
+      when: chrony_makestep_config.changed
 
     - name: Corriger immédiatement un éventuel décalage d'horloge
       ansible.builtin.command: chronyc -a makestep
@@ -156,12 +171,17 @@
         state: directory
         mode: '0755'
 
-    - name: Télécharger l'agent Jolokia pour Kafka
+    - name: Vérifier la présence de l'agent Jolokia
+      ansible.builtin.stat:
+        path: /opt/poc-observability/jolokia-agent.jar
+      register: jolokia_agent
+
+    - name: Télécharger l'agent Jolokia pour Kafka s'il est absent
       ansible.builtin.get_url:
         url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
         dest: /opt/poc-observability/jolokia-agent.jar
         mode: '0644'
-        force: false
+      when: not jolokia_agent.stat.exists
 
     - name: Déployer les unités Quadlet MongoDB et Kafka
       ansible.builtin.template:
@@ -328,13 +348,19 @@
           ansible.builtin.set_fact:
             beats_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
 
-        - name: Télécharger les archives Filebeat et Metricbeat
-          ansible.builtin.get_url:
-            url: "https://artifacts.elastic.co/downloads/beats/{{ item }}/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
-            dest: "/var/cache/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
-            mode: '0644'
-            force: false
+        - name: Vérifier les binaires Beats déjà installés
+          ansible.builtin.stat:
+            path: "/opt/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}/{{ item }}"
           loop: [filebeat, metricbeat]
+          register: beats_binaries
+
+        - name: Télécharger les archives des Beats absents
+          ansible.builtin.get_url:
+            url: "https://artifacts.elastic.co/downloads/beats/{{ item.item }}/{{ item.item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
+            dest: "/var/cache/poc-observability/{{ item.item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
+            mode: '0644'
+          loop: "{{ beats_binaries.results }}"
+          when: not item.stat.exists
 
         - name: Extraire Filebeat et Metricbeat
           ansible.builtin.unarchive:
@@ -386,12 +412,17 @@
           ansible.builtin.set_fact:
             elastic_agent_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
 
-        - name: Télécharger Elastic Agent
+        - name: Vérifier le binaire Elastic Agent déjà installé
+          ansible.builtin.stat:
+            path: /opt/Elastic/Agent/elastic-agent
+          register: elastic_agent_binary
+
+        - name: Télécharger Elastic Agent s'il est absent
           ansible.builtin.get_url:
             url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
             dest: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
             mode: '0644'
-            force: false
+          when: not elastic_agent_binary.stat.exists
 
         - name: Extraire Elastic Agent
           ansible.builtin.unarchive:
@@ -399,6 +430,7 @@
             dest: /var/cache/poc-observability
             remote_src: true
             creates: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent"
+          when: not elastic_agent_binary.stat.exists
 
         - name: Installer et enrôler Elastic Agent
           ansible.builtin.command: >-

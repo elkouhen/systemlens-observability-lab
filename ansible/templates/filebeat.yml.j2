@@ -8,18 +8,27 @@ filebeat.inputs:
     fields_under_root: true
     fields:
       event.dataset: system.syslog
+      data_stream.type: logs
+      data_stream.dataset: system.syslog
+      data_stream.namespace: default
   - type: filestream
     id: mongodb-logs
     paths: [/var/log/mongodb/mongod.log]
     fields_under_root: true
     fields:
       event.dataset: mongodb.log
+      data_stream.type: logs
+      data_stream.dataset: mongodb.log
+      data_stream.namespace: default
   - type: filestream
     id: kafka-logs
     paths: [/var/log/kafka/*.log]
     fields_under_root: true
     fields:
       event.dataset: kafka.log
+      data_stream.type: logs
+      data_stream.dataset: kafka.log
+      data_stream.namespace: default
 
 processors:
   - add_host_metadata: ~
@@ -27,4 +36,16 @@ processors:
 output.elasticsearch:
   hosts: ["{{ elasticsearch_url }}"]
   api_key: "{{ elasticsearch_api_key }}"
+  # Une règle par dataset est nécessaire : le champ data_stream.dataset seul ne
+  # pilote pas le choix du data stream de sortie par Filebeat.
+  indices:
+    - index: "logs-system.syslog-default"
+      when.equals:
+        event.dataset: "system.syslog"
+    - index: "logs-mongodb.log-default"
+      when.equals:
+        event.dataset: "mongodb.log"
+    - index: "logs-kafka.log-default"
+      when.equals:
+        event.dataset: "kafka.log"
   ssl.certificate_authorities: ["/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"]

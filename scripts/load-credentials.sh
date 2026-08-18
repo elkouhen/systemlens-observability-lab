@@ -48,7 +48,7 @@ export APM_SECRET_TOKEN
 # Une clé déjà chargée (par exemple depuis un coffre-fort) n'est jamais
 # remplacée. Sinon une nouvelle clé limitée aux data streams Beats est créée.
 if [[ -z "${ELASTICSEARCH_API_KEY:-}" ]]; then
-  _credentials_payload='{"name":"vm-beats-shell","role_descriptors":{"vm_beats_writer":{"cluster":["monitor"],"indices":[{"names":["logs-*","metrics-*"],"privileges":["auto_configure","create_doc"]}]}}}'
+  _credentials_payload='{"name":"vm-beats-shell","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}'
   ELASTICSEARCH_API_KEY="$(curl --fail --silent --show-error --insecure \
     --resolve "${_credentials_resolve}" \
     -u "elastic:${ELASTICSEARCH_PASSWORD}" \

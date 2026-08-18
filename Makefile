@@ -93,7 +93,7 @@ elasticsearch-api-key-create: ## Créer et afficher la clé API Elasticsearch po
 		-u "elastic:$$ELASTICSEARCH_PASSWORD" \
 		-H 'Content-Type: application/json' \
 		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
-		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor"],"indices":[{"names":["logs-*","metrics-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
+		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}' \
 		| jq -r '.id + ":" + .api_key'
 
 beats-api-key-create: elasticsearch-api-key-create ## Alias de elasticsearch-api-key-create
