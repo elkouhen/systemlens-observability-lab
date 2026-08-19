@@ -28,3 +28,12 @@ l'application avec `make apps-deploy`.
 Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
 d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
+
+Le tag des images Docker (`apm-demo:1.0.4` / `apm-demo-worker:1.0.4`, fixé
+dans `Makefile` et `kubernetes/deployment.yaml`) est géré indépendamment de
+`<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
+modules Maven). Le tag Docker identifie une itération de l'image de
+démonstration ; la version Maven identifie une itération du code Java. Bumper
+l'un ne doit pas être attendu comme bumpant automatiquement l'autre : mettre à
+jour les deux explicitement si un changement doit être visible dans les deux
+espaces de version.

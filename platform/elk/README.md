@@ -17,8 +17,16 @@ OpenTelemetry et Elastic Agent acheminent les données vers Elasticsearch.
 ## Modèle mental
 
 `application / VM → collecteur ou Elastic Agent → Elasticsearch → Kibana`.
-APM Server reçoit les données APM, tandis que le gateway OpenTelemetry exporte
-directement les signaux OTLP vers Elasticsearch.
+
+APM Server est déployé par ECK et exposé pour un usage APM classique
+(agents envoyant directement en HTTP/OTLP à APM Server), mais **les
+applications de démonstration ne l'utilisent pas** : `apm-demo` et
+`apm-demo-worker` exportent leurs traces et métriques en OTLP vers le gateway
+OpenTelemetry, qui les convertit et les écrit directement dans Elasticsearch
+(`logs-*`, `metrics-*`, `traces-*`) sans transiter par APM Server. Les vues
+Observability > APM de Kibana fonctionnent parce qu'elles lisent les mêmes
+data streams, quel que soit le composant qui les a écrits ; ne pas supposer un
+chaînage entre le gateway et APM Server dans ce POC.
 
 ## Documentation externe
 

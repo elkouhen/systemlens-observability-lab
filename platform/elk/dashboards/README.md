@@ -8,10 +8,9 @@ manuel dans Kibana.
 
 - `mongodb-cluster-primary.ndjson` : dashboard SystemLens du replica set
   MongoDB et de son primary.
-- `primary-cluster.ndjson` : export complémentaire de visualisation de cluster.
 
-Importer le premier avec `make dashboard-deploy`, ou sélectionner un fichier en
-argument de `platform/elk/scripts/deploy-kibana-dashboard.sh`.
+Importer ce fichier avec `make dashboard-deploy`, ou sélectionner un autre
+export NDJSON en argument de `platform/elk/scripts/deploy-kibana-dashboard.sh`.
 
 ## Documentation externe
 
