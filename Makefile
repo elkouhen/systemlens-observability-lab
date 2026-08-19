@@ -51,7 +51,7 @@ otel-gateway-api-key-sync: elasticsearch-ready ## Créer la clé writer du gatew
 	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret $(OTEL_GATEWAY_API_KEY_SECRET) >/dev/null 2>&1; then exit 0; fi; \
 	es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' -u "elastic:$$es_password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' --data '{"name":"otel-collector-gateway","role_descriptors":{"otel_collector_gateway_writer":{"cluster":["monitor"],"indices":[{"names":["logs-*-*","metrics-*-*","traces-*-*"],"privileges":["auto_configure","create_doc"]}]}}}' | jq -er '.id + ":" + .api_key')"; \
-	api_key_base64="$$(printf '%s' "$$api_key" | base64 | tr -d '\\n')"; \
+	api_key_base64="$$(printf '%s' "$$api_key" | base64 | tr -d '\n')"; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
 
 otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer le gateway OpenTelemetry interne
