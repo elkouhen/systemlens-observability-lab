@@ -44,7 +44,9 @@ scripts/             # utilitaires partagés aux VM
 
 Les cibles `make elk-deploy` et `make apps-deploy` permettent de déployer les
 deux périmètres séparément ; `make apm-deploy` reste disponible comme alias de
-compatibilité pour les déployer ensemble.
+compatibilité pour les déployer ensemble. `make apm-deploy` et
+`make platform-deploy` attendent Elasticsearch, synchronisent l'API key du
+gateway OpenTelemetry, puis créent le gateway avant les applications.
 
 ## Prérequis
 

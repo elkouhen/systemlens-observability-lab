@@ -15,7 +15,7 @@ OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 
 .PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
 	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
-	otel-infrastructure-deploy \
+	otel-infrastructure-deploy elasticsearch-ready \
 	dashboard-deploy \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create apm-demo-logs-follow apm-demo-worker-logs-follow
@@ -42,7 +42,12 @@ apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4)
 images-import: ## Importer les images dans le cluster k3d
 	@k3d image import -c $(K3D_CLUSTER) apm-demo:1.0.4 apm-demo-worker:1.0.4
 
-otel-gateway-api-key-sync: ## Créer la clé writer du gateway si son secret est absent
+elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
+	@$(KUBECTL) -n $(K8S_NAMESPACE) wait \
+		--for=condition=ElasticsearchIsReachable=True \
+		elasticsearch/elasticsearch --timeout=300s
+
+otel-gateway-api-key-sync: elasticsearch-ready ## Créer la clé writer du gateway si son secret est absent
 	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret $(OTEL_GATEWAY_API_KEY_SECRET) >/dev/null 2>&1; then exit 0; fi; \
 	es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' -u "elastic:$$es_password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' --data '{"name":"otel-collector-gateway","role_descriptors":{"otel_collector_gateway_writer":{"cluster":["monitor"],"indices":[{"names":["logs-*-*","metrics-*-*","traces-*-*"],"privileges":["auto_configure","create_doc"]}]}}}' | jq -er '.id + ":" + .api_key')"; \
@@ -50,7 +55,7 @@ otel-gateway-api-key-sync: ## Créer la clé writer du gateway si son secret est
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
 
 otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer le gateway OpenTelemetry interne
-	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
+	@$(KUBECTL) apply -f platform/kubernetes/base/observability/otel-collector-gateway.yaml
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-gateway
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-gateway --timeout=180s
 
@@ -62,7 +67,7 @@ otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôt
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
-elk-deploy: ## Déployer la plateforme d'observabilité déclarative
+elk-deploy: ## Déployer la plateforme d'observabilité hors gateway OpenTelemetry
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
 apps-deploy: ## Déployer uniquement l'application de démonstration
@@ -70,9 +75,13 @@ apps-deploy: ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo-worker --timeout=180s
 
-apm-deploy: elk-deploy apps-deploy ## Alias historique : déployer ELK et l'application
+apm-deploy: ## Alias historique : déployer ELK, le gateway puis l'application
+	@$(MAKE) elk-deploy
+	@$(MAKE) otel-gateway-deploy
+	@$(MAKE) apps-deploy
 
-platform-deploy: apps-build images-import elk-deploy apps-deploy ## Construire, importer et déployer l'ensemble
+platform-deploy: apps-build images-import ## Construire, importer et déployer l'ensemble séquencé
+	@$(MAKE) apm-deploy
 
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null

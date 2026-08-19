@@ -16,8 +16,16 @@ installé avant leur application.
 6. `kubernetes-logs-agent.yaml` : collecte des logs des pods.
 7. `elastic-ingress.yaml` : exposition TLS via Traefik.
 
-Utiliser `make elk-deploy` ou `kubectl apply -k
-platform/kubernetes/overlays/local` pour appliquer ce bundle complet.
+`make elk-deploy` applique le socle hors gateway. `make apm-deploy` et
+`make platform-deploy` attendent ensuite qu'ECK rende Elasticsearch joignable,
+créent le secret d'API key du gateway si nécessaire, appliquent le gateway,
+puis déploient les applications. Cette séquence évite qu'un pod gateway soit
+créé avec une référence vers le secret encore absent.
+
+Pour appliquer seulement le socle, utiliser `make elk-deploy` ou `kubectl
+apply -k platform/kubernetes/overlays/local`; appliquer
+`otel-collector-gateway.yaml` directement exige que le secret
+`otel-collector-elasticsearch-api-key` existe déjà.
 
 ## Documentation externe
 

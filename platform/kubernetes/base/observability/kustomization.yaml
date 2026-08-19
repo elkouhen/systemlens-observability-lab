@@ -6,6 +6,5 @@ resources:
   - fleet-server.yaml
   - apm-server.yaml
   - otel-collector-infrastructure.yaml
-  - otel-collector-gateway.yaml
   - kubernetes-logs-agent.yaml
   - elastic-ingress.yaml
