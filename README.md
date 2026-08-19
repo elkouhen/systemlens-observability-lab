@@ -80,6 +80,29 @@ Pour charger les secrets nécessaires dans le shell courant sans les afficher,
 utiliser `source ./platform/elk/scripts/load-credentials.sh` (ou `make credentials-show` pour
 afficher cette commande).
 
+### Machine derrière un proxy TLS d'entreprise (Zscaler)
+
+Sur une machine sans interception TLS, aucune action n'est requise : ce dépôt
+fonctionne tel quel. Si un proxy comme Zscaler intercepte le trafic HTTPS
+sortant (build Docker, pull d'images k3d, provisionnement Vagrant/Ansible),
+placer le certificat racine au format PEM dans `certs/` puis exporter
+`ZSCALER_CA_CERT` avant les commandes concernées :
+
+```bash
+cp /chemin/vers/ZscalerRootCertificate.pem certs/zscaler-root-ca.crt
+export ZSCALER_CA_CERT=certs/zscaler-root-ca.crt
+
+make apps-build        # confiance injectée dans le build Maven/Docker
+make k3d-ca-import      # confiance injectée dans les nœuds k3d, puis :
+k3d cluster stop elastic && k3d cluster start elastic
+vagrant up              # ou `vagrant provision` : confiance installée sur les VM
+```
+
+Voir [`certs/README.md`](certs/README.md) pour le détail des mécanismes
+(build-arg Docker encodé en base64, import dans les nœuds k3d via
+`update-ca-certificates`, et `update-ca-trust` côté VM Rocky Linux).
+
+
 ## Déploiement
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook

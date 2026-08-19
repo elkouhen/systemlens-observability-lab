@@ -14,6 +14,16 @@ Vagrant.configure("2") do |config|
   fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
   redeploy_services = ENV.fetch("POC_REDEPLOY_SERVICES", "false") == "true"
 
+  # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent), optionnel.
+  # Sur une machine sans interception TLS, ne pas définir ZSCALER_CA_CERT :
+  # aucune confiance supplémentaire n'est installée sur les VM. Voir certs/README.md.
+  zscaler_ca_cert_path = ENV["ZSCALER_CA_CERT"]
+  zscaler_ca_cert_content = ""
+  if zscaler_ca_cert_path && !zscaler_ca_cert_path.empty?
+    abort("ZSCALER_CA_CERT défini mais introuvable : #{zscaler_ca_cert_path}") unless File.exist?(zscaler_ca_cert_path)
+    zscaler_ca_cert_content = File.read(zscaler_ca_cert_path)
+  end
+
   NODES.each do |node_config|
     config.vm.define node_config[:name] do |node|
       node.vm.hostname = node_config[:name]
@@ -36,7 +46,8 @@ Vagrant.configure("2") do |config|
           "poc_node_ip" => node_config[:ip],
           "elasticsearch_api_key" => elasticsearch_api_key || "",
           "fleet_enrollment_token" => fleet_enrollment_token || "",
-          "poc_redeploy_services" => redeploy_services
+          "poc_redeploy_services" => redeploy_services,
+          "zscaler_ca_cert_content" => zscaler_ca_cert_content
         }
       end
     end

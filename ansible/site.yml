@@ -27,6 +27,11 @@
     fleet_url: https://fleet.poc.test
     fleet_insecure: true
     poc_redeploy_services: false
+    # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
+    # équivalent), fourni par Vagrant via ZSCALER_CA_CERT. Vide par défaut :
+    # aucune confiance supplémentaire n'est installée sur une machine sans
+    # interception TLS. Voir certs/README.md.
+    zscaler_ca_cert_content: ""
 
   pre_tasks:
     - name: Vérifier les variables injectées par Vagrant
@@ -35,6 +40,23 @@
           - poc_node_id is defined
           - poc_node_ip is defined
         fail_msg: Vagrant doit fournir poc_node_id et poc_node_ip au playbook.
+
+    # Doit précéder toute installation de paquet (dnf) et tout téléchargement
+    # HTTPS (Jolokia, Beats, Elastic Agent) : ces opérations échouent avec une
+    # erreur TLS si le trafic sortant de la VM est intercepté par Zscaler et
+    # que son certificat racine n'est pas encore approuvé par le système.
+    - name: Installer le certificat racine Zscaler si fourni
+      ansible.builtin.copy:
+        content: "{{ zscaler_ca_cert_content }}"
+        dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
+        mode: '0644'
+      register: zscaler_ca
+      when: zscaler_ca_cert_content | length > 0
+
+    - name: Mettre à jour le magasin de confiance système pour Zscaler
+      ansible.builtin.command: update-ca-trust extract
+      when: zscaler_ca.changed | default(false)
+      changed_when: true
 
     - name: Inventorier les paquets déjà installés
       ansible.builtin.package_facts:

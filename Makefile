@@ -12,13 +12,17 @@ KIBANA_HOST ?= kibana.poc.test
 KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
 ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
+# Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
+# PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
+ZSCALER_CA_CERT ?=
+K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
 	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
 	otel-infrastructure-deploy elasticsearch-ready \
 	dashboard-deploy \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create apm-demo-logs-follow apm-demo-worker-logs-follow
+	beats-api-key-create apm-demo-logs-follow apm-demo-worker-logs-follow k3d-ca-import
 
 help: ## Afficher les tâches disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -35,12 +39,29 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@./scripts/cluster-status.sh
 
-apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4)
-	@docker build --target frontend -t apm-demo:1.0.4 apps/apm-demo
-	@docker build --target worker -t apm-demo-worker:1.0.4 apps/apm-demo
+apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4 ; option ZSCALER_CA_CERT)
+	@zscaler_ca_b64=""; \
+	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
+	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
+	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
+	fi; \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target frontend -t apm-demo:1.0.4 apps/apm-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target worker -t apm-demo-worker:1.0.4 apps/apm-demo
 
 images-import: ## Importer les images dans le cluster k3d
 	@k3d image import -c $(K3D_CLUSTER) apm-demo:1.0.4 apm-demo-worker:1.0.4
+
+k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (requiert ZSCALER_CA_CERT, puis redémarrer le cluster)
+	@test -n "$(ZSCALER_CA_CERT)" || { echo "Définir ZSCALER_CA_CERT=chemin/vers/cert.crt" >&2; exit 1; }
+	@test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }
+	@nodes="$$(docker ps --filter "name=k3d-$(K3D_CLUSTER)-" --format '{{.Names}}')"; \
+	test -n "$$nodes" || { echo "Aucun nœud k3d trouvé pour le cluster $(K3D_CLUSTER)" >&2; exit 1; }; \
+	for node in $$nodes; do \
+	  echo "→ $$node"; \
+	  docker cp "$(ZSCALER_CA_CERT)" "$$node:$(K3D_CA_DEST)"; \
+	  docker exec "$$node" update-ca-certificates; \
+	done
+	@echo "Redémarrer le cluster pour appliquer le nouveau magasin de confiance : k3d cluster stop $(K3D_CLUSTER) && k3d cluster start $(K3D_CLUSTER)"
 
 elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait \
