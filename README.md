@@ -1,7 +1,7 @@
-# POC observabilité : Elastic, Kafka, MongoDB et applications
+# POC observabilité : Elastic, Kafka, MongoDB, PostgreSQL et applications
 
 Ce dépôt déploie un environnement de recette destiné à valider la visibilité
-de bout en bout dans Elastic : infrastructure, Kafka, MongoDB et deux
+de bout en bout dans Elastic : infrastructure, Kafka, MongoDB, PostgreSQL et deux
 applications Java instrumentées avec OpenTelemetry.
 
 ## Architecture
@@ -11,12 +11,14 @@ applications Java instrumentées avec OpenTelemetry.
 | Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | ECK 9.5.1, TLS ECK, accès Traefik | APM, logs et métriques |
 | `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM, Filebeat et Metricbeat | métriques System, journaux système |
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
+| PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
 | `apm-demo` | Kubernetes, namespace `apm-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
-| `apm-demo-worker` | Kubernetes, namespace `apm-demo` | service HTTP 3001, consommateur Kafka, MongoDB | transactions, dépendances Kafka et MongoDB |
+| `apm-demo-worker` | Kubernetes, namespace `apm-demo` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
 
 Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
-`apm-demo-worker` la consomme puis écrit le résultat dans MongoDB. L’endpoint
+`apm-demo-worker` la consomme puis écrit le résultat dans MongoDB et PostgreSQL
+(`data-01`). L’endpoint
 `/api/work` exerce également le chemin HTTP entre les deux applications.
 
 ## Guides de lecture
@@ -38,7 +40,7 @@ références officielles nécessaires pour comprendre les choix de configuration
 ```
 platform/elk/       # Kubernetes ELK, Fleet, dashboards et scripts Elastic
 apps/apm-demo/      # code Java, Dockerfile et manifests de l'application
-ansible/             # infrastructure partagée des VM MongoDB/Kafka
+ansible/             # infrastructure partagée des VM MongoDB/Kafka/PostgreSQL
 scripts/             # utilitaires partagés aux VM
 ```
 
@@ -82,7 +84,7 @@ afficher cette commande).
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
    `ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
-   MongoDB/Kafka, les limites mémoire, Filebeat et Metricbeat. La clé API
+   MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat. La clé API
    Elasticsearch n’est jamais enregistrée dans Git : la fournir seulement dans
    l’environnement de la commande.
 
@@ -95,12 +97,13 @@ afficher cette commande).
    ./scripts/cluster-status.sh
    ```
 
-   Chaque VM installe MongoDB 8.0 et Kafka 3.9.2 sous Podman, via des unités
+   Chaque VM installe MongoDB 8.0 et Kafka 3.9.2 sous Podman ; `data-01`
+   installe aussi PostgreSQL 17. Les services sont gérés via des unités
    systemd Quadlet. Ansible ouvre uniquement les ports inter-nœuds nécessaires
    et démarre Filebeat et Metricbeat. Avec le token Fleet, il conserve aussi
    les intégrations MongoDB/Kafka dédiées à leurs métriques métier.
 
-Chaque conteneur MongoDB et Kafka est plafonné à `512 Mio`. Kafka utilise un
+Chaque conteneur MongoDB, Kafka et PostgreSQL est plafonné à `512 Mio`. Kafka utilise un
 heap JVM fixe de `256 Mio` et MongoDB limite le cache WiredTiger à `256 Mio`.
 Ces valeurs sont volontairement adaptées au faible volume du POC ; les relever
 avant une charge soutenue ou un volume de données significatif.
@@ -128,7 +131,7 @@ allocations natives.
    kubectl -n apm-demo get deploy,pods,svc
    ```
 
-3. La configuration Fleet MongoDB/Kafka est déclarée dans
+3. La configuration Fleet MongoDB/Kafka/PostgreSQL est déclarée dans
    `platform/kubernetes/base/observability/kibana.yaml` et est appliquée avec
    Kibana. Depuis l'hôte, ne synchroniser que les pipelines Elasticsearch
    complémentaires :
@@ -138,8 +141,8 @@ allocations natives.
    ./platform/elk/scripts/sync-fleet-policies.sh
    ```
 
-   Le script installe le pipeline `metrics-kafka.topic@custom` et les pipelines
-   Kafka associés. Les dashboards s'importent séparément avec
+   Le script installe le pipeline `metrics-kafka.topic@custom`, les pipelines
+   Kafka associés et crée la package policy PostgreSQL si elle est absente. Les dashboards s'importent séparément avec
    `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka restent visibles
    et gérées par la préconfiguration Kibana déclarée dans Kubernetes.
 
@@ -147,14 +150,14 @@ allocations natives.
 
 Le playbook est idempotent : un simple `vagrant provision` applique les
 modifications sans recréer les conteneurs lorsque leur configuration ne change
-pas. Pour redéployer explicitement MongoDB et Kafka après une correction, tout
+pas. Pour redéployer explicitement MongoDB, Kafka et PostgreSQL après une correction, tout
 en conservant les volumes `mongodb-data` et `kafka-data`, utiliser :
 
 ```bash
 POC_REDEPLOY_SERVICES=true vagrant provision
 ```
 
-La relance recrée les conteneurs à partir des unités Quadlet, attend MongoDB,
+La relance recrée les conteneurs à partir des unités Quadlet, attend MongoDB et PostgreSQL,
 réinitialise seulement si nécessaire le replica set et réajoute idempotemment
 les membres. Le playbook installe le
 certificat public d’Elasticsearch dans le magasin de confiance système de
@@ -203,7 +206,10 @@ téléchargement.
   le réseau privé.
   Les événements Jolokia sont étiquetés avec l’IP de la VM dans
   `service.address`, jamais avec l’adresse locale de scrape.
-- Filebeat remonte les journaux Rocky, MongoDB et Kafka des VM. Metricbeat
+- PostgreSQL : il tourne seulement sur `data-01`; l'intégration Fleet collecte
+  ses métriques et Filebeat lit ses logs. L'input Fleet est conditionné à
+  `data-01`, bien que la policy soit commune aux trois VM.
+- Filebeat remonte les journaux Rocky, MongoDB, Kafka et PostgreSQL. Metricbeat
   remonte CPU, mémoire, charge, réseau, processus, disponibilité et disques;
   les pseudo-systèmes de fichiers sont exclus.
 
@@ -233,14 +239,15 @@ doit créer une erreur APM contrôlée.
 
 | Vue Kibana | Contrôles attendus | Diagnostic si absent |
 | --- | --- | --- |
-| Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB ; erreur de démonstration | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods et le trafic généré |
+| Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods et le trafic généré |
 | Observability > Infrastructure > Hosts | `data-01`, `data-02`, `data-03` avec CPU, mémoire, disques et réseau | vérifier `systemctl status metricbeat` et la clé API Elasticsearch |
 | Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des deux pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
 | Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
 | Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
+| PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |
 
 Une validation est réussie si Filebeat et Metricbeat sont actifs sur les trois hôtes, les trois
-membres MongoDB sont `PRIMARY`/`SECONDARY`, le quorum Kafka présente trois
+membres MongoDB sont `PRIMARY`/`SECONDARY`, PostgreSQL est disponible sur `data-01`, le quorum Kafka présente trois
 voters, les deux services APM reçoivent des données et toutes les vues ci-dessus
 contiennent des événements récents. Pour isoler une panne, commencer par
 `./scripts/cluster-status.sh`, puis Fleet > Agents et enfin les logs du pod ou
@@ -251,7 +258,7 @@ conteneur concerné.
 Depuis la racine du dépôt, la commande suivante vérifie les conteneurs sur les
 trois VM, affiche les membres et rôles du replica set MongoDB, l'état du quorum
 Kafka KRaft, le lag du groupe `apm-demo-worker` et le dernier traitement Kafka
-persisté dans MongoDB :
+persisté dans MongoDB et PostgreSQL :
 
 ```bash
 ansible-playbook -i ansible/inventory/vagrant.yml ansible/status.yml
@@ -310,14 +317,14 @@ test dans Kubernetes masque une erreur de connectivité ou de réplication du
 cluster KRaft de référence.
 
 La recette fonctionnelle doit donc valider un cycle complet
-producteur → Kafka sur VM → consommateur → MongoDB. Tout `TimeoutException`,
+producteur → Kafka sur VM → consommateur → MongoDB + PostgreSQL. Tout `TimeoutException`,
 `DisconnectException`, `UNKNOWN_TOPIC_OR_PARTITION` ou échec de commit Kafka
 est un défaut à corriger sur ce chemin, et non un motif pour basculer vers un
 broker Kubernetes.
 
 La validation du 17 août confirme que les trois VM sont joignables en SSH et
 que les pods Kubernetes atteignent les trois brokers Kafka (`9092`) et les trois
-membres MongoDB (`27017`) sur le réseau VirtualBox `192.168.33.0/24`. Rejouer
+membres MongoDB (`27017`) et PostgreSQL (`data-01:5432`) sur le réseau VirtualBox `192.168.33.0/24`. Rejouer
 la recette après chaque redéploiement afin de vérifier la production, la
 consommation et la persistance du message, pas seulement l'ouverture des ports.
 

@@ -29,6 +29,17 @@ filebeat.inputs:
       data_stream.type: logs
       data_stream.dataset: kafka.log
       data_stream.namespace: default
+{% if inventory_hostname == 'data-01' %}
+  - type: filestream
+    id: postgresql-logs
+    paths: [/var/log/postgresql/*.log]
+    fields_under_root: true
+    fields:
+      event.dataset: postgresql.log
+      data_stream.type: logs
+      data_stream.dataset: postgresql.log
+      data_stream.namespace: default
+{% endif %}
 
 processors:
   - add_host_metadata: ~
@@ -55,4 +66,7 @@ output.elasticsearch:
     - index: "logs-kafka.log-default"
       when.equals:
         event.dataset: "kafka.log"
+    - index: "logs-postgresql.log-default"
+      when.equals:
+        event.dataset: "postgresql.log"
   ssl.certificate_authorities: ["/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"]

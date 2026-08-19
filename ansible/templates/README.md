@@ -2,11 +2,13 @@
 
 Ces modèles Jinja sont rendus par `ansible/site.yml` sur chaque VM. Ils forment
 le lien entre les variables Ansible et les fichiers réellement consommés par
-systemd, Podman, Filebeat et Metricbeat.
+systemd, Podman, Filebeat et Metricbeat. PostgreSQL n'est rendu que sur
+`data-01`.
 
 ## Lire les templates
 
-- `poc-mongodb.container.j2` et `poc-kafka.container.j2` : unités Quadlet
+- `poc-mongodb.container.j2`, `poc-kafka.container.j2` et
+  `poc-postgresql.container.j2` : unités Quadlet
   créant les conteneurs de données.
 - `beat.service.j2` : unité systemd commune aux Beats.
 - `filebeat.yml.j2` et `metricbeat.yml.j2` : collecte de logs et métriques.

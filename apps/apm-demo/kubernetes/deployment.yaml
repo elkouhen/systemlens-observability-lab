@@ -131,6 +131,14 @@ spec:
               value: http://otel-collector-gateway.elastic-stack.svc:4318/v1/metrics
             - name: SPRING_DATA_MONGODB_URI
               value: mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://192.168.33.10:5432/observability_test
+            - name: SPRING_DATASOURCE_USERNAME
+              value: observability
+            # Identifiants de démonstration uniquement ; remplacer par un Secret
+            # Kubernetes dans un environnement non éphémère.
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: poc-postgresql-password
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: 192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092
           readinessProbe:

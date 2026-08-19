@@ -32,7 +32,7 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get elasticsearch,kibana,apmserver,agent
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
-vm-status: ## Vérifier les conteneurs MongoDB et Kafka des VM
+vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@./scripts/cluster-status.sh
 
 apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4)

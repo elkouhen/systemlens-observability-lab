@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Synchronise les pipelines Elasticsearch qui ne peuvent pas etre declares dans
-# kibana.yml. Les package policies Fleet sont preconfigurees dans le manifest
-# Kubernetes Kibana. Les secrets restent hors du depot.
+# Synchronise les pipelines Elasticsearch et les package policies qui doivent
+# mettre à jour une policy Fleet déjà existante. Les secrets restent hors du
+# dépôt.
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,6 +14,27 @@ kibana_user="${KIBANA_USERNAME:-elastic}"
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.poc.test:443:127.0.0.1
   -u "${kibana_user}:${KIBANA_PASSWORD}" -H 'Content-Type: application/json')
+kibana_args=(--fail --silent --show-error --insecure
+  --resolve kibana.poc.test:443:127.0.0.1
+  -u "${kibana_user}:${KIBANA_PASSWORD}" -H 'Content-Type: application/json' -H 'kbn-xsrf: true')
+
+# `xpack.fleet.agentPolicies` préconfigure une policy au premier démarrage de
+# Kibana mais n'ajoute pas rétroactivement une package policy à une policy
+# existante. La création est donc idempotente via l'API Fleet.
+for package_policy in system-fleet postgresql-fleet; do
+  package_name="${package_policy%-fleet}"
+  package_policy_id="$(curl "${kibana_args[@]}" \
+  "${kibana_url}/api/fleet/package_policies?perPage=100" \
+    | jq -r --arg name "${package_policy}" '.items[] | select(.name == $name) | .id' | head -n 1)"
+  if [[ -z "${package_policy_id}" ]]; then
+    curl "${kibana_args[@]}" -X POST \
+      "${kibana_url}/api/fleet/package_policies" \
+      --data-binary "@${elk_dir}/fleet/${package_name}-package-policy.json" >/dev/null
+    printf 'Fleet package policy created: %s\n' "${package_policy}"
+  else
+    printf 'Fleet package policy already present: %s\n' "${package_policy}"
+  fi
+done
 
 # Les pipelines @custom sont conserves lors des mises a jour de packages.
 curl "${elasticsearch_args[@]}" -X PUT \

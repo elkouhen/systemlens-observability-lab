@@ -8,7 +8,6 @@ metricbeat.modules:
     processors:
       - drop_event.when.regexp:
           system.filesystem.mount_point: '^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)'
-
 processors:
   - add_host_metadata: ~
 

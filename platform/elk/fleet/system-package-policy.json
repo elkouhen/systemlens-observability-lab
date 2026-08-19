@@ -1,6 +1,6 @@
 {
   "name": "system-fleet",
-  "description": "Metriques et journaux systeme des VMs data-01 a data-03",
+  "description": "Métriques et journaux système des VM du POC",
   "namespace": "default",
   "policy_ids": ["mongodb-hosts"],
   "package": {"name": "system", "title": "System", "version": "2.22.4"},

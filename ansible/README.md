@@ -1,7 +1,8 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée :
-trois VM Vagrant avec MongoDB, Kafka, Filebeat, Metricbeat et, selon la
+trois VM Vagrant avec MongoDB, Kafka, PostgreSQL sur `data-01`, Filebeat,
+Metricbeat et, selon la
 configuration, Elastic Agent/Fleet.
 
 ## Ordre de lecture

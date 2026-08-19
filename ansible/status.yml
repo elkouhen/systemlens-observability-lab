@@ -1,5 +1,5 @@
 ---
-- name: Vérifier MongoDB et Kafka sur les VM du POC
+- name: Vérifier MongoDB, Kafka et PostgreSQL sur les VM du POC
   hosts: poc_data
   become: true
   gather_facts: false
@@ -102,4 +102,45 @@
     - name: Afficher les traitements Kafka persistés dans MongoDB
       ansible.builtin.debug:
         msg: "MongoDB apm_demo_work — {{ mongodb_demo_work_status.stdout | default('indisponible') }}"
+      run_once: true
+
+    - name: Vérifier PostgreSQL sur data-01
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - poc-postgresql
+          - pg_isready
+          - -U
+          - observability
+          - -d
+          - observability_test
+      register: postgresql_status
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Compter les traitements Kafka persistés dans PostgreSQL
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - poc-postgresql
+          - psql
+          - -U
+          - observability
+          - -d
+          - observability_test
+          - -tAc
+          - "SELECT count(*) FROM apm_demo_work WHERE trigger = 'kafka'"
+      register: postgresql_demo_work_status
+      changed_when: false
+      failed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Afficher l'état et les traitements PostgreSQL
+      ansible.builtin.debug:
+        msg: "PostgreSQL data-01 — {{ postgresql_status.stdout | default('indisponible') }} ; traitements Kafka : {{ postgresql_demo_work_status.stdout | default('indisponible') }}"
       run_once: true

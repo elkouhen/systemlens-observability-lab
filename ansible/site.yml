@@ -11,6 +11,12 @@
       - { id: 3, name: data-03, ip: 192.168.33.12 }
     mongodb_replica_set: poc-rs
     mongodb_primary_ip: 192.168.33.10
+    postgresql_host: 192.168.33.10
+    postgresql_database: observability_test
+    postgresql_user: observability
+    # Identifiants de démonstration uniquement. En production, les fournir via
+    # Ansible Vault ou un gestionnaire de secrets.
+    postgresql_password: poc-postgresql-password
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093
     beats_version: 9.5.1
@@ -98,13 +104,38 @@
       ansible.builtin.command: "nmcli connection up {{ private_network_connection.stdout }} ifname {{ private_network_device.stdout }}"
       changed_when: false
 
+    - name: Identifier l'interface qui porte la route par défaut
+      ansible.builtin.shell: "ip route show default | awk 'NR == 1 { print $5 }'"
+      args:
+        executable: /bin/bash
+      register: default_network_device
+      changed_when: false
+
+    - name: Lire le profil NetworkManager de la route par défaut
+      ansible.builtin.command: "nmcli -g GENERAL.CONNECTION device show {{ default_network_device.stdout }}"
+      register: default_network_connection
+      changed_when: false
+
+    # Certaines images Vagrant reçoivent un serveur DNS DHCP invalide. La VM
+    # doit pouvoir récupérer les images Podman et les artefacts Elastic lors du
+    # premier provisionnement.
+    - name: Configurer des résolveurs DNS fiables sur la route par défaut
+      ansible.builtin.command: >-
+        nmcli connection modify "{{ default_network_connection.stdout }}"
+        ipv4.ignore-auto-dns yes ipv4.dns "1.1.1.1,8.8.8.8"
+      changed_when: false
+
+    - name: Appliquer la configuration DNS de la route par défaut
+      ansible.builtin.command: "nmcli device reapply {{ default_network_device.stdout }}"
+      changed_when: false
+
     - name: Ouvrir les ports inter-nœuds si firewalld est actif
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
         permanent: true
         immediate: true
         state: enabled
-      loop: [27017, 9092, 9093]
+      loop: "{{ [27017, 9092, 9093] + ([5432] if inventory_hostname == 'data-01' else []) }}"
       when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
     - name: Installer la résolution POC dans /etc/hosts
@@ -150,6 +181,8 @@
       loop:
         - { path: /var/log/mongodb, mode: '0755' }
         - { path: /var/log/kafka, mode: '0777' }
+        - { path: /var/log/postgresql, mode: '0777' }
+      when: inventory_hostname == 'data-01' or item.path != '/var/log/postgresql'
 
     - name: Créer le fichier de log MongoDB accessible au conteneur
       ansible.builtin.file:
@@ -191,10 +224,18 @@
       loop: [poc-mongodb, poc-kafka]
       register: quadlet_units
 
+    - name: Déployer l'unité Quadlet PostgreSQL sur data-01
+      ansible.builtin.template:
+        src: poc-postgresql.container.j2
+        dest: /etc/containers/systemd/poc-postgresql.container
+        mode: '0644'
+      register: postgresql_quadlet_unit
+      when: inventory_hostname == 'data-01'
+
     - name: Recharger systemd après les changements Quadlet
       ansible.builtin.systemd_service:
         daemon_reload: true
-      when: quadlet_units.changed
+      when: quadlet_units.changed or (postgresql_quadlet_unit.changed | default(false))
 
     - name: Démarrer MongoDB et Kafka
       ansible.builtin.systemd_service:
@@ -203,12 +244,43 @@
         state: started
       loop: [poc-mongodb, poc-kafka]
 
+    - name: Démarrer PostgreSQL sur data-01
+      ansible.builtin.systemd_service:
+        name: poc-postgresql.service
+        enabled: true
+        state: started
+      when: inventory_hostname == 'data-01'
+
     - name: Redéployer MongoDB et Kafka après un changement ou sur demande
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         state: restarted
       loop: [poc-mongodb, poc-kafka]
       when: quadlet_units.changed or (poc_redeploy_services | bool)
+
+    - name: Redéployer PostgreSQL après un changement ou sur demande
+      ansible.builtin.systemd_service:
+        name: poc-postgresql.service
+        state: restarted
+      when: inventory_hostname == 'data-01' and (postgresql_quadlet_unit.changed | default(false) or (poc_redeploy_services | bool))
+
+    - name: Attendre PostgreSQL sur data-01
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - poc-postgresql
+          - pg_isready
+          - -U
+          - "{{ postgresql_user }}"
+          - -d
+          - "{{ postgresql_database }}"
+      register: postgresql_ready
+      retries: 15
+      delay: 2
+      until: postgresql_ready.rc == 0
+      changed_when: false
+      when: inventory_hostname == 'data-01'
 
     - name: Attendre que le broker Kafka local accepte les requêtes d'administration
       ansible.builtin.command:
@@ -297,7 +369,10 @@
       # `retries` ne protège pas contre un mongosh bloqué : borner chaque
       # tentative permet à Ansible de continuer les contrôles et d'échouer
       # explicitement après le délai global plutôt que de rester suspendu.
-      ansible.builtin.command: "timeout 15 podman exec poc-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'"
+      ansible.builtin.command: >-
+        timeout 15 podman exec poc-mongodb mongosh --quiet
+        'mongodb://127.0.0.1:27017/?directConnection=true'
+        --eval 'db.adminCommand({ping: 1}).ok'
       register: mongodb_ping
       retries: 30
       delay: 2
