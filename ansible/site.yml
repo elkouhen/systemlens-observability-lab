@@ -528,16 +528,63 @@
           ansible.builtin.systemd_service:
             daemon_reload: true
 
-        - name: Redémarrer Filebeat et Metricbeat après mise à jour de leur configuration
+        - name: Redémarrer les Beats hors data-01
           ansible.builtin.systemd_service:
             name: "{{ item }}"
             enabled: true
             state: restarted
           loop: [filebeat, metricbeat]
 
-    # Fleet demeure utilisé uniquement pour les intégrations MongoDB et Kafka.
-    # Les entrées System et les fichiers de logs y sont explicitement désactivés.
-    - name: Installer Elastic Agent pour les intégrations MongoDB et Kafka
+          # data-01 conserve Filebeat pour les logs et remplace seulement
+          # Metricbeat par EDOT. data-02 et data-03 restent sur Beats.
+          when: inventory_hostname != 'data-01'
+
+    - name: Démarrer Filebeat et arrêter Metricbeat sur data-01
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: "{{ item == 'filebeat' }}"
+        state: "{{ 'started' if item == 'filebeat' else 'stopped' }}"
+      loop: [filebeat, metricbeat]
+      when: inventory_hostname == 'data-01'
+
+    - name: Déployer le collecteur EDOT des métriques système sur data-01
+      when: inventory_hostname == 'data-01'
+      block:
+        - name: Créer le répertoire de configuration EDOT
+          ansible.builtin.file:
+            path: /etc/poc-observability
+            state: directory
+            mode: '0750'
+
+        - name: Déployer la configuration EDOT
+          ansible.builtin.template:
+            src: otel-collector-vm.yml.j2
+            dest: /etc/poc-observability/otel-collector.yml
+            mode: '0600'
+          no_log: true
+          register: otel_collector_config
+
+        - name: Déployer l'unité Quadlet EDOT
+          ansible.builtin.template:
+            src: poc-otel-collector.container.j2
+            dest: /etc/containers/systemd/poc-otel-collector.container
+            mode: '0644'
+          register: otel_collector_quadlet
+
+        - name: Recharger systemd après le déploiement EDOT
+          ansible.builtin.systemd_service:
+            daemon_reload: true
+          when: otel_collector_config.changed or otel_collector_quadlet.changed
+
+        - name: Démarrer le collecteur EDOT
+          ansible.builtin.systemd_service:
+            name: poc-otel-collector.service
+            enabled: true
+            state: "{{ 'restarted' if otel_collector_config.changed or otel_collector_quadlet.changed else 'started' }}"
+
+    # Fleet conserve les intégrations métier optionnelles des VM. Les métriques
+    # système de data-01 sont collectées par EDOT.
+    - name: Installer Elastic Agent pour Fleet
       when: fleet_enrollment_token | default('') | length > 0
       block:
         - name: Déterminer l'architecture Elastic Agent

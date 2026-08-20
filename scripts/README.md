@@ -7,6 +7,8 @@ Kubernetes. Les scripts Elastic/Kibana sont dans `platform/elk/scripts/`.
 
 - `cluster-status.sh` : vérifie les conteneurs, le replica set MongoDB et le
   quorum Kafka dans les trois VM.
+- `check-kafka-jolokia.sh` : contrôle que Jolokia expose les MBeans requis par
+  les streams Kafka de la policy Fleet.
 - `mongodb-elk-workload.js` : génère une charge MongoDB pour observer le flux
   dans Elastic.
 

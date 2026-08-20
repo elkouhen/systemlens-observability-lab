@@ -1,0 +1,63 @@
+# EDOT local à data-01. Les métriques de services (Kafka, MongoDB et
+# PostgreSQL) restent temporairement dans les intégrations Fleet : cette
+# pipeline remplace uniquement le module Metricbeat `system`.
+receivers:
+  hostmetrics:
+    collection_interval: 30s
+    root_path: /hostfs
+    scrapers:
+      cpu: {}
+      load: {}
+      memory: {}
+      network: {}
+      filesystem:
+        exclude_mount_points:
+          match_type: regexp
+          mount_points:
+            - ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
+      process: {}
+      processes: {}
+      uptime: {}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 128
+    spike_limit_mib: 32
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 2s
+  resource/vm:
+    attributes:
+      # Le collecteur s'exécute dans un conteneur : imposer l'identité de la VM
+      # évite de publier le nom du conteneur comme hôte observé.
+      - key: host.name
+        value: {{ inventory_hostname }}
+        action: upsert
+      - key: deployment.environment.name
+        value: poc
+        action: upsert
+  elasticinframetrics: {}
+  batch:
+    timeout: 5s
+
+exporters:
+  elasticsearch/infra:
+    endpoints: ["{{ elasticsearch_url }}"]
+    # L'exporter Elasticsearch attend `id:api_key` encodé Base64.
+    api_key: {{ elasticsearch_api_key | b64encode }}
+    mapping:
+      mode: ecs
+    tls:
+      ca_file: /etc/otel/ca/ca-bundle.pem
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 1000
+
+service:
+  pipelines:
+    metrics/vm:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, resourcedetection, resource/vm, elasticinframetrics, batch]
+      exporters: [elasticsearch/infra]

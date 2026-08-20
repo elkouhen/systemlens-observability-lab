@@ -1,0 +1,22 @@
+[Unit]
+Description=Elastic Distribution of OpenTelemetry Collector for data-01
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.elastic.co/elastic-agent/elastic-otel-collector:{{ elastic_agent_version }}
+ContainerName=poc-otel-collector
+Network=host
+Volume=/:/hostfs:ro,rslave
+Volume=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/otel/ca/ca-bundle.pem:ro
+Volume=/etc/poc-observability/otel-collector.yml:/etc/otelcol/config.yaml:ro
+SecurityLabelDisable=true
+Memory=256m
+Exec=--config=/etc/otelcol/config.yaml
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
