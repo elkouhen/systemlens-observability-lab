@@ -20,8 +20,8 @@ OpenTelemetry et Elastic Agent acheminent les données vers Elasticsearch.
 
 APM Server est déployé par ECK et exposé pour un usage APM classique
 (agents envoyant directement en HTTP/OTLP à APM Server), mais **les
-applications de démonstration ne l'utilisent pas** : `apm-demo` et
-`apm-demo-worker` exportent leurs traces et métriques en OTLP vers le gateway
+applications de démonstration ne l'utilisent pas** : `order-service` et
+`inventory-service` exportent leurs traces et métriques en OTLP vers le gateway
 OpenTelemetry, qui les convertit et les écrit directement dans Elasticsearch
 (`logs-*`, `metrics-*`, `traces-*`) sans transiter par APM Server. Les vues
 Observability > APM de Kibana fonctionnent parce qu'elles lisent les mêmes

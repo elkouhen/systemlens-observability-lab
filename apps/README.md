@@ -6,8 +6,9 @@ porter la configuration de la plateforme ELK qui l'observe.
 
 ## Parcours conseillé
 
-Lire [`apm-demo/README.md`](apm-demo/README.md), puis les manifests Kubernetes
-dans `apm-demo/kubernetes/` et enfin les modules Maven.
+Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis les
+manifests Kubernetes dans `supermarket-demo/kubernetes/` et enfin les modules
+Maven.
 
 ## Documentation externe
 

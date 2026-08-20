@@ -13,13 +13,14 @@ applications Java instrumentées avec OpenTelemetry.
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
-| `apm-demo` | Kubernetes, namespace `apm-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
-| `apm-demo-worker` | Kubernetes, namespace `apm-demo` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
+| `order-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
+| `inventory-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
 
-Le flux applicatif est : `apm-demo` publie une tâche Kafka chaque minute ;
-`apm-demo-worker` la consomme puis écrit le résultat dans MongoDB et PostgreSQL
-(`data-01`). L’endpoint
-`/api/work` exerce également le chemin HTTP entre les deux applications.
+Le scénario métier simule un supermarché en ligne : `order-service` publie une
+commande Kafka chaque minute (commande en ligne) ; `inventory-service` la
+consomme, décrémente le stock du produit puis écrit le résultat dans MongoDB et
+PostgreSQL (`data-01`). L’endpoint `/api/orders` exerce également le chemin
+HTTP synchrone entre les deux applications (commande passée en caisse).
 
 ## Guides de lecture
 
@@ -39,7 +40,7 @@ références officielles nécessaires pour comprendre les choix de configuration
 
 ```
 platform/elk/       # Kubernetes ELK, Fleet, dashboards et scripts Elastic
-apps/apm-demo/      # code Java, Dockerfile et manifests de l'application
+apps/supermarket-demo/  # code Java, Dockerfile et manifests de l'application
 ansible/             # infrastructure partagée des VM MongoDB/Kafka/PostgreSQL
 scripts/             # utilitaires partagés aux VM
 ```
@@ -60,7 +61,7 @@ gateway OpenTelemetry, puis créent le gateway avant les applications.
   ```
 - un cluster Kubernetes avec l’opérateur ECK, Traefik et les ressources
   Elasticsearch/Kibana initiales dans `elastic-stack` ;
-- une image locale multi-stage `apm-demo:1.0.4` / `apm-demo-worker:1.0.4`
+- une image locale multi-stage `order-service:1.0.4` / `inventory-service:1.0.4`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -143,15 +144,16 @@ allocations natives.
    et APM.
    Les artefacts sont séparés par responsabilité : `platform/elk/` contient
    toute la plateforme Elastic (manifests Kubernetes, Fleet, dashboards et
-   scripts), tandis que `apps/apm-demo/` contient le code et les manifests de
-   l'application de démonstration. Les collecteurs OpenTelemetry sont dans la
-   plateforme ELK : ils constituent la chaîne d'ingestion, pas l'application.
+   scripts), tandis que `apps/supermarket-demo/` contient le code et les
+   manifests de l'application de démonstration. Les collecteurs OpenTelemetry
+   sont dans la plateforme ELK : ils constituent la chaîne d'ingestion, pas
+   l'application.
 
    ```bash
    kubectl apply -k platform/kubernetes/overlays/local
-   kubectl apply -k apps/apm-demo/kubernetes
+   kubectl apply -k apps/supermarket-demo/kubernetes
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
-   kubectl -n apm-demo get deploy,pods,svc
+   kubectl -n supermarket-demo get deploy,pods,svc
    ```
 
 3. La configuration Fleet MongoDB/Kafka/PostgreSQL est déclarée dans
@@ -217,7 +219,7 @@ téléchargement.
   `elasticinframetrics` pour les vues Inventory/Infrastructure et enrichit les
   traces et métriques applicatives avec `k8sattributes`.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
-  namespace `apm-demo`, décode les logs JSON ECS et ajoute les métadonnées
+  namespace `supermarket-demo`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.
 - MongoDB : l’intégration Fleet collecte `collstats`, `dbstats`, `metrics`,
   `replstatus` et `status` toutes les 60 s.
@@ -280,7 +282,7 @@ conteneur concerné.
 
 Depuis la racine du dépôt, la commande suivante vérifie les conteneurs sur les
 trois VM, affiche les membres et rôles du replica set MongoDB, l'état du quorum
-Kafka KRaft, le lag du groupe `apm-demo-worker` et le dernier traitement Kafka
+Kafka KRaft, le lag du groupe `inventory-service` et le dernier traitement Kafka
 persisté dans MongoDB et PostgreSQL :
 
 ```bash

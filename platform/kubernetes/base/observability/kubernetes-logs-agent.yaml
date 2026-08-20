@@ -69,15 +69,15 @@ spec:
               path: /var/log/pods
   config:
     inputs:
-      - id: apm-demo-container-logs
+      - id: supermarket-demo-container-logs
         type: filestream
         streams:
-          - id: apm-demo-container-logs-stream
+          - id: supermarket-demo-container-logs-stream
             data_stream:
               type: logs
               dataset: kubernetes.container_logs
             paths:
-              - /var/log/containers/*_apm-demo_*.log
+              - /var/log/containers/*_supermarket-demo_*.log
             prospector.scanner.symlinks: true
             parsers:
               - container:

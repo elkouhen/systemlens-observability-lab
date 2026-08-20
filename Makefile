@@ -5,7 +5,7 @@ KUBECTL ?= kubectl
 VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
-APP_NAMESPACE ?= apm-demo
+APP_NAMESPACE ?= supermarket-demo
 ELASTICSEARCH_URL ?= https://elasticsearch.poc.test:443
 KIBANA_URL ?= https://kibana.poc.test
 KIBANA_HOST ?= kibana.poc.test
@@ -22,7 +22,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	otel-infrastructure-deploy elasticsearch-ready \
 	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create apm-demo-logs-follow apm-demo-worker-logs-follow k3d-ca-import
+	beats-api-key-create order-service-logs-follow inventory-service-logs-follow k3d-ca-import
 
 help: ## Afficher les tâches disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -51,11 +51,11 @@ apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4 ;
 	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
 	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
 	fi; \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target frontend -t apm-demo:1.0.4 apps/apm-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target worker -t apm-demo-worker:1.0.4 apps/apm-demo
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target order-service -t order-service:1.0.4 apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:1.0.4 apps/supermarket-demo
 
 images-import: ## Importer les images dans le cluster k3d
-	@k3d image import -c $(K3D_CLUSTER) apm-demo:1.0.4 apm-demo-worker:1.0.4
+	@k3d image import -c $(K3D_CLUSTER) order-service:1.0.4 inventory-service:1.0.4
 
 k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (requiert ZSCALER_CA_CERT, puis redémarrer le cluster)
 	@test -n "$(ZSCALER_CA_CERT)" || { echo "Définir ZSCALER_CA_CERT=chemin/vers/cert.crt" >&2; exit 1; }
@@ -98,9 +98,9 @@ elk-deploy: ## Déployer la plateforme d'observabilité hors gateway OpenTelemet
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
 apps-deploy: ## Déployer uniquement l'application de démonstration
-	@$(KUBECTL) apply -k apps/apm-demo/kubernetes
-	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo --timeout=180s
-	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/apm-demo-worker --timeout=180s
+	@$(KUBECTL) apply -k apps/supermarket-demo/kubernetes
+	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
+	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 
 apm-deploy: ## Alias historique : déployer ELK, le gateway puis l'application
 	@$(MAKE) elk-deploy
@@ -112,7 +112,7 @@ platform-deploy: apps-build images-import ## Construire, importer et déployer l
 
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
-	@$(KUBECTL) kustomize apps/apm-demo/kubernetes >/dev/null
+	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes >/dev/null
 
 fleet-sync: ## Synchroniser les pipelines Kafka (policies Fleet déclarées dans Kubernetes)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
@@ -155,8 +155,8 @@ elasticsearch-api-key-create: ## Créer une clé API pour Filebeat/Metricbeat et
 
 beats-api-key-create: elasticsearch-api-key-create ## Alias de elasticsearch-api-key-create
 
-apm-demo-logs-follow: ## Suivre les logs de apm-demo
-	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/apm-demo
+order-service-logs-follow: ## Suivre les logs de order-service
+	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/order-service
 
-apm-demo-worker-logs-follow: ## Suivre les logs de apm-demo-worker
-	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/apm-demo-worker
+inventory-service-logs-follow: ## Suivre les logs de inventory-service
+	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/inventory-service

@@ -57,7 +57,7 @@
       ansible.builtin.debug:
         msg: "{{ inventory_hostname }} — {{ kafka_quorum_status.stdout | default('Kafka indisponible') }}"
 
-    - name: Lire le décalage du consommateur de démonstration Kafka
+    - name: Lire le décalage du consommateur de commandes Kafka
       ansible.builtin.command:
         argv:
           - podman
@@ -70,19 +70,19 @@
           - localhost:9092
           - --describe
           - --group
-          - apm-demo-worker
+          - inventory-service
       register: kafka_demo_consumer_status
       changed_when: false
       failed_when: false
       run_once: true
       delegate_to: data-01
 
-    - name: Afficher le décalage du consommateur de démonstration Kafka
+    - name: Afficher le décalage du consommateur de commandes Kafka
       ansible.builtin.debug:
-        msg: "Kafka apm-demo-worker — {{ kafka_demo_consumer_status.stdout | default('groupe indisponible ou aucune consommation') }}"
+        msg: "Kafka inventory-service — {{ kafka_demo_consumer_status.stdout | default('groupe indisponible ou aucune consommation') }}"
       run_once: true
 
-    - name: Compter les traitements Kafka persistés dans MongoDB
+    - name: Compter les commandes en ligne persistées dans MongoDB
       ansible.builtin.command:
         argv:
           - podman
@@ -92,16 +92,16 @@
           - --quiet
           - observability_test
           - --eval
-          - "JSON.stringify({count: db.apm_demo_work.countDocuments({trigger: 'kafka'}), latest: db.apm_demo_work.find({trigger: 'kafka'}).sort({createdAt: -1}).limit(1).toArray()})"
+          - "JSON.stringify({count: db.order_fulfillments.countDocuments({channel: 'kafka'}), latest: db.order_fulfillments.find({channel: 'kafka'}).sort({createdAt: -1}).limit(1).toArray()})"
       register: mongodb_demo_work_status
       changed_when: false
       failed_when: false
       run_once: true
       delegate_to: data-01
 
-    - name: Afficher les traitements Kafka persistés dans MongoDB
+    - name: Afficher les commandes en ligne persistées dans MongoDB
       ansible.builtin.debug:
-        msg: "MongoDB apm_demo_work — {{ mongodb_demo_work_status.stdout | default('indisponible') }}"
+        msg: "MongoDB order_fulfillments — {{ mongodb_demo_work_status.stdout | default('indisponible') }}"
       run_once: true
 
     - name: Vérifier PostgreSQL sur data-01
@@ -121,7 +121,7 @@
       run_once: true
       delegate_to: data-01
 
-    - name: Compter les traitements Kafka persistés dans PostgreSQL
+    - name: Compter les commandes en ligne persistées dans PostgreSQL
       ansible.builtin.command:
         argv:
           - podman
@@ -133,7 +133,7 @@
           - -d
           - observability_test
           - -tAc
-          - "SELECT count(*) FROM apm_demo_work WHERE trigger = 'kafka'"
+          - "SELECT count(*) FROM stock_movements WHERE channel = 'kafka'"
       register: postgresql_demo_work_status
       changed_when: false
       failed_when: false
@@ -142,5 +142,5 @@
 
     - name: Afficher l'état et les traitements PostgreSQL
       ansible.builtin.debug:
-        msg: "PostgreSQL data-01 — {{ postgresql_status.stdout | default('indisponible') }} ; traitements Kafka : {{ postgresql_demo_work_status.stdout | default('indisponible') }}"
+        msg: "PostgreSQL data-01 — {{ postgresql_status.stdout | default('indisponible') }} ; commandes en ligne : {{ postgresql_demo_work_status.stdout | default('indisponible') }}"
       run_once: true

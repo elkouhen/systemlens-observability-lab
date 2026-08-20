@@ -35,5 +35,5 @@ done
 
 printf '\n== PostgreSQL data-01 ==\n'
 run_on_vm data-01 \
-  'timeout 15 sudo podman exec poc-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) AS kafka_work_items FROM apm_demo_work WHERE trigger = '\''kafka'\''"' \
-  || printf 'PostgreSQL indisponible ou table apm_demo_work non créée\n'
+  'timeout 15 sudo podman exec poc-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) AS kafka_orders FROM stock_movements WHERE channel = '\''kafka'\''"' \
+  || printf 'PostgreSQL indisponible ou table stock_movements non créée\n'

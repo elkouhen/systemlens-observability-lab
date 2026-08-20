@@ -336,7 +336,7 @@
           - --create
           - --if-not-exists
           - --topic
-          - apm-demo.work.requested
+          - supermarket.order.placed
           - --partitions
           - '3'
           - --replication-factor
@@ -361,7 +361,7 @@
           - localhost:9092
           - --describe
           - --topic
-          - apm-demo.work.requested
+          - supermarket.order.placed
       register: kafka_demo_topic_description
       changed_when: false
       run_once: true
@@ -380,7 +380,7 @@
           - localhost:9092
           - --alter
           - --topic
-          - apm-demo.work.requested
+          - supermarket.order.placed
           - --partitions
           - '3'
       when: "'PartitionCount: 1' in kafka_demo_topic_description.stdout or 'PartitionCount: 2' in kafka_demo_topic_description.stdout"
