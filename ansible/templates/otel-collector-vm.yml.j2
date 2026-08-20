@@ -2,29 +2,34 @@
 # PostgreSQL) restent temporairement dans les intégrations Fleet : cette
 # pipeline remplace uniquement le module Metricbeat `system`.
 receivers:
-  hostmetrics:
+  host_metrics:
     collection_interval: 30s
     root_path: /hostfs
     scrapers:
-      cpu: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+          system.cpu.logical.count:
+            enabled: true
       load: {}
-      memory: {}
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       filesystem:
         exclude_mount_points:
           match_type: regexp
           mount_points:
             - ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
-      process: {}
-      processes: {}
-      uptime: {}
 
 processors:
   memory_limiter:
     check_interval: 1s
     limit_mib: 128
     spike_limit_mib: 32
-  resourcedetection:
+  resource_detection:
     detectors: [env, system]
     timeout: 2s
   resource/vm:
@@ -37,7 +42,6 @@ processors:
       - key: deployment.environment.name
         value: poc
         action: upsert
-  elasticinframetrics: {}
   batch:
     timeout: 5s
 
@@ -46,8 +50,7 @@ exporters:
     endpoints: ["{{ elasticsearch_url }}"]
     # L'exporter Elasticsearch attend `id:api_key` encodé Base64.
     api_key: {{ elasticsearch_api_key | b64encode }}
-    mapping:
-      mode: ecs
+    pipeline: otel-hostmetrics-dashboard-compat
     tls:
       ca_file: /etc/otel/ca/ca-bundle.pem
     sending_queue:
@@ -58,6 +61,6 @@ exporters:
 service:
   pipelines:
     metrics/vm:
-      receivers: [hostmetrics]
-      processors: [memory_limiter, resourcedetection, resource/vm, elasticinframetrics, batch]
+      receivers: [host_metrics]
+      processors: [memory_limiter, resource_detection, resource/vm, batch]
       exporters: [elasticsearch/infra]

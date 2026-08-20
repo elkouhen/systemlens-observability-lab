@@ -560,6 +560,8 @@
           ansible.builtin.template:
             src: otel-collector-vm.yml.j2
             dest: /etc/poc-observability/otel-collector.yml
+            owner: root
+            group: root
             mode: '0600'
           no_log: true
           register: otel_collector_config

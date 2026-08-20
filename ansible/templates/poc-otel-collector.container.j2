@@ -6,6 +6,7 @@ Wants=network-online.target
 [Container]
 Image=docker.elastic.co/elastic-agent/elastic-otel-collector:{{ elastic_agent_version }}
 ContainerName=poc-otel-collector
+User=root
 Network=host
 Volume=/:/hostfs:ro,rslave
 Volume=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/otel/ca/ca-bundle.pem:ro

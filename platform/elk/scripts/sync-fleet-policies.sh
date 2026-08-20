@@ -20,7 +20,9 @@ kibana_args=(--fail --silent --show-error --insecure
 
 # `xpack.fleet.agentPolicies` préconfigure une policy au premier démarrage de
 # Kibana mais n'ajoute pas rétroactivement une package policy à une policy
-# existante. La création est donc idempotente via l'API Fleet.
+# existante. La création est donc idempotente via l'API Fleet. Les packages
+# sont volontairement laissés inchangés après création : leurs variables sont
+# versionnées par l'intégration installée dans Kibana.
 for package_policy in system-fleet postgresql-fleet; do
   package_name="${package_policy%-fleet}"
   package_policy_id="$(curl "${kibana_args[@]}" \
@@ -42,6 +44,14 @@ curl "${elasticsearch_args[@]}" -X PUT \
   --data-binary "@${elk_dir}/fleet/kafka-topic-ingest-pipeline.json" >/dev/null
 printf 'Ingest pipeline updated: metrics-kafka.topic@custom\n'
 
+# Les metriques OTel conservent leur schema natif (metrics.*), mais les
+# dashboards historiques filtrent sur host.name. Le pipeline ajoute ce champ
+# sans modifier les attributs de ressource OTel.
+curl "${elasticsearch_args[@]}" -X PUT \
+  "${elasticsearch_url}/_ingest/pipeline/otel-hostmetrics-dashboard-compat" \
+  --data-binary "@${elk_dir}/fleet/otel-hostmetrics-dashboard-compat-pipeline.json" >/dev/null
+printf 'Ingest pipeline updated: otel-hostmetrics-dashboard-compat\n'
+
 # L'endpoint Jolokia reste volontairement local à chaque VM. Les métriques
 # doivent toutefois identifier le broker qui les a produites, pas localhost.
 for dataset in controller jvm network log_manager replica_manager topic raft; do
@@ -60,3 +70,28 @@ for dataset in controller jvm network log_manager replica_manager topic raft; do
     --data "${payload}" >/dev/null
 done
 printf 'Kafka service.address pipelines updated\n'
+
+# L'integration MongoDB se connecte volontairement a localhost sur chaque VM.
+# Les dashboards groupent toutefois les instances par service.address :
+# remplacer uniquement l'adresse locale par le nom de la VM rend data-01..03
+# distinguables, sans reecrire les adresses de replica set deja explicites.
+for dataset in collstats dbstats metrics replstatus status; do
+  pipeline="metrics-mongodb.${dataset}@custom"
+  existing="$(curl "${elasticsearch_args[@]}" "${elasticsearch_url}/_ingest/pipeline/${pipeline}" 2>/dev/null || printf '{}')"
+  payload="$(jq --arg pipeline "${pipeline}" '
+    .[$pipeline] // {description: "MongoDB custom processors", processors: []}
+    | del(.created_date_millis, .modified_date_millis)
+    | .processors = ([.processors[] | select(.set.tag != "set-mongodb-local-service-address")] +
+        [{set: {
+          tag: "set-mongodb-local-service-address",
+          field: "service.address",
+          value: "{{{host.name}}}",
+          if: "ctx.service != null && (ctx.service.address == '\''mongodb://localhost:27017'\'' || ctx.service.address == '\''mongodb://127.0.0.1:27017'\'')",
+          override: true
+        }}])
+  ' <<<"${existing}")"
+  curl "${elasticsearch_args[@]}" -X PUT \
+    "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \
+    --data "${payload}" >/dev/null
+done
+printf 'MongoDB service.address pipelines updated\n'
