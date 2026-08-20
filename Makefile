@@ -19,6 +19,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
 	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
+	deploy architecture-deploy \
 	otel-infrastructure-deploy elasticsearch-ready \
 	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -81,10 +82,12 @@ otel-gateway-api-key-sync: elasticsearch-ready ## Créer la clé writer du gatew
 	api_key_base64="$$(printf '%s' "$$api_key" | base64 | tr -d '\n')"; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
 
-otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer le gateway OpenTelemetry interne
+otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer les collectors OTEL Kafka et Elasticsearch
 	@$(KUBECTL) apply -f platform/kubernetes/base/observability/otel-collector-gateway.yaml
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-gateway
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-traces-backend
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-gateway --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-traces-backend --timeout=180s
 
 otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôte
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
@@ -109,6 +112,19 @@ apm-deploy: ## Alias historique : déployer ELK, le gateway puis l'application
 
 platform-deploy: apps-build images-import ## Construire, importer et déployer l'ensemble séquencé
 	@$(MAKE) apm-deploy
+
+deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
+	@set -euo pipefail; \
+	$(MAKE) elk-deploy; \
+	$(MAKE) otel-gateway-api-key-sync; \
+	source ./platform/elk/scripts/load-credentials.sh; \
+	$(VAGRANT) up; \
+	$(MAKE) otel-gateway-deploy; \
+	$(MAKE) apps-build; \
+	$(MAKE) images-import; \
+	$(MAKE) apps-deploy
+
+architecture-deploy: deploy ## Alias explicite de deploy
 
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
@@ -144,16 +160,24 @@ apm-token-show: ## Afficher le token d’ingestion APM
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token \
 		-o go-template='{{index .data "secret-token" | base64decode}}{{"\\n"}}'
 
-elasticsearch-api-key-create: ## Créer une clé API pour Filebeat/Metricbeat et la lecture des traces APM
+elasticsearch-api-key-create: ## Créer une clé API Base64 pour les rapports APM SystemLens
+	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (make elastic-password-show)" >&2; exit 1; }
+	@api_key="$$(curl --fail --silent --show-error --insecure \
+		-u "elastic:$$ELASTICSEARCH_PASSWORD" \
+		-H 'Content-Type: application/json' \
+		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
+		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","read","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
+		| jq -er '.id + ":" + .api_key')"; \
+	printf '%s' "$$api_key" | base64 | tr -d '\n'; echo
+
+beats-api-key-create: ## Créer une clé API brute id:api_key pour Filebeat/Metricbeat
 	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (make elastic-password-show)" >&2; exit 1; }
 	@curl --fail --silent --show-error --insecure \
 		-u "elastic:$$ELASTICSEARCH_PASSWORD" \
 		-H 'Content-Type: application/json' \
 		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
-		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
+		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","read","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
 		| jq -r '.id + ":" + .api_key'
-
-beats-api-key-create: elasticsearch-api-key-create ## Alias de elasticsearch-api-key-create
 
 order-service-logs-follow: ## Suivre les logs de order-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/order-service

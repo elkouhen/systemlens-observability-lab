@@ -2,9 +2,9 @@
 # vi: set ft=ruby :
 
 NODES = [
-  { name: "data-01", id: 1, ip: "192.168.33.10" },
-  { name: "data-02", id: 2, ip: "192.168.33.11" },
-  { name: "data-03", id: 3, ip: "192.168.33.12" }
+  { name: "data-01", id: 1, ip: "192.168.33.10", jolokia_port: 18_781, jmx_port: 19_991 },
+  { name: "data-02", id: 2, ip: "192.168.33.11", jolokia_port: 18_782, jmx_port: 19_992 },
+  { name: "data-03", id: 3, ip: "192.168.33.12", jolokia_port: 18_783, jmx_port: 19_993 }
 ].freeze
 
 Vagrant.configure("2") do |config|
@@ -28,6 +28,11 @@ Vagrant.configure("2") do |config|
     config.vm.define node_config[:name] do |node|
       node.vm.hostname = node_config[:name]
       node.vm.network "private_network", ip: node_config[:ip]
+      # Jolokia est utile pour les requêtes HTTP locales ; JConsole requiert
+      # l'endpoint JMX/RMI distinct. Les deux restent accessibles seulement
+      # depuis la machine hôte, jamais depuis le réseau local.
+      node.vm.network "forwarded_port", guest: 8778, host: node_config[:jolokia_port], host_ip: "127.0.0.1", auto_correct: false
+      node.vm.network "forwarded_port", guest: 9999, host: node_config[:jmx_port], host_ip: "127.0.0.1", auto_correct: false
 
       node.vm.provider "virtualbox" do |vb|
         # Rocky Linux 10 needs an Intel NIC for the host-only interface.

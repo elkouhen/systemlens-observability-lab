@@ -98,7 +98,7 @@ spec:
               system-system/metrics:
                 enabled: true
                 streams:
-                  '[system.cpu]': { enabled: true, vars: { period: 30s, 'cpu.metrics': [percentages] } }
+                  '[system.cpu]': { enabled: true, vars: { period: 30s, '[cpu.metrics]': [percentages] } }
                   '[system.memory]': { enabled: true, vars: { period: 30s } }
                   '[system.load]': { enabled: true, vars: { period: 30s } }
                   '[system.network]': { enabled: true, vars: { period: 30s } }

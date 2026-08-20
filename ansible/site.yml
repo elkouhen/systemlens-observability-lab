@@ -113,6 +113,13 @@
         that: private_network_device.stdout | length > 0
         fail_msg: "Interface portant {{ poc_node_ip }} introuvable."
 
+    # Vagrant peut créer le profil de l'interface host-only avec user_tmp_t.
+    # NetworkManager refuse alors de le réécrire, même exécuté par root.
+    - name: Restaurer le contexte SELinux des profils NetworkManager
+      ansible.builtin.command: restorecon -RFv /etc/NetworkManager/system-connections
+      register: networkmanager_restorecon
+      changed_when: networkmanager_restorecon.stdout | length > 0
+
     - name: Lire le profil NetworkManager du réseau privé
       ansible.builtin.command: "nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }}"
       register: private_network_connection
@@ -345,6 +352,34 @@
           - min.insync.replicas=2
       register: kafka_demo_topic
       changed_when: "'Created topic' in kafka_demo_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Créer le topic tampon des traces OpenTelemetry
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - otel-traces
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '3'
+          - --config
+          - min.insync.replicas=2
+          - --config
+          - retention.ms=86400000
+      register: kafka_otel_traces_topic
+      changed_when: "'Created topic' in kafka_otel_traces_topic.stdout"
       run_once: true
       delegate_to: data-01
 

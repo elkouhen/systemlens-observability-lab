@@ -15,6 +15,7 @@ applications Java instrumentées avec OpenTelemetry.
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
 | `order-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
 | `inventory-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
+| Collectors de traces OTLP | Kubernetes, namespace `elastic-stack` | gateway → topic Kafka `otel-traces` → backend | tampon des traces avant Elastic APM |
 
 Le scénario métier simule un supermarché en ligne : `order-service` publie une
 commande Kafka chaque minute (commande en ligne) ; `inventory-service` la
@@ -49,7 +50,9 @@ Les cibles `make elk-deploy` et `make apps-deploy` permettent de déployer les
 deux périmètres séparément ; `make apm-deploy` reste disponible comme alias de
 compatibilité pour les déployer ensemble. `make apm-deploy` et
 `make platform-deploy` attendent Elasticsearch, synchronisent l'API key du
-gateway OpenTelemetry, puis créent le gateway avant les applications.
+gateway OpenTelemetry, puis créent le gateway avant les applications. Pour
+déployer l'architecture complète (Kubernetes, VM et applications), utiliser
+`make deploy` (ou son alias `make architecture-deploy`).
 
 ## Prérequis
 
@@ -77,6 +80,9 @@ Les opérations courantes sont regroupées dans le `Makefile` : `make help`
 affiche les cibles disponibles, sous la convention `ressource-action`, notamment
 `make elastic-password-show`, `make apm-token-show`,
 `make elasticsearch-api-key-create`, `make platform-deploy` et `make vm-provision`.
+`make elasticsearch-api-key-create` renvoie une clé encodée en Base64 pour
+`SYSTEMLENS_ELASTICSEARCH_API_KEY` ; utiliser `make beats-api-key-create` pour
+obtenir le format brut `id:api_key` attendu par Filebeat et Metricbeat.
 Pour charger les secrets nécessaires dans le shell courant sans les afficher,
 utiliser `source ./platform/elk/scripts/load-credentials.sh` (ou `make credentials-show` pour
 afficher cette commande).
@@ -106,6 +112,22 @@ Voir [`certs/README.md`](certs/README.md) pour le détail des mécanismes
 
 ## Déploiement
 
+Pour un déploiement complet, une seule commande suffit après avoir renseigné
+le token Fleet si les intégrations MongoDB/Kafka/PostgreSQL des VM doivent être
+enrôlées :
+
+```bash
+export FLEET_ENROLLMENT_TOKEN='…' # optionnel : les Beats sont déployés dans tous les cas
+make deploy
+```
+
+La cible applique d'abord la plateforme Kubernetes, attend Elasticsearch et
+crée la clé du gateway. Elle charge ensuite (ou crée) une clé API Elasticsearch
+limitée aux Beats, lance `vagrant up` afin de créer le topic Kafka des traces,
+déploie les collectors OpenTelemetry, puis construit,
+importe dans k3d et déploie les deux applications. Une clé déjà fournie dans
+`ELASTICSEARCH_API_KEY` n'est pas remplacée.
+
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
    `ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
    MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat. La clé API
@@ -131,6 +153,22 @@ Chaque conteneur MongoDB, Kafka et PostgreSQL est plafonné à `512 Mio`. Kafka 
 heap JVM fixe de `256 Mio` et MongoDB limite le cache WiredTiger à `256 Mio`.
 Ces valeurs sont volontairement adaptées au faible volume du POC ; les relever
 avant une charge soutenue ou un volume de données significatif.
+
+### Jolokia et JConsole
+
+Après `vagrant up` ou `vagrant provision`, les endpoints Kafka sont exposés
+uniquement sur la boucle locale de l'hôte :
+
+| VM | Jolokia | JConsole (JMX/RMI) |
+| --- | --- | --- |
+| `data-01` | `http://127.0.0.1:18781/jolokia` | `service:jmx:rmi:///jndi/rmi://127.0.0.1:19991/jmxrmi` |
+| `data-02` | `http://127.0.0.1:18782/jolokia` | `service:jmx:rmi:///jndi/rmi://127.0.0.1:19992/jmxrmi` |
+| `data-03` | `http://127.0.0.1:18783/jolokia` | `service:jmx:rmi:///jndi/rmi://127.0.0.1:19993/jmxrmi` |
+
+JConsole ne peut pas se connecter directement à Jolokia, qui est une API HTTP.
+Utiliser l'URL JMX/RMI correspondante et laisser les identifiants vides. Cette
+configuration sans authentification ni TLS est réservée à ce POC : les ports
+ne sont publiés que sur `127.0.0.1` de la machine hôte.
 
 Kibana est volontairement traité à part : Fleet et les assets APM demandent
 davantage de mémoire au démarrage. Sa limite est de `2 Gio` et le heap Node.js
@@ -201,9 +239,16 @@ téléchargement.
 - Tracing et logs applicatifs : l’agent Java OpenTelemetry est chargé dans les
   deux images. Les Deployments injectent l’identité de service (nom, version,
   namespace et environnement) et l’endpoint OTLP HTTP/protobuf du gateway.
-  Celui-ci est répliqué, limite la mémoire, regroupe les événements et les
-  exporte directement vers Elasticsearch en TLS, avec une clé API dédiée au
-  gateway et limitée aux data streams `logs-*`, `metrics-*` et `traces-*`.
+  Le gateway enrichit les traces Kubernetes puis les publie au format
+  `otlp_proto` dans le topic Kafka dédié `otel-traces`. Deux collectors backend
+  du même consumer group les relisent, produisent les métriques APM agrégées et
+  les exportent vers Elasticsearch en TLS, avec une clé API dédiée et limitée
+  aux data streams `logs-*`, `metrics-*` et `traces-*`. Les métriques OTLP des
+  applications continuent d'être exportées directement par le gateway.
+  Kafka absorbe donc les indisponibilités courtes d'Elasticsearch, au prix d'un
+  délai possible avant l'apparition des traces dans APM. Le topic est créé avec
+  trois partitions, réplication 3, `min.insync.replicas=2` et une rétention de
+  24 heures.
   Le processeur `cumulativetodelta` conserve les histogrammes Micrometer. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
   le MDC du Java agent y ajoute les identifiants de trace. L’Agent Kubernetes
   les normalise en `trace.id` et `span.id` avant indexation pour naviguer d’un

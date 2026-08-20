@@ -22,7 +22,6 @@ data:
             endpoint: ${env:MY_POD_IP}:4319
 
     processors:
-      elasticapm:
       elasticinframetrics:
       k8sattributes:
         auth_type: serviceAccount
@@ -42,10 +41,18 @@ data:
         timeout: 5s
         send_batch_size: 8192
 
-    connectors:
-      elasticapm:
-
     exporters:
+      # Les traces OTLP sont publiées dans Kafka sans transformation. Les métriques
+      # restent directes : elles ne bénéficient pas du tampon de traces et
+      # doivent rester disponibles à faible latence dans Infrastructure.
+      kafka/traces:
+        brokers:
+          - 192.168.33.10:9092
+          - 192.168.33.11:9092
+          - 192.168.33.12:9092
+        traces:
+          topic: otel-traces
+          encoding: otlp_proto
       elasticsearch/otel:
         endpoints: ["${env:ELASTIC_ENDPOINT}"]
         # L'exporter attend la valeur de l'en-tête ApiKey (id:clé encodé Base64).
@@ -71,8 +78,8 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, k8sattributes, elasticapm, batch]
-          exporters: [elasticapm, elasticsearch/otel]
+          processors: [memory_limiter, k8sattributes, batch]
+          exporters: [kafka/traces]
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, k8sattributes, cumulativetodelta, batch]
@@ -81,10 +88,6 @@ data:
           receivers: [otlp/infra]
           processors: [memory_limiter, elasticinframetrics, batch]
           exporters: [elasticsearch/infra]
-        metrics/aggregated-metrics:
-          receivers: [elasticapm]
-          processors: [memory_limiter, batch]
-          exporters: [elasticsearch/otel]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -191,6 +194,158 @@ spec:
     - name: otlp-infra
       port: 4319
       targetPort: otlp-infra
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-traces-backend-config
+  namespace: elastic-stack
+data:
+  config.yaml: |
+    extensions:
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133
+
+    receivers:
+      # Même encodage et même topic que kafka/traces du gateway producteur.
+      kafka/traces:
+        brokers:
+          - 192.168.33.10:9092
+          - 192.168.33.11:9092
+          - 192.168.33.12:9092
+        group_id: otel-traces-elastic
+        traces:
+          topics: [otel-traces]
+          encoding: otlp_proto
+
+    processors:
+      elasticapm:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 256
+        spike_limit_mib: 64
+      batch:
+        timeout: 5s
+        send_batch_size: 8192
+
+    connectors:
+      # Génère les métriques APM transactionnelles à partir des traces avant
+      # leur indexation, afin de conserver les vues APM Elastic.
+      elasticapm:
+
+    exporters:
+      elasticsearch/otel:
+        endpoints: ["${env:ELASTIC_ENDPOINT}"]
+        api_key: ${env:ELASTIC_API_KEY_BASE64}
+        mapping:
+          mode: otel
+        tls:
+          ca_file: /etc/otel/elasticsearch-ca/ca.crt
+        sending_queue:
+          enabled: true
+          num_consumers: 4
+          queue_size: 10000
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [kafka/traces]
+          processors: [memory_limiter, elasticapm, batch]
+          exporters: [elasticapm, elasticsearch/otel]
+        metrics/aggregated-metrics:
+          receivers: [elasticapm]
+          processors: [memory_limiter, batch]
+          exporters: [elasticsearch/otel]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector-traces-backend
+  namespace: elastic-stack
+  labels:
+    app.kubernetes.io/name: otel-collector-traces-backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector-traces-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-collector-traces-backend
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: collector
+          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.5.1
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - name: health
+              containerPort: 13133
+          env:
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: ELASTIC_ENDPOINT
+              value: https://elasticsearch-es-http.elastic-stack.svc:9200
+            - name: ELASTIC_API_KEY_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: otel-collector-elasticsearch-api-key
+                  key: api-key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /
+              port: health
+          readinessProbe:
+            httpGet:
+              path: /
+              port: health
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+              readOnly: true
+            - name: elasticsearch-ca
+              mountPath: /etc/otel/elasticsearch-ca
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-traces-backend-config
+        - name: elasticsearch-ca
+          secret:
+            secretName: elasticsearch-es-http-certs-public
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: otel-collector-traces-backend
+  namespace: elastic-stack
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector-traces-backend
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
