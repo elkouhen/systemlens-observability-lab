@@ -1,8 +1,10 @@
 certs 
 .vagrant
 
+# Rapport APM généré localement.
+/apm.html
+
 # Certificat racine Zscaler (ou tout proxy TLS d'entreprise) fourni localement.
 # Voir certs/README.md : jamais versionné, propre à chaque machine.
 certs/*.crt
 certs/*.pem
-
