@@ -15,19 +15,20 @@ ne crée les package policies standards MongoDB/Kafka.
   réservés au playbook Ansible de policies dédiées par VM ; ils ne sont pas la
   source de vérité du déploiement Kubernetes.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
-- `system-package-policy.json` : exemple de policy système conservé comme
-  référence ; elle n'est pas synchronisée par le script actuel.
+- `system-package-policy.json` : payload API de l'intégration System,
+  synchronisé avec `kibana.yaml` par le script Fleet.
 - `elastic-agent.yml` : exemple de configuration standalone, distinct de Fleet.
 
-Les trois package policies MongoDB, Kafka et PostgreSQL sont associées à
+Les quatre package policies System, MongoDB, Kafka et PostgreSQL sont associées à
 l'agent policy `mongodb-hosts`. Dans ce POC, un Elastic Agent tourne sur chaque
 VM : `localhost` désigne donc le service local à la VM, jamais le poste qui
 exécute `make fleet-sync`. L'input PostgreSQL est conditionné à `data-01`, sa
 seule VM d'hébergement.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
-déclarer les policies. `make fleet-sync` ne met plus à jour que les pipelines
-Elasticsearch `@custom`, qui ne font pas partie de la configuration Kibana.
+préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` crée les
+intégrations System et PostgreSQL si elles sont absentes sur un Kibana déjà
+initialisé, puis met à jour les pipelines Elasticsearch `@custom`.
 
 ## Documentation externe
 

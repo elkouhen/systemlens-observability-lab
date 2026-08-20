@@ -104,13 +104,35 @@ spec:
                   '[system.network]': { enabled: true, vars: { period: 30s } }
                   '[system.process.summary]': { enabled: true, vars: { period: 30s } }
                   '[system.uptime]': { enabled: true, vars: { period: 30s } }
-                  '[system.filesystem]': { enabled: true, vars: { period: 1m } }
-                  '[system.fsstat]': { enabled: true, vars: { period: 1m } }
+                  '[system.filesystem]':
+                    enabled: true
+                    vars:
+                      period: 1m
+                      processors: |-
+                        - drop_event.when.regexp:
+                            system.filesystem.mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
+                  '[system.fsstat]':
+                    enabled: true
+                    vars:
+                      period: 1m
+                      processors: |-
+                        - drop_event.when.regexp:
+                            system.fsstat.mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
               system-logfile:
                 enabled: true
                 streams:
-                  '[system.syslog]': { enabled: true, vars: { paths: [/var/log/messages*] } }
-                  '[system.auth]': { enabled: true, vars: { paths: [/var/log/secure*] } }
+                  '[system.syslog]':
+                    enabled: true
+                    vars:
+                      paths: [/var/log/messages*]
+                      exclude_files: ['\\.gz$']
+                      preserve_original_event: false
+                  '[system.auth]':
+                    enabled: true
+                    vars:
+                      paths: [/var/log/secure*]
+                      exclude_files: ['\\.gz$']
+                      preserve_original_event: false
           - id: mongodb-fleet
             name: mongodb-fleet
             package:
@@ -204,3 +226,16 @@ spec:
                   username: observability
                   password: poc-postgresql-password
                   condition: '${host.name} == "data-01"'
+                streams:
+                  '[postgresql.activity]':
+                    enabled: true
+                    vars: { period: 60s }
+                  '[postgresql.bgwriter]':
+                    enabled: true
+                    vars: { period: 60s }
+                  '[postgresql.database]':
+                    enabled: true
+                    vars: { period: 60s }
+                  '[postgresql.statement]':
+                    enabled: false
+                    vars: { period: 60s }

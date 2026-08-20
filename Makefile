@@ -17,10 +17,10 @@ OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
-.PHONY: help credentials-show platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
+.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
 	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
 	otel-infrastructure-deploy elasticsearch-ready \
-	dashboard-deploy \
+	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create apm-demo-logs-follow apm-demo-worker-logs-follow k3d-ca-import
 
@@ -29,6 +29,12 @@ help: ## Afficher les tâches disponibles
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./platform/elk/scripts/load-credentials.sh\n'
+
+cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
+	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret $(OTEL_GATEWAY_API_KEY_SECRET) -o jsonpath='{.data.api-key}' | base64 --decode )"; \
+	printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\nPASSWORD=%s\nELASTIC_API_KEY_BASE64=%s\n' \
+		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test' "$$es_password" "$$api_key"
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -114,6 +120,16 @@ fleet-sync: ## Synchroniser les pipelines Kafka (policies Fleet déclarées dans
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./platform/elk/scripts/deploy-kibana-dashboard.sh
 
+apm-report-api-key-create: ## Créer une clé de lecture pour les rapports APM SystemLens
+	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }
+	@curl --fail --silent --show-error --insecure \
+		--resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+		-u "elastic:$$ELASTICSEARCH_PASSWORD" \
+		-H 'Content-Type: application/json' \
+		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
+		--data "{\"name\":\"systemlens-apm-report-$$(date +%Y%m%d%H%M%S)\",\"role_descriptors\":{\"systemlens_apm_report_reader\":{\"cluster\":[\"monitor\"],\"indices\":[{\"names\":[\"traces-*\",\"metrics-*\"],\"privileges\":[\"read\",\"view_index_metadata\"]}]}}}" \
+		| jq -r '.id + ":" + .api_key'
+
 vm-provision: ## Provisionner Filebeat/Metricbeat (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
 	@$(VAGRANT) provision
@@ -128,13 +144,13 @@ apm-token-show: ## Afficher le token d’ingestion APM
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token \
 		-o go-template='{{index .data "secret-token" | base64decode}}{{"\\n"}}'
 
-elasticsearch-api-key-create: ## Créer et afficher la clé API Elasticsearch pour Filebeat/Metricbeat
+elasticsearch-api-key-create: ## Créer une clé API pour Filebeat/Metricbeat et la lecture des traces APM
 	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (make elastic-password-show)" >&2; exit 1; }
 	@curl --fail --silent --show-error --insecure \
 		-u "elastic:$$ELASTICSEARCH_PASSWORD" \
 		-H 'Content-Type: application/json' \
 		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
-		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}' \
+		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
 		| jq -r '.id + ":" + .api_key'
 
 beats-api-key-create: elasticsearch-api-key-create ## Alias de elasticsearch-api-key-create
