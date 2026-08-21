@@ -29,28 +29,27 @@ spec:
             - name: http
               containerPort: 3000
           env:
-            - name: OTEL_SERVICE_NAME
+            - name: ELASTIC_APM_SERVICE_NAME
               value: order-service
-            - name: SERVICE_VERSION
+            - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
-            - name: DEPLOYMENT_ENVIRONMENT
+            - name: ELASTIC_APM_ENVIRONMENT
               value: local
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.namespace=supermarket-demo,service.version=1.0.0,deployment.environment.name=local
-            # Le Java agent ajoute trace_id/span_id au MDC Logback. L'encodeur
-            # ECS les sérialise en trace.id/span.id pour la navigation log-trace.
-            - name: OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED
+            - name: ELASTIC_APM_APPLICATION_PACKAGES
+              value: io.systemlens.supermarket.order
+            - name: ELASTIC_APM_SERVER_URL
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
+            - name: ELASTIC_APM_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-apm-token
+                  key: secret-token
+            # L'agent Elastic ajoute trace.id/span.id au MDC Logback ; l'encodeur
+            # ECS les conserve pour la navigation log-trace.
+            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
               value: "true"
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector-gateway.elastic-stack.svc:4318
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: http/protobuf
-            # Les logs ECS sont collectés sur stdout par Elastic Agent : éviter
-            # l'export OTLP Logs, dont le gateway n'expose pas de pipeline logs.
-            - name: OTEL_LOGS_EXPORTER
-              value: none
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: http://otel-collector-gateway.elastic-stack.svc:4318/v1/metrics
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
             - name: ORDER_SERVICE_INVENTORY_SERVICE_URL
               value: http://inventory-service:3001
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
@@ -69,6 +68,38 @@ spec:
               memory: 128Mi
             limits:
               memory: 512Mi
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+              readOnly: true
+      initContainers:
+        - name: apm-truststore
+          image: order-service:1.0.4
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              cp "$JAVA_HOME/lib/security/cacerts" /opt/elastic-apm/truststore/cacerts &&
+              keytool -importcert -noprompt -trustcacerts -alias apm-server-ca
+              -file /var/run/secrets/apm-server/ca.crt
+              -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: order-service-apm-server-ca
+        - name: apm-truststore
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

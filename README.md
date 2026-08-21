@@ -2,14 +2,14 @@
 
 Ce dépôt déploie un environnement de recette destiné à valider la visibilité
 de bout en bout dans Elastic : infrastructure, Kafka, MongoDB, PostgreSQL et deux
-applications Java instrumentées avec OpenTelemetry.
+applications Java instrumentées avec Elastic APM et OpenTelemetry.
 
 ## Architecture
 
 | Composant | Implantation | Configuration principale | Données observées |
 | --- | --- | --- | --- |
 | Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | ECK 9.5.1, TLS ECK, accès Traefik | APM, logs et métriques |
-| `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM, Filebeat et Metricbeat | métriques System, journaux système |
+| `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM ; EDOT sur `data-01`, Beats sur les autres VM | métriques System, journaux système |
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
@@ -33,6 +33,8 @@ Avant de modifier une configuration, suivre les README locaux :
 - [`apps/README.md`](apps/README.md) : séparation entre plateforme et workloads ;
 - [`ansible/README.md`](ansible/README.md) : infrastructure des VM et templates ;
 - [`scripts/README.md`](scripts/README.md) : outils de diagnostic partagés.
+- [`docs/README.md`](docs/README.md) : objectifs du POC, architecture des
+  signaux, comparatif des intégrations et matrices de recette.
 
 Ces documents listent un ordre de lecture, les commandes associées et les
 références officielles nécessaires pour comprendre les choix de configuration.
@@ -117,7 +119,7 @@ le token Fleet si les intégrations MongoDB/Kafka/PostgreSQL des VM doivent êtr
 enrôlées :
 
 ```bash
-export FLEET_ENROLLMENT_TOKEN='…' # optionnel : les Beats sont déployés dans tous les cas
+export FLEET_ENROLLMENT_TOKEN='…' # optionnel : intégrations Fleet MongoDB/Kafka/PostgreSQL
 make deploy
 ```
 
@@ -130,7 +132,8 @@ importe dans k3d et déploie les deux applications. Une clé déjà fournie dans
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
    `ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
-   MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat. La clé API
+   MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat sur
+   les trois VM, et EDOT sur `data-01`. La clé API
    Elasticsearch n’est jamais enregistrée dans Git : la fournir seulement dans
    l’environnement de la commande.
 
@@ -146,8 +149,10 @@ importe dans k3d et déploie les deux applications. Une clé déjà fournie dans
    Chaque VM installe MongoDB 8.0 et Kafka 3.9.2 sous Podman ; `data-01`
    installe aussi PostgreSQL 17. Les services sont gérés via des unités
    systemd Quadlet. Ansible ouvre uniquement les ports inter-nœuds nécessaires
-   et démarre Filebeat et Metricbeat. Avec le token Fleet, il conserve aussi
-   les intégrations MongoDB/Kafka dédiées à leurs métriques métier.
+   et démarre Filebeat et Metricbeat sur `data-02`/`data-03`. Sur `data-01`,
+   Filebeat collecte les logs et un collector EDOT collecte les métriques
+   système. Avec le token Fleet, les intégrations MongoDB/Kafka
+   dédiées aux métriques métier restent actives.
 
 Chaque conteneur MongoDB, Kafka et PostgreSQL est plafonné à `512 Mio`. Kafka utilise un
 heap JVM fixe de `256 Mio` et MongoDB limite le cache WiredTiger à `256 Mio`.
@@ -228,7 +233,7 @@ chaque VM avant de démarrer les collecteurs ; cette opération est gérée
 uniquement par Ansible. Pour un environnement non-POC, déployer une PKI de
 confiance.
 
-Les artefacts Jolokia, Filebeat et Metricbeat sont conservés sous
+Les artefacts Jolokia, Beats et EDOT sont conservés sous
 `/opt/poc-observability` et `/var/cache/poc-observability`. Ansible utilise
 `force: false` : une nouvelle exécution ne télécharge donc pas une version déjà
 présente ; seul un changement de version des Beats déclenche un nouveau
@@ -236,10 +241,12 @@ téléchargement.
 
 ## Configurations d’observabilité réalisées
 
-- Tracing et logs applicatifs : l’agent Java OpenTelemetry est chargé dans les
-  deux images. Les Deployments injectent l’identité de service (nom, version,
-  namespace et environnement) et l’endpoint OTLP HTTP/protobuf du gateway.
-  Le gateway enrichit les traces Kubernetes puis les publie au format
+- Tracing et logs applicatifs : `order-service` charge l’agent Java Elastic et
+  envoie ses traces directement à APM Server en HTTPS, avec le token et le
+  certificat ECK synchronisés dans le namespace applicatif par
+  `make apps-deploy`. `inventory-service` conserve l’agent Java OpenTelemetry,
+  son identité de service et son endpoint OTLP HTTP/protobuf vers le gateway.
+  Le gateway enrichit les traces d’`inventory-service` puis les publie au format
   `otlp_proto` dans le topic Kafka dédié `otel-traces`. Deux collectors backend
   du même consumer group les relisent, produisent les métriques APM agrégées et
   les exportent vers Elasticsearch en TLS, avec une clé API dédiée et limitée
@@ -277,11 +284,12 @@ téléchargement.
   Les événements Jolokia sont étiquetés avec l’IP de la VM dans
   `service.address`, jamais avec l’adresse locale de scrape.
 - PostgreSQL : il tourne seulement sur `data-01`; l'intégration Fleet collecte
-  ses métriques et Filebeat lit ses logs. L'input Fleet est conditionné à
-  `data-01`, bien que la policy soit commune aux trois VM.
-- Filebeat remonte les journaux Rocky, MongoDB, Kafka et PostgreSQL. Metricbeat
-  remonte CPU, mémoire, charge, réseau, processus, disponibilité et disques;
-  les pseudo-systèmes de fichiers sont exclus.
+  ses métriques et Filebeat y lit ses logs. L'input Fleet est conditionné
+  à `data-01`, bien que la policy soit commune aux trois VM.
+- Sur `data-01`, EDOT `hostmetrics` remonte CPU, mémoire, charge, réseau,
+  processus, disponibilité et systèmes de fichiers, tandis que Filebeat
+  collecte les journaux Rocky, MongoDB, Kafka et PostgreSQL. Filebeat et
+  Metricbeat assurent encore ces rôles sur `data-02` et `data-03`.
 
 ## Recette des dashboards
 
@@ -310,14 +318,15 @@ doit créer une erreur APM contrôlée.
 | Vue Kibana | Contrôles attendus | Diagnostic si absent |
 | --- | --- | --- |
 | Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods et le trafic généré |
-| Observability > Infrastructure > Hosts | `data-01`, `data-02`, `data-03` avec CPU, mémoire, disques et réseau | vérifier `systemctl status metricbeat` et la clé API Elasticsearch |
+| Observability > Infrastructure > Hosts | `data-01`, `data-02`, `data-03` avec CPU, mémoire, disques et réseau | sur `data-01`, vérifier `systemctl status poc-otel-collector`; ailleurs, `metricbeat` |
 | Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des deux pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
 | Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
 | Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
 | PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |
 
-Une validation est réussie si Filebeat et Metricbeat sont actifs sur les trois hôtes, les trois
-membres MongoDB sont `PRIMARY`/`SECONDARY`, PostgreSQL est disponible sur `data-01`, le quorum Kafka présente trois
+Une validation est réussie si Filebeat et `poc-otel-collector` sont actifs sur `data-01`,
+si Filebeat et Metricbeat sont actifs sur `data-02`/`data-03`, si les trois
+membres MongoDB sont `PRIMARY`/`SECONDARY`, si PostgreSQL est disponible sur `data-01`, et si le quorum Kafka présente trois
 voters, les deux services APM reçoivent des données et toutes les vues ci-dessus
 contiennent des événements récents. Pour isoler une panne, commencer par
 `./scripts/cluster-status.sh`, puis Fleet > Agents et enfin les logs du pod ou

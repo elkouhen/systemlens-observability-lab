@@ -8,10 +8,13 @@ pour passer une commande en caisse (`POST /api/orders`, appel synchrone vers
 et Actuator, puis lire les contrôleurs et le planificateur dans
 `src/main/java`.
 
-La télémétrie est injectée par l'agent Java au démarrage du conteneur ; elle ne
-nécessite donc pas de SDK OpenTelemetry dans ce module.
+Les traces sont injectées par l'agent Java Elastic au démarrage du conteneur et
+envoyées directement à APM Server ; elles ne nécessitent aucun SDK dans ce
+module. L'agent est configuré dans le Deployment Kubernetes, qui lui fournit
+l'identité du service, le token APM et le certificat de l'APM Server.
 
 ## Documentation externe
 
 - [Spring Boot externalized configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html)
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)
+- [Agent Java Elastic APM](https://www.elastic.co/docs/reference/apm/agents/java)

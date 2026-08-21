@@ -18,7 +18,7 @@ ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
-	elk-deploy kibana-fleet-config-deploy apps-deploy otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
+	elk-deploy kibana-fleet-config-deploy apps-deploy apm-token-sync otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
 	deploy architecture-deploy \
 	otel-infrastructure-deploy elasticsearch-ready \
 	dashboard-deploy apm-report-api-key-create \
@@ -100,7 +100,16 @@ kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarat
 elk-deploy: ## Déployer la plateforme d'observabilité hors gateway OpenTelemetry
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
-apps-deploy: ## Déployer uniquement l'application de démonstration
+apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
+	@set -euo pipefail; \
+	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
+	ca_file="$$(mktemp)"; \
+	trap 'rm -f "$$ca_file"' EXIT; \
+	$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-http-certs-public -o jsonpath='{.data.ca\\.crt}' | base64 --decode > "$$ca_file"; \
+	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-token --from-literal=secret-token="$$token" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-server-ca --from-file=ca.crt="$$ca_file" --dry-run=client -o yaml | $(KUBECTL) apply -f -
+
+apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) apply -k apps/supermarket-demo/kubernetes
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
@@ -118,6 +127,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	$(MAKE) elk-deploy; \
 	$(MAKE) otel-gateway-api-key-sync; \
 	source ./platform/elk/scripts/load-credentials.sh; \
+	$(MAKE) fleet-sync; \
 	$(VAGRANT) up; \
 	$(MAKE) otel-gateway-deploy; \
 	$(MAKE) apps-build; \
@@ -146,7 +156,7 @@ apm-report-api-key-create: ## Créer une clé de lecture pour les rapports APM S
 		--data "{\"name\":\"systemlens-apm-report-$$(date +%Y%m%d%H%M%S)\",\"role_descriptors\":{\"systemlens_apm_report_reader\":{\"cluster\":[\"monitor\"],\"indices\":[{\"names\":[\"traces-*\",\"metrics-*\"],\"privileges\":[\"read\",\"view_index_metadata\"]}]}}}" \
 		| jq -r '.id + ":" + .api_key'
 
-vm-provision: ## Provisionner Filebeat/Metricbeat (requiert ELASTICSEARCH_API_KEY)
+vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
 	@$(VAGRANT) provision
 
