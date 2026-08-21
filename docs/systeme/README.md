@@ -29,5 +29,7 @@ Elle ne décrit pas le comportement métier des services ; voir plutôt la
    recette par vue Kibana.
 2. [Matrice des métriques et de leurs sources](metriques-sources.md) : source,
    collecteur, traitement et data stream de chaque métrique.
-3. [Références partagées](../reference/objectifs.md) : objectif et critères de
+3. [Inventaire des métriques et dashboards ELK](inventaire-metrics-dashboards.md) :
+   métriques attendues, dashboards Kibana et contrôle Elasticsearch.
+4. [Références partagées](../reference/objectifs.md) : objectif et critères de
    fiabilité du POC.
