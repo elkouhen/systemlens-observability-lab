@@ -74,16 +74,30 @@ l'index et ne doivent pas être utilisées pour qualifier le profil actuel.
 
 ## PostgreSQL
 
-PostgreSQL est collecté par EDOT sur la VM OpenTelemetry. Les métriques
-attendues sont donc limitées aux trois streams ci-dessous ;
-`postgresql.statement` est désactivé dans la policy de comparaison et ne doit
-pas être exigé par le dashboard.
+PostgreSQL est collecté par EDOT sur la VM OpenTelemetry. Le pipeline actif
+indexe les trois streams ci-dessous. L'asset Kibana référence aussi les
+statistiques de requêtes `postgresql.statement.*` ; elles sont distinguées dans
+la dernière ligne, car elles ne sont pas mappées ni indexées au moment de la
+vérification.
 
 | Data stream attendu | Métriques ou état attendu | Dashboards principaux | Présence Elasticsearch |
 | --- | --- | --- | --- |
 | `postgresql.activity` | sessions, activité et requêtes en cours | Metrics PostgreSQL · Database Overview | présente sur `data-01` |
 | `postgresql.bgwriter` | checkpoints et buffers écrits | Metrics PostgreSQL · Database Overview | présente sur `data-01` |
 | `postgresql.database` | taille, connexions et transactions par base | Metrics PostgreSQL · Database Overview | présente sur `data-01` |
+| `postgresql.statement` | texte, appels, lecture cache et temps total de requête, dont `postgresql.statement.query.time.total.ms` | Metrics PostgreSQL · Database Overview : Query Latency et Top Queries | attendue par le dashboard, **absente** du pipeline actif |
+
+Le panneau **Query Latency** calcule notamment la différence de
+`max(postgresql.statement.query.time.total.ms)`. Une recherche Elasticsearch
+sur ce champ, ainsi qu'une lecture de ses mappings, ne retournent aucun
+document ni champ à la date de vérification. Le panneau peut donc rester vide
+même lorsque les trois autres streams PostgreSQL sont présents.
+
+Pour rendre ces visualisations exploitables, qualifier séparément la collecte
+des statistiques de requêtes : configuration du receiver PostgreSQL, exposition
+des statistiques par la base et conséquences de cardinalité liées au texte des
+requêtes. Ne pas déclarer le stream comme présent avant d'avoir vérifié des
+documents indexés.
 
 ## System
 
@@ -162,3 +176,19 @@ Un stream absent ou dont `dernier_document` est plus ancien que deux intervalles
 de collecte doit être diagnostiqué avant de conclure que le dashboard est en
 cause. Utiliser alors le guide
 [Diagnostiquer un dashboard vide](how-to/diagnostiquer-dashboard-vide.md).
+
+Pour contrôler spécifiquement la métrique attendue par le panneau Query
+Latency, remplacer l'agrégation par la requête suivante :
+
+```json
+{
+  "query": {
+    "exists": {
+      "field": "postgresql.statement.query.time.total.ms"
+    }
+  }
+}
+```
+
+Un total égal à `0` confirme que le panneau est une attente de dashboard non
+alimentée, et non une panne des streams `activity`, `bgwriter` ou `database`.
