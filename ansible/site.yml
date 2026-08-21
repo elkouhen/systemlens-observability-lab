@@ -474,7 +474,8 @@
         that: elasticsearch_api_key | default('') | length > 0
         fail_msg: Définir ELASTICSEARCH_API_KEY avant de provisionner les VM.
 
-    - name: Installer et configurer Filebeat et Metricbeat
+    - name: Installer et configurer Filebeat et Metricbeat sur data-03
+      when: inventory_hostname == 'data-03'
       block:
         - name: Déterminer l'architecture des Beats
           ansible.builtin.set_fact:
@@ -528,31 +529,33 @@
           ansible.builtin.systemd_service:
             daemon_reload: true
 
-        - name: Redémarrer les Beats hors data-01
+        - name: Démarrer les Beats
           ansible.builtin.systemd_service:
             name: "{{ item }}"
             enabled: true
             state: restarted
           loop: [filebeat, metricbeat]
 
-          # data-01 conserve Filebeat pour les logs et remplace seulement
-          # Metricbeat par EDOT. data-02 et data-03 restent sur Beats.
-          when: inventory_hostname != 'data-01'
-
-    - name: Démarrer Filebeat et arrêter Metricbeat sur data-01
+    - name: Arrêter les Beats hors du profil Beats
       ansible.builtin.systemd_service:
         name: "{{ item }}"
-        enabled: "{{ item == 'filebeat' }}"
-        state: "{{ 'started' if item == 'filebeat' else 'stopped' }}"
+        enabled: false
+        state: stopped
       loop: [filebeat, metricbeat]
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname != 'data-03'
 
-    - name: Déployer le collecteur EDOT des métriques système sur data-01
+    - name: Déployer le collecteur EDOT sur data-01
       when: inventory_hostname == 'data-01'
       block:
         - name: Créer le répertoire de configuration EDOT
           ansible.builtin.file:
             path: /etc/poc-observability
+            state: directory
+            mode: '0750'
+
+        - name: Créer le répertoire d'état EDOT
+          ansible.builtin.file:
+            path: /var/lib/poc-otel-collector
             state: directory
             mode: '0750'
 
@@ -584,10 +587,13 @@
             enabled: true
             state: "{{ 'restarted' if otel_collector_config.changed or otel_collector_quadlet.changed else 'started' }}"
 
-    # Fleet conserve les intégrations métier optionnelles des VM. Les métriques
-    # système de data-01 sont collectées par EDOT.
-    - name: Installer Elastic Agent pour Fleet
-      when: fleet_enrollment_token | default('') | length > 0
+    # Un seul hôte utilise Fleet. data-01 est intégralement collecté par EDOT,
+    # data-03 intégralement par Filebeat/Metricbeat : ne pas y conserver un
+    # Elastic Agent actif, sous peine de dupliquer les signaux.
+    - name: Installer Elastic Agent pour Fleet sur data-02
+      when:
+        - inventory_hostname == 'data-02'
+        - fleet_enrollment_token | default('') | length > 0
       block:
         - name: Déterminer l'architecture Elastic Agent
           ansible.builtin.set_fact:
@@ -628,3 +634,11 @@
             name: elastic-agent
             enabled: true
             state: started
+
+    - name: Arrêter Elastic Agent hors du profil Fleet
+      ansible.builtin.systemd_service:
+        name: elastic-agent
+        enabled: false
+        state: stopped
+      when: inventory_hostname != 'data-02'
+      failed_when: false

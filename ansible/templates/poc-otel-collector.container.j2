@@ -11,6 +11,7 @@ Network=host
 Volume=/:/hostfs:ro,rslave
 Volume=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/otel/ca/ca-bundle.pem:ro
 Volume=/etc/poc-observability/otel-collector.yml:/etc/otelcol/config.yaml:ro
+Volume=/var/lib/poc-otel-collector:/var/lib/otelcol:Z
 SecurityLabelDisable=true
 Memory=256m
 Exec=--config=/etc/otelcol/config.yaml

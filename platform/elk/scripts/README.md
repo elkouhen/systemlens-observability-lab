@@ -7,8 +7,9 @@ ne stockent aucun mot de passe dans le dépôt.
 
 1. `load-credentials.sh` lit les secrets ECK et exporte les variables utiles.
    Il doit être *sourcé* : `source ./platform/elk/scripts/load-credentials.sh`.
-2. `sync-fleet-policies.sh` pousse les pipelines Kafka `@custom` et crée de
-   façon idempotente la package policy PostgreSQL dans la policy Fleet existante.
+2. `sync-fleet-policies.sh` pousse les pipelines Kafka `@custom`, applique les
+   policies MongoDB/Kafka de la VM Elastic Agent et supprime la policy
+   PostgreSQL devenue inutile côté Fleet.
 3. `deploy-kibana-dashboard.sh` importe un export NDJSON dans Kibana.
 
 Les valeurs `KIBANA_URL`, `ELASTICSEARCH_URL` et les options `--resolve` sont

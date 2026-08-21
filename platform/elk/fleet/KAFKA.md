@@ -3,14 +3,14 @@
 Ce guide explique la package policy Kafka déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml)
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
-Le JSON voisin reste un modèle pour le cas optionnel des policies Ansible par VM.
-Chaque VM héberge un broker/controller Kafka KRaft dans Podman et un Elastic
-Agent sur l'hôte.
+Le JSON voisin est le payload appliqué par `make fleet-sync`. Chaque hôte de
+données héberge un broker/controller Kafka KRaft dans Podman ; seule la VM
+Elastic Agent exécute un Elastic Agent.
 
 ## Deux chemins de collecte complémentaires
 
 ```text
-Elastic Agent sur data-0N
+Elastic Agent de la VM Elastic Agent
   ├─ protocole Kafka : localhost:9092
   │    └─ broker, partition, consumergroup
   └─ HTTP Jolokia : 127.0.0.1:8778/jolokia
@@ -25,10 +25,10 @@ les MBeans JMX nécessaires aux métriques JVM et broker détaillées. Le bind s
 
 ## Lire la policy
 
-1. La policy `mongodb-hosts` rattache aussi Kafka à l'agent policy commune aux
-   trois VM ; son nom historique ne limite pas son contenu à MongoDB.
-2. Le bloc `logfile` est désactivé, car Filebeat collecte déjà les logs Kafka.
-   Ne l'activer qu'en supprimant cette autre source pour éviter les doublons.
+1. La policy `mongodb-hosts` rattache aussi Kafka à la VM Elastic Agent ; son
+   nom historique ne limite pas son contenu à MongoDB.
+2. Le bloc `logfile` est actif et constitue l'unique source des logs Kafka sur
+   cet hôte. Ne pas démarrer Filebeat en parallèle.
 3. `kafka/metrics` utilise `localhost:9092` toutes les 60 secondes et produit
    `kafka.broker`, `kafka.partition` et `kafka.consumergroup`.
 4. `jolokia/metrics` utilise `http://127.0.0.1:8778/jolokia` et produit les
@@ -68,13 +68,13 @@ Vérifier l'état de l'Agent dans Fleet et les data streams dans Discover.
 
 ## Vérification et dépannage
 
-1. Vérifier depuis chaque VM que `localhost:9092` répond et que le quorum KRaft
-   est sain : `make vm-status`.
+1. Vérifier depuis la VM Elastic Agent que `localhost:9092` répond et que le
+   quorum KRaft est sain : `make vm-status`.
 2. Vérifier que `http://127.0.0.1:8778/jolokia` répond localement. Une erreur
    ici indique un problème d'agent Jolokia ou de publication du port Podman.
 3. Dans Discover, filtrer `data_stream.dataset: kafka.raft` puis
    `data_stream.dataset: kafka.broker`.
-4. Vérifier que `service.address` contient le nom de la VM pour les datasets
+4. Vérifier que `service.address` contient le nom de l'hôte pour les datasets
    Jolokia ; sinon relancer `make fleet-sync` et contrôler les pipelines
    `metrics-kafka.*@custom`.
 5. En cas d'échec Fleet, comparer la version de package demandée dans le JSON

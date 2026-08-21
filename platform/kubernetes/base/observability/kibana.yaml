@@ -80,11 +80,11 @@ spec:
             name: fleet-server
             package:
               name: fleet_server
-      # Cette policy est remise aux Elastic Agents installés sur les VM. Les
-      # intégrations sont déclarées ici, au démarrage de Kibana, plutôt que
-      # créées par un script hôte via l'API Fleet.
+      # Cette policy est remise au seul Elastic Agent du profil Fleet. Les
+      # deux autres VM utilisent respectivement EDOT et Filebeat/Metricbeat.
+      # Les intégrations sont déclarées ici, au démarrage de Kibana.
       - id: mongodb-hosts
-        name: MongoDB, Kafka and PostgreSQL hosts
+        name: Elastic Agent profile
         namespace: default
         monitoring_enabled:
           - logs
@@ -139,7 +139,7 @@ spec:
               name: mongodb
             inputs:
               mongodb-logfile:
-                enabled: false
+                enabled: true
               mongodb-mongodb/metrics:
                 enabled: true
                 vars:
@@ -176,7 +176,7 @@ spec:
               name: kafka
             inputs:
               kafka-logfile:
-                enabled: false
+                enabled: true
               kafka-kafka/metrics:
                 enabled: true
                 vars:
@@ -208,34 +208,3 @@ spec:
                   '[kafka.replica_manager]': { enabled: true, vars: { period: 60s } }
                   '[kafka.topic]': { enabled: true, vars: { period: 60s } }
                   '[kafka.raft]': { enabled: true, vars: { period: 60s } }
-          # PostgreSQL n'est présent que sur data-01. La condition est évaluée
-          # par Elastic Agent : les agents data-02 et data-03 ne démarrent pas
-          # cet input, tout en restant rattachés à cette policy unique.
-          - id: postgresql-fleet
-            name: postgresql-fleet
-            package:
-              name: postgresql
-            inputs:
-              postgresql-logfile:
-                enabled: false
-              postgresql-postgresql/metrics:
-                enabled: true
-                vars:
-                  hosts:
-                    - postgres://localhost:5432/observability_test?sslmode=disable
-                  username: observability
-                  password: poc-postgresql-password
-                  condition: '${host.name} == "data-01"'
-                streams:
-                  '[postgresql.activity]':
-                    enabled: true
-                    vars: { period: 60s }
-                  '[postgresql.bgwriter]':
-                    enabled: true
-                    vars: { period: 60s }
-                  '[postgresql.database]':
-                    enabled: true
-                    vars: { period: 60s }
-                  '[postgresql.statement]':
-                    enabled: false
-                    vars: { period: 60s }

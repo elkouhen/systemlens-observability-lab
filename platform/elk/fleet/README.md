@@ -19,16 +19,16 @@ ne crée les package policies standards MongoDB/Kafka.
   synchronisé avec `kibana.yaml` par le script Fleet.
 - `elastic-agent.yml` : exemple de configuration standalone, distinct de Fleet.
 
-Les quatre package policies System, MongoDB, Kafka et PostgreSQL sont associées à
-l'agent policy `mongodb-hosts`. Dans ce POC, un Elastic Agent tourne sur chaque
-VM : `localhost` désigne donc le service local à la VM, jamais le poste qui
-exécute `make fleet-sync`. L'input PostgreSQL est conditionné à `data-01`, sa
-seule VM d'hébergement.
+Les trois package policies System, MongoDB et Kafka sont associées à l'agent
+policy `mongodb-hosts`. La VM Elastic Agent exécute un seul Agent :
+`localhost` désigne donc le service local de cet hôte, jamais le poste qui
+exécute `make fleet-sync`. PostgreSQL appartient à la VM OpenTelemetry.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
-préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` crée les
-intégrations System et PostgreSQL si elles sont absentes sur un Kibana déjà
-initialisé, puis met à jour les pipelines Elasticsearch `@custom`.
+préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` crée
+l'intégration System si elle est absente, remplace les policies MongoDB et
+Kafka afin d'appliquer la migration des logs, puis met à jour les pipelines
+Elasticsearch `@custom`.
 
 ## Documentation externe
 

@@ -1,6 +1,6 @@
 {
   "name": "mongodb-fleet",
-  "description": "Métriques MongoDB du POC (logs gérés par Filebeat)",
+  "description": "Logs et métriques MongoDB du profil Elastic Agent",
   "namespace": "default",
   "policy_ids": ["mongodb-hosts"],
   "package": {
@@ -12,7 +12,7 @@
     {
       "type": "logfile",
       "policy_template": "mongodb",
-      "enabled": false,
+      "enabled": true,
       "streams": [
         {
           "enabled": true,

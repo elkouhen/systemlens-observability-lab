@@ -8,6 +8,14 @@ metricbeat.modules:
     processors:
       - drop_event.when.regexp:
           system.filesystem.mount_point: '^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)'
+  - module: mongodb
+    period: 60s
+    hosts: ["mongodb://127.0.0.1:27017"]
+    metricsets: [collstats, dbstats, metrics, replstatus, status]
+  - module: kafka
+    period: 60s
+    hosts: ["127.0.0.1:9092"]
+    metricsets: [broker, partition, consumergroup]
 processors:
   - add_host_metadata: ~
 

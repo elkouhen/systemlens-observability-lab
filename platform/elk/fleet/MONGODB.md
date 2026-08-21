@@ -2,14 +2,13 @@
 
 Ce guide explique la package policy MongoDB déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
-Elle observe le replica set MongoDB du POC depuis un Elastic Agent installé sur
-chacune des VM `data-01` à `data-03`. Le JSON voisin reste un modèle pour le
-cas optionnel des policies Ansible par VM.
+Elle observe le replica set MongoDB du POC depuis l'Elastic Agent de la VM
+Fleet. Le JSON voisin est le payload appliqué par `make fleet-sync`.
 
 ## Chemin des données
 
 ```text
-Elastic Agent sur data-0N
+Elastic Agent de la VM Elastic Agent
   └─ MongoDB local : localhost:27017
        ├─ collstats, dbstats, metrics, status
        └─ replstatus
@@ -18,16 +17,15 @@ Elastic Agent sur data-0N
 ```
 
 Le choix de `localhost:27017` est intentionnel : l'Agent partage l'hôte de
-MongoDB. La policy est donc réutilisable sur les trois VM, tout en conservant
-`host.name` pour distinguer les membres du replica set.
+MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 
 ## Lire la policy
 
 1. La policy `mongodb-hosts` est créée par la préconfiguration Kibana dans
    Kubernetes. Un Agent ne reçoit la configuration que s'il est enrôlé avec le
    token de cette policy commune.
-2. L'entrée `logfile` est désactivée. Les logs MongoDB passent déjà par
-   Filebeat : l'activer ici créerait des doublons dans `logs-mongodb.log-*`.
+2. L'entrée `logfile` est activée : les logs MongoDB de cet hôte sont collectés
+   par Elastic Agent, sans Filebeat concurrent.
 3. L'entrée `mongodb/metrics` utilise `localhost:27017` et un intervalle de
    60 secondes pour chaque stream.
 4. `ssl.enabled: false` convient seulement au POC local. Ce réglage doit être
@@ -58,7 +56,7 @@ membre.
 | Authentification | fournir un utilisateur de supervision ; ne jamais committer son mot de passe dans le JSON |
 | TLS | activer TLS et fournir la CA par le mécanisme de secrets/variables Fleet adapté à l'environnement |
 | Moins de charge | augmenter `period` au-delà de `60s` |
-| Logs via Fleet | activer `logfile` **après** avoir désactivé la source Filebeat équivalente |
+| Logs via Fleet | déjà actif dans ce profil ; ne jamais activer une source Filebeat équivalente |
 
 L'utilisateur MongoDB doit disposer des droits nécessaires aux commandes de
 supervision. Le rôle intégré `clusterMonitor` couvre notamment les commandes

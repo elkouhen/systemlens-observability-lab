@@ -23,7 +23,7 @@ kibana_args=(--fail --silent --show-error --insecure
 # existante. La création est donc idempotente via l'API Fleet. Les packages
 # sont volontairement laissés inchangés après création : leurs variables sont
 # versionnées par l'intégration installée dans Kibana.
-for package_policy in system-fleet postgresql-fleet; do
+for package_policy in system-fleet; do
   package_name="${package_policy%-fleet}"
   package_policy_id="$(curl "${kibana_args[@]}" \
   "${kibana_url}/api/fleet/package_policies?perPage=100" \
@@ -37,6 +37,38 @@ for package_policy in system-fleet postgresql-fleet; do
     printf 'Fleet package policy already present: %s\n' "${package_policy}"
   fi
 done
+
+# Les intégrations MongoDB et Kafka changent de propriétaire lors de la
+# migration : le profil Elastic Agent lit désormais aussi les logs locaux.
+# La préconfiguration Kibana ne met pas à jour une package policy déjà créée ;
+# la remplacer par l'API Fleet rend la bascule idempotente.
+for package_policy in mongodb-fleet kafka-fleet; do
+  package_name="${package_policy%-fleet}"
+  package_policy_id="$(curl "${kibana_args[@]}" \
+    "${kibana_url}/api/fleet/package_policies?perPage=100" \
+    | jq -r --arg name "${package_policy}" '.items[] | select(.name == $name) | .id' | head -n 1)"
+  if [[ -n "${package_policy_id}" ]]; then
+    curl "${kibana_args[@]}" -X DELETE \
+      "${kibana_url}/api/fleet/package_policies/${package_policy_id}" >/dev/null
+    printf 'Fleet package policy removed: %s\n' "${package_policy}"
+  fi
+  curl "${kibana_args[@]}" -X POST \
+    "${kibana_url}/api/fleet/package_policies" \
+    --data-binary "@${elk_dir}/fleet/${package_name}-package-policy.json" >/dev/null
+  printf 'Fleet package policy applied: %s\n' "${package_policy}"
+done
+
+# PostgreSQL appartient au profil EDOT. Supprimer une ancienne policy Fleet
+# évite les erreurs de connexion et toute collecte résiduelle sur un hôte hors
+# profil OpenTelemetry.
+postgresql_policy_id="$(curl "${kibana_args[@]}" \
+  "${kibana_url}/api/fleet/package_policies?perPage=100" \
+  | jq -r '.items[] | select(.name == "postgresql-fleet") | .id' | head -n 1)"
+if [[ -n "${postgresql_policy_id}" ]]; then
+  curl "${kibana_args[@]}" -X DELETE \
+    "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}" >/dev/null
+  printf 'Fleet package policy removed: postgresql-fleet\n'
+fi
 
 # Les pipelines @custom sont conserves lors des mises a jour de packages.
 curl "${elasticsearch_args[@]}" -X PUT \

@@ -1,6 +1,9 @@
-# EDOT local à data-01. Les métriques de services (Kafka, MongoDB et
-# PostgreSQL) restent temporairement dans les intégrations Fleet : cette
-# pipeline remplace uniquement le module Metricbeat `system`.
+# EDOT local à data-01 : ce profil remplace intégralement Filebeat, Metricbeat
+# et Elastic Agent/Fleet pour les logs et métriques de cet hôte.
+extensions:
+  file_storage:
+    directory: /var/lib/otelcol/file-storage
+
 receivers:
   host_metrics:
     collection_interval: 30s
@@ -23,6 +26,41 @@ receivers:
           match_type: regexp
           mount_points:
             - ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
+  mongodb:
+    hosts:
+      - endpoint: 127.0.0.1:27017
+    replica_set: {{ mongodb_replica_set }}
+    collection_interval: 60s
+  kafka_metrics:
+    brokers: ["127.0.0.1:9092"]
+    cluster_alias: poc-kafka
+    collection_interval: 60s
+    scrapers: [brokers, topics, consumers]
+  postgresql:
+    endpoint: 127.0.0.1:5432
+    username: {{ postgresql_user }}
+    password: {{ postgresql_password }}
+    databases: [{{ postgresql_database }}]
+    collection_interval: 60s
+    tls:
+      insecure: true
+  filelog/system:
+    include: [/hostfs/var/log/messages*, /hostfs/var/log/secure*]
+    exclude: [/hostfs/var/log/*.gz]
+    start_at: end
+    storage: file_storage
+  filelog/mongodb:
+    include: [/hostfs/var/log/mongodb/mongod.log]
+    start_at: end
+    storage: file_storage
+  filelog/kafka:
+    include: [/hostfs/var/log/kafka/*.log]
+    start_at: end
+    storage: file_storage
+  filelog/postgresql:
+    include: [/hostfs/var/log/postgresql/*.log]
+    start_at: end
+    storage: file_storage
 
 processors:
   memory_limiter:
@@ -42,6 +80,26 @@ processors:
       - key: deployment.environment.name
         value: poc
         action: upsert
+  resource/log-system:
+    attributes:
+      - key: service.name
+        value: system
+        action: upsert
+  resource/log-mongodb:
+    attributes:
+      - key: service.name
+        value: mongodb
+        action: upsert
+  resource/log-kafka:
+    attributes:
+      - key: service.name
+        value: kafka
+        action: upsert
+  resource/log-postgresql:
+    attributes:
+      - key: service.name
+        value: postgresql
+        action: upsert
   batch:
     timeout: 5s
 
@@ -59,8 +117,25 @@ exporters:
       queue_size: 1000
 
 service:
+  extensions: [file_storage]
   pipelines:
     metrics/vm:
-      receivers: [host_metrics]
+      receivers: [host_metrics, mongodb, kafka_metrics, postgresql]
       processors: [memory_limiter, resource_detection, resource/vm, batch]
+      exporters: [elasticsearch/infra]
+    logs/system:
+      receivers: [filelog/system]
+      processors: [memory_limiter, resource_detection, resource/vm, resource/log-system, batch]
+      exporters: [elasticsearch/infra]
+    logs/mongodb:
+      receivers: [filelog/mongodb]
+      processors: [memory_limiter, resource_detection, resource/vm, resource/log-mongodb, batch]
+      exporters: [elasticsearch/infra]
+    logs/kafka:
+      receivers: [filelog/kafka]
+      processors: [memory_limiter, resource_detection, resource/vm, resource/log-kafka, batch]
+      exporters: [elasticsearch/infra]
+    logs/postgresql:
+      receivers: [filelog/postgresql]
+      processors: [memory_limiter, resource_detection, resource/vm, resource/log-postgresql, batch]
       exporters: [elasticsearch/infra]
