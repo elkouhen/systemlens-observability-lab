@@ -1,26 +1,37 @@
 # Inventaire des métriques et dashboards ELK
 
-Cette référence s'adresse aux opérateurs qui doivent qualifier les intégrations
-Kafka, MongoDB, PostgreSQL et System dans ELK. Elle indique les métriques
-attendues d'après les policies versionnées, les dashboards disponibles dans
-Kibana et la requête Elasticsearch qui vérifie leur présence.
+Cette référence s'adresse aux opérateurs qui doivent qualifier les métriques
+Kafka, MongoDB, PostgreSQL et System dans Elasticsearch et Kibana. Elle relie,
+pour chaque profil de collecte, la source, la fréquence, le périmètre de
+l'hôte et le contrôle à effectuer dans Elasticsearch.
 
-Elle ne remplace pas la [matrice des métriques et de leurs sources](metriques-sources.md),
-qui décrit aussi les profils EDOT et Beats. L'inventaire ci-dessous porte sur
-les data streams utilisés par les dashboards d'intégration et sur le contrôle
-de leur indexation.
+Les noms de data stream décrivent précisément les packages Elastic Agent. Pour
+EDOT, le nom effectivement produit par l'exporteur doit être relevé dans
+Discover : les receivers OpenTelemetry n'ont pas nécessairement le même
+`data_stream.dataset` qu'une intégration Elastic. La [matrice des métriques et
+de leurs sources](metriques-sources.md) reste la référence transversale.
+
+## Profils couverts
+
+| Profil | Hôte | Métriques couvertes | Fréquence |
+| --- | --- | --- | --- |
+| EDOT | `data-01` | System, MongoDB, Kafka, PostgreSQL | 30 s pour System ; 60 s pour les services |
+| Elastic Agent piloté par Fleet | `data-02` | System, MongoDB, Kafka et JMX Kafka | 30 s ou 60 s selon le stream |
+| Filebeat + Metricbeat | `data-03` | System, MongoDB, Kafka (broker, partitions, consumer groups) | 30 s ou 60 s selon le stream |
+
+Ces profils sont exclusifs : ne pas additionner leurs séries pour comparer des
+hôtes, ni conclure qu'une métrique JMX est absente parce qu'elle n'est pas
+collectée par EDOT ou Metricbeat.
 
 ## Périmètre de la vérification
 
-La vérification a été exécutée le **21 août 2026 à 07:39 UTC**, sur
-Elasticsearch `9.5.0` et Kibana `9.5.1`. Les 26 data streams métriques attendus
-étaient présents avec un document récent : 10 pour Kafka, 5 pour MongoDB, 3
-pour PostgreSQL et 8 pour System.
+La dernière vérification consignée a été exécutée le **21 août 2026 à 07:39
+UTC**, avec Elasticsearch et Kibana `9.5.1`. Elle doit être rejouée après toute
+modification de policy, de receiver EDOT ou de mapping d'exporteur.
 
-Les documents historiques supplémentaires ne constituent pas une preuve de la
-configuration actuelle. Par exemple, des streams `kafka.consumer` ou
-`system.*.otel` plus anciens peuvent rester indexés sans être requis par les
-policies Fleet décrites ici.
+Les documents historiques ne constituent pas une preuve de la configuration
+actuelle. En particulier, un document `kafka.*` ou `system.*.otel` associé à un
+autre hôte ne valide pas la policy Fleet de `data-02`.
 
 ## Dashboards disponibles dans Kibana
 
@@ -37,40 +48,43 @@ dans ce dépôt.
 
 ## Kafka
 
-Les collectes Kafka sont configurées toutes les 60 secondes sur le profil
-Elastic Agent. Les streams `broker`, `partition` et `consumergroup` viennent du
-protocole Kafka ; les autres viennent des MBeans JMX exposés par Jolokia.
+Les dix datasets ci-dessous sont ceux du profil Elastic Agent/Fleet sur
+`data-02`, collectés toutes les 60 secondes. Les streams `broker`, `partition`
+et `consumergroup` viennent du protocole Kafka ; les autres viennent des
+MBeans JMX exposés par Jolokia. EDOT et Metricbeat couvrent un sous-ensemble :
+voir les sections dédiées plus bas.
 
 | Data stream attendu | Métriques ou état attendu | Dashboards principaux | Présence Elasticsearch |
 | --- | --- | --- | --- |
-| `kafka.broker` | identité et activité du broker | Overview | présente, hôtes `data-01` à `data-03` |
-| `kafka.partition` | partitions, leader et réplication | Overview | présente, hôtes `data-01` à `data-03` |
-| `kafka.consumergroup` | groupes consommateurs et lag | Overview | présente, hôtes `data-01` à `data-03` |
-| `kafka.controller` | contrôleur et état KRaft | Controller | présente, hôtes `data-01` à `data-03` |
-| `kafka.jvm` | heap, GC et threads JVM | JVM | présente, hôtes `data-01` à `data-03` |
-| `kafka.network` | requêtes et trafic réseau | Network | présente, hôtes `data-01` à `data-03` |
-| `kafka.log_manager` | segments et journaux Kafka | Log manager | présente, hôtes `data-01` à `data-03` |
-| `kafka.replica_manager` | réplication et ISR | Replica manager | présente, hôtes `data-01` à `data-03` |
-| `kafka.topic` | débit, partitions et réplication par topic | Topic | présente, hôtes `data-01` à `data-03` |
-| `kafka.raft` | voters, leader et quorum KRaft | Raft | présente, hôtes `data-01` à `data-03` |
+| `kafka.broker` | identité et activité du broker | Overview | attendu sur `data-02` |
+| `kafka.partition` | partitions, leader et réplication | Overview | attendu sur `data-02` |
+| `kafka.consumergroup` | groupes consommateurs et lag | Overview | attendu sur `data-02` |
+| `kafka.controller` | contrôleur et état KRaft | Controller | attendu sur `data-02` |
+| `kafka.jvm` | heap, GC et threads JVM | JVM | attendu sur `data-02` |
+| `kafka.network` | requêtes et trafic réseau | Network | attendu sur `data-02` |
+| `kafka.log_manager` | segments et journaux Kafka | Log manager | attendu sur `data-02` |
+| `kafka.replica_manager` | réplication et ISR | Replica manager | attendu sur `data-02` |
+| `kafka.topic` | débit, partitions et réplication par topic | Topic | attendu sur `data-02` |
+| `kafka.raft` | voters, leader et quorum KRaft | Raft | attendu sur `data-02` |
 
 ## MongoDB
 
-Les streams MongoDB sont collectés toutes les 60 secondes. Le dashboard
-SystemLens s'appuie spécifiquement sur `mongodb.replstatus` pour afficher le
-replica set et son primary courant.
+Les streams MongoDB ci-dessous sont collectés toutes les 60 secondes par le
+profil Fleet sur `data-02`. Le dashboard SystemLens s'appuie spécifiquement
+sur `mongodb.replstatus` pour afficher le replica set et son primary courant.
 
 | Data stream attendu | Métriques ou état attendu | Dashboards principaux | Présence Elasticsearch |
 | --- | --- | --- | --- |
-| `mongodb.collstats` | opérations et temps par collection | Metrics Overview | présente |
-| `mongodb.dbstats` | taille, stockage et objets par base | Metrics Overview | présente |
-| `mongodb.metrics` | connexions, mémoire et activité serveur | Metrics Overview | présente |
-| `mongodb.replstatus` | primary/secondary, lag et oplog | SystemLens · MongoDB clusters | présente |
-| `mongodb.status` | état global `serverStatus` | Metrics Overview | présente |
+| `mongodb.collstats` | opérations et temps par collection | Metrics Overview | attendu sur `data-02` |
+| `mongodb.dbstats` | taille, stockage et objets par base | Metrics Overview | attendu sur `data-02` |
+| `mongodb.metrics` | connexions, mémoire et activité serveur | Metrics Overview | attendu sur `data-02` |
+| `mongodb.replstatus` | primary/secondary, lag et oplog | SystemLens · MongoDB clusters | attendu sur `data-02` |
+| `mongodb.status` | état global `serverStatus` | Metrics Overview | attendu sur `data-02` |
 
-Les documents actuels sont observés sur `data-01`, `data-02` et `data-03`.
-Des identités historiques (`mongodb-01`, `localhost`) existent aussi dans
-l'index et ne doivent pas être utilisées pour qualifier le profil actuel.
+Les mêmes familles sont aussi collectées par EDOT sur `data-01` et Metricbeat
+sur `data-03`, mais il faut les contrôler selon leur convention de données
+propre. Ne pas utiliser `localhost` ou une ancienne identité d'hôte comme
+preuve de la policy Fleet actuelle.
 
 ## PostgreSQL
 
@@ -108,19 +122,39 @@ hôtes observés par EDOT.
 
 | Data stream attendu | Métriques ou état attendu | Dashboards principaux | Présence Elasticsearch |
 | --- | --- | --- | --- |
-| `system.cpu` | utilisation CPU | Metrics System · Overview / Host overview | présente |
-| `system.memory` | mémoire utilisée et disponible | Metrics System · Overview / Host overview | présente |
-| `system.load` | charge système | Metrics System · Overview | présente |
-| `system.network` | paquets et octets réseau | Metrics System · Overview | présente |
-| `system.process.summary` | nombre de processus par état | Metrics System · Overview | présente |
-| `system.uptime` | disponibilité de l'hôte | Metrics System · Host overview | présente |
-| `system.filesystem` | utilisation par point de montage | Metrics System · Host overview | présente |
-| `system.fsstat` | capacité agrégée des systèmes de fichiers | Metrics System · Host overview | présente |
+| `system.cpu` | utilisation CPU | Metrics System · Overview / Host overview | attendu sur `data-02` |
+| `system.memory` | mémoire utilisée et disponible | Metrics System · Overview / Host overview | attendu sur `data-02` |
+| `system.load` | charge système | Metrics System · Overview | attendu sur `data-02` |
+| `system.network` | paquets et octets réseau | Metrics System · Overview | attendu sur `data-02` |
+| `system.process.summary` | nombre de processus par état | Metrics System · Overview | attendu sur `data-02` |
+| `system.uptime` | disponibilité de l'hôte | Metrics System · Host overview | attendu sur `data-02` |
+| `system.filesystem` | utilisation par point de montage | Metrics System · Host overview | attendu sur `data-02` |
+| `system.fsstat` | capacité agrégée des systèmes de fichiers | Metrics System · Host overview | attendu sur `data-02` |
 
-Les hôtes courants de ce profil sont `data-01`, `data-02` et `data-03`.
-`localhost` et les data streams suffixés `.otel` sont des données d'autres
-profils ou historiques : les examiner séparément plutôt que de les additionner
-au même graphique.
+Les hôtes `data-01` et `data-03` publient également des métriques système,
+respectivement avec EDOT et Metricbeat ; elles ne valident pas les huit
+datasets Fleet ci-dessus.
+
+## EDOT sur `data-01`
+
+EDOT collecte directement sur `data-01`. Les métriques sont exportées au format
+OpenTelemetry/ECS ; relever leur dataset exact dans Discover avant de les
+utiliser dans un dashboard conçu pour une intégration Elastic.
+
+| Source | Métriques attendues | Fréquence | Limite connue |
+| --- | --- | --- | --- |
+| `host_metrics` | CPU, compte de CPU logiques, charge, mémoire, réseau, systèmes de fichiers | 30 s | `host.name` est recopié par le pipeline de compatibilité ; vérifier les autres champs avant réutilisation d'un dashboard System |
+| receiver MongoDB | opérations, connexions, stockage et replica set local | 60 s | le nom de dataset peut différer de `mongodb.*` |
+| receiver Kafka | brokers, topics et consommateurs | 60 s | pas de JVM, KRaft, réseau ou réplication JMX dans cette configuration |
+| receiver PostgreSQL | activité, bgwriter et bases | 60 s | `postgresql.statement` n'est pas alimenté |
+
+## Metricbeat sur `data-03`
+
+Metricbeat collecte localement sur `data-03`. Les datasets System, MongoDB et
+Kafka sont ceux des modules Metricbeat ; les trois familles Kafka actives sont
+`broker`, `partition` et `consumergroup`. Les métriques JMX Kafka ne font pas
+partie de ce profil. Contrôler que `host.name : "data-03"` est présent avant de
+comparer cette collecte à celle de Fleet.
 
 ## Requête Elasticsearch reproductible
 
@@ -144,8 +178,7 @@ curl --fail --silent --show-error --insecure \
       "datasets": {
         "terms": {
           "field": "data_stream.dataset",
-          "size": 100,
-          "include": "(kafka\\.(broker|partition|consumergroup|controller|jvm|network|log_manager|replica_manager|topic|raft)|mongodb\\.(collstats|dbstats|metrics|replstatus|status)|postgresql\\.(activity|bgwriter|database)|system\\.(cpu|memory|load|network|process\\.summary|uptime|filesystem|fsstat))"
+          "size": 200
         },
         "aggs": {
           "documents": {"value_count": {"field": "_index"}},
@@ -171,10 +204,15 @@ curl --fail --silent --show-error --insecure \
   }'
 ```
 
-La sortie doit contenir les 26 noms de data streams listés dans cet inventaire.
-Un stream absent ou dont `dernier_document` est plus ancien que deux intervalles
-de collecte doit être diagnostiqué avant de conclure que le dashboard est en
-cause. Utiliser alors le guide
+Lire la liste `hosts` retournée pour chaque dataset avant de conclure. Sur
+`data-02`, les 23 datasets Fleet (10 Kafka, 5 MongoDB et 8 System) doivent être
+présents et récents. Sur `data-01`, relever les datasets EDOT réellement
+produits pour les quatre receivers. Sur `data-03`, contrôler les huit datasets
+System, les cinq MongoDB et les trois Kafka configurés par Metricbeat.
+
+Un dataset absent ou dont `dernier_document` est plus ancien que deux
+intervalles de collecte doit être diagnostiqué avant de conclure que le
+dashboard est en cause. Utiliser alors le guide
 [Diagnostiquer un dashboard vide](how-to/diagnostiquer-dashboard-vide.md).
 
 Pour contrôler spécifiquement la métrique attendue par le panneau Query
