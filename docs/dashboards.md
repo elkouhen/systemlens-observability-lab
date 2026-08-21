@@ -26,3 +26,22 @@ seulement un écran Kibana.
 
 Les requêtes exactes, identifiants des visualisations et captures de référence
 seront ajoutés par dashboard lors de leur qualification.
+
+## Requêtes de vérification initiales
+
+Ces requêtes KQL sont des points de départ dans Discover ; elles ne remplacent
+pas les filtres et agrégations propres à chaque dashboard. Sélectionner d'abord
+la période couvrant au moins deux intervalles de collecte.
+
+| Vue | Data view | Requête KQL de départ | Résultat attendu |
+| --- | --- | --- | --- |
+| APM Services / Traces | `traces-*` | `service.name : ("order-service" or "inventory-service")` | documents récents des deux services après génération de trafic |
+| Infrastructure > Hosts | `metrics-*` | `host.name : *` | une série par hôte ayant publié des métriques récentes |
+| Logs Kubernetes | `logs-*` | `kubernetes.namespace : "supermarket-demo"` | événements des pods applicatifs avec `kubernetes.*` |
+| MongoDB | `metrics-mongodb.*` | `event.dataset : "mongodb.replstatus"` | relevé replica set récent par hôte collecté |
+| Kafka | `metrics-kafka.*` | `host.name : *` | documents de broker récents ; affiner ensuite par champ Kafka disponible |
+| PostgreSQL | `metrics-postgresql.*` | `service.name : "postgresql"` | métriques récentes produites par EDOT sur la VM OpenTelemetry |
+
+Les guides [vérifier un signal](how-to/verifier-un-signal.md) et
+[diagnostiquer un dashboard vide](how-to/diagnostiquer-dashboard-vide.md)
+transforment cette recette en étapes reproductibles.

@@ -3,10 +3,11 @@
 ## Vue d'ensemble
 
 ```text
-Services applicatifs ─OTLP/HTTP─> gateway OTel ─Kafka/OTLP─> backend OTel ─> Elasticsearch
-       │                                  │                        │                 │
-       └─ stdout JSON ECS ─> Elastic Agent Kubernetes ──────────────┴─> logs-* ───┤
-                                                                                   └─> Kibana
+order-service ─Elastic APM/HTTPS─> APM Server ───────────────────────────> Elasticsearch
+inventory-service ─OTLP/HTTP─> gateway OTel ─Kafka/OTLP─> backend OTel ─> Elasticsearch
+        │                                │                        │                 │
+        └─ stdout JSON ECS ─> Elastic Agent Kubernetes ─────────────┴─> logs-* ──┤
+                                                                                └─> Kibana
 
 VM OpenTelemetry ─EDOT (logs + métriques)────────────────────────> logs-* / metrics-*
 VM Elastic Agent ─Agent piloté par Fleet──────────────────────────> logs-* / metrics-*
@@ -14,9 +15,11 @@ VM Beats ─Filebeat + Metricbeat───────────────�
 ```
 
 Les services Elastic (Elasticsearch, Kibana, APM Server et Fleet Server) sont
-gérés par ECK dans Kubernetes. APM Server reste disponible pour comparer une
-ingestion APM classique, mais la chaîne principale des traces de démonstration
-est OpenTelemetry puis Kafka, avant Elasticsearch.
+gérés par ECK dans Kubernetes. Le POC démontre deux chemins de traces :
+`order-service` utilise l'agent Java Elastic et APM Server ;
+`inventory-service` utilise l'agent Java OpenTelemetry puis Kafka avant
+Elasticsearch. Les deux chemins sont visibles dans Kibana et servent à comparer
+les modes d'ingestion.
 
 ## Traces, transactions et spans
 
@@ -39,14 +42,16 @@ pour les bases de données.
    autre service.
 3. Le service consommateur traite le message et produit les spans Kafka,
    MongoDB et PostgreSQL associés.
-4. Les agents émettent les traces en OTLP vers `otel-collector-gateway`.
+4. `order-service` envoie ses traces à APM Server en HTTPS. Les traces
+   d'`inventory-service` sont émises en OTLP vers `otel-collector-gateway`.
 5. Le gateway enrichit les ressources Kubernetes puis publie les traces brutes
-   en `otlp_proto` dans le topic Kafka `otel-traces`.
+   d'`inventory-service` en `otlp_proto` dans le topic Kafka `otel-traces`.
 6. Les collectors `otel-collector-traces-backend`, dans le même consumer group,
    relisent le topic. Le processeur/connecteur `elasticapm` génère les métriques
    transactionnelles APM ; l'exporteur Elasticsearch indexe les traces et ces
    métriques.
-7. Kibana lit les data streams `traces-*` et `metrics-*` pour les vues APM.
+7. Kibana lit les data streams `traces-*` et `metrics-*` pour les vues APM des
+   deux chemins.
 
 Kafka amortit une indisponibilité courte d'Elasticsearch, mais ajoute un délai
 entre l'émission et l'apparition dans Kibana. Les métriques applicatives OTLP ne
@@ -77,9 +82,10 @@ MongoDB et Kafka. La VM Beats utilise Filebeat pour les logs, et Metricbeat
 pour les métriques système, MongoDB et Kafka. Les trois profils sont exclusifs
 sur un même hôte afin d'éviter les doublons.
 
-Les intégrations Fleet collectent les métriques métier MongoDB, Kafka et
-PostgreSQL. L'infrastructure Kubernetes est observée par des collectors EDOT
-DaemonSet (hôte/Kubelet) et cluster. Les métriques Micrometer des applications
-sont émises en OTLP vers le gateway.
+Les intégrations Fleet collectent les métriques métier MongoDB et Kafka.
+PostgreSQL appartient au profil EDOT de la VM OpenTelemetry. L'infrastructure
+Kubernetes est observée par des collectors EDOT DaemonSet (hôte/Kubelet) et
+cluster. Les métriques Micrometer des applications sont émises en OTLP vers le
+gateway.
 
 La matrice détaillée est dans [metriques-sources.md](metriques-sources.md).
