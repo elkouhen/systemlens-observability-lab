@@ -14,8 +14,11 @@ reste dans la [documentation système](../systeme/README.md).
    scénario métier, endpoints et flux HTTP/Kafka.
 2. [Déploiement Kubernetes de l'application](../../apps/supermarket-demo/kubernetes/README.md) :
    identités de service et raccordement aux backends de télémétrie.
-3. [Architecture des signaux](../systeme/architecture-signaux.md) : explication
-   des chemins distincts d'`order-service` et d'`inventory-service`.
+3. [Modes d'intégration testés](integrations.md) : comparaison, côté
+   application, de l'agent Java Elastic/APM Server et de l'agent Java
+   OpenTelemetry/EDOT/Kafka.
+4. [Architecture des signaux](../systeme/architecture-signaux.md) : détail
+   système des chemins distincts d'`order-service` et d'`inventory-service`.
 
 ## Tutoriel
 
