@@ -13,7 +13,7 @@ services et à l'infrastructure.
 
 ## Prérequis
 
-- Le déploiement est terminé ; pour le créer, suivre le [README du dépôt](../../README.md).
+- Le déploiement est terminé ; pour le créer, suivre le [README du dépôt](../../../README.md).
 - `kubectl`, `curl` et l'accès à Kibana sont disponibles depuis le poste hôte.
 - Les pods applicatifs sont prêts. Vérifier d'abord :
 
@@ -68,11 +68,11 @@ puis utiliser Discover :
    deux intervalles de collecte avant de conclure qu'une métrique manque.
 
 Les noms des data streams et les champs à contrôler sont récapitulés dans les
-[matrices des dashboards](../dashboards.md) et des
-[métriques](../metriques-sources.md).
+[matrices des dashboards](../../systeme/dashboards.md) et des
+[métriques](../../systeme/metriques-sources.md).
 
 ## Si un résultat manque
 
 Ne modifiez pas encore les configurations. Suivez d'abord le guide
-[Vérifier un signal de bout en bout](../how-to/verifier-un-signal.md), puis le
-guide [Diagnostiquer un dashboard vide](../how-to/diagnostiquer-dashboard-vide.md).
+[Vérifier un signal de bout en bout](../../systeme/how-to/verifier-un-signal.md), puis le
+guide [Diagnostiquer un dashboard vide](../../systeme/how-to/diagnostiquer-dashboard-vide.md).

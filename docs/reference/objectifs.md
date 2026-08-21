@@ -38,8 +38,8 @@ Le POC est considéré comme documenté de manière fiable lorsqu'une personne p
 - comparer une solution active à une alternative sans confondre les rôles de
   Fleet, des Beats, de l'Agent APM et du Collector OpenTelemetry.
 
-Les matrices [dashboards](dashboards.md) et
-[métriques/sources](metriques-sources.md) sont les artefacts de recette de ces
+Les matrices [dashboards](../systeme/dashboards.md) et
+[métriques/sources](../systeme/metriques-sources.md) sont les artefacts de recette de ces
 critères.
 
 ## Hors périmètre actuel

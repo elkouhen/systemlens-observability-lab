@@ -20,44 +20,28 @@ rôles d'architecture suivants sont les noms de référence :
 | **VM Elastic Agent** | Elastic Agent est administré par Fleet. |
 | **VM Beats** | Filebeat et Metricbeat collectent les signaux locaux. |
 
-## Déployer et découvrir
+## Documentation système
 
-1. [Premier parcours de démonstration](tutorials/premiere-demonstration.md) :
-   prérequis, génération d'une commande et vérification d'un log, d'une métrique
-   et d'une trace.
-2. Le [README à la racine du dépôt](../README.md) : prérequis complets et
+La documentation [système](systeme/README.md) s'adresse aux personnes qui
+déploient, administrent ou dépannent Kubernetes, les VM et la chaîne Elastic.
+Elle couvre les collecteurs, Fleet, les data streams et les dashboards.
+
+## Documentation applicative
+
+La documentation [applicative](applicatif/README.md) s'adresse aux développeurs
+qui veulent comprendre les services de démonstration, générer du trafic et
+vérifier l'observabilité qui en résulte.
+
+## Références partagées
+
+1. [Objectifs et critères de fiabilité](reference/objectifs.md) : périmètre
+   pédagogique, résultats attendus et définition d'une documentation fiable.
+2. [FAQ d'architecture](reference/faq.md) : réponses courtes aux choix de
+   conception et aux compromis de collecte.
+3. [Technologies et sigles](reference/technologies.md) : glossaire synthétique
+   de la stack et liens vers les documentations officielles.
+4. Le [README à la racine du dépôt](../README.md) : prérequis complets et
    commandes de déploiement de l'environnement.
-
-## Comprendre l'architecture
-
-1. [Objectifs et critères de fiabilité](objectifs.md) : périmètre pédagogique,
-   résultats attendus et définition d'une documentation fiable.
-2. [Architecture des signaux](architecture-signaux.md) : chemins réels des logs,
-   métriques et traces, avec le cycle de vie d'une trace.
-3. [Comparatif des intégrations](integrations.md) : Elastic Agent/Fleet, Beats,
-   OpenTelemetry et APM Server, par type de signal.
-4. [Architecture Fleet](architecture-fleet.md) : rôles de Kibana, Fleet Server,
-   Elastic Agent, policies, outputs et étapes de création.
-5. [FAQ d'architecture](faq.md) : réponses courtes aux choix de conception et
-   aux compromis de collecte.
-
-## Vérifier et dépanner
-
-1. [Vérifier un signal de bout en bout](how-to/verifier-un-signal.md) :
-   contrôles reproductibles dans Kubernetes, les VM et Kibana.
-2. [Diagnostiquer un dashboard vide](how-to/diagnostiquer-dashboard-vide.md) :
-   ordre de diagnostic et requêtes KQL de départ.
-3. [Dépanner un Elastic Agent Fleet](how-to/depanner-fleet.md) : vérifier
-   l'enrôlement, la policy et le chemin de données.
-
-## Références
-
-1. [Matrice des dashboards](dashboards.md) : ce que chaque vue attend, les
-   champs et les contrôles de recette.
-2. [Matrice des métriques et de leurs sources](metriques-sources.md) : pour
-   chaque famille de métriques, source, collecteur, transport et data stream.
-3. [Technologies et sigles](technologies.md) : glossaire synthétique de la
-   stack et liens vers les documentations officielles.
 
 ## Règle de mise à jour
 
