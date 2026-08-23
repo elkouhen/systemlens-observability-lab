@@ -5,13 +5,30 @@ kind: Kibana
 metadata:
   name: es-kb-quickstart-eck-kibana
   namespace: elastic-stack
+  annotations:
+    # Déclenche la réconciliation des package policies après l'installation
+    # initiale des packages du registre Elastic 8.5.1.
+    observability.systemlens.io/fleet-packages-revision: "2"
 spec:
-  version: 9.5.1
+  version: 8.5.1
   count: 1
   elasticsearchRef:
     name: elasticsearch
   podTemplate:
     spec:
+      # Fleet installe les packages durant le bootstrap de Kibana. Attendre le
+      # registre évite une initialisation en échec lors d'un cluster vierge.
+      initContainers:
+        - name: wait-package-registry
+          image: curlimages/curl:8.5.0
+          command:
+            - sh
+            - -ec
+            - |
+              until curl --fail --silent http://package-registry.elastic-stack.svc:8080/health; do
+                echo 'Attente du registre de packages Elastic 8.5.1…'
+                sleep 2
+              done
       containers:
         - name: kibana
           env:
@@ -33,6 +50,9 @@ spec:
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
       - https://fleet.poc.test:443
+    # Registre versionné avec le Stack : il contient notamment APM 8.5.1,
+    # contrairement à l'EPR public courant qui ne propose plus que 8.4.2.
+    xpack.fleet.registryUrl: http://package-registry.elastic-stack.svc:8080
     xpack.fleet.outputs:
       # Fleet Server s'exécute dans le cluster : il doit utiliser le service
       # Elasticsearch interne, et non l'Ingress public qui n'est pas
@@ -51,160 +71,93 @@ spec:
           - https://elasticsearch.poc.test:443
     xpack.fleet.packages:
       - name: fleet_server
-        version: 1.6.1
-      - name: elastic_agent
-        version: 2.9.4
-      - name: system
-        version: 2.22.4
-      - name: mongodb
-        version: 1.24.0
-      - name: kafka
-        version: 1.27.2
-      - name: postgresql
-        version: 1.32.1
-      # Requis par APM Server 8+ pour initialiser les assets APM dans Kibana.
+        # 1.2.0 est la dernière version publiée par l'EPR compatible avec
+        # Kibana 8.5.x. Les versions récentes du package nécessitent Kibana
+        # 8.12+ et empêchent l'initialisation du Fleet Server.
+        version: 1.2.0
+      # La version doit suivre APM Server, sinon ses pipelines refusent les
+      # documents et les data views APM ne peuvent pas charger leurs champs.
       - name: apm
-        version: 8.4.2
+        version: 8.5.1
+      # Versions les plus récentes encore compatibles avec Kibana 8.5.1.
+      - name: system
+        version: 1.20.4
+      - name: mongodb
+        version: 1.5.0
+      - name: kafka
+        version: 1.3.0
+      - name: postgresql
+        version: 1.5.0
     xpack.fleet.agentPolicies:
       - id: eck-fleet-server
         name: Fleet Server on ECK
         namespace: default
         is_managed: true
-        data_output_id: fleet-server-output
-        monitoring_output_id: fleet-server-output
+        # ECK crée un token d'enrôlement seulement pour une policy marquée
+        # Fleet Server par défaut. Les sorties propres à une policy demandent
+        # une licence Platinum ; conserver la sortie Fleet par défaut.
+        is_default_fleet_server: true
+        unenroll_timeout: 901
         monitoring_enabled:
           - logs
           - metrics
         package_policies:
-          - id: fleet-server
-            name: fleet-server
+          - id: fleet-server-1
+            name: fleet_server-1
             package:
               name: fleet_server
-      # Cette policy est remise au seul Elastic Agent du profil Fleet. Les
-      # deux autres VM utilisent respectivement EDOT et Filebeat/Metricbeat.
-      # Les intégrations sont déclarées ici, au démarrage de Kibana.
-      - id: mongodb-hosts
-        name: Elastic Agent profile
+      # Les deux VM Fleet partagent la même policy : les intégrations MongoDB
+      # et Kafka parlent à localhost sur chaque VM. PostgreSQL est filtré sur
+      # data-01, où le service est réellement présent.
+      - id: data-01-02-fleet
+        name: Data 01-02 — Elastic Agent
         namespace: default
+        is_managed: true
+        is_default: true
         monitoring_enabled:
           - logs
           - metrics
         package_policies:
-          - id: system-fleet
-            name: system-fleet
+          - id: system-data-01-02
+            name: system-data-01-02
             package:
               name: system
             inputs:
-              system-system/metrics:
+              - type: system/metrics
                 enabled: true
-                streams:
-                  '[system.cpu]': { enabled: true, vars: { period: 30s, '[cpu.metrics]': [percentages] } }
-                  '[system.memory]': { enabled: true, vars: { period: 30s } }
-                  '[system.load]': { enabled: true, vars: { period: 30s } }
-                  '[system.network]': { enabled: true, vars: { period: 30s } }
-                  '[system.process.summary]': { enabled: true, vars: { period: 30s } }
-                  '[system.uptime]': { enabled: true, vars: { period: 30s } }
-                  '[system.filesystem]':
-                    enabled: true
-                    vars:
-                      period: 1m
-                      processors: |-
-                        - drop_event.when.regexp:
-                            system.filesystem.mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
-                  '[system.fsstat]':
-                    enabled: true
-                    vars:
-                      period: 1m
-                      processors: |-
-                        - drop_event.when.regexp:
-                            system.fsstat.mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib|snap)($|/)
-              system-logfile:
-                enabled: true
-                streams:
-                  '[system.syslog]':
-                    enabled: true
-                    vars:
-                      paths: [/var/log/messages*]
-                      exclude_files: ['\\.gz$']
-                      preserve_original_event: false
-                  '[system.auth]':
-                    enabled: true
-                    vars:
-                      paths: [/var/log/secure*]
-                      exclude_files: ['\\.gz$']
-                      preserve_original_event: false
-          - id: mongodb-fleet
-            name: mongodb-fleet
+          - id: mongodb-data-01-02
+            name: mongodb-data-01-02
             package:
               name: mongodb
             inputs:
-              mongodb-logfile:
+              - type: mongodb/metrics
                 enabled: true
-              mongodb-mongodb/metrics:
-                enabled: true
-                vars:
-                  hosts:
-                    - localhost:27017
-                  # Les clés de variables contenant un point doivent être
-                  # protégées par des crochets : sinon Kibana les interprète
-                  # comme une arborescence de configuration (`ssl.enabled`).
-                  '[ssl.enabled]': false
-                streams:
-                  '[mongodb.collstats]':
-                    enabled: true
-                    vars:
-                      period: 60s
-                  '[mongodb.dbstats]':
-                    enabled: true
-                    vars:
-                      period: 60s
-                  '[mongodb.metrics]':
-                    enabled: true
-                    vars:
-                      period: 60s
-                  '[mongodb.replstatus]':
-                    enabled: true
-                    vars:
-                      period: 60s
-                  '[mongodb.status]':
-                    enabled: true
-                    vars:
-                      period: 60s
-          - id: kafka-fleet
-            name: kafka-fleet
+          - id: kafka-data-01-02
+            name: kafka-data-01-02
             package:
               name: kafka
             inputs:
-              kafka-logfile:
+              - type: kafka/metrics
                 enabled: true
-              kafka-kafka/metrics:
+              - type: jolokia/metrics
                 enabled: true
-                vars:
-                  hosts:
-                    - localhost:9092
-                  period: 60s
-                streams:
-                  '[kafka.broker]':
-                    enabled: true
-                    vars:
-                      jolokia_hosts:
-                        - http://127.0.0.1:8778
-                  '[kafka.partition]':
-                    enabled: true
-                  '[kafka.consumergroup]':
-                    enabled: true
-              kafka-jolokia/metrics:
+          # PostgreSQL n'existe que sur data-01. L'endpoint localhost évite
+          # toute duplication : data-02 ne peut pas publier ces métriques.
+          - id: postgresql-data-01
+            name: postgresql-data-01
+            package:
+              name: postgresql
+            inputs:
+              - type: postgresql/metrics
                 enabled: true
                 vars:
-                  hosts:
-                    - http://127.0.0.1:8778
-                  metrics_path: /jolokia
-                  http_method: GET
-                streams:
-                  '[kafka.controller]': { enabled: true, vars: { period: 60s } }
-                  '[kafka.jvm]': { enabled: true, vars: { period: 60s } }
-                  '[kafka.network]': { enabled: true, vars: { period: 60s } }
-                  '[kafka.log_manager]': { enabled: true, vars: { period: 60s } }
-                  '[kafka.replica_manager]': { enabled: true, vars: { period: 60s } }
-                  '[kafka.topic]': { enabled: true, vars: { period: 60s } }
-                  '[kafka.raft]': { enabled: true, vars: { period: 60s } }
+                  - name: hosts
+                    type: text
+                    value:
+                      - postgres://localhost:5432/observability_test?sslmode=disable
+                  - name: username
+                    type: text
+                    value: observability
+                  - name: password
+                    type: password
+                    value: poc-postgresql-password

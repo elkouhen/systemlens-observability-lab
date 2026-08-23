@@ -26,7 +26,7 @@ collectée par EDOT ou Metricbeat.
 ## Périmètre de la vérification
 
 La dernière vérification consignée a été exécutée le **21 août 2026 à 07:39
-UTC**, avec Elasticsearch et Kibana `9.5.1`. Elle doit être rejouée après toute
+UTC**, avec Elasticsearch et Kibana `8.5.1`. Elle doit être rejouée après toute
 modification de policy, de receiver EDOT ou de mapping d'exporteur.
 
 Les documents historiques ne constituent pas une preuve de la configuration

@@ -1,6 +1,5 @@
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 
-ARG OTEL_JAVA_AGENT_VERSION=2.20.1
 ARG ELASTIC_APM_AGENT_VERSION=1.55.0
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent), encodé en
 # base64. Laisser vide sur une machine sans interception TLS : aucune étape
@@ -31,9 +30,6 @@ COPY order-service/src order-service/src
 COPY inventory-service/src inventory-service/src
 RUN mvn --batch-mode --projects order-service,inventory-service --also-make package -DskipTests
 RUN curl --fail --location --silent --show-error \
-  "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar" \
-  -o /opt/opentelemetry-javaagent.jar
-RUN curl --fail --location --silent --show-error \
   "https://repo1.maven.org/maven2/co/elastic/apm/elastic-apm-agent/${ELASTIC_APM_AGENT_VERSION}/elastic-apm-agent-${ELASTIC_APM_AGENT_VERSION}.jar" \
   -o /opt/elastic-apm-agent.jar
 
@@ -50,7 +46,7 @@ FROM eclipse-temurin:21.0.7_6-jre-noble AS inventory-service
 
 WORKDIR /app
 COPY --from=build /workspace/inventory-service/target/inventory-service-1.0.0.jar application.jar
-COPY --from=build /opt/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
+COPY --from=build /opt/elastic-apm-agent.jar /opt/elastic-apm-agent.jar
 USER 10001
 EXPOSE 3001
-ENTRYPOINT ["java", "-javaagent:/opt/opentelemetry-javaagent.jar", "-jar", "/app/application.jar"]
+ENTRYPOINT ["java", "-javaagent:/opt/elastic-apm-agent.jar", "-jar", "/app/application.jar"]

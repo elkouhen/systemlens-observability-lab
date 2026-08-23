@@ -1,5 +1,5 @@
 ---
-# Migration optionnelle du seul hôte Fleet vers la policy déclarée par Kubernetes :
+# Migration optionnelle des hôtes Fleet vers la policy déclarée par Kubernetes :
 # KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
 - name: Réaffecter les agents du POC à la policy Fleet commune
   hosts: localhost
@@ -13,8 +13,8 @@
     kibana_host: "{{ lookup('env', 'KIBANA_HOST') | default('kibana.poc.test', true) }}"
     kibana_username: "{{ lookup('env', 'KIBANA_USERNAME') | default('elastic', true) }}"
     kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') }}"
-    fleet_policy_id: mongodb-hosts
-    fleet_nodes: [data-02]
+    fleet_policy_id: data-01-02-fleet
+    fleet_nodes: [data-01, data-02]
 
   module_defaults:
     ansible.builtin.uri:

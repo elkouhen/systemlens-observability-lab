@@ -41,9 +41,9 @@ Vagrant.configure("2") do |config|
         vb.cpus = 1
       end
 
-      # Le playbook est idempotent : data-01 reçoit EDOT pour ses métriques
-      # système, data-02/data-03 conservent Filebeat/Metricbeat. Les secrets sont
-      # passés comme extra-vars et ne sont jamais écrits dans le dépôt.
+      # data-01 et data-02 utilisent Elastic Agent/Fleet ; data-03 utilise
+      # Filebeat/Metricbeat. Les secrets sont passés comme extra-vars et ne
+      # sont jamais écrits dans le dépôt.
       node.vm.provision "ansible" do |ansible|
         ansible.playbook = "ansible/site.yml"
         ansible.extra_vars = {

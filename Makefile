@@ -6,21 +6,23 @@ VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= supermarket-demo
+ELASTIC_STACK_VERSION ?= 8.5.1
+ECK_VERSION ?= 3.5.0
+ECK_HELM_REPOSITORY ?= https://helm.elastic.co
+ECK_STACK_CHART_VERSION ?= 0.20.0
 ELASTICSEARCH_URL ?= https://elasticsearch.poc.test:443
 KIBANA_URL ?= https://kibana.poc.test
 KIBANA_HOST ?= kibana.poc.test
 KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
 ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
-OTEL_GATEWAY_API_KEY_SECRET ?= otel-collector-elasticsearch-api-key
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
-.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate \
-	elk-deploy kibana-fleet-config-deploy apps-deploy apm-token-sync otel-gateway-api-key-sync otel-gateway-deploy apm-deploy platform-deploy fleet-sync vm-provision \
-	deploy architecture-deploy \
-	otel-infrastructure-deploy elasticsearch-ready \
+.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate eck-deploy elastic-stack-deploy \
+	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync vm-provision \
+	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
 	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create order-service-logs-follow inventory-service-logs-follow k3d-ca-import
@@ -33,9 +35,8 @@ credentials-show: ## Indiquer comment charger les identifiants dans le shell cou
 
 cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
 	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret $(OTEL_GATEWAY_API_KEY_SECRET) -o jsonpath='{.data.api-key}' | base64 --decode )"; \
-	printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\nPASSWORD=%s\nELASTIC_API_KEY_BASE64=%s\n' \
-		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test' "$$es_password" "$$api_key"
+	printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\nPASSWORD=%s\n' \
+		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test' "$$es_password"
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -46,7 +47,7 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@./scripts/cluster-status.sh
 
-apps-build: ## Construire les images applicatives OpenTelemetry (version 1.0.4 ; option ZSCALER_CA_CERT)
+apps-build: ## Construire les images applicatives avec l'agent Elastic APM (version 1.0.4 ; option ZSCALER_CA_CERT)
 	@zscaler_ca_b64=""; \
 	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
 	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
@@ -75,37 +76,59 @@ elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 		--for=condition=ElasticsearchIsReachable=True \
 		elasticsearch/elasticsearch --timeout=300s
 
-otel-gateway-api-key-sync: elasticsearch-ready ## Créer la clé writer du gateway si son secret est absent
-	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret $(OTEL_GATEWAY_API_KEY_SECRET) >/dev/null 2>&1; then exit 0; fi; \
-	es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' -u "elastic:$$es_password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' --data '{"name":"otel-collector-gateway","role_descriptors":{"otel_collector_gateway_writer":{"cluster":["monitor"],"indices":[{"names":["logs-*-*","metrics-*-*","traces-*-*"],"privileges":["auto_configure","create_doc"]}]}}}' | jq -er '.id + ":" + .api_key')"; \
-	api_key_base64="$$(printf '%s' "$$api_key" | base64 | tr -d '\n')"; \
-	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic $(OTEL_GATEWAY_API_KEY_SECRET) --from-literal="api-key=$$api_key_base64"
+kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status \
+		deployment/es-kb-quickstart-eck-kibana-kb --timeout=300s
 
-otel-gateway-deploy: otel-gateway-api-key-sync ## Déployer les collectors OTEL Kafka et Elasticsearch
-	@$(KUBECTL) apply -f platform/kubernetes/base/observability/otel-collector-gateway.yaml
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-gateway
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-collector-traces-backend
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-gateway --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-traces-backend --timeout=180s
-
-otel-infrastructure-deploy: ## Déployer les collecteurs EDOT Kubernetes et hôte
-	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-collector-daemon --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-collector-cluster --timeout=180s
+package-registry-ready: ## Attendre le registre de packages Elastic 8.5.1
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/package-registry --timeout=300s
 
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 
-elk-deploy: ## Déployer la plateforme d'observabilité hors gateway OpenTelemetry
+eck-deploy: ## Installer ou mettre à jour l'opérateur ECK 3.5.0
+	@helm repo add elastic $(ECK_HELM_REPOSITORY) --force-update
+	@helm repo update elastic
+	@helm upgrade --install elastic-operator elastic/eck-operator \
+		--namespace elastic-system --create-namespace --version $(ECK_VERSION)
+	@$(KUBECTL) -n elastic-system rollout status statefulset/elastic-operator --timeout=300s
+
+elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.5.1 avec le chart ECK
+	@helm repo add elastic $(ECK_HELM_REPOSITORY) --force-update
+	@helm repo update elastic
+	@if helm status es-kb-quickstart --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
+		echo "La release es-kb-quickstart existe déjà : ECK gère ses ressources."; \
+	else \
+		helm install es-kb-quickstart elastic/eck-stack \
+			--namespace $(K8S_NAMESPACE) --create-namespace --version $(ECK_STACK_CHART_VERSION) \
+			--set eck-elasticsearch.version=$(ELASTIC_STACK_VERSION) \
+			--set eck-kibana.version=$(ELASTIC_STACK_VERSION) \
+			--set eck-elasticsearch.fullnameOverride=elasticsearch \
+			--set eck-elasticsearch.nodeSets[0].name=default \
+			--set eck-elasticsearch.nodeSets[0].count=1 \
+			--set 'eck-elasticsearch.nodeSets[0].config.node\.store\.allow_mmap=false' \
+			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].name=elasticsearch \
+			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].resources.requests.memory=2Gi \
+			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].resources.limits.memory=2Gi; \
+	fi
+
+elk-deploy: eck-deploy elastic-stack-deploy ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
+	@$(MAKE) package-registry-ready
+	@$(MAKE) kibana-ready
+	@$(MAKE) apm-data-view-deploy
+
+apm-data-view-deploy: ## Importer le data view APM versionné
+	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./platform/elk/scripts/deploy-kibana-dashboard.sh platform/elk/dashboards/apm-data-view.ndjson
 
 apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
 	@set -euo pipefail; \
 	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
 	ca_file="$$(mktemp)"; \
 	trap 'rm -f "$$ca_file"' EXIT; \
-	$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-http-certs-public -o jsonpath='{.data.ca\\.crt}' | base64 --decode > "$$ca_file"; \
+	$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-http-certs-public -o jsonpath='{.data.ca\.crt}' | base64 --decode > "$$ca_file"; \
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-token --from-literal=secret-token="$$token" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-server-ca --from-file=ca.crt="$$ca_file" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
@@ -114,9 +137,8 @@ apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstrat
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 
-apm-deploy: ## Alias historique : déployer ELK, le gateway puis l'application
+apm-deploy: ## Alias historique : déployer ELK et l'application
 	@$(MAKE) elk-deploy
-	@$(MAKE) otel-gateway-deploy
 	@$(MAKE) apps-deploy
 
 platform-deploy: apps-build images-import ## Construire, importer et déployer l'ensemble séquencé
@@ -125,11 +147,9 @@ platform-deploy: apps-build images-import ## Construire, importer et déployer l
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
 	$(MAKE) elk-deploy; \
-	$(MAKE) otel-gateway-api-key-sync; \
 	source ./platform/elk/scripts/load-credentials.sh; \
 	$(MAKE) fleet-sync; \
 	$(VAGRANT) up; \
-	$(MAKE) otel-gateway-deploy; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy

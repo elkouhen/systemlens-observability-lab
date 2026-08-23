@@ -32,7 +32,7 @@ metadata:
   name: kubernetes-logs
   namespace: elastic-stack
 spec:
-  version: 9.5.1
+  version: 8.5.1
   mode: standalone
   serviceAccountName: kubernetes-logs-agent
   elasticsearchRefs:
@@ -94,7 +94,7 @@ spec:
                   target: ""
                   overwrite_keys: true
                   expand_keys: true
-              # Le Java agent OpenTelemetry renseigne le MDC avec les noms
+              # L'agent Java Elastic APM renseigne le MDC avec les noms
               # trace_id/span_id. Les normaliser ici conserve un JSON ECS
               # strict dans Elasticsearch et active la navigation log-trace.
               - rename:
