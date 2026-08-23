@@ -8,11 +8,11 @@ seulement un écran Kibana.
 | --- | --- | --- | --- | --- | --- |
 | Observability > APM > Services | les services applicatifs émetteurs et consommateurs, débit, latence et erreurs | `traces-*`, `metrics-*` | `service.name`, `trace.id`, durée, résultat transactionnel | générer un appel HTTP, puis attendre le traitement Kafka | gateway, topic `otel-traces`, backend OTel, fenêtre temporelle |
 | Observability > APM > Traces | traces distribuées HTTP et Kafka ; transactions et spans corrélés | `traces-*` | `trace.id`, `span.id`, parent, `service.name`, type/protocole | ouvrir une trace depuis une transaction | propagation `traceparent`, noms des spans, indexation des spans |
-| Observability > Infrastructure > Hosts | VM OpenTelemetry, VM Elastic Agent et VM Beats, avec CPU, mémoire, disque et réseau | `metrics-*` | `host.name`, `metrics.system.cpu.utilization`, `system.memory.utilization` | filtrer chaque rôle de VM dans Discover | EDOT sur la VM OpenTelemetry ; Metricbeat sur la VM Beats ; policy System sur la VM Elastic Agent |
+| Observability > Infrastructure > Hosts | VM Elastic Agent (`data-01`, `data-02`) et VM Beats (`data-03`), avec CPU, mémoire, disque et réseau | `metrics-*` | `host.name`, `system.cpu.*`, `system.memory.*` | filtrer chaque hôte dans Discover | policy System Fleet sur `data-01`/`data-02` ; Metricbeat sur `data-03` |
 | Logs Kubernetes | logs récents des deux services, avec métadonnées pod et corrélation trace | `logs-*` | `kubernetes.*`, `service.name`, `trace.id`, `span.id` | appeler un endpoint puis filtrer le pod | DaemonSet `kubernetes-logs`, RBAC, montage `/var/log` |
-| Intégration MongoDB | 3 membres, replica set, primary, connexions, opérations et stockage | `metrics-mongodb.*`, `logs-mongodb.*` | `host.name`, état replica, `service.address` | `cluster-status.sh`, puis fenêtre 60 s | Agent Fleet, accès local MongoDB, policy `mongodb-fleet` |
-| Intégration Kafka | brokers, partitions, groupes, JVM, réseau et réplication | `metrics-kafka.*`, `logs-kafka.*` | `host.name`, broker, topic, partition, métriques Jolokia | vérifier Jolokia local et le quorum | les métriques JMX détaillées ne sont aujourd'hui couvertes que par la VM Elastic Agent ; qualifier l'équivalent OTel |
-| Intégration PostgreSQL | activité de l'hôte PostgreSQL, bgwriter, taille de base et logs | `metrics-postgresql.*`, `logs-postgresql.*` | `host.name`, base, connexions, bgwriter | requête applicative puis Discover | Agent Fleet, conteneur PostgreSQL, condition d'hôte dédiée |
+| Intégration MongoDB | 3 membres, replica set, primary, connexions, opérations et stockage | `metrics-mongodb.*`, `logs-mongodb.*` | `host.name`, état replica, `service.address` | `cluster-status.sh`, puis fenêtre 60 s | Agent Fleet, accès local MongoDB et sortie Elasticsearch de la policy `data-01-02-fleet` |
+| Intégration Kafka | brokers, partitions, groupes, JVM, réseau et réplication | `metrics-kafka.*`, `logs-kafka.*` | `host.name`, broker, topic, partition, métriques Jolokia | vérifier Jolokia local et le quorum | Agent Fleet, ports locaux `127.0.0.1:9092` et `127.0.0.1:8778`, quorum KRaft |
+| Intégration PostgreSQL | activité de l'hôte PostgreSQL, bgwriter, taille de base et logs | `metrics-postgresql.*`, `logs-postgresql.*` | `host.name`, base, connexions, bgwriter | requête applicative puis Discover | Agent Fleet et accès local `127.0.0.1:5432` |
 
 ## Méthode de recette commune
 
@@ -40,7 +40,7 @@ la période couvrant au moins deux intervalles de collecte.
 | Logs Kubernetes | `logs-*` | `kubernetes.namespace : "supermarket-demo"` | événements des pods applicatifs avec `kubernetes.*` |
 | MongoDB | `metrics-mongodb.*` | `event.dataset : "mongodb.replstatus"` | relevé replica set récent par hôte collecté |
 | Kafka | `metrics-kafka.*` | `host.name : *` | documents de broker récents ; affiner ensuite par champ Kafka disponible |
-| PostgreSQL | `metrics-postgresql.*` | `service.name : "postgresql"` | métriques récentes produites par EDOT sur la VM OpenTelemetry |
+| PostgreSQL | `metrics-postgresql.*` | `host.name : "data-01"` | métriques Fleet récentes de PostgreSQL |
 
 Les guides [vérifier un signal](how-to/verifier-un-signal.md) et
 [diagnostiquer un dashboard vide](how-to/diagnostiquer-dashboard-vide.md)

@@ -69,6 +69,11 @@ spec:
         is_default_monitoring: true
         hosts:
           - https://elasticsearch.poc.test:443
+        # Le certificat de démonstration de l'Ingress n'est pas signé par une
+        # AC publique. Cette sortie est réservée aux VM du POC ; les pods ECK
+        # utilisent leur sortie interne et conservent leur validation TLS.
+        config:
+          ssl.verification_mode: none
     xpack.fleet.packages:
       - name: fleet_server
         # 1.2.0 est la dernière version publiée par l'EPR compatible avec
@@ -132,6 +137,11 @@ spec:
             inputs:
               - type: mongodb/metrics
                 enabled: true
+                vars:
+                  - name: hosts
+                    type: text
+                    value:
+                      - mongodb://127.0.0.1:27017
           - id: kafka-data-01-02
             name: kafka-data-01-02
             package:
@@ -139,8 +149,18 @@ spec:
             inputs:
               - type: kafka/metrics
                 enabled: true
+                vars:
+                  - name: hosts
+                    type: text
+                    value:
+                      - 127.0.0.1:9092
               - type: jolokia/metrics
                 enabled: true
+                vars:
+                  - name: hosts
+                    type: text
+                    value:
+                      - http://127.0.0.1:8778
           # PostgreSQL n'existe que sur data-01. L'endpoint localhost évite
           # toute duplication : data-02 ne peut pas publier ces métriques.
           - id: postgresql-data-01
@@ -154,7 +174,7 @@ spec:
                   - name: hosts
                     type: text
                     value:
-                      - postgres://localhost:5432/observability_test?sslmode=disable
+                      - postgres://127.0.0.1:5432/observability_test?sslmode=disable
                   - name: username
                     type: text
                     value: observability

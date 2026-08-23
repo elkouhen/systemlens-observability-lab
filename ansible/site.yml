@@ -335,6 +335,10 @@
     - name: Attendre le quorum Kafka complet avant de créer les topics répliqués
       ansible.builtin.command:
         argv:
+          # Une commande admin peut rester bloquée pendant une élection KRaft.
+          # La borne laisse jouer les retries Ansible sans bloquer Vagrant.
+          - timeout
+          - 10s
           - podman
           - exec
           - -e
@@ -499,6 +503,7 @@
       ansible.builtin.assert:
         that: elasticsearch_api_key | default('') | length > 0
         fail_msg: Définir ELASTICSEARCH_API_KEY avant de provisionner les VM.
+      when: inventory_hostname == 'data-03'
 
     - name: Installer et configurer Filebeat et Metricbeat sur data-03
       when: inventory_hostname == 'data-03'
@@ -609,12 +614,38 @@
             path: /opt/Elastic/Agent/elastic-agent
           register: elastic_agent_binary
 
+        - name: Lire la version de l'Elastic Agent installé
+          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent version
+          register: installed_elastic_agent_version
+          changed_when: false
+          failed_when: false
+          when: elastic_agent_binary.stat.exists
+
+        - name: Identifier un Elastic Agent hors de la version imposée
+          ansible.builtin.set_fact:
+            elastic_agent_reinstall: >-
+              {{ elastic_agent_binary.stat.exists and
+                 elastic_agent_version not in installed_elastic_agent_version.stdout }}
+
+        - name: Retirer l'Elastic Agent hors version avant réinstallation
+          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent uninstall --force
+          when: elastic_agent_reinstall | bool
+          no_log: true
+          changed_when: true
+
+        - name: Attendre la suppression de l'Elastic Agent hors version
+          ansible.builtin.wait_for:
+            path: /opt/Elastic/Agent/elastic-agent
+            state: absent
+            timeout: 60
+          when: elastic_agent_reinstall | bool
+
         - name: Télécharger Elastic Agent s'il est absent
           ansible.builtin.get_url:
             url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
             dest: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
             mode: '0644'
-          when: not elastic_agent_binary.stat.exists
+          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
 
         - name: Extraire Elastic Agent
           ansible.builtin.unarchive:
@@ -622,7 +653,7 @@
             dest: /var/cache/poc-observability
             remote_src: true
             creates: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent"
-          when: not elastic_agent_binary.stat.exists
+          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
 
         - name: Installer et enrôler Elastic Agent
           ansible.builtin.command: >-
@@ -633,6 +664,21 @@
           args:
             creates: /opt/Elastic/Agent/elastic-agent
           no_log: true
+
+        # Un Agent déjà présent peut conserver une clé API Fleet révoquée
+        # après la recréation de la policy. Le réenrôler avec le jeton créé
+        # pour ce provisionnement restaure la remontée sans réinstaller le
+        # binaire ni laisser une identité Fleet obsolète.
+        - name: Réenrôler Elastic Agent déjà installé
+          ansible.builtin.command: >-
+            /opt/Elastic/Agent/elastic-agent enroll --force --url={{ fleet_url }}
+            --enrollment-token={{ fleet_enrollment_token }}
+            {{ '--insecure' if fleet_insecure | bool else '' }}
+          when:
+            - elastic_agent_binary.stat.exists
+            - not (elastic_agent_reinstall | bool)
+          no_log: true
+          changed_when: true
 
         - name: Démarrer Elastic Agent
           ansible.builtin.systemd_service:
