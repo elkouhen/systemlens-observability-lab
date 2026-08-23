@@ -1,6 +1,13 @@
 certs 
 .vagrant
 
+# Artéfacts de compilation Maven, quel que soit le module.
+target/
+
+# Métadonnées locales des agents.
+.agent/
+.agents/
+
 # Rapport APM généré localement.
 /apm.html
 
