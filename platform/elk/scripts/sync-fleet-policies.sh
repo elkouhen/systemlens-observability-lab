@@ -13,24 +13,15 @@ elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.poc.test:443:127.0.0.1
   -u "elastic:${ELASTICSEARCH_PASSWORD}" -H 'Content-Type: application/json')
 
-# Les packages actuels du dépôt requièrent une version de Kibana plus récente
-# que 8.5.1. Les agents de VM restent configurés en mode standalone ; cette
-# cible ne synchronise donc plus de package policy Fleet et conserve seulement
-# les pipelines Elasticsearch compatibles avec leurs dashboards.
+# Les package policies Fleet sont préconfigurées par Kibana dans les manifests
+# Kubernetes. Ce script ne gère que les pipelines Elasticsearch @custom qui
+# complètent les dashboards, afin de conserver une source de vérité IAC unique.
 
 # Les pipelines @custom sont conserves lors des mises a jour de packages.
 curl "${elasticsearch_args[@]}" -X PUT \
   "${elasticsearch_url}/_ingest/pipeline/metrics-kafka.topic@custom" \
   --data-binary "@${elk_dir}/fleet/kafka-topic-ingest-pipeline.json" >/dev/null
 printf 'Ingest pipeline updated: metrics-kafka.topic@custom\n'
-
-# Les metriques OTel conservent leur schema natif (metrics.*), mais les
-# dashboards historiques filtrent sur host.name. Le pipeline ajoute ce champ
-# sans modifier les attributs de ressource OTel.
-curl "${elasticsearch_args[@]}" -X PUT \
-  "${elasticsearch_url}/_ingest/pipeline/otel-hostmetrics-dashboard-compat" \
-  --data-binary "@${elk_dir}/fleet/otel-hostmetrics-dashboard-compat-pipeline.json" >/dev/null
-printf 'Ingest pipeline updated: otel-hostmetrics-dashboard-compat\n'
 
 # L'endpoint Jolokia reste volontairement local à chaque VM. Les métriques
 # doivent toutefois identifier le broker qui les a produites, pas localhost.

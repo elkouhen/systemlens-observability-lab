@@ -35,7 +35,7 @@
       "vars": {
         "hosts": {"type": "text", "value": ["postgres://localhost:5432/observability_test?sslmode=disable"]},
         "username": {"type": "text", "value": "observability"},
-        "password": {"type": "password", "value": "poc-postgresql-password"},
+        "password": {"type": "password", "value": "${POSTGRESQL_PASSWORD}"},
         "condition": {"type": "text", "value": "${host.name} == \"data-01\""}
       },
       "streams": [

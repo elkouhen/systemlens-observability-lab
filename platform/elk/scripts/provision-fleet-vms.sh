@@ -9,6 +9,7 @@ readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.poc.test:443:127.0.0.1}"
 token_name="systemlens-${policy_id}-$(date +%s)"
 
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de provisionner les VM Fleet}"
+: "${POSTGRESQL_PASSWORD:?Définir POSTGRESQL_PASSWORD hors Git avant de provisionner les VM Fleet}"
 
 response="$(curl --fail --silent --show-error --insecure \
   --resolve "${kibana_resolve}" \
@@ -23,4 +24,4 @@ token="$(jq -er '.item.api_key' <<<"${response}")"
 
 # Le jeton ne transite que dans l'environnement du sous-processus Vagrant.
 # Le jeton ne transite jamais sur la ligne de commande ni dans le dépôt.
-FLEET_ENROLLMENT_TOKEN="${token}" vagrant provision data-01 data-02
+POSTGRESQL_PASSWORD="${POSTGRESQL_PASSWORD}" FLEET_ENROLLMENT_TOKEN="${token}" vagrant provision data-01 data-02

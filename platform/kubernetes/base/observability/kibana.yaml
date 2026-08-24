@@ -32,6 +32,11 @@ spec:
       containers:
         - name: kibana
           env:
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-fleet-credentials
+                  key: password
             # Kibana/Fleet charge de nombreux assets au démarrage. La limite
             # Node par défaut à l'intérieur d'un cgroup de 1 Gio est trop
             # basse et provoque un "JavaScript heap out of memory".
@@ -180,4 +185,4 @@ spec:
                     value: observability
                   - name: password
                     type: password
-                    value: poc-postgresql-password
+                    value: ${POSTGRESQL_PASSWORD}

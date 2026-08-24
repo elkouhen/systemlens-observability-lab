@@ -3,23 +3,19 @@
 ## Vue d'ensemble
 
 ```text
-order-service ─Elastic APM/HTTPS─> APM Server ───────────────────────────> Elasticsearch
-inventory-service ─OTLP/HTTP─> gateway OTel ─Kafka/OTLP─> backend OTel ─> Elasticsearch
-        │                                │                        │                 │
-        └─ stdout JSON ECS ─> Elastic Agent Kubernetes ─────────────┴─> logs-* ──┤
-                                                                                └─> Kibana
+order-service ─Elastic APM/HTTPS─> APM Server ─> Elasticsearch ─> Kibana
+inventory-service ─Elastic APM/HTTPS─> APM Server ─> Elasticsearch
+        │
+        └─ stdout JSON ECS ─> Elastic Agent Kubernetes ─> logs-*
 
-VM OpenTelemetry ─EDOT (logs + métriques)────────────────────────> logs-* / metrics-*
-VM Elastic Agent ─Agent piloté par Fleet──────────────────────────> logs-* / metrics-*
-VM Beats ─Filebeat + Metricbeat──────────────────────────────────> logs-* / metrics-*
+data-01, data-02 ─Agent piloté par Fleet──────────────────────────> logs-* / metrics-*
+data-03 ─Filebeat + Metricbeat────────────────────────────────────> logs-* / metrics-*
 ```
 
 Les services Elastic (Elasticsearch, Kibana, APM Server et Fleet Server) sont
-gérés par ECK dans Kubernetes. Le POC démontre deux chemins de traces :
-`order-service` utilise l'agent Java Elastic et APM Server ;
-`inventory-service` utilise l'agent Java OpenTelemetry puis Kafka avant
-Elasticsearch. Les deux chemins sont visibles dans Kibana et servent à comparer
-les modes d'ingestion.
+gérés par ECK dans Kubernetes. Les deux applications utilisent l'agent Java
+Elastic et envoient leurs traces directement à APM Server. Kafka reste une
+dépendance métier instrumentée, pas un transport de télémétrie.
 
 ## Traces, transactions et spans
 
@@ -71,21 +67,10 @@ navigation du log vers la trace grâce aux identifiants de corrélation.
 
 ## Métriques
 
-La VM OpenTelemetry collecte les logs locaux, les métriques système et les
-métriques MongoDB, Kafka et PostgreSQL par EDOT. Les données sont indexées au
-format OpenTelemetry. Un pipeline d'ingestion recopie
-`resource.attributes['host.name']` vers `host.name` pour conserver la
-compatibilité avec les dashboards Infrastructure existants.
-
-La VM Elastic Agent reçoit une policy Fleet avec les intégrations System,
-MongoDB et Kafka. La VM Beats utilise Filebeat pour les logs, et Metricbeat
-pour les métriques système, MongoDB et Kafka. Les trois profils sont exclusifs
-sur un même hôte afin d'éviter les doublons.
-
-Les intégrations Fleet collectent les métriques métier MongoDB et Kafka.
-PostgreSQL appartient au profil EDOT de la VM OpenTelemetry. L'infrastructure
-Kubernetes est observée par des collectors EDOT DaemonSet (hôte/Kubelet) et
-cluster. Les métriques Micrometer des applications sont émises en OTLP vers le
-gateway.
+`data-01` et `data-02` reçoivent une policy Fleet avec les intégrations System,
+MongoDB, Kafka/Jolokia et PostgreSQL. `data-03` utilise Filebeat pour les logs
+et Metricbeat pour les métriques système, MongoDB et Kafka. Les profils sont
+exclusifs sur un même hôte afin d'éviter les doublons. L'Agent Kubernetes lit
+les logs des pods ; aucune collecte EDOT n'est déployée.
 
 La matrice détaillée est dans [metriques-sources.md](metriques-sources.md).

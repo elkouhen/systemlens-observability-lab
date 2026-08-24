@@ -12,8 +12,8 @@ streams différents, et des dashboards potentiellement incohérents.
 - une configuration Metricbeat existe déjà et sa migration serait risquée ;
 - un module ou une personnalisation disponible dans Metricbeat n'a pas encore
   d'équivalent satisfaisant dans l'intégration Fleet retenue ;
-- le POC compare volontairement les formats ECS historiques, Elastic Agent et
-  OpenTelemetry ;
+- le POC conserve Metricbeat sur `data-03` afin de comparer son format ECS à
+  celui des intégrations Elastic Agent ;
 - une collecte doit continuer indépendamment de Fleet pendant une phase de
   migration ou de diagnostic.
 
@@ -28,10 +28,8 @@ streams différents, et des dashboards potentiellement incohérents.
 
 ### Décision dans ce POC
 
-Le POC affecte un hôte à chacun des trois rôles : VM OpenTelemetry avec EDOT,
-VM Elastic Agent administrée par Fleet, et VM Beats avec Filebeat/Metricbeat.
-Cette coexistence est volontairement pédagogique ; les rôles ne doivent jamais recouvrir une même famille de
-métriques sur le même hôte.
+Le POC affecte `data-01` et `data-02` au profil Fleet, et `data-03` au profil
+Beats. Ces profils sont exclusifs sur un hôte afin d'éviter les doublons.
 
 Avant de migrer une source de Metricbeat vers Fleet, vérifier :
 

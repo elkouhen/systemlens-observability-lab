@@ -14,9 +14,9 @@
     postgresql_host: 192.168.33.10
     postgresql_database: observability_test
     postgresql_user: observability
-    # Identifiants de démonstration uniquement. En production, les fournir via
-    # Ansible Vault ou un gestionnaire de secrets.
-    postgresql_password: poc-postgresql-password
+    # Fourni par Vagrant depuis POSTGRESQL_PASSWORD ; ne jamais versionner la
+    # valeur. Le même secret est injecté dans la policy Fleet par Kubernetes.
+    postgresql_password: ""
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093
     beats_version: 8.5.1
@@ -39,6 +39,7 @@
         that:
           - poc_node_id is defined
           - poc_node_ip is defined
+          - postgresql_password | default('') | length > 0
         fail_msg: Vagrant doit fournir poc_node_id et poc_node_ip au playbook.
 
     # Doit précéder toute installation de paquet (dnf) et tout téléchargement

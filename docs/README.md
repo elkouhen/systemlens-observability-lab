@@ -9,16 +9,12 @@ Il s'adresse aux personnes techniques qui découvrent le POC ou doivent vérifie
 son fonctionnement. Choisir le parcours correspondant à son objectif plutôt que
 de lire nécessairement toutes les pages dans l'ordre.
 
-## Rôles des VM
+## Profils de collecte des VM
 
-Les noms techniques des VM ne sont pas utilisés dans cette documentation. Les
-rôles d'architecture suivants sont les noms de référence :
-
-| Rôle | Collecte démontrée |
+| Hôtes | Collecte démontrée |
 | --- | --- |
-| **VM OpenTelemetry** | EDOT collecte les logs et métriques locaux. |
-| **VM Elastic Agent** | Elastic Agent est administré par Fleet. |
-| **VM Beats** | Filebeat et Metricbeat collectent les signaux locaux. |
+| `data-01`, `data-02` | Elastic Agent 8.5.1 administré par Fleet : System, MongoDB, Kafka, Jolokia et PostgreSQL. |
+| `data-03` | Filebeat et Metricbeat 8.5.1 : journaux et métriques locaux. |
 
 ## Documentation système
 

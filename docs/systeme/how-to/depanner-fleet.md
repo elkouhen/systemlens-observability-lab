@@ -1,13 +1,12 @@
 # Dépanner un Elastic Agent piloté par Fleet
 
 Utilisez ce guide lorsqu'un Elastic Agent est `Offline`, `Unhealthy` ou ne
-produit pas les métriques attendues. Dans ce POC, seule la **VM Elastic Agent**
-doit être pilotée par Fleet ; les profils OpenTelemetry et Beats ne doivent pas
-être considérés comme des erreurs s'ils n'apparaissent pas dans Fleet.
+produit pas les métriques attendues. Dans ce POC, `data-01` et `data-02`
+doivent être pilotées par Fleet ; `data-03` reste volontairement hors de Fleet.
 
 ## 1. Vérifier l'état local de l'Agent
 
-Sur la VM Elastic Agent :
+Sur `data-01` ou `data-02` :
 
 ```bash
 sudo systemctl status elastic-agent
@@ -25,9 +24,8 @@ sudo journalctl -u elastic-agent --since '15 minutes ago'
 ## 2. Vérifier Fleet et la policy
 
 Dans Kibana, ouvrir **Management > Fleet > Agents**. L'Agent doit être
-`Healthy` et rattaché à la policy `mongodb-hosts`. Vérifier que les intégrations
-System, MongoDB et Kafka sont présentes. PostgreSQL n'appartient pas au profil
-Fleet actuel : ses métriques sont collectées par EDOT sur la VM OpenTelemetry.
+`Healthy` et rattaché à la policy `data-01-02-fleet`. Vérifier que les
+intégrations System, MongoDB, Kafka/Jolokia et PostgreSQL sont présentes.
 
 La création déclarative de la policy est dans
 `platform/kubernetes/base/observability/kibana.yaml`. Après une modification de

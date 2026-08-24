@@ -77,6 +77,10 @@ Créer également une clé API Elasticsearch ayant les droits d’écriture sur 
 data streams `logs-*` et `metrics-*`; elle est fournie à Vagrant par
 `ELASTICSEARCH_API_KEY` et n’est jamais versionnée.
 
+Le mot de passe PostgreSQL est également hors Git. Exporter
+`POSTGRESQL_PASSWORD` depuis un gestionnaire de secrets : la cible
+`make postgresql-credentials-apply` le crée dans les namespaces concernés.
+
 Les opérations courantes sont regroupées dans le `Makefile` : `make help`
 affiche les cibles disponibles, sous la convention `ressource-action`, notamment
 `make elastic-password-show`, `make apm-token-show`,
@@ -119,6 +123,7 @@ enrôlées :
 
 ```bash
 export FLEET_ENROLLMENT_TOKEN='…' # optionnel : intégrations Fleet MongoDB/Kafka/PostgreSQL
+export POSTGRESQL_PASSWORD='…'
 make deploy
 ```
 

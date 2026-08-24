@@ -12,6 +12,7 @@ Vagrant.configure("2") do |config|
   # Secret injecte au provisionnement, jamais versionne dans le depot.
   elasticsearch_api_key = ENV["ELASTICSEARCH_API_KEY"]
   fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
+  postgresql_password = ENV["POSTGRESQL_PASSWORD"]
   redeploy_services = ENV.fetch("POC_REDEPLOY_SERVICES", "false") == "true"
 
   # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent), optionnel.
@@ -51,6 +52,7 @@ Vagrant.configure("2") do |config|
           "poc_node_ip" => node_config[:ip],
           "elasticsearch_api_key" => elasticsearch_api_key || "",
           "fleet_enrollment_token" => fleet_enrollment_token || "",
+          "postgresql_password" => postgresql_password || "",
           "poc_redeploy_services" => redeploy_services,
           "zscaler_ca_cert_content" => zscaler_ca_cert_content
         }

@@ -22,6 +22,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate eck-deploy elastic-stack-deploy \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync fleet-vms-provision vm-provision \
+	postgresql-credentials-apply \
 	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
 	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -112,7 +113,14 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.5.1 avec le chart E
 			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].resources.limits.memory=2Gi; \
 	fi
 
-elk-deploy: eck-deploy elastic-stack-deploy ## Déployer la plateforme d'observabilité Elastic
+postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
+	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
+	@$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
+		--from-literal=password="$$POSTGRESQL_PASSWORD" --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	@$(KUBECTL) -n $(APP_NAMESPACE) create secret generic postgresql-credentials \
+		--from-literal=password="$$POSTGRESQL_PASSWORD" --dry-run=client -o yaml | $(KUBECTL) apply -f -
+
+elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 	@$(MAKE) package-registry-ready
 	@$(MAKE) kibana-ready
@@ -149,7 +157,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	$(MAKE) elk-deploy; \
 	source ./platform/elk/scripts/load-credentials.sh; \
 	$(MAKE) fleet-sync; \
-	$(VAGRANT) up; \
+	POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
@@ -164,8 +172,9 @@ fleet-sync: ## Synchroniser les pipelines Kafka (policies Fleet déclarées dans
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
 
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
+	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+	POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/provision-fleet-vms.sh
 
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
@@ -183,7 +192,8 @@ apm-report-api-key-create: ## Créer une clé de lecture pour les rapports APM S
 
 vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
-	@$(VAGRANT) provision
+	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
+	@POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 
 elastic-password-show: ## Afficher le mot de passe du compte elastic ECK
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user \
