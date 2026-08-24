@@ -39,8 +39,13 @@
         that:
           - poc_node_id is defined
           - poc_node_ip is defined
-          - postgresql_password | default('') | length > 0
         fail_msg: Vagrant doit fournir poc_node_id et poc_node_ip au playbook.
+
+    - name: Vérifier le mot de passe PostgreSQL sur data-01
+      ansible.builtin.assert:
+        that: postgresql_password | default('') | length > 0
+        fail_msg: Définir POSTGRESQL_PASSWORD hors Git avant de provisionner data-01.
+      when: inventory_hostname == 'data-01'
 
     # Doit précéder toute installation de paquet (dnf) et tout téléchargement
     # HTTPS (Jolokia, Beats, Elastic Agent) : ces opérations échouent avec une

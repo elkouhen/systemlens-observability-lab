@@ -22,7 +22,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate eck-deploy elastic-stack-deploy \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync fleet-vms-provision vm-provision \
-	postgresql-credentials-apply \
+	postgresql-credentials-apply beats-vm-provision fleet-data02-provision \
 	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
 	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -177,10 +177,18 @@ fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la po
 	POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/provision-fleet-vms.sh
 
+fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet déclarée
+	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	FLEET_VM_NODES='data-02' KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./platform/elk/scripts/provision-fleet-vms.sh
+
+beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
+	@$(VAGRANT) provision data-03
+
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./platform/elk/scripts/deploy-kibana-dashboard.sh
 
-apm-report-api-key-create: ## Créer une clé de lecture pour les rapports APM SystemLens
+apm-report-api-key-create: ## Créer une clé de lecture brute pour les rapports APM SystemLens
 	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }
 	@curl --fail --silent --show-error --insecure \
 		--resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
@@ -188,7 +196,7 @@ apm-report-api-key-create: ## Créer une clé de lecture pour les rapports APM S
 		-H 'Content-Type: application/json' \
 		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 		--data "{\"name\":\"systemlens-apm-report-$$(date +%Y%m%d%H%M%S)\",\"role_descriptors\":{\"systemlens_apm_report_reader\":{\"cluster\":[\"monitor\"],\"indices\":[{\"names\":[\"traces-*\",\"metrics-*\"],\"privileges\":[\"read\",\"view_index_metadata\"]}]}}}" \
-		| jq -r '.id + ":" + .api_key'
+		| jq -er '.id + ":" + .api_key'
 
 vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
