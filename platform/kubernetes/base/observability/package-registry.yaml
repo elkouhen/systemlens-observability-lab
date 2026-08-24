@@ -1,5 +1,5 @@
 # Registre Elastic auto-hébergé et figé sur la version du Stack. Cette image
-# contient les packages publiés pour 8.5.1, dont APM 8.5.1.
+# contient les packages publiés pour 8.11.3, dont APM 8.11.3.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: package-registry
-          image: docker.elastic.co/package-registry/distribution:8.5.1
+          image: docker.elastic.co/package-registry/distribution:8.11.3
           ports:
             - name: http
               containerPort: 8080

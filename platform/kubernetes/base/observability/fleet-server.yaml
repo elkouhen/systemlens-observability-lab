@@ -4,7 +4,7 @@ metadata:
   name: fleet-server
   namespace: elastic-stack
 spec:
-  version: 8.5.1
+  version: 8.11.3
   mode: fleet
   fleetServerEnabled: true
   policyID: eck-fleet-server

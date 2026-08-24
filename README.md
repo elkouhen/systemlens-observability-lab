@@ -8,7 +8,7 @@ applications Java instrumentées avec Elastic APM et OpenTelemetry.
 
 | Composant | Implantation | Configuration principale | Données observées |
 | --- | --- | --- | --- |
-| Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | Elastic Stack 8.5.1, pilotée par ECK 3.5.0, TLS ECK, accès Traefik | APM, logs et métriques |
+| Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | Elastic Stack 8.11.3, pilotée par ECK 3.5.0, TLS ECK, accès Traefik | APM, logs et métriques |
 | `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM ; aucun collecteur EDOT | journaux et métriques selon le profil Beats/Fleet |
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |

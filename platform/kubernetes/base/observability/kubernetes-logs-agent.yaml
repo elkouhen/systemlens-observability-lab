@@ -32,7 +32,7 @@ metadata:
   name: kubernetes-logs
   namespace: elastic-stack
 spec:
-  version: 8.5.1
+  version: 8.11.3
   mode: standalone
   serviceAccountName: kubernetes-logs-agent
   elasticsearchRefs:

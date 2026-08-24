@@ -6,7 +6,7 @@ VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= supermarket-demo
-ELASTIC_STACK_VERSION ?= 8.5.1
+ELASTIC_STACK_VERSION ?= 8.11.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
 ECK_STACK_CHART_VERSION ?= 0.20.0
@@ -81,7 +81,7 @@ kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status \
 		deployment/es-kb-quickstart-eck-kibana-kb --timeout=300s
 
-package-registry-ready: ## Attendre le registre de packages Elastic 8.5.1
+package-registry-ready: ## Attendre le registre de packages Elastic 8.11.3
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/package-registry --timeout=300s
 
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
@@ -94,7 +94,7 @@ eck-deploy: ## Installer ou mettre à jour l'opérateur ECK 3.5.0
 		--namespace elastic-system --create-namespace --version $(ECK_VERSION)
 	@$(KUBECTL) -n elastic-system rollout status statefulset/elastic-operator --timeout=300s
 
-elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.5.1 avec le chart ECK
+elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.11.3 avec le chart ECK
 	@helm repo add elastic $(ECK_HELM_REPOSITORY) --force-update
 	@helm repo update elastic
 	@if helm status es-kb-quickstart --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
