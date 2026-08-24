@@ -84,7 +84,15 @@ Le mot de passe PostgreSQL est également hors Git. Exporter
 Les opérations courantes sont regroupées dans le `Makefile` : `make help`
 affiche les cibles disponibles, sous la convention `ressource-action`, notamment
 `make elastic-password-show`, `make apm-token-show`,
-`make elasticsearch-api-key-create`, `make platform-deploy` et `make vm-provision`.
+`make apm-report-api-key-create`, `make elasticsearch-api-key-create`,
+`make platform-deploy` et `make vm-provision`.
+`make apm-report-api-key-create` renvoie une clé de lecture APM brute au format
+`id:api_key`, que SystemLens encode lui-même pour l'en-tête HTTP.
+
+```bash
+export SYSTEMLENS_ELASTICSEARCH_API_KEY="$(make --no-print-directory apm-report-api-key-create)"
+```
+
 `make elasticsearch-api-key-create` renvoie une clé encodée en Base64 pour
 `SYSTEMLENS_ELASTICSEARCH_API_KEY` ; utiliser `make beats-api-key-create` pour
 obtenir le format brut `id:api_key` attendu par Filebeat et Metricbeat.
