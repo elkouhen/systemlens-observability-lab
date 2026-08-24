@@ -22,6 +22,7 @@ Elle ne décrit pas le comportement métier des services ; voir plutôt la
 1. [Vérifier un signal de bout en bout](how-to/verifier-un-signal.md).
 2. [Diagnostiquer un dashboard vide](how-to/diagnostiquer-dashboard-vide.md).
 3. [Dépanner un Elastic Agent Fleet](how-to/depanner-fleet.md).
+4. [Configurer la rétention ILM des données APM](how-to/configurer-ilm-apm.md).
 
 ## Références de la plateforme
 
