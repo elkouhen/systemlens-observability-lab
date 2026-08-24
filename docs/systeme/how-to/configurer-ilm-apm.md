@@ -36,25 +36,28 @@ correspondant à la version installée de l'intégration APM.
 
 ## Créer une policy simple pour les traces
 
-L'exemple suivant conserve les traces trente jours. Le backing index est
-renouvelé à sept jours ou lorsqu'un shard primaire atteint 30 Go, selon le
-premier seuil atteint.
+L'exemple suivant est dimensionné pour un disque Elasticsearch de 50 Go : il
+conserve les traces sept jours. Le backing index est renouvelé chaque jour ou
+lorsqu'un shard primaire atteint 5 Go, selon le premier seuil atteint. À un
+volume observé de 2,35 Go par jour, cette rétention représente environ 16,5 Go
+de traces primaires et préserve une marge pour les métriques, les merges et les
+pics d'ingestion.
 
 ```http
-PUT /_ilm/policy/apm-traces-30d
+PUT /_ilm/policy/apm-traces-7d
 {
   "policy": {
     "phases": {
       "hot": {
         "actions": {
           "rollover": {
-            "max_primary_shard_size": "30gb",
-            "max_age": "7d"
+            "max_primary_shard_size": "5gb",
+            "max_age": "1d"
           }
         }
       },
       "delete": {
-        "min_age": "30d",
+        "min_age": "7d",
         "actions": {
           "delete": {}
         }
@@ -64,8 +67,10 @@ PUT /_ilm/policy/apm-traces-30d
 }
 ```
 
-Adaptez `30d`, `7d` et `30gb` au volume réel et à la capacité disque. Les
-traces brutes sont généralement plus coûteuses que les métriques agrégées.
+Surveillez l'occupation du disque et adaptez `7d`, `1d` et `5gb` au volume
+réel. Les traces brutes sont généralement plus coûteuses que les métriques
+agrégées. Avec une réplique effectivement allouée, doublez approximativement
+le besoin de stockage et réduisez la rétention ou augmentez le volume.
 
 ## Appliquer la policy sans écraser les assets APM
 
@@ -78,7 +83,7 @@ PUT /_component_template/traces-apm@custom
     "settings": {
       "index": {
         "lifecycle": {
-          "name": "apm-traces-30d",
+          "name": "apm-traces-7d",
           "prefer_ilm": true
         }
       }
@@ -104,7 +109,7 @@ GET /_data_stream/traces-apm-default
 GET /traces-apm-default/_ilm/explain
 ```
 
-Le data stream doit exposer `ilm_policy: apm-traces-30d` et le nouveau backing
+Le data stream doit exposer `ilm_policy: apm-traces-7d` et le nouveau backing
 index doit être géré par cette policy.
 
 ## Autres familles APM
@@ -113,7 +118,7 @@ Appliquez des rétentions distinctes selon l'usage :
 
 | Famille | Exemple de rétention | Composant à personnaliser |
 | --- | --- | --- |
-| traces brutes | 7 à 30 jours | `traces-apm@custom` |
+| traces brutes | 7 jours (disque de 50 Go) | `traces-apm@custom` |
 | erreurs APM | 30 à 90 jours | `logs-apm.error@custom` |
 | métriques applicatives | 90 jours ou plus | `metrics-apm.app@custom` |
 
