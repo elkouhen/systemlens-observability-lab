@@ -59,6 +59,23 @@ du gateway à Elasticsearch afin de limiter leur latence. L'export OTLP des logs
 applicatifs est désactivé ; les logs restent écrits sur stdout puis collectés
 une seule fois par l'Elastic Agent Kubernetes.
 
+## Data stream partagé des métriques applicatives
+
+Les métriques applicatives APM des services exécutés dans le cluster Kubernetes
+sont routées par le pipeline Elasticsearch `metrics-apm.app@custom` vers un
+data stream commun par environnement APM :
+`metrics-apm.app.kubernetes-<service.environment>`. `service.environment` est
+fourni par `ELASTIC_APM_ENVIRONMENT` ; avec `local`, les deux services écrivent
+donc dans `metrics-apm.app.kubernetes-local`. Le pipeline reconnaît les
+métriques de conteneur par `container.id`. La data view `metrics-*` les couvre
+déjà ; `service.name` reste la dimension permettant de distinguer les
+applications d'un même environnement.
+
+Le routage s'applique seulement aux nouvelles métriques ayant un environnement
+non vide. Les traces, erreurs et métriques internes APM restent dans les data
+streams APM standards. APM Server ne fournit pas de `container.id` dans ses
+métriques : il reste donc hors de ce routage.
+
 ## Éléments communs et choix de lecture
 
 Les deux modes utilisent la propagation W3C `traceparent` pour relier les

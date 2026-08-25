@@ -42,6 +42,17 @@ for dataset in controller jvm network log_manager replica_manager topic raft; do
 done
 printf 'Kafka service.address pipelines updated\n'
 
+# APM 8.11 appelle le hook global metrics-apm.app@custom pour chaque metrique
+# applicative. Le pipeline route tous les services executes en conteneur vers
+# metrics-apm.app.kubernetes-<service.environment>. APM Server n'a pas de
+# container.id : ses metriques, ainsi que les traces et erreurs, conservent leur
+# data stream standard.
+pipeline='metrics-apm.app@custom'
+curl "${elasticsearch_args[@]}" -X PUT \
+  "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \
+  --data-binary "@${elk_dir}/fleet/apm-application-metrics-reroute-pipeline.json" >/dev/null
+printf 'APM application metrics reroute pipelines updated\n'
+
 # L'integration MongoDB se connecte volontairement a localhost sur chaque VM.
 # Les dashboards groupent toutefois les instances par service.address :
 # remplacer uniquement l'adresse locale par le nom de la VM rend data-01..03

@@ -171,7 +171,7 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes >/dev/null
 
-fleet-sync: ## Synchroniser les pipelines Kafka (policies Fleet déclarées dans Kubernetes)
+fleet-sync: ## Synchroniser les pipelines Kafka et APM (policies Fleet déclarées dans Kubernetes)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
 
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée

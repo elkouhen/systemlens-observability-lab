@@ -1,0 +1,13 @@
+{
+  "description": "Route les metriques applicatives des conteneurs Kubernetes vers un data stream partage par environnement APM",
+  "processors": [
+    {
+      "reroute": {
+        "tag": "route-kubernetes-application-metrics-by-environment",
+        "if": "ctx.container != null && ctx.container.id != null && ctx.service != null && ctx.service.environment != null && ctx.service.environment != '' && (ctx.data_stream == null || ctx.data_stream.dataset != 'apm.app.kubernetes')",
+        "dataset": "apm.app.kubernetes",
+        "namespace": "{{{service.environment}}}"
+      }
+    }
+  ]
+}

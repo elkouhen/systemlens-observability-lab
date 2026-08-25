@@ -15,6 +15,10 @@ ne crée les package policies standards MongoDB/Kafka.
   réservés au playbook Ansible de policies dédiées par VM ; ils ne sont pas la
   source de vérité du déploiement Kubernetes.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
+- `apm-application-metrics-reroute-pipeline.json` : pipeline
+  `metrics-apm.app@custom` qui fait converger les métriques applicatives des
+  services exécutés en conteneur Kubernetes vers un data stream par
+  `service.environment`, par exemple `metrics-apm.app.kubernetes-local`.
 - `system-package-policy.json` : payload API de l'intégration System,
   synchronisé avec `kibana.yaml` par le script Fleet.
 - `elastic-agent.yml` : exemple de configuration standalone, distinct de Fleet.
@@ -28,7 +32,9 @@ Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
 préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` crée
 l'intégration System si elle est absente, remplace les policies MongoDB et
 Kafka afin d'appliquer la migration des logs, puis met à jour les pipelines
-Elasticsearch `@custom`.
+Elasticsearch `@custom`, dont le routage des métriques applicatives APM des
+conteneurs Kubernetes vers le data stream partagé de leur environnement, par
+exemple `metrics-apm.app.kubernetes-local`.
 
 ## Documentation externe
 

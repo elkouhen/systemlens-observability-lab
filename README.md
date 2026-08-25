@@ -220,7 +220,10 @@ allocations natives.
    ```
 
    Le script installe le pipeline `metrics-kafka.topic@custom`, les pipelines
-   Kafka associés et crée la package policy PostgreSQL si elle est absente. Les dashboards s'importent séparément avec
+   Kafka associés et le pipeline APM qui route les métriques applicatives des
+   conteneurs Kubernetes vers un data stream commun à leur
+   `ELASTIC_APM_ENVIRONMENT`, par exemple
+   `metrics-apm.app.kubernetes-local`. Les dashboards s'importent séparément avec
    `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka restent visibles
    et gérées par la préconfiguration Kibana déclarée dans Kubernetes.
 
