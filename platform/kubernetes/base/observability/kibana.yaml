@@ -8,7 +8,7 @@ metadata:
   annotations:
     # Déclenche la réconciliation des package policies après l'installation
     # initiale des packages du registre Elastic 8.11.3.
-    observability.systemlens.io/fleet-packages-revision: "2"
+    observability.systemlens.io/fleet-packages-revision: "3"
 spec:
   version: 8.11.3
   count: 1
@@ -89,6 +89,10 @@ spec:
       # documents et les data views APM ne peuvent pas charger leurs champs.
       - name: apm
         version: 8.11.3
+      # Installe les assets et tableaux de bord Kubernetes. Les deux Agents
+      # standalone restent pilotés exclusivement par les manifests ECK.
+      - name: kubernetes
+        version: 1.27.1
       # Versions les plus récentes encore compatibles avec Kibana 8.5.1.
       - name: system
         version: 1.20.4

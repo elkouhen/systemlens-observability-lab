@@ -1,0 +1,239 @@
+# kube-state-metrics expose l'état désiré et courant des workloads Kubernetes.
+# Il est distinct de kubelet : sans lui, les vues Deployment/StatefulSet/Job ne
+# peuvent pas indiquer les réplicas attendus, disponibles ou en échec.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  namespace: elastic-stack
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-state-metrics
+rules:
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - nodes
+      - persistentvolumes
+      - persistentvolumeclaims
+      - pods
+      - resourcequotas
+      - services
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets", "deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-state-metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-state-metrics
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: elastic-stack
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: elastic-stack
+  labels:
+    app.kubernetes.io/name: kube-state-metrics
+spec:
+  selector:
+    app.kubernetes.io/name: kube-state-metrics
+  ports:
+    - name: http-metrics
+      port: 8080
+      targetPort: http-metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: elastic-stack
+  labels:
+    app.kubernetes.io/name: kube-state-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kube-state-metrics
+    spec:
+      serviceAccountName: kube-state-metrics
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.17.0
+          args:
+            - --resources=daemonsets,deployments,replicasets,statefulsets,pods,nodes,namespaces,jobs,cronjobs,persistentvolumes,persistentvolumeclaims,resourcequotas,services,storageclasses
+          ports:
+            - name: http-metrics
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http-metrics
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http-metrics
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+---
+# Un Agent unique évite que chaque nœud réémette les mêmes métriques de
+# workload. Il complète l'Agent DaemonSet qui interroge le kubelet local.
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: kubernetes-cluster-metrics
+  namespace: elastic-stack
+spec:
+  version: 8.11.3
+  mode: standalone
+  serviceAccountName: kubernetes-logs-agent
+  elasticsearchRefs:
+    - name: elasticsearch
+  deployment:
+    replicas: 1
+    # ECK conserve l'état de l'Agent dans un hostPath. Un remplacement
+    # RollingUpdate démarrerait deux Agents avec le même état ; Recreate évite
+    # ce verrou concurrent lors d'une évolution de configuration.
+    strategy:
+      type: Recreate
+    podTemplate:
+      spec:
+        automountServiceAccountToken: true
+        serviceAccountName: kubernetes-logs-agent
+        containers:
+          - name: agent
+            securityContext:
+              runAsUser: 0
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+  config:
+    inputs:
+      - id: kubernetes-cluster-workloads
+        type: kubernetes/metrics
+        use_output: default
+        meta:
+          package:
+            name: kubernetes
+            version: 1.27.1
+        data_stream:
+          namespace: default
+        streams:
+          - id: kubernetes-state-container
+            data_stream: {type: metrics, dataset: kubernetes.state_container}
+            metricsets: [state_container]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-cronjob
+            data_stream: {type: metrics, dataset: kubernetes.state_cronjob}
+            metricsets: [state_cronjob]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-daemonset
+            data_stream: {type: metrics, dataset: kubernetes.state_daemonset}
+            metricsets: [state_daemonset]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-deployment
+            data_stream: {type: metrics, dataset: kubernetes.state_deployment}
+            metricsets: [state_deployment]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-job
+            data_stream: {type: metrics, dataset: kubernetes.state_job}
+            metricsets: [state_job]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-node
+            data_stream: {type: metrics, dataset: kubernetes.state_node}
+            metricsets: [state_node]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-namespace
+            data_stream: {type: metrics, dataset: kubernetes.state_namespace}
+            metricsets: [state_namespace]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-persistentvolume
+            data_stream: {type: metrics, dataset: kubernetes.state_persistentvolume}
+            metricsets: [state_persistentvolume]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-persistentvolumeclaim
+            data_stream: {type: metrics, dataset: kubernetes.state_persistentvolumeclaim}
+            metricsets: [state_persistentvolumeclaim]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-pod
+            data_stream: {type: metrics, dataset: kubernetes.state_pod}
+            metricsets: [state_pod]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-replicaset
+            data_stream: {type: metrics, dataset: kubernetes.state_replicaset}
+            metricsets: [state_replicaset]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-resourcequota
+            data_stream: {type: metrics, dataset: kubernetes.state_resourcequota}
+            metricsets: [state_resourcequota]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-service
+            data_stream: {type: metrics, dataset: kubernetes.state_service}
+            metricsets: [state_service]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-statefulset
+            data_stream: {type: metrics, dataset: kubernetes.state_statefulset}
+            metricsets: [state_statefulset]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true
+          - id: kubernetes-state-storageclass
+            data_stream: {type: metrics, dataset: kubernetes.state_storageclass}
+            metricsets: [state_storageclass]
+            hosts: ["kube-state-metrics.elastic-stack.svc:8080"]
+            period: 10s
+            add_metadata: true

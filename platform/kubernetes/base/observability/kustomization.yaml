@@ -7,4 +7,5 @@ resources:
   - fleet-server.yaml
   - apm-server.yaml
   - kubernetes-logs-agent.yaml
+  - kube-state-metrics.yaml
   - elastic-ingress.yaml

@@ -28,6 +28,13 @@ La documentation [applicative](applicatif/README.md) s'adresse aux développeurs
 qui veulent comprendre les services de démonstration, générer du trafic et
 vérifier l'observabilité qui en résulte.
 
+## Commencer avec Elastic et Kibana
+
+Le [parcours d'apprentissage](tutorials/parcours-apprentissage-elastic-kibana.md)
+s'adresse aux personnes qui découvrent Elastic et Kibana. Il commence par une
+première exploration dans Kibana avant d'aborder les collecteurs et
+l'architecture de la plateforme.
+
 ## Références partagées
 
 1. [Objectifs et critères de fiabilité](reference/objectifs.md) : périmètre

@@ -97,8 +97,11 @@ eck-deploy: ## Installer ou mettre à jour l'opérateur ECK 3.5.0
 elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.11.3 avec le chart ECK
 	@helm repo add elastic $(ECK_HELM_REPOSITORY) --force-update
 	@helm repo update elastic
+	# ECK est propriétaire de nodeSets après la première réconciliation. Ne
+	# forcer ni Helm ni la ressource : seule la version doit évoluer.
 	@if helm status es-kb-quickstart --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
-		echo "La release es-kb-quickstart existe déjà : ECK gère ses ressources."; \
+		$(KUBECTL) -n $(K8S_NAMESPACE) patch elasticsearch elasticsearch --type=merge \
+			-p '{"spec":{"version":"$(ELASTIC_STACK_VERSION)"}}'; \
 	else \
 		helm install es-kb-quickstart elastic/eck-stack \
 			--namespace $(K8S_NAMESPACE) --create-namespace --version $(ECK_STACK_CHART_VERSION) \
