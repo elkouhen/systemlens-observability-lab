@@ -28,7 +28,7 @@ catalogue. Le Dockerfile produit une image pour chacun.
    deux services.
 3. [`kubernetes/README.md`](kubernetes/README.md) : variables de déploiement
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
-   son endpoint OTLP.
+   APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même
    configuration d'`inventory-service` : endpoints, Kafka, MongoDB,
    PostgreSQL et Actuator.
@@ -37,6 +37,16 @@ catalogue. Le Dockerfile produit une image pour chacun.
 
 Construire les deux images avec `make apps-build`, puis déployer uniquement
 l'application avec `make apps-deploy`.
+
+Pour déclencher une commande de recette via le service Kubernetes, exécuter
+`make order-service-command`. La cible crée un pod `curl` éphémère, appelle
+`POST /api/orders`, affiche la réservation et supprime le pod. Les variables
+`ORDER_PRODUCT_ID` et `ORDER_QUANTITY` permettent d'adapter la commande, par
+exemple :
+
+```bash
+make order-service-command ORDER_PRODUCT_ID=PASTA-500G ORDER_QUANTITY=2
+```
 
 ## Documentation externe
 
@@ -49,12 +59,12 @@ Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
 d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
 
-Le tag des images Docker (`order-service:1.0.5` / `inventory-service:1.0.5`,
+Le tag des images Docker (`order-service:1.0.7` / `inventory-service:1.0.7`,
 fixé dans `Makefile` et `kubernetes/deployment.yaml`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag
 Docker est immuable : choisir un nouveau `APP_IMAGE_TAG` à chaque image. Par
-exemple, `make apps-build APP_IMAGE_TAG=1.0.6`, puis
-`make images-import apps-deploy APP_IMAGE_TAG=1.0.6`. La cible de déploiement
+exemple, `make apps-build APP_IMAGE_TAG=1.0.8`, puis
+`make images-import apps-deploy APP_IMAGE_TAG=1.0.8`. La cible de déploiement
 met explicitement à jour l'image des Deployments et attend leur rollout.

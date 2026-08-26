@@ -391,7 +391,7 @@
       run_once: true
       delegate_to: data-01
 
-    - name: Supprimer le topic hérité des traces OpenTelemetry
+    - name: Supprimer le topic hérité des traces de migration
       ansible.builtin.command:
         argv:
           - podman
@@ -403,11 +403,11 @@
           - --bootstrap-server
           - localhost:9092
           - --delete
-          - --if-not-exists
+          - --if-exists
           - --topic
           - otel-traces
-      register: kafka_otel_traces_topic_removal
-      changed_when: "'marked for deletion' in kafka_otel_traces_topic_removal.stdout"
+      register: kafka_legacy_traces_topic_removal
+      changed_when: "'marked for deletion' in kafka_legacy_traces_topic_removal.stdout"
       run_once: true
       delegate_to: data-01
 

@@ -60,12 +60,12 @@ curl "${elasticsearch_args[@]}" -X PUT \
 printf 'APM application metrics reroute pipelines updated\n'
 
 # Les applications utilisent exclusivement l'agent Java Elastic APM. Retirer
-# le pipeline hérité de l'export OpenTelemetry s'il est encore présent.
+# le pipeline de traces hérité s'il est encore présent.
 if curl "${elasticsearch_args[@]}" \
   "${elasticsearch_url}/_ingest/pipeline/traces-apm@custom" >/dev/null 2>&1; then
   curl "${elasticsearch_args[@]}" -X DELETE \
     "${elasticsearch_url}/_ingest/pipeline/traces-apm@custom" >/dev/null
-  printf 'Legacy OpenTelemetry traces pipeline removed\n'
+  printf 'Legacy traces pipeline removed\n'
 fi
 
 # Les logs stdout des applications sont collectes par l'Agent Kubernetes dans

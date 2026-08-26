@@ -61,8 +61,6 @@ spec:
   version: 8.11.3
   mode: standalone
   serviceAccountName: kubernetes-logs-agent
-  elasticsearchRefs:
-    - name: elasticsearch
   daemonSet:
     podTemplate:
       spec:
@@ -98,6 +96,10 @@ spec:
             hostPath:
               path: /var/log/pods
   config:
+    outputs:
+      default:
+        type: logstash
+        hosts: ["apm-logstash.elastic-stack.svc:5045"]
     inputs:
       # Les métriques kubelet sont locales à chaque nœud : cet Agent en
       # DaemonSet couvre donc l'ensemble des pods et conteneurs du cluster.
@@ -191,7 +193,5 @@ spec:
                       to: trace.id
                     - from: span_id
                       to: span.id
-                    - from: trace_flags
-                      to: labels.otel_trace_flags
                   ignore_missing: true
                   fail_on_error: false

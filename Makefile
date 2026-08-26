@@ -6,7 +6,9 @@ VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= supermarket-demo
-APP_IMAGE_TAG ?= 1.0.5
+APP_IMAGE_TAG ?= 1.0.7
+ORDER_PRODUCT_ID ?= PASTA-500G
+ORDER_QUANTITY ?= 1
 ELASTIC_STACK_VERSION ?= 8.11.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
@@ -27,7 +29,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
 	dashboard-deploy dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create order-service-logs-follow inventory-service-logs-follow k3d-ca-import ci
+	beats-api-key-create order-service-command order-service-logs-follow inventory-service-logs-follow k3d-ca-import ci
 
 help: ## Afficher les tâches disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -138,7 +140,7 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/deploy-kibana-dashboard.sh platform/elk/dashboards/apm-data-view.ndjson
 
-apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash APM si absente
+apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash si absente
 	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch >/dev/null 2>&1; then \
 		echo "Secret apm-logstash-elasticsearch déjà présent"; \
 	else \
@@ -152,7 +154,7 @@ apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash 
 			--from-literal=api-key="$$api_key"; \
 	fi
 
-apm-logstash-deploy: apm-logstash-credentials-apply ## Déployer Logstash et basculer la sortie APM vers lui
+apm-logstash-deploy: apm-logstash-credentials-apply ## Déployer Logstash et raccorder APM Server et Elastic Agent
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
@@ -174,6 +176,14 @@ apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstrat
 		inventory-service=inventory-service:$(APP_IMAGE_TAG) apm-truststore=inventory-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
+
+order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUANTITY) à order-service
+	@pod_name="order-service-command-$$(date +%s)"; \
+	$(KUBECTL) -n $(APP_NAMESPACE) run "$$pod_name" --image=curlimages/curl:8.12.1 \
+		--restart=Never --rm --attach -i --command -- \
+		curl --fail --silent --show-error -X POST http://order-service:3000/api/orders \
+		-H 'Content-Type: application/json' \
+		--data '{"productId":"$(ORDER_PRODUCT_ID)","quantity":$(ORDER_QUANTITY)}'
 
 apm-deploy: ## Alias historique : déployer ELK et l'application
 	@$(MAKE) elk-deploy

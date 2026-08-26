@@ -16,12 +16,17 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 
 ## Modèle mental
 
-`application / VM → collecteur ou Elastic Agent → Elasticsearch → Kibana`.
+`applications Java → agent APM / Elastic Agent Kubernetes → Logstash → Elasticsearch → Kibana`.
+
+Les Elastic Agents Fleet des VM constituent un flux distinct et sont pilotés
+directement par Fleet vers Elasticsearch.
 
 APM Server est déployé par ECK. Les deux services lui envoient leurs signaux
 avec l'agent Java Elastic APM. APM Server valide le token ECK puis remet
-les événements à Logstash par Lumberjack. Logstash les écrit en HTTPS dans les
-data streams APM Elasticsearch avec une clé API dédiée, créée hors Git par
+les événements à Logstash par Lumberjack. Les Elastic Agents Kubernetes y
+envoient aussi les logs stdout des pods et les métriques du cluster par une
+entrée Beats dédiée. Logstash écrit ces signaux en HTTPS dans les data streams
+Elasticsearch avec une clé API dédiée, créée hors Git par
 `make apm-logstash-deploy`. Les deux services restent consultables dans
 Observability > APM.
 

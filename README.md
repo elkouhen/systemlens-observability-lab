@@ -65,7 +65,7 @@ déployer l'architecture complète (Kubernetes, VM et applications), utiliser
   ```
 - un cluster Kubernetes avec Traefik ; `make eck-deploy` installe ou met à jour
   l’opérateur ECK 3.5.0 avant le déploiement des ressources Elastic ;
-- une image locale multi-stage `order-service:1.0.5` / `inventory-service:1.0.5`
+- une image locale multi-stage `order-service:1.0.7` / `inventory-service:1.0.7`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
