@@ -257,8 +257,8 @@ téléchargement.
 - Tracing et logs applicatifs : `order-service` charge l’agent Java Elastic et
   `inventory-service` l’agent Java OpenTelemetry. Tous deux envoient leurs
   traces à APM Server en HTTPS ; le token et le certificat ECK sont synchronisés
-  dans le namespace applicatif par `make apps-deploy`. L’encodeur Logback ECS
-  produit du JSON et les agents ajoutent les identifiants de trace au MDC.
+  dans le namespace applicatif par `make apps-deploy`. Le format ECS natif de
+  Spring Boot produit du JSON et les agents ajoutent les identifiants de trace au MDC.
   L’Agent Kubernetes les normalise en `trace.id` et `span.id` après avoir ajouté
   les métadonnées du pod, ce qui permet la navigation log-trace. Les logs sont
   collectés sur stdout par Elastic Agent.

@@ -24,16 +24,5 @@
 
     <properties>
         <java.version>21</java.version>
-        <ecs-logging.version>1.7.0</ecs-logging.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>co.elastic.logging</groupId>
-                <artifactId>logback-ecs-encoder</artifactId>
-                <version>${ecs-logging.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 </project>
