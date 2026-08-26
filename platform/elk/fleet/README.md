@@ -19,12 +19,9 @@ ne crée les package policies standards MongoDB/Kafka.
   `metrics-apm.app@custom` qui fait converger les métriques applicatives des
   services exécutés en conteneur Kubernetes vers un data stream par cluster et
   `service.environment`, par exemple `metrics-apm.app.kubernetes-local-dev`.
-- `apm-application-logs-reroute-pipeline.json` : pipeline
-  `logs-apm.app@custom` qui applique le même routage aux logs applicatifs,
-  par exemple `logs-apm.app.kubernetes-local-dev`.
 - `kubernetes-application-logs-reroute-pipeline.json` : pipeline appliqué aux
   logs stdout collectés dans `logs-kubernetes.container_logs`, qui les route
-  vers `logs-apm.app.kubernetes-local-dev`.
+  vers `logs-kubernetes.container_logs-local-dev`.
 - `system-package-policy.json` : payload API de l'intégration System,
   synchronisé avec `kibana.yaml` par le script Fleet.
 - `elastic-agent.yml` : exemple de configuration standalone, distinct de Fleet.
@@ -40,8 +37,8 @@ l'intégration System si elle est absente, remplace les policies MongoDB et
 Kafka afin d'appliquer la migration des logs, puis met à jour les pipelines
 Elasticsearch `@custom`, dont le routage des métriques applicatives APM des
 conteneurs Kubernetes vers le data stream partagé de leur cluster et de leur
-environnement, par exemple `metrics-apm.app.kubernetes-local-dev`, et le même
-routage pour les logs APM dans `logs-apm.app.kubernetes-local-dev`.
+environnement, par exemple `metrics-apm.app.kubernetes-local-dev`, ainsi que
+les logs stdout Kubernetes vers `logs-kubernetes.container_logs-local-dev`.
 
 ## Documentation externe
 

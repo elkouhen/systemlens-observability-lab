@@ -53,19 +53,9 @@ curl "${elasticsearch_args[@]}" -X PUT \
   --data-binary "@${elk_dir}/fleet/apm-application-metrics-reroute-pipeline.json" >/dev/null
 printf 'APM application metrics reroute pipelines updated\n'
 
-# APM 8.11 appelle egalement logs-apm.app@custom pour les logs applicatifs.
-# Les logs de conteneurs Kubernetes sont routes vers
-# logs-apm.app.kubernetes-local-<service.environment> ; les autres conservent
-# leur data stream standard.
-pipeline='logs-apm.app@custom'
-curl "${elasticsearch_args[@]}" -X PUT \
-  "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \
-  --data-binary "@${elk_dir}/fleet/apm-application-logs-reroute-pipeline.json" >/dev/null
-printf 'APM application logs reroute pipelines updated\n'
-
 # Les logs stdout des applications sont collectes par l'Agent Kubernetes dans
-# logs-kubernetes.container_logs. Ce pipeline les route vers le meme data
-# stream applicatif que les logs APM, selon cluster et environnement.
+# logs-kubernetes.container_logs. Ce pipeline les route par cluster et
+# environnement, dans un data stream Kubernetes dont le template existe.
 pipeline='logs-kubernetes.container_logs@custom'
 curl "${elasticsearch_args[@]}" -X PUT \
   "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \

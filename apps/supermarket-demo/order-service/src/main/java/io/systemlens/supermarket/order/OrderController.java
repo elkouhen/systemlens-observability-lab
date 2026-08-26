@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Map;
@@ -21,6 +23,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api")
 public class OrderController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
 
     private final RestTemplate restTemplate;
     @Value("${order-service.inventory-service-url}")
@@ -38,7 +42,13 @@ public class OrderController {
     @PostMapping("/orders")
     public ReservationResult placeOrder(@RequestBody OrderRequest request) {
         OrderPlaced order = new OrderPlaced(UUID.randomUUID().toString(), request.productId(), request.quantity(), Instant.now());
-        return restTemplate.postForObject(inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
+        LOGGER.info("Commande recue: orderId={}, productId={}, quantity={}",
+            order.orderId(), order.productId(), order.quantity());
+        ReservationResult reservation = restTemplate.postForObject(
+            inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
+        LOGGER.info("Commande reservee: orderId={}, productId={}, quantity={}, remainingStock={}",
+            order.orderId(), order.productId(), order.quantity(), reservation.remainingStock());
+        return reservation;
     }
 
     @GetMapping("/error")
@@ -50,6 +60,8 @@ public class OrderController {
         try {
             restTemplate.postForObject(inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
         } catch (HttpClientErrorException exception) {
+            LOGGER.warn("Rupture de stock: orderId={}, productId={}, quantity={}",
+                order.orderId(), order.productId(), order.quantity());
             throw new OutOfStockException("Rupture de stock signalée par inventory-service : " + exception.getMessage());
         }
     }
