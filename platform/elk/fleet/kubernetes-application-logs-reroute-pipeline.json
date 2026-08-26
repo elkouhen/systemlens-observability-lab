@@ -1,34 +1,10 @@
 {
-  "description": "Route les logs applicatifs Kubernetes vers un data stream partage par cluster et environnement",
+  "description": "Route les logs applicatifs Kubernetes par cluster et environnement",
   "processors": [
     {
       "set": {
-        "tag": "set-order-service-name-from-kubernetes-log-path",
-        "if": "(ctx.service == null || ctx.service.name == null || ctx.service.name == '') && ctx.log != null && ctx.log.file != null && ctx.log.file.path != null && ctx.log.file.path.contains('/order-service-')",
-        "field": "service.name",
-        "value": "order-service"
-      }
-    },
-    {
-      "set": {
-        "tag": "set-inventory-service-name-from-kubernetes-log-path",
-        "if": "(ctx.service == null || ctx.service.name == null || ctx.service.name == '') && ctx.log != null && ctx.log.file != null && ctx.log.file.path != null && ctx.log.file.path.contains('/inventory-service-')",
-        "field": "service.name",
-        "value": "inventory-service"
-      }
-    },
-    {
-      "set": {
-        "tag": "set-kubernetes-application-logs-environment-from-log-path",
-        "if": "ctx.service != null && ctx.service.name != null && ctx.service.name != '' && (ctx.service.environment == null || ctx.service.environment == '') && ctx.log != null && ctx.log.file != null && ctx.log.file.path != null && ctx.log.file.path.contains('_supermarket-demo_')",
-        "field": "service.environment",
-        "value": "dev"
-      }
-    },
-    {
-      "set": {
-        "tag": "set-kubernetes-application-logs-cluster-and-environment-namespace",
-        "if": "ctx.service != null && ctx.service.environment != null && ctx.service.environment != '' && (ctx.data_stream == null || ctx.data_stream.dataset != 'apm.app.kubernetes')",
+        "tag": "set-kubernetes-application-logs-namespace",
+        "if": "ctx.service != null && ctx.service.environment != null && ctx.service.environment != ''",
         "field": "data_stream.namespace",
         "value": "local-{{{service.environment}}}"
       }
@@ -36,7 +12,7 @@
     {
       "reroute": {
         "tag": "route-kubernetes-application-logs-by-cluster-and-environment",
-        "if": "ctx.service != null && ctx.service.environment != null && ctx.service.environment != '' && (ctx.data_stream == null || ctx.data_stream.dataset != 'apm.app.kubernetes')",
+        "if": "ctx.service != null && ctx.service.environment != null && ctx.service.environment != ''",
         "dataset": "kubernetes.container_logs",
         "namespace": "{{{data_stream.namespace}}}"
       }
