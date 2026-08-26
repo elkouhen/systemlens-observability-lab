@@ -23,12 +23,24 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: order-service:1.0.4
+          image: order-service:1.0.5
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3000
           env:
+            - name: ECS_SERVICE_NAME
+              value: order-service
+            - name: ECS_SERVICE_ENVIRONMENT
+              value: dev
+            - name: ECS_SERVICE_VERSION
+              value: "1.0.0"
+            - name: ECS_SERVICE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ECS_EVENT_DATASET
+              value: order-service
             - name: ELASTIC_APM_SERVICE_NAME
               value: order-service
             - name: ELASTIC_APM_SERVICE_VERSION
@@ -85,7 +97,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: order-service:1.0.4
+          image: order-service:1.0.5
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -144,31 +156,37 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: inventory-service:1.0.4
+          image: inventory-service:1.0.5
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3001
           env:
-            - name: ELASTIC_APM_SERVICE_NAME
+            - name: ECS_SERVICE_NAME
               value: inventory-service
-            - name: ELASTIC_APM_SERVICE_VERSION
+            - name: ECS_SERVICE_ENVIRONMENT
+              value: dev
+            - name: ECS_SERVICE_VERSION
               value: "1.0.0"
-            - name: ELASTIC_APM_ENVIRONMENT
-              value: dev
-            - name: DEPLOYMENT_ENVIRONMENT
-              value: dev
-            - name: ELASTIC_APM_APPLICATION_PACKAGES
-              value: io.systemlens.supermarket.inventory
-            - name: ELASTIC_APM_SERVER_URL
+            - name: ECS_SERVICE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ECS_EVENT_DATASET
+              value: inventory-service
+            - name: OTEL_SERVICE_NAME
+              value: inventory-service
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.version=1.0.0,deployment.environment.name=dev
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: https://apm-server-apm-http.elastic-stack.svc:8200
-            - name: ELASTIC_APM_SECRET_TOKEN
+            - name: OTEL_EXPORTER_OTLP_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: order-service-apm-token
                   key: secret-token
-            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-              value: "true"
             - name: JAVA_TOOL_OPTIONS
               value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
             - name: SPRING_DATA_MONGODB_URI
@@ -213,7 +231,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: inventory-service:1.0.4
+          image: inventory-service:1.0.5
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:

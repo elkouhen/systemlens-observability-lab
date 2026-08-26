@@ -44,4 +44,10 @@ public class InventoryController {
     Map<String, String> handleProductNotFound(ProductNotFoundException exception) {
         return Map.of("error", exception.getMessage());
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    Map<String, String> handleInvalidOrder(IllegalArgumentException exception) {
+        return Map.of("error", exception.getMessage());
+    }
 }

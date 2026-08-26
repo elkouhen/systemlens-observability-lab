@@ -175,6 +175,11 @@ spec:
                   stream: all
                   format: auto
             processors:
+              - add_kubernetes_metadata:
+                  host: ${env.NODE_NAME}
+                  matchers:
+                    - logs_path:
+                        logs_path: /var/log/containers/
               - decode_json_fields:
                   fields: ["message"]
                   target: ""

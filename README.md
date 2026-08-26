@@ -50,8 +50,8 @@ scripts/             # utilitaires partagés aux VM
 Les cibles `make elk-deploy` et `make apps-deploy` permettent de déployer les
 deux périmètres séparément ; `make apm-deploy` reste disponible comme alias de
 compatibilité pour les déployer ensemble. `make apm-deploy` et
-`make platform-deploy` attendent Elasticsearch, synchronisent l'API key du
-gateway OpenTelemetry, puis créent le gateway avant les applications. Pour
+`make platform-deploy` attendent Elasticsearch, synchronisent les secrets APM
+requis par les applications, puis déploient leurs manifests. Pour
 déployer l'architecture complète (Kubernetes, VM et applications), utiliser
 `make deploy` (ou son alias `make architecture-deploy`).
 
@@ -65,7 +65,7 @@ déployer l'architecture complète (Kubernetes, VM et applications), utiliser
   ```
 - un cluster Kubernetes avec Traefik ; `make eck-deploy` installe ou met à jour
   l’opérateur ECK 3.5.0 avant le déploiement des ressources Elastic ;
-- une image locale multi-stage `order-service:1.0.4` / `inventory-service:1.0.4`
+- une image locale multi-stage `order-service:1.0.5` / `inventory-service:1.0.5`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -198,9 +198,9 @@ allocations natives.
    Les artefacts sont séparés par responsabilité : `platform/elk/` contient
    toute la plateforme Elastic (manifests Kubernetes, Fleet, dashboards et
    scripts), tandis que `apps/supermarket-demo/` contient le code et les
-   manifests de l'application de démonstration. Les collecteurs OpenTelemetry
-   sont dans la plateforme ELK : ils constituent la chaîne d'ingestion, pas
-   l'application.
+   manifests de l'application de démonstration. L'agent OpenTelemetry de
+   l'application envoie ses signaux OTLP à APM Server ; ce POC ne requiert pas
+   de collecteur OpenTelemetry distinct.
 
    ```bash
    kubectl apply -k platform/kubernetes/overlays/local
@@ -255,26 +255,13 @@ téléchargement.
 ## Configurations d’observabilité réalisées
 
 - Tracing et logs applicatifs : `order-service` charge l’agent Java Elastic et
-  envoie ses traces directement à APM Server en HTTPS, avec le token et le
-  certificat ECK synchronisés dans le namespace applicatif par
-  `make apps-deploy`. `inventory-service` conserve l’agent Java OpenTelemetry,
-  son identité de service et son endpoint OTLP HTTP/protobuf vers le gateway.
-  Le gateway enrichit les traces d’`inventory-service` puis les publie au format
-  `otlp_proto` dans le topic Kafka dédié `otel-traces`. Deux collectors backend
-  du même consumer group les relisent, produisent les métriques APM agrégées et
-  les exportent vers Elasticsearch en TLS, avec une clé API dédiée et limitée
-  aux data streams `logs-*`, `metrics-*` et `traces-*`. Les métriques OTLP des
-  applications continuent d'être exportées directement par le gateway.
-  Kafka absorbe donc les indisponibilités courtes d'Elasticsearch, au prix d'un
-  délai possible avant l'apparition des traces dans APM. Le topic est créé avec
-  trois partitions, réplication 3, `min.insync.replicas=2` et une rétention de
-  24 heures.
-  Le processeur `cumulativetodelta` conserve les histogrammes Micrometer. L’encodeur Logback ECS produit du JSON avec ces mêmes champs ;
-  le MDC du Java agent y ajoute les identifiants de trace. L’Agent Kubernetes
-  les normalise en `trace.id` et `span.id` avant indexation pour naviguer d’un
-  log à la trace correspondante. Les métriques Actuator/Micrometer sont exportées
-  par OTLP directement vers APM Server ; les logs restent collectés sur stdout
-  par Elastic Agent, donc l’exporteur OTLP Logs est explicitement désactivé.
+  `inventory-service` l’agent Java OpenTelemetry. Tous deux envoient leurs
+  traces à APM Server en HTTPS ; le token et le certificat ECK sont synchronisés
+  dans le namespace applicatif par `make apps-deploy`. L’encodeur Logback ECS
+  produit du JSON et les agents ajoutent les identifiants de trace au MDC.
+  L’Agent Kubernetes les normalise en `trace.id` et `span.id` après avoir ajouté
+  les métadonnées du pod, ce qui permet la navigation log-trace. Les logs sont
+  collectés sur stdout par Elastic Agent.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
   namespace `supermarket-demo`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.
@@ -325,8 +312,8 @@ doit créer une erreur APM contrôlée.
 | Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
 | PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |
 
-Une validation est réussie si aucun service `poc-otel-collector` n'est présent,
-si les collecteurs Beats/Fleet attendus sont actifs, si les trois
+Une validation est réussie si les collecteurs Beats/Fleet attendus sont actifs,
+si les trois
 membres MongoDB sont `PRIMARY`/`SECONDARY`, si PostgreSQL est disponible sur `data-01`, et si le quorum Kafka présente trois
 voters, les deux services APM reçoivent des données et toutes les vues ci-dessus
 contiennent des événements récents. Pour isoler une panne, commencer par

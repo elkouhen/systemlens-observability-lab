@@ -2,7 +2,7 @@
 
 Ce répertoire est le point d'entrée déclaratif de la plateforme Kubernetes.
 
-- `base/observability/` contient toutes les ressources Elastic, OpenTelemetry,
+- `base/observability/` contient toutes les ressources Elastic,
   Fleet et la collecte des logs Kubernetes.
 - `overlays/local/` décrit l'environnement POC local. Les futurs environnements
   (`recette`, `production`) seront des overlays distincts, sans duplication des

@@ -6,6 +6,7 @@ VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= supermarket-demo
+APP_IMAGE_TAG ?= 1.0.5
 ELASTIC_STACK_VERSION ?= 8.11.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
@@ -20,13 +21,13 @@ ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
-.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build images-import kubernetes-validate eck-deploy elastic-stack-deploy \
+.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate eck-deploy elastic-stack-deploy \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply beats-vm-provision fleet-data02-provision \
 	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
 	dashboard-deploy apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create order-service-logs-follow inventory-service-logs-follow k3d-ca-import
+	beats-api-key-create order-service-logs-follow inventory-service-logs-follow k3d-ca-import ci
 
 help: ## Afficher les tâches disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -48,17 +49,20 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@./scripts/cluster-status.sh
 
-apps-build: ## Construire les images applicatives avec l'agent Elastic APM (version 1.0.4 ; option ZSCALER_CA_CERT)
+apps-build: ## Construire les images applicatives (tag APP_IMAGE_TAG ; option ZSCALER_CA_CERT)
 	@zscaler_ca_b64=""; \
 	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
 	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
 	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
 	fi; \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target order-service -t order-service:1.0.4 apps/supermarket-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:1.0.4 apps/supermarket-demo
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target order-service -t order-service:$(APP_IMAGE_TAG) apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) apps/supermarket-demo
+
+apps-test: ## Exécuter les tests unitaires et d'intégration Maven des applications
+	@mvn --batch-mode verify -f apps/supermarket-demo/pom.xml
 
 images-import: ## Importer les images dans le cluster k3d
-	@k3d image import -c $(K3D_CLUSTER) order-service:1.0.4 inventory-service:1.0.4
+	@k3d image import -c $(K3D_CLUSTER) order-service:$(APP_IMAGE_TAG) inventory-service:$(APP_IMAGE_TAG)
 
 k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (requiert ZSCALER_CA_CERT, puis redémarrer le cluster)
 	@test -n "$(ZSCALER_CA_CERT)" || { echo "Définir ZSCALER_CA_CERT=chemin/vers/cert.crt" >&2; exit 1; }
@@ -145,6 +149,8 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 
 apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) apply -k apps/supermarket-demo/kubernetes
+	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service order-service=order-service:$(APP_IMAGE_TAG)
+	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service inventory-service=inventory-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 
@@ -170,6 +176,8 @@ architecture-deploy: deploy ## Alias explicite de deploy
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes >/dev/null
+
+ci: kubernetes-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
 fleet-sync: ## Synchroniser les pipelines Kafka et APM (policies Fleet déclarées dans Kubernetes)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh

@@ -1,4 +1,5 @@
-certs 
+certs/*
+!certs/README.md
 .vagrant
 
 # Artéfacts de compilation Maven, quel que soit le module.

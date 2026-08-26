@@ -3,6 +3,7 @@ package io.systemlens.supermarket.inventory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -29,8 +30,12 @@ public class ReservationService {
      * Le canal (rest/kafka) distingue une commande passée en caisse d'une
      * commande en ligne traitée en tâche de fond.
      */
+    @Transactional
     public ReservationResult reserve(String orderId, String productId, int quantity, String channel,
                                       Instant requestedAt) throws InterruptedException {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("La quantite doit etre strictement positive.");
+        }
         Thread.sleep(150);
 
         Product product = productRepository.findById(productId)
@@ -53,7 +58,7 @@ public class ReservationService {
                 orderId, productId, product.getName(), quantity, remainingStock, channel, requestedAt, createdAt
         ));
         try {
-            stockMovementRepository.save(
+            stockMovementRepository.saveAndFlush(
                     new StockMovement(orderId, productId, quantity, channel, requestedAt, createdAt)
             );
         } catch (RuntimeException exception) {
@@ -62,8 +67,6 @@ public class ReservationService {
             // de stock déjà appliquée) évite qu'une commande partiellement
             // persistée soit présentée comme un succès.
             orderFulfillmentRepository.deleteById(orderId);
-            product.setStockQuantity(product.getStockQuantity() + quantity);
-            productRepository.save(product);
             throw exception;
         }
 

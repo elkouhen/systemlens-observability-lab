@@ -29,7 +29,7 @@ ne crée les package policies standards MongoDB/Kafka.
 Les trois package policies System, MongoDB et Kafka sont associées à l'agent
 policy `mongodb-hosts`. La VM Elastic Agent exécute un seul Agent :
 `localhost` désigne donc le service local de cet hôte, jamais le poste qui
-exécute `make fleet-sync`. PostgreSQL appartient à la VM OpenTelemetry.
+exécute `make fleet-sync`. PostgreSQL appartient à la VM `data-01`.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
 préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` crée

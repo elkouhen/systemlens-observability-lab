@@ -5,14 +5,14 @@ isole l'application dans le namespace `supermarket-demo`.
 `deployment.yaml` décrit ses Deployments, Services et variables
 d'environnement : adresses Kafka/MongoDB et identité de télémétrie. Les traces
 d'`order-service` vont directement à APM Server via l'agent Java Elastic ;
-`inventory-service` reste exporté en OTLP vers le gateway.
+`inventory-service` est exporté en OTLP vers APM Server.
 
 ## Points à contrôler en lisant `deployment.yaml`
 
 1. Les tags d'image doivent correspondre à ceux produits par `make apps-build`.
-2. Les variables `ELASTIC_APM_*` d'`order-service` doivent viser APM Server ;
-   les variables `OTEL_*` d'`inventory-service` doivent viser le gateway de
-   `platform/elk`.
+2. Les variables `ELASTIC_APM_*` d'`order-service` et `OTEL_*`
+   d'`inventory-service` doivent viser APM Server. Le token APM est passé à
+   l'agent OpenTelemetry sous forme d'en-tête HTTP au démarrage du conteneur.
 3. Les endpoints Kafka et MongoDB pointent vers les VM, et non vers Kubernetes.
 4. Les probes et ressources doivent être adaptées avant une charge réelle.
 
