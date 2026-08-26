@@ -13,4 +13,4 @@ Maven.
 ## Documentation externe
 
 - [Déployer des workloads Kubernetes](https://kubernetes.io/docs/concepts/workloads/)
-- [OpenTelemetry Java](https://opentelemetry.io/docs/languages/java/)
+- [Agent Java Elastic APM](https://www.elastic.co/docs/reference/apm/agents/java)

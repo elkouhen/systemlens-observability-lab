@@ -6,6 +6,7 @@ resources:
   - kibana.yaml
   - fleet-server.yaml
   - apm-server.yaml
+  - apm-logstash.yaml
   - kubernetes-logs-agent.yaml
   - kube-state-metrics.yaml
   - elastic-ingress.yaml

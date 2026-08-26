@@ -34,7 +34,7 @@ spec:
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
               value: order-service
             - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
-              value: dev
+              value: elastic-dev
             - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
               value: "1.0.0"
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NODE_NAME
@@ -46,9 +46,9 @@ spec:
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
             - name: ELASTIC_APM_ENVIRONMENT
-              value: dev
+              value: elastic-dev
             - name: DEPLOYMENT_ENVIRONMENT
-              value: dev
+              value: elastic-dev
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.order
             - name: ELASTIC_APM_SERVER_URL
@@ -167,26 +167,30 @@ spec:
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
               value: inventory-service
             - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
-              value: dev
+              value: elastic-dev
             - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
               value: "1.0.0"
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
+            - name: ELASTIC_APM_SERVICE_NAME
               value: inventory-service
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.version=1.0.0,deployment.environment.name=dev
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: http/protobuf
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            - name: ELASTIC_APM_SERVICE_VERSION
+              value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: elastic-dev
+            - name: ELASTIC_APM_APPLICATION_PACKAGES
+              value: io.systemlens.supermarket.inventory
+            - name: ELASTIC_APM_SERVER_URL
               value: https://apm-server-apm-http.elastic-stack.svc:8200
-            - name: OTEL_EXPORTER_OTLP_TOKEN
+            - name: ELASTIC_APM_SECRET_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: order-service-apm-token
                   key: secret-token
+            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
+              value: "true"
             - name: JAVA_TOOL_OPTIONS
               value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
             - name: SPRING_DATA_MONGODB_URI

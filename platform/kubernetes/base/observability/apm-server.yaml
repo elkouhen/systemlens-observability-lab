@@ -6,18 +6,19 @@ metadata:
 spec:
   version: 8.11.3
   count: 1
-  # ECK configure automatiquement l'authentification et le TLS entre les
-  # composants référencés.
-  elasticsearchRef:
-    name: elasticsearch
+  # Ne pas définir elasticsearchRef : ECK ajouterait une sortie Elasticsearch
+  # concurrente. La sortie unique est Logstash, déclarée ci-dessous.
   # Requis à partir d'APM Server 8 pour l'application APM et la configuration
-  # centrale des agents.
+  # centrale des agents Java Elastic APM.
   kibanaRef:
     name: es-kb-quickstart-eck-kibana
   config:
-    apm-server:
-      otlp:
-        enabled: true
+    # Les événements APM sont remis à Logstash par Lumberjack. Logstash est
+    # responsable de leur écriture dans les data streams Elasticsearch.
+    output.logstash:
+      enabled: true
+      hosts:
+        - apm-logstash.elastic-stack.svc:5044
     http:
       enabled: true
       host: 127.0.0.1

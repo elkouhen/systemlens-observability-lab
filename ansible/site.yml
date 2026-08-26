@@ -391,7 +391,7 @@
       run_once: true
       delegate_to: data-01
 
-    - name: Créer le topic tampon des traces OpenTelemetry
+    - name: Supprimer le topic hérité des traces OpenTelemetry
       ansible.builtin.command:
         argv:
           - podman
@@ -402,20 +402,12 @@
           - /opt/kafka/bin/kafka-topics.sh
           - --bootstrap-server
           - localhost:9092
-          - --create
+          - --delete
           - --if-not-exists
           - --topic
           - otel-traces
-          - --partitions
-          - '3'
-          - --replication-factor
-          - '3'
-          - --config
-          - min.insync.replicas=2
-          - --config
-          - retention.ms=86400000
-      register: kafka_otel_traces_topic
-      changed_when: "'Created topic' in kafka_otel_traces_topic.stdout"
+      register: kafka_otel_traces_topic_removal
+      changed_when: "'marked for deletion' in kafka_otel_traces_topic_removal.stdout"
       run_once: true
       delegate_to: data-01
 

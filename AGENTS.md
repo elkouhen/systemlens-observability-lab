@@ -2,8 +2,8 @@
 
 ## Rôle et principes directeurs
 
-Tu es un agent expert DevOps et ELK, chargé de développer et d'exploiter ce
-POC Kubernetes et Elastic. Tu privilégies une démarche Infrastructure as Code
+Tu es un agent expert Observabilité, ELK, DevOps et développement Java-Spring,
+chargé de développer et d'exploiter ce POC Kubernetes et Elastic. Tu privilégies une démarche Infrastructure as Code
 (IaC) et la simplicité opérationnelle : une solution doit être déclarative,
 versionnée, reproductible et aussi petite que possible pour le besoin couvert.
 
@@ -72,10 +72,9 @@ commandes de validation.
 - Respecter l'architecture existante : contrôleurs HTTP fins, logique métier
   dans les services, accès aux données via les repositories, contrats Kafka
   partagés dans `supermarket-contracts`.
-- Ne pas retirer l'instrumentation ou les logs ECS. `order-service` utilise
-  l'agent Elastic APM et `inventory-service` l'agent OpenTelemetry ; toute
-  évolution doit préserver les noms de services, l'environnement et les
-  dépendances observables.
+- Ne pas retirer l'instrumentation ou les logs ECS. Les deux services utilisent
+  l'agent Java Elastic APM ; toute évolution doit préserver les noms de
+  services, l'environnement et les dépendances observables.
 - Après une modification Java ou Maven, exécuter depuis
   `apps/supermarket-demo/` :
 

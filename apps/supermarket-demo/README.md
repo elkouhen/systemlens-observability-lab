@@ -24,8 +24,8 @@ catalogue. Le Dockerfile produit une image pour chacun.
 ## Ordre de lecture
 
 1. `pom.xml` : agrégateur Maven et versions communes.
-2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic pour
-   `order-service` et l'agent Java OpenTelemetry pour `inventory-service`.
+2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic APM pour les
+   deux services.
 3. [`kubernetes/README.md`](kubernetes/README.md) : variables de déploiement
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    son endpoint OTLP.
@@ -41,9 +41,7 @@ l'application avec `make apps-deploy`.
 ## Documentation externe
 
 - [Agent Java Elastic APM](https://www.elastic.co/docs/reference/apm/agents/java)
-- [Instrumentation Java OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/)
 - [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/)
-- [Observabilité Kafka avec OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/supported-libraries/)
 
 ## Versions d'images
 

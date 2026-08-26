@@ -10,14 +10,35 @@ pour installer ou mettre à jour l'opérateur ECK 3.5.0 avant leur application.
 2. `kibana.yaml`, puis `fleet-server.yaml` : gestion centralisée des
    Elastic Agents et la policy Fleet Server préconfigurée dans `xpack.fleet`.
 3. `apm-server.yaml` : endpoint d'ingestion APM.
-4. `kubernetes-logs-agent.yaml` : collecte des logs des pods.
-5. `elastic-ingress.yaml` : exposition TLS via Traefik.
+4. `apm-logstash.yaml` : relais Logstash des événements APM vers les data streams Elasticsearch.
+5. `kubernetes-logs-agent.yaml` : collecte des logs des pods.
+6. `elastic-ingress.yaml` : exposition TLS via Traefik.
 
-Les applications envoient leurs signaux OTLP directement à APM Server : aucun
-collecteur EDOT n'est déployé avec cette plateforme Elastic 8.5.1.
+Les applications envoient leurs signaux directement à APM Server avec l'agent
+Java Elastic APM ; aucun autre collecteur de traces n'est déployé.
 
-Pour appliquer seulement le socle, utiliser `make elk-deploy` ou `kubectl
-apply -k platform/kubernetes/overlays/local`.
+Pour appliquer le socle initial, utiliser `make elk-deploy`. Pour créer la clé
+API de moindre privilège, déployer Logstash puis basculer la sortie APM, utiliser
+`make apm-logstash-deploy`. Le trafic est alors : agents APM → APM Server →
+Logstash (Lumberjack) → Elasticsearch (HTTPS). Le service Logstash est interne
+au cluster ; la liaison APM Server–Logstash n'est pas exposée. Dans ce POC,
+elle n'est pas chiffrée à l'intérieur du cluster. Pour un environnement de
+production, activer TLS sur l'input `elastic_agent` et monter un certificat
+géré par cert-manager ou la PKI de l'organisation.
+
+Après le déploiement, vérifier les deux composants et le relais :
+
+```bash
+kubectl -n elastic-stack get deployment apm-server-apm-server apm-logstash
+kubectl -n elastic-stack logs deployment/apm-logstash --tail=50
+```
+
+Le résultat attendu est deux Deployments `1/1` et un listener Logstash sur le
+port `5044` sans erreur d'indexation Elasticsearch.
+
+Les traces et métriques conservent l'environnement défini par les variables
+`ELASTIC_APM_*` ; les logs restent collectés séparément sur stdout par l'Elastic
+Agent Kubernetes.
 
 ## Documentation externe
 

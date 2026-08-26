@@ -7,10 +7,14 @@ ne stockent aucun mot de passe dans le dépôt.
 
 1. `load-credentials.sh` lit les secrets ECK et exporte les variables utiles.
    Il doit être *sourcé* : `source ./platform/elk/scripts/load-credentials.sh`.
-2. `sync-fleet-policies.sh` pousse les pipelines Kafka `@custom`, applique les
-   policies MongoDB/Kafka de la VM Elastic Agent et supprime la policy
-   PostgreSQL devenue inutile côté Fleet.
+2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et met à jour la
+   policy PostgreSQL Fleet existante afin qu'elle ne s'exécute que sur
+   `data-01`.
 3. `deploy-kibana-dashboard.sh` importe un export NDJSON dans Kibana.
+4. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
+   qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
+   PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script
+   directement : la cible lit le secret ECK sans l'afficher.
 
 Les valeurs `KIBANA_URL`, `ELASTICSEARCH_URL` et les options `--resolve` sont
 paramétrables par variables d'environnement pour adapter l'accès au cluster.

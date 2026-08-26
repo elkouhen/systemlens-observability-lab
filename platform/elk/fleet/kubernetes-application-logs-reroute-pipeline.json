@@ -6,7 +6,7 @@
         "tag": "set-kubernetes-application-logs-namespace",
         "if": "ctx.service != null && ctx.service.environment != null && ctx.service.environment != ''",
         "field": "data_stream.namespace",
-        "value": "local-{{{service.environment}}}"
+        "value": "{{{service.environment}}}"
       }
     },
     {

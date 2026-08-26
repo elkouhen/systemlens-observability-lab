@@ -2,7 +2,7 @@
 
 Ce dépôt déploie un environnement de recette destiné à valider la visibilité
 de bout en bout dans Elastic : infrastructure, Kafka, MongoDB, PostgreSQL et deux
-applications Java instrumentées avec Elastic APM et OpenTelemetry.
+applications Java instrumentées avec Elastic APM.
 
 ## Architecture
 
@@ -198,9 +198,9 @@ allocations natives.
    Les artefacts sont séparés par responsabilité : `platform/elk/` contient
    toute la plateforme Elastic (manifests Kubernetes, Fleet, dashboards et
    scripts), tandis que `apps/supermarket-demo/` contient le code et les
-   manifests de l'application de démonstration. L'agent OpenTelemetry de
-   l'application envoie ses signaux OTLP à APM Server ; ce POC ne requiert pas
-   de collecteur OpenTelemetry distinct.
+   manifests de l'application de démonstration. Les deux services Java
+   utilisent l'agent Elastic APM et envoient leurs signaux à APM Server ; ce
+   POC ne requiert pas d'autre collecteur de traces.
 
    ```bash
    kubectl apply -k platform/kubernetes/overlays/local
@@ -223,9 +223,12 @@ allocations natives.
    Kafka associés et le pipeline APM qui route les métriques applicatives des
    conteneurs Kubernetes vers un data stream commun à leur
    `ELASTIC_APM_ENVIRONMENT`, par exemple
-   `metrics-apm.app.kubernetes-local`. Les dashboards s'importent séparément avec
-   `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka restent visibles
-   et gérées par la préconfiguration Kibana déclarée dans Kubernetes.
+   `metrics-apm.app.kubernetes-local`. Le dashboard System et les dashboards
+   Kubernetes, Kafka, MongoDB et PostgreSQL sont fournis par les packages
+   Fleet déclarés dans Kubernetes ; seul le dashboard SystemLens MongoDB
+   s'importe avec `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka
+   restent visibles et gérées par la préconfiguration Kibana déclarée dans
+   Kubernetes.
 
 ### Redéployer et corriger
 
@@ -254,10 +257,9 @@ téléchargement.
 
 ## Configurations d’observabilité réalisées
 
-- Tracing et logs applicatifs : `order-service` charge l’agent Java Elastic et
-  `inventory-service` l’agent Java OpenTelemetry. Tous deux envoient leurs
-  traces à APM Server en HTTPS ; le token et le certificat ECK sont synchronisés
-  dans le namespace applicatif par `make apps-deploy`. Le format ECS natif de
+- Tracing et logs applicatifs : les deux services chargent l’agent Java Elastic
+  APM et envoient leurs traces à APM Server en HTTPS ; le token et le certificat
+  ECK sont synchronisés dans le namespace applicatif par `make apps-deploy`. Le format ECS natif de
   Spring Boot produit du JSON et les agents ajoutent les identifiants de trace au MDC.
   L’Agent Kubernetes les normalise en `trace.id` et `span.id` après avoir ajouté
   les métadonnées du pod, ce qui permet la navigation log-trace. Les logs sont
@@ -280,6 +282,23 @@ téléchargement.
   à `data-01`, bien que la policy soit commune aux trois VM.
 
 ## Recette des dashboards
+
+Les dashboards de supervision sont prêts dès que les packages Fleet sont
+installés. Leur liste, les métriques attendues et la vérification sans secret
+affiché sont documentées dans
+[`platform/elk/dashboards/README.md`](platform/elk/dashboards/README.md).
+
+Après un déploiement de collecteur, valider d'abord le rendu Kubernetes puis
+vérifier la fraîcheur des données :
+
+```bash
+make kubernetes-validate
+make kibana-fleet-config-deploy
+make dashboards-verify
+```
+
+Le contrôle remonte les jeux de données absents. Il permet de corriger la
+collecte avant de conclure qu'un dashboard est vide.
 
 ### Dashboard MongoDB : clusters et primary
 

@@ -8,7 +8,7 @@ metadata:
   annotations:
     # Déclenche la réconciliation des package policies après l'installation
     # initiale des packages du registre Elastic 8.11.3.
-    observability.systemlens.io/fleet-packages-revision: "3"
+    observability.systemlens.io/fleet-packages-revision: "4"
 spec:
   version: 8.11.3
   count: 1
@@ -170,8 +170,8 @@ spec:
                     type: text
                     value:
                       - http://127.0.0.1:8778
-          # PostgreSQL n'existe que sur data-01. L'endpoint localhost évite
-          # toute duplication : data-02 ne peut pas publier ces métriques.
+          # PostgreSQL n'existe que sur data-01. La condition évite que
+          # l'Agent de data-02 tente une connexion localhost inexistante.
           - id: postgresql-data-01
             name: postgresql-data-01
             package:
@@ -180,6 +180,9 @@ spec:
               - type: postgresql/metrics
                 enabled: true
                 vars:
+                  - name: condition
+                    type: text
+                    value: ${host.name} == 'data-01'
                   - name: hosts
                     type: text
                     value:

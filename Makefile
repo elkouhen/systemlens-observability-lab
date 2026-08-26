@@ -22,10 +22,10 @@ ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate eck-deploy elastic-stack-deploy \
-	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync fleet-vms-provision vm-provision \
+	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply beats-vm-provision fleet-data02-provision \
 	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
-	dashboard-deploy apm-report-api-key-create \
+	dashboard-deploy dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create order-service-logs-follow inventory-service-logs-follow k3d-ca-import ci
 
@@ -138,6 +138,25 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/deploy-kibana-dashboard.sh platform/elk/dashboards/apm-data-view.ndjson
 
+apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash APM si absente
+	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch >/dev/null 2>&1; then \
+		echo "Secret apm-logstash-elasticsearch déjà présent"; \
+	else \
+		password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+			-u "elastic:$$password" -H 'Content-Type: application/json' \
+			-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
+			--data '{"name":"apm-logstash-writer","role_descriptors":{"apm_logstash_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
+			| jq -er '.id + ":" + .api_key')"; \
+		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic apm-logstash-elasticsearch \
+			--from-literal=api-key="$$api_key"; \
+	fi
+
+apm-logstash-deploy: apm-logstash-credentials-apply ## Déployer Logstash et basculer la sortie APM vers lui
+	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
+
 apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
 	@set -euo pipefail; \
 	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
@@ -181,7 +200,7 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 
 ci: kubernetes-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
-fleet-sync: ## Synchroniser les pipelines Kafka et APM (policies Fleet déclarées dans Kubernetes)
+fleet-sync: ## Synchroniser les pipelines et la policy PostgreSQL Fleet déjà créée
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
 
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
@@ -200,6 +219,11 @@ beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
 
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./platform/elk/scripts/deploy-kibana-dashboard.sh
+
+dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboards sont récents
+	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
+		./platform/elk/scripts/verify-dashboard-data.sh
 
 apm-report-api-key-create: ## Créer une clé de lecture brute pour les rapports APM SystemLens
 	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }

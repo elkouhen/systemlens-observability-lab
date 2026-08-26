@@ -11,8 +11,10 @@ une rupture de stock (`OutOfStockException`, HTTP 409). Lire
 `src/main/resources/application.yml` avant les classes du package `inventory`
 pour comprendre les adresses de connexion et le nom du consumer group.
 
-L'agent Java OpenTelemetry, défini dans le Dockerfile parent, produit les traces
+L'agent Java Elastic APM, défini dans le Dockerfile parent, produit les traces
 des interactions Kafka, MongoDB et PostgreSQL sans modifier le code de ce module.
+Les transactions Kafka sont exposées directement avec le type `messaging` dans
+la vue APM.
 
 ## Documentation externe
 
