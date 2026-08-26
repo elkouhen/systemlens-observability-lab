@@ -307,7 +307,6 @@ collecte avant de conclure qu'un dashboard est vide.
 Déployer ou mettre à jour le dashboard automatiquement avec :
 
 ```bash
-source ./platform/elk/scripts/load-credentials.sh
 make dashboard-deploy
 ```
 

@@ -227,8 +227,10 @@ fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet d
 beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
 	@$(VAGRANT) provision data-03
 
-dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB (requiert KIBANA_PASSWORD)
-	@KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ./platform/elk/scripts/deploy-kibana-dashboard.sh
+dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB
+	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./platform/elk/scripts/deploy-kibana-dashboard.sh
 
 dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboards sont récents
 	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
