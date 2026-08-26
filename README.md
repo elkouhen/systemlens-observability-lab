@@ -16,12 +16,16 @@ applications Java instrumentées avec Elastic APM.
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
 | `order-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
 | `inventory-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
+| `restock-service` | Kubernetes, namespace `supermarket-demo` | consommateur et producteur Kafka, port 3002 pour les probes | événements de réassort et dépendance Kafka |
 
 Le scénario métier simule un supermarché en ligne : `order-service` publie une
 commande Kafka chaque minute (commande en ligne) ; `inventory-service` la
 consomme, décrémente le stock du produit puis écrit le résultat dans MongoDB et
 PostgreSQL (`data-01`). L’endpoint `/api/orders` exerce également le chemin
 HTTP synchrone entre les deux applications (commande passée en caisse).
+Quand une réservation épuise le stock, `inventory-service` publie un événement
+Kafka. `restock-service` produit alors une demande de réassort, appliquée par
+`inventory-service`, propriétaire du catalogue.
 
 ## Guides de lecture
 
@@ -66,7 +70,8 @@ déployer l'architecture complète (Kubernetes, VM et applications), utiliser
   ```
 - un cluster Kubernetes avec Traefik ; `make eck-deploy` installe ou met à jour
   l’opérateur ECK 3.5.0 avant le déploiement des ressources Elastic ;
-- une image locale multi-stage `order-service:1.0.9` / `inventory-service:1.0.9`
+- des images locales multi-stage `order-service:1.1.1`, `inventory-service:1.1.1`
+  et `restock-service:1.1.1`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -139,7 +144,7 @@ make deploy
 La cible applique d'abord la plateforme Kubernetes, attend Elasticsearch,
 charge ensuite (ou crée) une clé API Elasticsearch limitée aux Beats, lance
 `vagrant up`, puis construit,
-importe dans k3d et déploie les deux applications. Une clé déjà fournie dans
+importe dans k3d et déploie les trois applications. Une clé déjà fournie dans
 `ELASTICSEARCH_API_KEY` n'est pas remplacée.
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
@@ -200,7 +205,7 @@ allocations natives.
    Les artefacts sont séparés par responsabilité : `platform/elk/` contient
    toute la plateforme Elastic (manifests Kubernetes, Fleet, dashboards et
    scripts), tandis que `apps/supermarket-demo/` contient le code et les
-   manifests de l'application de démonstration. Les deux services Java
+   manifests de l'application de démonstration. Les trois services Java
    utilisent l'agent Elastic APM et envoient leurs signaux à APM Server ; ce
    POC ne requiert pas d'autre collecteur de traces.
 
@@ -259,7 +264,7 @@ téléchargement.
 
 ## Configurations d’observabilité réalisées
 
-- Tracing et logs applicatifs : les deux services chargent l’agent Java Elastic
+- Tracing et logs applicatifs : les trois services chargent l’agent Java Elastic
   APM et envoient leurs traces à APM Server en HTTPS ; le token et le certificat
   ECK sont synchronisés dans le namespace applicatif par `make apps-deploy`. Le format ECS natif de
   Spring Boot produit du JSON et les agents ajoutent les identifiants de trace au MDC.
@@ -325,9 +330,9 @@ doit créer une erreur APM contrôlée.
 
 | Vue Kibana | Contrôles attendus | Diagnostic si absent |
 | --- | --- | --- |
-| Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration ; logs ECS corrélés par `trace.id` dans l’onglet Logs d’une transaction | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods, le trafic généré et qu’un log métier est émis pendant la transaction |
+| Observability > APM > Services | les trois services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration ; logs ECS corrélés par `trace.id` dans l’onglet Logs d’une transaction | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods, le trafic généré et qu’un log métier est émis pendant la transaction |
 | Observability > Infrastructure > Hosts | hôtes suivis par le profil Beats/Fleet | vérifier le service de collecte correspondant ; aucun service EDOT ne doit être présent |
-| Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des deux pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
+| Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des trois pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
 | Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
 | Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
 | PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |
@@ -335,7 +340,7 @@ doit créer une erreur APM contrôlée.
 Une validation est réussie si les collecteurs Beats/Fleet attendus sont actifs,
 si les trois
 membres MongoDB sont `PRIMARY`/`SECONDARY`, si PostgreSQL est disponible sur `data-01`, et si le quorum Kafka présente trois
-voters, les deux services APM reçoivent des données et toutes les vues ci-dessus
+voters, les trois services APM reçoivent des données et toutes les vues ci-dessus
 contiennent des événements récents. Pour isoler une panne, commencer par
 `./scripts/cluster-status.sh`, puis Fleet > Agents et enfin les logs du pod ou
 conteneur concerné.
@@ -393,7 +398,7 @@ KIBANA_URL='https://kibana.exemple.test' KIBANA_HOST='kibana.exemple.test' \
 ## Constat de validation du 17 août 2026
 
 Les ressources Kubernetes ECK (Kibana, APM Server, Fleet Server et Agent de
-logs) sont `green` et les deux applications sont `Ready`. Elasticsearch est
+logs) sont `green` et les trois applications sont `Ready`. Elasticsearch est
 opérationnel mais `yellow` car il ne possède qu’un nœud : les réplicas non
 alloués sont attendus dans cette topologie de POC, mais cet état ne convient pas
 à une validation de haute disponibilité.

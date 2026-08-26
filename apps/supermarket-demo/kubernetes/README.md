@@ -4,10 +4,10 @@
 isole l'application dans le namespace `supermarket-demo`.
 `deployment.yaml` décrit ses Deployments, Services et variables
 d'environnement : adresses Kafka/MongoDB et identité de télémétrie. Les traces
-d'`order-service` et d'`inventory-service` vont directement à APM Server via
-l'agent Java Elastic APM.
+d'`order-service`, d'`inventory-service` et de `restock-service` vont
+directement à APM Server via l'agent Java Elastic APM.
 
-Les deux services écrivent leurs logs JSON ECS sur stdout. L'Elastic Agent
+Les trois services écrivent leurs logs JSON ECS sur stdout. L'Elastic Agent
 Kubernetes les collecte dans `logs-kubernetes.container_logs-*`. La valeur
 `service.environment` est commune aux logs et aux signaux APM et respecte la
 convention `<type><plateforme_sur_3_caractères>-<namespace>`, par exemple
@@ -20,7 +20,7 @@ leurs data streams d'origine.
 ## Points à contrôler en lisant `deployment.yaml`
 
 1. Les tags d'image doivent correspondre à ceux produits par `make apps-build`.
-2. Les variables `ELASTIC_APM_*` des deux services doivent viser APM Server.
+2. Les variables `ELASTIC_APM_*` des trois services doivent viser APM Server.
    Le token APM et le certificat ECK sont montés par `make apps-deploy`. Les
    logs ECS restent collectés sur stdout par l'Elastic Agent Kubernetes.
 3. Les endpoints Kafka et MongoDB pointent vers les VM, et non vers Kubernetes.

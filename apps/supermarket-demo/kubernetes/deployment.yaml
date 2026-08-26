@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: order-service:1.0.9
+          image: order-service:1.1.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -97,7 +97,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: order-service:1.0.9
+          image: order-service:1.1.1
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -156,7 +156,7 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: inventory-service:1.0.9
+          image: inventory-service:1.1.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -235,7 +235,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: inventory-service:1.0.9
+          image: inventory-service:1.1.1
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -271,3 +271,112 @@ spec:
     - name: http
       port: 3001
       targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restock-service
+  namespace: supermarket-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: restock-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: restock-service
+    spec:
+      containers:
+        - name: restock-service
+          image: restock-service:1.1.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3002
+          env:
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: ecs
+            - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
+              value: restock-service
+            - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
+              value: h0p1-supermarket
+            - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
+              value: "1.0.0"
+            - name: LOGGING_STRUCTURED_ECS_SERVICE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ELASTIC_APM_SERVICE_NAME
+              value: restock-service
+            - name: ELASTIC_APM_SERVICE_VERSION
+              value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: h0p1-supermarket
+            - name: ELASTIC_APM_APPLICATION_PACKAGES
+              value: io.systemlens.supermarket.restock
+            - name: ELASTIC_APM_SERVER_URL
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
+            - name: ELASTIC_APM_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-apm-token
+                  key: secret-token
+            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: 192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+              readOnly: true
+      initContainers:
+        - name: apm-truststore
+          image: restock-service:1.1.1
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              cp "$JAVA_HOME/lib/security/cacerts" /opt/elastic-apm/truststore/cacerts &&
+              keytool -importcert -noprompt -trustcacerts -alias apm-server-ca
+              -file /var/run/secrets/apm-server/ca.crt
+              -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: order-service-apm-server-ca
+        - name: apm-truststore
+          emptyDir: {}

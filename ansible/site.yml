@@ -391,6 +391,58 @@
       run_once: true
       delegate_to: data-01
 
+    - name: Créer le topic d'épuisement du stock
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - supermarket.stock.depleted
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '3'
+          - --config
+          - min.insync.replicas=2
+      register: kafka_stock_depleted_topic
+      changed_when: "'Created topic' in kafka_stock_depleted_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Créer le topic de demande de réassort
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - supermarket.stock.restock-requested
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '3'
+          - --config
+          - min.insync.replicas=2
+      register: kafka_stock_restock_requested_topic
+      changed_when: "'Created topic' in kafka_stock_restock_requested_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
     - name: Supprimer le topic hérité des traces de migration
       ansible.builtin.command:
         argv:
@@ -447,6 +499,51 @@
           - --partitions
           - '3'
       when: "'PartitionCount: 1' in kafka_demo_topic_description.stdout or 'PartitionCount: 2' in kafka_demo_topic_description.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Lire le nombre de partitions des topics de réassort
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --describe
+          - --topic
+          - "{{ item }}"
+      loop:
+        - supermarket.stock.depleted
+        - supermarket.stock.restock-requested
+      register: kafka_restock_topics_description
+      changed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Augmenter les topics de réassort à trois partitions si nécessaire
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - poc-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --alter
+          - --topic
+          - "{{ item.item }}"
+          - --partitions
+          - '3'
+      loop: "{{ kafka_restock_topics_description.results }}"
+      when: "'PartitionCount: 1' in item.stdout or 'PartitionCount: 2' in item.stdout"
+      loop_control:
+        label: "{{ item.item }}"
       run_once: true
       delegate_to: data-01
 

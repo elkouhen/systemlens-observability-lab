@@ -18,6 +18,10 @@ la vue APM.
 
 Chaque réservation produit un log ECS métier : `INFO` en cas de succès et
 `WARN` pour une quantité invalide, un produit absent ou une rupture de stock.
+Lorsqu'une réservation épuise le stock, le service publie
+`supermarket.stock.depleted`. `restock-service` répond par une demande sur
+`supermarket.stock.restock-requested`, appliquée ici afin que ce module reste
+propriétaire du catalogue PostgreSQL.
 Avec `ELASTIC_APM_ENABLE_LOG_CORRELATION=true`, ces événements contiennent les
 identifiants de trace injectés par l'agent et sont donc accessibles depuis la
 vue Logs des transactions APM.

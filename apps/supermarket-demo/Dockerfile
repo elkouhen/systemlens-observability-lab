@@ -23,12 +23,14 @@ COPY pom.xml ./
 COPY supermarket-contracts/pom.xml supermarket-contracts/pom.xml
 COPY order-service/pom.xml order-service/pom.xml
 COPY inventory-service/pom.xml inventory-service/pom.xml
-RUN mvn --batch-mode --projects order-service,inventory-service --also-make dependency:go-offline
+COPY restock-service/pom.xml restock-service/pom.xml
+RUN mvn --batch-mode --projects order-service,inventory-service,restock-service --also-make dependency:go-offline
 
 COPY supermarket-contracts/src supermarket-contracts/src
 COPY order-service/src order-service/src
 COPY inventory-service/src inventory-service/src
-RUN mvn --batch-mode --projects order-service,inventory-service --also-make package -DskipTests
+COPY restock-service/src restock-service/src
+RUN mvn --batch-mode --projects order-service,inventory-service,restock-service --also-make package -DskipTests
 RUN curl --fail --location --silent --show-error \
   "https://repo1.maven.org/maven2/co/elastic/apm/elastic-apm-agent/${ELASTIC_APM_AGENT_VERSION}/elastic-apm-agent-${ELASTIC_APM_AGENT_VERSION}.jar" \
   -o /opt/elastic-apm-agent.jar
@@ -49,4 +51,13 @@ COPY --from=build /workspace/inventory-service/target/inventory-service-1.0.0.ja
 COPY --from=build /opt/elastic-apm-agent.jar /opt/elastic-apm-agent.jar
 USER 10001
 EXPOSE 3001
+ENTRYPOINT ["java", "-javaagent:/opt/elastic-apm-agent.jar", "-jar", "/app/application.jar"]
+
+FROM eclipse-temurin:21.0.7_6-jre-noble AS restock-service
+
+WORKDIR /app
+COPY --from=build /workspace/restock-service/target/restock-service-1.0.0.jar application.jar
+COPY --from=build /opt/elastic-apm-agent.jar /opt/elastic-apm-agent.jar
+USER 10001
+EXPOSE 3002
 ENTRYPOINT ["java", "-javaagent:/opt/elastic-apm-agent.jar", "-jar", "/app/application.jar"]

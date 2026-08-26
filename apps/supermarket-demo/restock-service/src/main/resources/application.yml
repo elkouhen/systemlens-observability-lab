@@ -1,17 +1,7 @@
 server:
-  port: 3001
+  port: 3002
 
 spring:
-  data:
-    mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs}
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://192.168.33.10:5432/observability_test}
-    username: ${SPRING_DATASOURCE_USERNAME:observability}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-  jpa:
-    hibernate:
-      ddl-auto: update
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092}
     consumer:
@@ -21,6 +11,9 @@ spring:
       properties:
         spring.json.trusted.packages: io.systemlens.supermarket.contract
         allow.auto.create.topics: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 management:
   endpoints:

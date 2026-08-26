@@ -13,9 +13,9 @@ attendu.
   Kustomize ; aucun YAML rendu n'est ajouté au dépôt.
 - [ ] Les namespaces `elastic-stack` et `supermarket-demo`, les ressources ECK
   et les conventions de nommage existantes sont conservés.
-- [ ] Les services `order-service` et `inventory-service` gardent leur agent
-  Java Elastic APM, leurs logs JSON ECS sur `stdout` et leur environnement
-  `homologation`.
+- [ ] Les services `order-service`, `inventory-service` et `restock-service`
+  gardent leur agent Java Elastic APM, leurs logs JSON ECS sur `stdout` et leur
+  environnement `homologation`.
 - [ ] Aucun secret, mot de passe, clé API, token Fleet ou certificat privé
   n'est ajouté à Git.
 - [ ] Les dépendances et le routage restent cohérents avec le flux cible :
@@ -46,9 +46,9 @@ attendu.
   PostgreSQL attendus sont actifs.
 - [ ] Déclencher une transaction applicative avec `make order-service-command`
   et constater une réponse HTTP réussie.
-- [ ] Vérifier les logs des services avec `make order-service-logs-follow` ou
-  `make inventory-service-logs-follow` ; les événements sont au format ECS et
-  ne présentent pas d'erreur récurrente.
+- [ ] Vérifier les logs des services avec `make order-service-logs-follow`,
+  `make inventory-service-logs-follow` ou `make restock-service-logs-follow` ;
+  les événements sont au format ECS et ne présentent pas d'erreur récurrente.
 
 ## Remontée des logs et métriques
 
@@ -56,10 +56,10 @@ attendu.
   dans `logs-kubernetes.container_logs-homologation`, avec
   `service.environment: homologation` et l'identité du service attendue.
 - [ ] Dans Kibana Discover, confirmer l'arrivée récente de métriques APM Java
-  dans `metrics-apm.app.kubernetes-homologation` pour les deux services.
-- [ ] Dans Observability > APM, confirmer que `order-service` et
-  `inventory-service` reçoivent transactions, erreurs éventuelles et métriques
-  JVM après la transaction de recette.
+  dans `metrics-apm.app.kubernetes-homologation` pour les trois services.
+- [ ] Dans Observability > APM, confirmer que `order-service`,
+  `inventory-service` et `restock-service` reçoivent transactions, erreurs
+  éventuelles et métriques JVM après la transaction de recette.
 - [ ] Vérifier les logs de `apm-logstash` ; aucune erreur persistante de
   connexion, d'authentification ou d'indexation n'est présente.
 - [ ] Exécuter `make dashboards-verify` après une évolution de collecte ou de

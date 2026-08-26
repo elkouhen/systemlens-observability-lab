@@ -1,7 +1,9 @@
 package io.systemlens.supermarket.inventory;
 
+import io.systemlens.supermarket.contract.StockDepleted;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,16 +17,16 @@ public class ReservationService {
     private final ProductRepository productRepository;
     private final OrderFulfillmentRepository orderFulfillmentRepository;
     private final StockMovementRepository stockMovementRepository;
-    private final StockRestockingService stockRestockingService;
+    private final KafkaTemplate<String, StockDepleted> kafkaTemplate;
 
     public ReservationService(ProductRepository productRepository,
                                OrderFulfillmentRepository orderFulfillmentRepository,
                                StockMovementRepository stockMovementRepository,
-                               StockRestockingService stockRestockingService) {
+                               KafkaTemplate<String, StockDepleted> kafkaTemplate) {
         this.productRepository = productRepository;
         this.orderFulfillmentRepository = orderFulfillmentRepository;
         this.stockMovementRepository = stockMovementRepository;
-        this.stockRestockingService = stockRestockingService;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     /**
@@ -48,7 +50,6 @@ public class ReservationService {
                             orderId, productId, quantity);
                     return new ProductNotFoundException(productId);
                 });
-        stockRestockingService.restockWhenEmpty(product);
         if (product.getStockQuantity() < quantity) {
             LOGGER.warn("Reservation refusee: orderId={}, productId={}, quantity={}, availableStock={}, reason=out_of_stock",
                     orderId, productId, quantity, product.getStockQuantity());
@@ -78,7 +79,21 @@ public class ReservationService {
 
         LOGGER.info("Reservation effectuee: orderId={}, productId={}, quantity={}, remainingStock={}, channel={}",
                 orderId, productId, quantity, remainingStock, channel);
+        if (remainingStock == 0) {
+            kafkaTemplate.send("supermarket.stock.depleted", productId, new StockDepleted(productId, createdAt));
+            LOGGER.info("Stock epuise: productId={}", productId);
+        }
         return new ReservationResult(orderId, productId, product.getName(), quantity, remainingStock, channel, 150L);
+    }
+
+    @Transactional
+    public void restock(String productId, int quantity) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId));
+        product.setStockQuantity(product.getStockQuantity() + quantity);
+        productRepository.save(product);
+        LOGGER.info("Reassort effectue: productId={}, quantity={}, stockQuantity={}",
+                productId, quantity, product.getStockQuantity());
     }
 
     public record ReservationResult(String orderId, String productId, String productName, int quantity,

@@ -6,7 +6,7 @@ VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= supermarket-demo
-APP_IMAGE_TAG ?= 1.0.9
+APP_IMAGE_TAG ?= 1.1.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
 ELASTIC_STACK_VERSION ?= 8.11.3
@@ -29,7 +29,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
 	dashboard-deploy dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create order-service-command order-service-logs-follow inventory-service-logs-follow k3d-ca-import ci
+	beats-api-key-create order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
 
 help: ## Afficher les tâches disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -58,13 +58,14 @@ apps-build: ## Construire les images applicatives (tag APP_IMAGE_TAG ; option ZS
 	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
 	fi; \
 	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target order-service -t order-service:$(APP_IMAGE_TAG) apps/supermarket-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) apps/supermarket-demo
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target restock-service -t restock-service:$(APP_IMAGE_TAG) apps/supermarket-demo
 
 apps-test: ## Exécuter les tests unitaires et d'intégration Maven des applications
 	@mvn --batch-mode verify -f apps/supermarket-demo/pom.xml
 
 images-import: ## Importer les images dans le cluster k3d
-	@k3d image import -c $(K3D_CLUSTER) order-service:$(APP_IMAGE_TAG) inventory-service:$(APP_IMAGE_TAG)
+	@k3d image import -c $(K3D_CLUSTER) order-service:$(APP_IMAGE_TAG) inventory-service:$(APP_IMAGE_TAG) restock-service:$(APP_IMAGE_TAG)
 
 k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (requiert ZSCALER_CA_CERT, puis redémarrer le cluster)
 	@test -n "$(ZSCALER_CA_CERT)" || { echo "Définir ZSCALER_CA_CERT=chemin/vers/cert.crt" >&2; exit 1; }
@@ -174,8 +175,11 @@ apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstrat
 		order-service=order-service:$(APP_IMAGE_TAG) apm-truststore=order-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
 		inventory-service=inventory-service:$(APP_IMAGE_TAG) apm-truststore=inventory-service:$(APP_IMAGE_TAG)
+	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/restock-service \
+		restock-service=restock-service:$(APP_IMAGE_TAG) apm-truststore=restock-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
+	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/restock-service --timeout=180s
 
 order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUANTITY) à order-service
 	@pod_name="order-service-command-$$(date +%s)"; \
@@ -286,3 +290,6 @@ order-service-logs-follow: ## Suivre les logs de order-service
 
 inventory-service-logs-follow: ## Suivre les logs de inventory-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/inventory-service
+
+restock-service-logs-follow: ## Suivre les logs de restock-service
+	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/restock-service

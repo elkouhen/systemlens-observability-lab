@@ -1,9 +1,9 @@
 # Supermarché en ligne — démonstration observabilité
 
-Ce POC simule le système d'information d'un supermarché avec deux
-microservices Spring Boot : `order-service` gère la prise de commande
-(caisse et commandes en ligne) et `inventory-service` gère le stock du
-catalogue. Le Dockerfile produit une image pour chacun.
+Ce POC simule le système d'information d'un supermarché avec trois
+microservices Spring Boot : `order-service` gère la prise de commande,
+`inventory-service` gère le stock du catalogue et `restock-service` orchestre
+le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 
 ## Scénario métier
 
@@ -17,6 +17,10 @@ catalogue. Le Dockerfile produit une image pour chacun.
   PostgreSQL, le décrémente, puis journalise la commande dans MongoDB
   (`order_fulfillments`) et dans le registre PostgreSQL (`stock_movements`).
   Si le stock est insuffisant, une rupture de stock (HTTP 409) est renvoyée.
+- **`restock-service`** consomme `supermarket.stock.depleted` publié par
+  `inventory-service` après une réservation qui épuise le stock. Il publie une
+  demande de 500 unités sur `supermarket.stock.restock-requested`, consommée
+  par `inventory-service`, seul propriétaire du catalogue PostgreSQL.
 - `GET /api/error` sur `order-service` déclenche volontairement une commande
   dont la quantité dépasse toujours le stock disponible, pour observer la
   propagation d'une erreur métier (rupture de stock) entre les deux services.
@@ -25,17 +29,17 @@ catalogue. Le Dockerfile produit une image pour chacun.
 
 1. `pom.xml` : agrégateur Maven et versions communes.
 2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic APM pour les
-   deux services.
+   trois services.
 3. [`kubernetes/README.md`](kubernetes/README.md) : variables de déploiement
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même
    configuration d'`inventory-service` : endpoints, Kafka, MongoDB,
    PostgreSQL et Actuator.
-5. Le code des deux modules pour le flux métier (`order-service/.../order`,
-   `inventory-service/.../inventory`).
+5. Le code des trois modules pour le flux métier (`order-service/.../order`,
+   `inventory-service/.../inventory`, `restock-service/.../restock`).
 
-Construire les deux images avec `make apps-build`, puis déployer uniquement
+Construire les trois images avec `make apps-build`, puis déployer uniquement
 l'application avec `make apps-deploy`.
 
 Pour déclencher une commande de recette via le service Kubernetes, exécuter
@@ -59,12 +63,13 @@ Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
 d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
 
-Le tag des images Docker (`order-service:1.0.9` / `inventory-service:1.0.9`,
+Le tag des images Docker (`order-service:1.1.1` / `inventory-service:1.1.1` /
+`restock-service:1.1.1`,
 fixé dans `Makefile` et `kubernetes/deployment.yaml`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag
 Docker est immuable : choisir un nouveau `APP_IMAGE_TAG` à chaque image. Par
-exemple, `make apps-build APP_IMAGE_TAG=1.0.9`, puis
-`make images-import apps-deploy APP_IMAGE_TAG=1.0.9`. La cible de déploiement
+exemple, `make apps-build APP_IMAGE_TAG=1.1.1`, puis
+`make images-import apps-deploy APP_IMAGE_TAG=1.1.1`. La cible de déploiement
 met explicitement à jour l'image des Deployments et attend leur rollout.

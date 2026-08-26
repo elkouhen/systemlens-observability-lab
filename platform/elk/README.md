@@ -24,13 +24,13 @@ Elasticsearch. `data-03` utilise exclusivement Filebeat et Metricbeat, qui
 envoient également leurs données directement vers Elasticsearch avec une clé
 API dédiée.
 
-APM Server est déployé par ECK. Les deux services lui envoient leurs signaux
+APM Server est déployé par ECK. Les trois services lui envoient leurs signaux
 avec l'agent Java Elastic APM. APM Server valide le token ECK puis remet
 les événements à Logstash par Lumberjack. Les Elastic Agents Kubernetes y
 envoient aussi les logs stdout des pods et les métriques du cluster par une
 entrée Beats dédiée. Logstash écrit ces signaux en HTTPS dans les data streams
 Elasticsearch avec une clé API dédiée, créée hors Git par
-`make apm-logstash-deploy`. Les deux services restent consultables dans
+`make apm-logstash-deploy`. Les trois services restent consultables dans
 Observability > APM.
 
 Les règles de routage des applications Kubernetes sont dans
