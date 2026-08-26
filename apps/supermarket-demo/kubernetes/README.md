@@ -10,12 +10,12 @@ l'agent Java Elastic APM.
 Les deux services écrivent leurs logs JSON ECS sur stdout. L'Elastic Agent
 Kubernetes les collecte dans `logs-kubernetes.container_logs-*`. La valeur
 `service.environment` est commune aux logs et aux signaux APM et respecte la
-convention `<type><plateforme_sur_3_caractères>-<namespace>` (par exemple
-`h0p1-supermarket`). Le pipeline Logstash en extrait le type `h`, la plateforme
-`0p1` et le namespace `supermarket`. Les événements portent alors
-`labels.ptf: 0p1` et `labels.namespace: supermarket`, et les métriques APM Java
-sont routées vers l'environnement Elastic `homologation`. Les logs et traces
-restent dans leurs data streams d'origine.
+convention `<type><plateforme_sur_3_caractères>-<namespace>`, par exemple
+`h0p1-supermarket`. Logstash le décode et normalise `service.environment` en
+`homologation`, tout en ajoutant `labels.ptf: 0p1` et
+`labels.namespace: supermarket`. Les métriques APM Java sont routées vers
+`metrics-apm.app.kubernetes-homologation`. Les logs et traces restent dans
+leurs data streams d'origine.
 
 ## Points à contrôler en lisant `deployment.yaml`
 

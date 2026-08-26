@@ -29,16 +29,20 @@ dans ce POC. Pour un environnement de production, activer TLS sur les inputs et
 monter un certificat géré par cert-manager ou la PKI de l'organisation.
 
 Le routage des données applicatives est exclusivement défini dans
-`apm-logstash.yaml` : lorsque `service.environment` respecte
+`apm-logstash.yaml`. Les applications émettent
 `<type><plateforme_sur_3_caractères>-<namespace>` (par exemple
-`h0p1-supermarket`), Logstash le découpe et enrichit l'événement avec
-`labels.ptf: 0p1` et `labels.namespace: supermarket`. Le premier caractère est
-converti en environnement Elastic : `r` → `recette`, `p` → `production`, `h`
-→ `homologation`, `i` → `integration` et `d` → `developpement`. Seules les
-métriques APM produites par l'agent Java dans un conteneur Kubernetes sont
-routées vers ce namespace Elastic, par exemple
+`h0p1-supermarket`). Logstash le décode, ajoute `labels.ptf: 0p1` et
+`labels.namespace: supermarket`, puis normalise `service.environment` vers
+`homologation`. Les règles sont : `r` → `recette`, `p` → `production`, `h` →
+`homologation`, `i` → `integration` et `d` → `developpement`. Seules les
+métriques APM Java produites dans un conteneur sont reroutées vers le data
+stream applicatif correspondant, par exemple
 `metrics-apm.app.kubernetes-homologation`. Les logs, traces, erreurs et
-métriques non Java conservent leur data stream et leurs champs d'origine.
+métriques non Java conservent leur data stream d'origine, mais bénéficient de
+la normalisation et des labels lorsque leur environnement respecte ce format.
+Les logs applicatifs Kubernetes respectant cette convention sont également
+routés vers le namespace Elastic normalisé, par exemple
+`logs-kubernetes.container_logs-homologation`.
 
 Après le déploiement, vérifier les deux composants et le relais :
 

@@ -19,11 +19,10 @@ data:
     }
 
     filter {
-      # Le routage ne concerne que les métriques APM d'applications Java
-      # exécutées en conteneur Kubernetes. Une application nomme son
-      # environnement <type><plateforme_sur_3_caracteres>-<namespace>, par
-      # exemple h0p1-supermarket.
-      if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] and [service][environment] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
+      # Les applications emettent <type><ptf_sur_3_caracteres>-<namespace>,
+      # par exemple h0p1-supermarket. Conserver ce contrat applicatif, puis
+      # le convertir ici en environnement Elastic canonique.
+      if [service][environment] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
         grok {
           match => {
             "[service][environment]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
@@ -48,19 +47,25 @@ data:
               "[labels][ptf]" => "%{platform_code}"
               "[labels][namespace]" => "%{application_namespace}"
             }
+            replace => {
+              "[service][environment]" => "%{[@metadata][elastic_environment]}"
+            }
           }
 
-          if [data_stream][dataset] {
+          # Seules les métriques APM Java de conteneurs sont reroutées vers
+          # le data stream applicatif par environnement.
+          if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" {
             mutate {
               replace => {
                 "[data_stream][namespace]" => "%{[@metadata][elastic_environment]}"
               }
             }
-          }
-
-          mutate {
-            replace => {
-              "[data_stream][dataset]" => "apm.app.kubernetes"
+          } else if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] {
+            mutate {
+              replace => {
+                "[data_stream][dataset]" => "apm.app.kubernetes"
+                "[data_stream][namespace]" => "%{[@metadata][elastic_environment]}"
+              }
             }
           }
 

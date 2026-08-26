@@ -10,6 +10,9 @@ Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis les
 manifests Kubernetes dans `supermarket-demo/kubernetes/` et enfin les modules
 Maven.
 
+Pour intégrer une nouvelle application Java dans la chaîne APM, logs ECS et
+Logstash, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
+
 ## Documentation externe
 
 - [Déployer des workloads Kubernetes](https://kubernetes.io/docs/concepts/workloads/)
