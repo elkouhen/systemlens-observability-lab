@@ -1,9 +1,9 @@
 {
-  "description": "Route les metriques applicatives des conteneurs Kubernetes vers un data stream partage par cluster et environnement APM",
+  "description": "Route les logs applicatifs des conteneurs Kubernetes vers un data stream partage par cluster et environnement APM",
   "processors": [
     {
       "set": {
-        "tag": "set-kubernetes-application-metrics-cluster-and-environment-namespace",
+        "tag": "set-kubernetes-application-logs-cluster-and-environment-namespace",
         "if": "ctx.container != null && ctx.container.id != null && ctx.service != null && ctx.service.environment != null && ctx.service.environment != '' && (ctx.data_stream == null || ctx.data_stream.dataset != 'apm.app.kubernetes')",
         "field": "data_stream.namespace",
         "value": "local-{{{service.environment}}}"
@@ -11,7 +11,7 @@
     },
     {
       "reroute": {
-        "tag": "route-kubernetes-application-metrics-by-cluster-and-environment",
+        "tag": "route-kubernetes-application-logs-by-cluster-and-environment",
         "if": "ctx.container != null && ctx.container.id != null && ctx.service != null && ctx.service.environment != null && ctx.service.environment != '' && (ctx.data_stream == null || ctx.data_stream.dataset != 'apm.app.kubernetes')",
         "dataset": "apm.app.kubernetes",
         "namespace": "{{{data_stream.namespace}}}"

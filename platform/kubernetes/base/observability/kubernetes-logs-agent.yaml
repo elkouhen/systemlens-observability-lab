@@ -166,7 +166,6 @@ spec:
         streams:
           - id: supermarket-demo-container-logs-stream
             data_stream:
-              type: logs
               dataset: kubernetes.container_logs
             paths:
               - /var/log/containers/*_supermarket-demo_*.log
@@ -176,19 +175,11 @@ spec:
                   stream: all
                   format: auto
             processors:
-              - add_kubernetes_metadata:
-                  host: ${NODE_NAME}
-                  matchers:
-                    - logs_path:
-                        logs_path: /var/log/containers/
               - decode_json_fields:
                   fields: ["message"]
                   target: ""
                   overwrite_keys: true
                   expand_keys: true
-              # L'agent Java Elastic APM renseigne le MDC avec les noms
-              # trace_id/span_id. Les normaliser ici conserve un JSON ECS
-              # strict dans Elasticsearch et active la navigation log-trace.
               - rename:
                   fields:
                     - from: trace_id

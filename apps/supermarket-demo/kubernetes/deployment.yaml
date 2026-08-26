@@ -34,7 +34,9 @@ spec:
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
             - name: ELASTIC_APM_ENVIRONMENT
-              value: local
+              value: dev
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: dev
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.order
             - name: ELASTIC_APM_SERVER_URL
@@ -153,7 +155,9 @@ spec:
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
             - name: ELASTIC_APM_ENVIRONMENT
-              value: local
+              value: dev
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: dev
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.inventory
             - name: ELASTIC_APM_SERVER_URL
