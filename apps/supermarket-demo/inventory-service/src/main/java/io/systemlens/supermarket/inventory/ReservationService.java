@@ -1,11 +1,16 @@
 package io.systemlens.supermarket.inventory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
 @Service
 public class ReservationService {
+
+    private static final int RESTOCK_QUANTITY = 500;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReservationService.class);
 
     private final ProductRepository productRepository;
     private final OrderFulfillmentRepository orderFulfillmentRepository;
@@ -30,6 +35,11 @@ public class ReservationService {
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
+        if (product.getStockQuantity() == 0) {
+            product.setStockQuantity(RESTOCK_QUANTITY);
+            productRepository.save(product);
+            LOGGER.info("Reassort declenche: productId={}, quantity={}", productId, RESTOCK_QUANTITY);
+        }
         if (product.getStockQuantity() < quantity) {
             throw new OutOfStockException(productId, quantity, product.getStockQuantity());
         }
