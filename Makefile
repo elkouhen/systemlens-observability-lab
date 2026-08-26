@@ -149,8 +149,10 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 
 apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) apply -k apps/supermarket-demo/kubernetes
-	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service order-service=order-service:$(APP_IMAGE_TAG)
-	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service inventory-service=inventory-service:$(APP_IMAGE_TAG)
+	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
+		order-service=order-service:$(APP_IMAGE_TAG) apm-truststore=order-service:$(APP_IMAGE_TAG)
+	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
+		inventory-service=inventory-service:$(APP_IMAGE_TAG) apm-truststore=inventory-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 
