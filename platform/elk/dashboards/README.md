@@ -17,7 +17,7 @@ sans export manuel à versionner.
 | Réplication MongoDB | **[Metrics MongoDB] Overview** et **SystemLens · MongoDB clusters** | `mongodb.status`, `mongodb.metrics`, `mongodb.replstatus`, `mongodb.collstats` | Primary/secondary, état du replica set, connexions, opérations, stockage et latence. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `postgresql.activity`, `postgresql.database`, `postgresql.bgwriter`, `postgresql.statement` | Sessions actives/bloquées, taille et croissance, cache, écritures/checkpoints et requêtes coûteuses. |
 | Services applicatifs | Observability > APM > Services | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques JVM. |
-| Santé de la collecte | **[Elastic Agent] Agent metrics** et Fleet > Agents | `elastic_agent.*` | Agents sains, erreurs d'input, débit d'événements et retards de collecte. |
+| Santé de la collecte | **[Elastic Agent] Agent metrics**, Fleet > Agents et services Beats de `data-03` | `elastic_agent.*` et métriques Beats | Agents Fleet sains sur `data-01`/`data-02`, services Filebeat/Metricbeat actifs sur `data-03`, erreurs d'input, débit d'événements et retards de collecte. |
 
 Les métriques doivent être filtrées par environnement (`service.environment`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.

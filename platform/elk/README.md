@@ -18,8 +18,11 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 
 `applications Java → agent APM / Elastic Agent Kubernetes → Logstash → Elasticsearch → Kibana`.
 
-Les Elastic Agents Fleet des VM constituent un flux distinct et sont pilotés
-directement par Fleet vers Elasticsearch.
+Les Elastic Agents de `data-01` et `data-02` constituent un flux distinct :
+Fleet les pilote, tandis qu'ils envoient leurs données directement vers
+Elasticsearch. `data-03` utilise exclusivement Filebeat et Metricbeat, qui
+envoient également leurs données directement vers Elasticsearch avec une clé
+API dédiée.
 
 APM Server est déployé par ECK. Les deux services lui envoient leurs signaux
 avec l'agent Java Elastic APM. APM Server valide le token ECK puis remet

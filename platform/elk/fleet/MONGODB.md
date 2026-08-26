@@ -2,8 +2,9 @@
 
 Ce guide explique la package policy MongoDB déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
-Elle observe le replica set MongoDB du POC depuis l'Elastic Agent de la VM
-Fleet. Le JSON voisin est le payload appliqué par `make fleet-sync`.
+Elle observe le replica set MongoDB du POC depuis les Elastic Agents Fleet de
+`data-01` et `data-02`. `data-03` utilise le profil Filebeat et Metricbeat.
+Le JSON voisin est le payload appliqué par `make fleet-sync`.
 
 ## Chemin des données
 

@@ -5,6 +5,14 @@ trois VM Vagrant avec MongoDB, Kafka, PostgreSQL sur `data-01`. Aucun
 collecteur EDOT n'est provisionné ; les profils de collecte reposent sur
 Beats et Fleet.
 
+| VM | Collecteur | Acheminement |
+| --- | --- | --- |
+| `data-01`, `data-02` | Elastic Agent enrôlé dans Fleet | Elasticsearch, piloté par Fleet |
+| `data-03` | Filebeat et Metricbeat | Elasticsearch avec clé API Beats |
+
+Les profils sont exclusifs afin d'éviter toute duplication de logs ou de
+métriques sur une même VM.
+
 ## Ordre de lecture
 
 1. `inventory/vagrant.yml` : hôtes ciblés et connexion SSH.

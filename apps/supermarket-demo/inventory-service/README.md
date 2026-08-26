@@ -16,6 +16,12 @@ des interactions Kafka, MongoDB et PostgreSQL sans modifier le code de ce module
 Les transactions Kafka sont exposées directement avec le type `messaging` dans
 la vue APM.
 
+Chaque réservation produit un log ECS métier : `INFO` en cas de succès et
+`WARN` pour une quantité invalide, un produit absent ou une rupture de stock.
+Avec `ELASTIC_APM_ENABLE_LOG_CORRELATION=true`, ces événements contiennent les
+identifiants de trace injectés par l'agent et sont donc accessibles depuis la
+vue Logs des transactions APM.
+
 ## Documentation externe
 
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)

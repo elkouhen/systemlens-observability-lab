@@ -4,8 +4,9 @@ Ce guide explique la package policy Kafka déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml)
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
 Le JSON voisin est le payload appliqué par `make fleet-sync`. Chaque hôte de
-données héberge un broker/controller Kafka KRaft dans Podman ; seule la VM
-Elastic Agent exécute un Elastic Agent.
+données héberge un broker/controller Kafka KRaft dans Podman. Seuls `data-01`
+et `data-02` exécutent un Elastic Agent enrôlé dans Fleet ; `data-03` utilise
+Filebeat et Metricbeat.
 
 ## Deux chemins de collecte complémentaires
 
@@ -28,7 +29,8 @@ les MBeans JMX nécessaires aux métriques JVM et broker détaillées. Le bind s
 1. La policy `mongodb-hosts` rattache aussi Kafka à la VM Elastic Agent ; son
    nom historique ne limite pas son contenu à MongoDB.
 2. Le bloc `logfile` est actif et constitue l'unique source des logs Kafka sur
-   cet hôte. Ne pas démarrer Filebeat en parallèle.
+   `data-01` et `data-02`. Ne pas y démarrer Filebeat en parallèle ; `data-03`
+   est le profil Beats distinct.
 3. `kafka/metrics` utilise `localhost:9092` toutes les 60 secondes et produit
    `kafka.broker`, `kafka.partition` et `kafka.consumergroup`.
 4. `jolokia/metrics` utilise `http://127.0.0.1:8778/jolokia` et produit les

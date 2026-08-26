@@ -9,7 +9,8 @@ applications Java instrumentées avec Elastic APM.
 | Composant | Implantation | Configuration principale | Données observées |
 | --- | --- | --- | --- |
 | Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | Elastic Stack 8.11.3, pilotée par ECK 3.5.0, TLS ECK, accès Traefik | APM, logs et métriques |
-| `data-01` à `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.10` à `.12`, 1 vCPU et 1,5 Gio par VM ; aucun collecteur EDOT | journaux et métriques selon le profil Beats/Fleet |
+| `data-01` et `data-02` | Vagrant / Rocky Linux 10 | `192.168.33.10` et `.11`, Elastic Agent géré par Fleet ; aucun collecteur EDOT | logs et métriques MongoDB/Kafka, système et PostgreSQL sur `data-01` |
+| `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.12`, Filebeat et Metricbeat ; aucun Elastic Agent ni collecteur EDOT | logs et métriques système, MongoDB et Kafka |
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
@@ -65,7 +66,7 @@ déployer l'architecture complète (Kubernetes, VM et applications), utiliser
   ```
 - un cluster Kubernetes avec Traefik ; `make eck-deploy` installe ou met à jour
   l’opérateur ECK 3.5.0 avant le déploiement des ressources Elastic ;
-- une image locale multi-stage `order-service:1.0.7` / `inventory-service:1.0.7`
+- une image locale multi-stage `order-service:1.0.8` / `inventory-service:1.0.8`
   disponible pour les nœuds Kubernetes ;
 - une résolution, depuis l’hôte et les VM, de `*.poc.test` vers l’Ingress
   Traefik. Les scripts VM ajoutent ces noms vers `192.168.33.1`.
@@ -144,7 +145,8 @@ importe dans k3d et déploie les deux applications. Une clé déjà fournie dans
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
    `ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
    MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat sur
-   les VM correspondant au profil Beats. La clé API
+   les VM correspondant au profil Beats. `data-01` et `data-02` reçoivent
+   l'Elastic Agent enrôlé dans Fleet. La clé API
    Elasticsearch n’est jamais enregistrée dans Git : la fournir seulement dans
    l’environnement de la commande.
 
@@ -162,7 +164,7 @@ importe dans k3d et déploie les deux applications. Une clé déjà fournie dans
    systemd Quadlet. Ansible ouvre uniquement les ports inter-nœuds nécessaires
    et démarre Filebeat et Metricbeat sur `data-03`. Aucun collecteur EDOT
    n'est installé. Avec le token Fleet, les intégrations MongoDB/Kafka
-   dédiées aux métriques métier restent actives.
+   dédiées aux métriques métier restent actives sur `data-01` et `data-02`.
 
 Chaque conteneur MongoDB, Kafka et PostgreSQL est plafonné à `512 Mio`. Kafka utilise un
 heap JVM fixe de `256 Mio` et MongoDB limite le cache WiredTiger à `256 Mio`.
@@ -223,7 +225,7 @@ allocations natives.
    Kafka associés et le pipeline APM qui route les métriques applicatives des
    conteneurs Kubernetes vers un data stream commun à leur
    `ELASTIC_APM_ENVIRONMENT`, par exemple
-   `metrics-apm.app.kubernetes-local`. Le dashboard System et les dashboards
+   `metrics-apm.app.kubernetes-homologation`. Le dashboard System et les dashboards
    Kubernetes, Kafka, MongoDB et PostgreSQL sont fournis par les packages
    Fleet déclarés dans Kubernetes ; seul le dashboard SystemLens MongoDB
    s'importe avec `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka
@@ -324,7 +326,7 @@ doit créer une erreur APM contrôlée.
 
 | Vue Kibana | Contrôles attendus | Diagnostic si absent |
 | --- | --- | --- |
-| Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods et le trafic généré |
+| Observability > APM > Services | les deux services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration ; logs ECS corrélés par `trace.id` dans l’onglet Logs d’une transaction | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods, le trafic généré et qu’un log métier est émis pendant la transaction |
 | Observability > Infrastructure > Hosts | hôtes suivis par le profil Beats/Fleet | vérifier le service de collecte correspondant ; aucun service EDOT ne doit être présent |
 | Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des deux pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
 | Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
@@ -362,13 +364,15 @@ L’inventaire utilise les ports SSH et clés privées générés par Vagrant ; 
 donc valide après un `vagrant up` et doit être exécuté depuis la racine du
 dépôt.
 
-### Policy Fleet commune aux VM
+### Policy Fleet sur `data-01` et `data-02`
 
 La policy `mongodb-hosts` et ses intégrations MongoDB/Kafka sont déclarées dans
-`platform/kubernetes/base/observability/kibana.yaml`. Les trois Agents sur
-`data-01`, `data-02` et `data-03` doivent être enrôlés avec le **même** token de
-cette policy. Comme chaque Agent collecte `localhost`, les métriques restent
-correctement attribuées à leur VM avec `host.name` et `service.address`.
+`platform/kubernetes/base/observability/kibana.yaml`. Les Agents de `data-01`
+et `data-02` doivent être enrôlés avec le **même** token de cette policy.
+Comme chaque Agent collecte `localhost`, les métriques restent correctement
+attribuées à leur VM avec `host.name` et `service.address`. `data-03` n'est pas
+enrôlée dans Fleet : Filebeat et Metricbeat y envoient les données directement
+vers Elasticsearch avec une clé API dédiée.
 
 Pour migrer des Agents déjà inscrits dans des policies historiques vers cette
 policy commune, exécuter :

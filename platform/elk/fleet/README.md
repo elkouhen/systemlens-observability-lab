@@ -20,9 +20,11 @@ ne crée les package policies standards MongoDB/Kafka.
 - `elastic-agent.yml` : exemple de configuration standalone, distinct de Fleet.
 
 Les trois package policies System, MongoDB et Kafka sont associées à l'agent
-policy `mongodb-hosts`. La VM Elastic Agent exécute un seul Agent :
-`localhost` désigne donc le service local de cet hôte, jamais le poste qui
-exécute `make fleet-sync`. PostgreSQL appartient à la VM `data-01`.
+policy `mongodb-hosts`, appliquée aux Elastic Agents de `data-01` et
+`data-02`. Chaque VM exécute un seul Agent : `localhost` désigne donc le
+service local de cet hôte, jamais le poste qui exécute `make fleet-sync`.
+PostgreSQL appartient à la VM `data-01`. `data-03` reste hors Fleet et utilise
+exclusivement Filebeat et Metricbeat.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
 préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` crée

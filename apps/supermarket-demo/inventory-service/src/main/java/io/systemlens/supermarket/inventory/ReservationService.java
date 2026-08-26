@@ -34,18 +34,26 @@ public class ReservationService {
     public ReservationResult reserve(String orderId, String productId, int quantity, String channel,
                                       Instant requestedAt) throws InterruptedException {
         if (quantity <= 0) {
+            LOGGER.warn("Reservation refusee: orderId={}, productId={}, quantity={}, reason=invalid_quantity",
+                    orderId, productId, quantity);
             throw new IllegalArgumentException("La quantite doit etre strictement positive.");
         }
         Thread.sleep(150);
 
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId));
+                .orElseThrow(() -> {
+                    LOGGER.warn("Reservation refusee: orderId={}, productId={}, quantity={}, reason=product_not_found",
+                            orderId, productId, quantity);
+                    return new ProductNotFoundException(productId);
+                });
         if (product.getStockQuantity() == 0) {
             product.setStockQuantity(RESTOCK_QUANTITY);
             productRepository.save(product);
             LOGGER.info("Reassort declenche: productId={}, quantity={}", productId, RESTOCK_QUANTITY);
         }
         if (product.getStockQuantity() < quantity) {
+            LOGGER.warn("Reservation refusee: orderId={}, productId={}, quantity={}, availableStock={}, reason=out_of_stock",
+                    orderId, productId, quantity, product.getStockQuantity());
             throw new OutOfStockException(productId, quantity, product.getStockQuantity());
         }
 
@@ -70,6 +78,8 @@ public class ReservationService {
             throw exception;
         }
 
+        LOGGER.info("Reservation effectuee: orderId={}, productId={}, quantity={}, remainingStock={}, channel={}",
+                orderId, productId, quantity, remainingStock, channel);
         return new ReservationResult(orderId, productId, product.getName(), quantity, remainingStock, channel, 150L);
     }
 
