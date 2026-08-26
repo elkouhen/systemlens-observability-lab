@@ -10,19 +10,21 @@ import java.time.Instant;
 @Service
 public class ReservationService {
 
-    private static final int RESTOCK_QUANTITY = 500;
     private static final Logger LOGGER = LoggerFactory.getLogger(ReservationService.class);
 
     private final ProductRepository productRepository;
     private final OrderFulfillmentRepository orderFulfillmentRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final StockRestockingService stockRestockingService;
 
     public ReservationService(ProductRepository productRepository,
                                OrderFulfillmentRepository orderFulfillmentRepository,
-                               StockMovementRepository stockMovementRepository) {
+                               StockMovementRepository stockMovementRepository,
+                               StockRestockingService stockRestockingService) {
         this.productRepository = productRepository;
         this.orderFulfillmentRepository = orderFulfillmentRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.stockRestockingService = stockRestockingService;
     }
 
     /**
@@ -46,11 +48,7 @@ public class ReservationService {
                             orderId, productId, quantity);
                     return new ProductNotFoundException(productId);
                 });
-        if (product.getStockQuantity() == 0) {
-            product.setStockQuantity(RESTOCK_QUANTITY);
-            productRepository.save(product);
-            LOGGER.info("Reassort declenche: productId={}, quantity={}", productId, RESTOCK_QUANTITY);
-        }
+        stockRestockingService.restockWhenEmpty(product);
         if (product.getStockQuantity() < quantity) {
             LOGGER.warn("Reservation refusee: orderId={}, productId={}, quantity={}, availableStock={}, reason=out_of_stock",
                     orderId, productId, quantity, product.getStockQuantity());

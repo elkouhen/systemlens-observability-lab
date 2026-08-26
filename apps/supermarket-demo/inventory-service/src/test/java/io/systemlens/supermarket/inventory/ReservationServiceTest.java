@@ -13,8 +13,9 @@ class ReservationServiceTest {
     private final ProductRepository productRepository = mock(ProductRepository.class);
     private final OrderFulfillmentRepository orderFulfillmentRepository = mock(OrderFulfillmentRepository.class);
     private final StockMovementRepository stockMovementRepository = mock(StockMovementRepository.class);
+    private final StockRestockingService stockRestockingService = mock(StockRestockingService.class);
     private final ReservationService reservationService = new ReservationService(
-            productRepository, orderFulfillmentRepository, stockMovementRepository
+            productRepository, orderFulfillmentRepository, stockMovementRepository, stockRestockingService
     );
 
     @Test
@@ -23,6 +24,6 @@ class ReservationServiceTest {
                 "order-1", "PASTA-500G", 0, "rest", Instant.now()
         ));
 
-        verifyNoInteractions(productRepository, orderFulfillmentRepository, stockMovementRepository);
+        verifyNoInteractions(productRepository, orderFulfillmentRepository, stockMovementRepository, stockRestockingService);
     }
 }
