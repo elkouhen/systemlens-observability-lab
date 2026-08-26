@@ -19,40 +19,53 @@ data:
     }
 
     filter {
-      # Une application nomme son environnement <code_sur_4_caracteres>-<namespace>,
-      # par exemple h0p1-supermarket. Logstash extrait le code et route les
-      # seuls logs de pods et métriques APM applicatives concernés.
-      if [service][environment] =~ /^[A-Za-z0-9]{4}-.+$/ {
+      # Le routage ne concerne que les métriques APM d'applications Java
+      # exécutées en conteneur Kubernetes. Une application nomme son
+      # environnement <type><plateforme_sur_3_caracteres>-<namespace>, par
+      # exemple h0p1-supermarket.
+      if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] and [service][environment] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
         grok {
           match => {
-            "[service][environment]" => "^(?<environment_code>[A-Za-z0-9]{4})-.+$"
+            "[service][environment]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
           }
         }
 
-        if [environment_code] {
+        if [environment_type] == "r" {
+          mutate { add_field => { "[@metadata][elastic_environment]" => "recette" } }
+        } else if [environment_type] == "p" {
+          mutate { add_field => { "[@metadata][elastic_environment]" => "production" } }
+        } else if [environment_type] == "h" {
+          mutate { add_field => { "[@metadata][elastic_environment]" => "homologation" } }
+        } else if [environment_type] == "i" {
+          mutate { add_field => { "[@metadata][elastic_environment]" => "integration" } }
+        } else if [environment_type] == "d" {
+          mutate { add_field => { "[@metadata][elastic_environment]" => "developpement" } }
+        }
+
+        if [@metadata][elastic_environment] {
           mutate {
             add_field => {
-              "[labels][environment_code]" => "%{environment_code}"
+              "[labels][ptf]" => "%{platform_code}"
+              "[labels][namespace]" => "%{application_namespace}"
             }
           }
 
-          if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" {
+          if [data_stream][dataset] {
             mutate {
               replace => {
-                "[data_stream][namespace]" => "%{environment_code}"
-              }
-            }
-          } else if [data_stream][type] == "metrics" and [container][id] {
-            mutate {
-              replace => {
-                "[data_stream][dataset]" => "apm.app.kubernetes"
-                "[data_stream][namespace]" => "%{environment_code}"
+                "[data_stream][namespace]" => "%{[@metadata][elastic_environment]}"
               }
             }
           }
 
           mutate {
-            remove_field => ["environment_code"]
+            replace => {
+              "[data_stream][dataset]" => "apm.app.kubernetes"
+            }
+          }
+
+          mutate {
+            remove_field => ["environment_type", "platform_code", "application_namespace"]
           }
         }
       }

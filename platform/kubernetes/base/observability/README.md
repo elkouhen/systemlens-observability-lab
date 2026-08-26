@@ -30,11 +30,15 @@ monter un certificat géré par cert-manager ou la PKI de l'organisation.
 
 Le routage des données applicatives est exclusivement défini dans
 `apm-logstash.yaml` : lorsque `service.environment` respecte
-`<code_sur_4_caractères>-<namespace>` (par exemple `h0p1-supermarket`),
-Logstash extrait `h0p1`. Il route les logs de pods vers
-`logs-kubernetes.container_logs-h0p1` et les métriques APM de conteneurs vers
-`metrics-apm.app.kubernetes-h0p1`. Les traces, erreurs, métriques APM Server et
-métriques Kubernetes non applicatives conservent leur data stream d'origine.
+`<type><plateforme_sur_3_caractères>-<namespace>` (par exemple
+`h0p1-supermarket`), Logstash le découpe et enrichit l'événement avec
+`labels.ptf: 0p1` et `labels.namespace: supermarket`. Le premier caractère est
+converti en environnement Elastic : `r` → `recette`, `p` → `production`, `h`
+→ `homologation`, `i` → `integration` et `d` → `developpement`. Seules les
+métriques APM produites par l'agent Java dans un conteneur Kubernetes sont
+routées vers ce namespace Elastic, par exemple
+`metrics-apm.app.kubernetes-homologation`. Les logs, traces, erreurs et
+métriques non Java conservent leur data stream et leurs champs d'origine.
 
 Après le déploiement, vérifier les deux composants et le relais :
 
