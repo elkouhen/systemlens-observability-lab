@@ -18,9 +18,49 @@ data:
       }
     }
 
+    filter {
+      # Une application nomme son environnement <code_sur_4_caracteres>-<namespace>,
+      # par exemple h0p1-supermarket. Logstash extrait le code et route les
+      # seuls logs de pods et métriques APM applicatives concernés.
+      if [service][environment] =~ /^[A-Za-z0-9]{4}-.+$/ {
+        grok {
+          match => {
+            "[service][environment]" => "^(?<environment_code>[A-Za-z0-9]{4})-.+$"
+          }
+        }
+
+        if [environment_code] {
+          mutate {
+            add_field => {
+              "[labels][environment_code]" => "%{environment_code}"
+            }
+          }
+
+          if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" {
+            mutate {
+              replace => {
+                "[data_stream][namespace]" => "%{environment_code}"
+              }
+            }
+          } else if [data_stream][type] == "metrics" and [container][id] {
+            mutate {
+              replace => {
+                "[data_stream][dataset]" => "apm.app.kubernetes"
+                "[data_stream][namespace]" => "%{environment_code}"
+              }
+            }
+          }
+
+          mutate {
+            remove_field => ["environment_code"]
+          }
+        }
+      }
+    }
+
     output {
-      # Les événements sont déjà ECS et portent leur data_stream. Ne pas les
-      # transformer dans Logstash afin de préserver les champs APM et ECS.
+      # Les événements restent ECS. Les règles ci-dessus ne modifient que le
+      # data stream des logs et métriques applicatives concernés.
       elasticsearch {
         hosts => ["https://elasticsearch-es-http.elastic-stack.svc:9200"]
         api_key => "${ELASTICSEARCH_API_KEY}"

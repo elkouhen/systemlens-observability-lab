@@ -28,6 +28,14 @@ interne au cluster ; les liaisons entrantes ne sont pas exposées ni chiffrées
 dans ce POC. Pour un environnement de production, activer TLS sur les inputs et
 monter un certificat géré par cert-manager ou la PKI de l'organisation.
 
+Le routage des données applicatives est exclusivement défini dans
+`apm-logstash.yaml` : lorsque `service.environment` respecte
+`<code_sur_4_caractères>-<namespace>` (par exemple `h0p1-supermarket`),
+Logstash extrait `h0p1`. Il route les logs de pods vers
+`logs-kubernetes.container_logs-h0p1` et les métriques APM de conteneurs vers
+`metrics-apm.app.kubernetes-h0p1`. Les traces, erreurs, métriques APM Server et
+métriques Kubernetes non applicatives conservent leur data stream d'origine.
+
 Après le déploiement, vérifier les deux composants et le relais :
 
 ```bash

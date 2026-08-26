@@ -30,6 +30,11 @@ Elasticsearch avec une clé API dédiée, créée hors Git par
 `make apm-logstash-deploy`. Les deux services restent consultables dans
 Observability > APM.
 
+Les règles de routage des applications Kubernetes sont dans
+`../kubernetes/base/observability/apm-logstash.yaml`, et non dans Fleet ni dans
+des pipelines Elasticsearch. Fleet reste réservé aux policies des Elastic
+Agents des VM.
+
 ## Documentation externe
 
 - [Déployer et administrer ECK](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)

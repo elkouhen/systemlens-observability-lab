@@ -10,7 +10,9 @@ l'agent Java Elastic APM.
 Les deux services écrivent leurs logs JSON ECS sur stdout. L'Elastic Agent
 Kubernetes les collecte dans `logs-kubernetes.container_logs-*`. La valeur
 `service.environment` est commune aux logs et aux signaux APM et respecte la
-convention `<nom-cluster>-<nom-environnement>` (par exemple `elastic-dev`).
+convention `<code_environnement_4_caractères>-<namespace>` (par exemple
+`h0p1-supermarket`). Le pipeline Logstash en extrait `h0p1` pour renseigner le
+namespace des data streams applicatifs.
 
 ## Points à contrôler en lisant `deployment.yaml`
 

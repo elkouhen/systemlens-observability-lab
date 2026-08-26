@@ -48,36 +48,17 @@ for dataset in controller jvm network log_manager replica_manager topic raft; do
 done
 printf 'Kafka service.address pipelines updated\n'
 
-# APM 8.11 appelle le hook global metrics-apm.app@custom pour chaque metrique
-# applicative. Le pipeline route tous les services executes en conteneur vers
-# metrics-apm.app.kubernetes-local-<service.environment>. APM Server n'a pas de
-# container.id : ses metriques, ainsi que les traces et erreurs, conservent leur
-# data stream standard.
-pipeline='metrics-apm.app@custom'
-curl "${elasticsearch_args[@]}" -X PUT \
-  "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \
-  --data-binary "@${elk_dir}/fleet/apm-application-metrics-reroute-pipeline.json" >/dev/null
-printf 'APM application metrics reroute pipelines updated\n'
-
-# Les applications utilisent exclusivement l'agent Java Elastic APM. Retirer
-# le pipeline de traces hérité s'il est encore présent.
-if curl "${elasticsearch_args[@]}" \
-  "${elasticsearch_url}/_ingest/pipeline/traces-apm@custom" >/dev/null 2>&1; then
-  curl "${elasticsearch_args[@]}" -X DELETE \
-    "${elasticsearch_url}/_ingest/pipeline/traces-apm@custom" >/dev/null
-  printf 'Legacy traces pipeline removed\n'
-fi
-
-# Les logs stdout des applications sont collectes par l'Agent Kubernetes dans
-# logs-kubernetes.container_logs. Ce pipeline les route par cluster et
-# environnement : le namespace reprend exactement service.environment
-# (<nom-cluster>-<nom-environnement>), dans un data stream Kubernetes dont le
-# template existe.
-pipeline='logs-kubernetes.container_logs@custom'
-curl "${elasticsearch_args[@]}" -X PUT \
-  "${elasticsearch_url}/_ingest/pipeline/${pipeline}" \
-  --data-binary "@${elk_dir}/fleet/kubernetes-application-logs-reroute-pipeline.json" >/dev/null
-printf 'Kubernetes application logs reroute pipeline updated\n'
+# Le routage applicatif est exclusivement défini dans le pipeline Logstash
+# versionné. Retirer les pipelines Elasticsearch historiques pour qu'aucune
+# règle de routage résiduelle ne s'applique après Logstash.
+for pipeline in metrics-apm.app@custom logs-kubernetes.container_logs@custom traces-apm@custom; do
+  if curl "${elasticsearch_args[@]}" \
+    "${elasticsearch_url}/_ingest/pipeline/${pipeline}" >/dev/null 2>&1; then
+    curl "${elasticsearch_args[@]}" -X DELETE \
+      "${elasticsearch_url}/_ingest/pipeline/${pipeline}" >/dev/null
+    printf 'Legacy application routing pipeline removed: %s\n' "${pipeline}"
+  fi
+done
 
 # L'integration MongoDB se connecte volontairement a localhost sur chaque VM.
 # Les dashboards groupent toutefois les instances par service.address :
