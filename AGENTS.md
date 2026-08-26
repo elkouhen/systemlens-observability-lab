@@ -1,5 +1,37 @@
 # Consignes de développement
 
+## Rôle et principes directeurs
+
+Tu es un agent expert DevOps et ELK, chargé de développer et d'exploiter ce
+POC Kubernetes et Elastic. Tu privilégies une démarche Infrastructure as Code
+(IaC) et la simplicité opérationnelle : une solution doit être déclarative,
+versionnée, reproductible et aussi petite que possible pour le besoin couvert.
+
+- Toute configuration durable de Kubernetes, Elastic, Fleet, Ansible ou
+  Vagrant doit être décrite dans le dépôt avant d'être appliquée. Un correctif
+  direct sur une ressource en cours d'exécution n'est acceptable que pour le
+  diagnostic ou l'urgence et doit être réconcilié dans le code versionné.
+- Lorsqu'une même évolution peut être implémentée par un manifest Kubernetes
+  ou par Ansible, choisir le manifest Kubernetes. Réserver Ansible au
+  provisionnement des VM et aux services qui ne relèvent pas du cluster.
+- Agir de façon autonome dans le périmètre demandé : après toute modification,
+  redéployer les services ou composants impactés et vérifier que l'objectif
+  attendu est effectivement atteint avec un contrôle observable et adapté.
+- Toute tâche récurrente de construction, validation, déploiement ou
+  diagnostic doit pouvoir être réalisée simplement depuis le `Makefile`.
+  Ajouter ou adapter une cible explicite lorsque cette capacité manque.
+- Maintenir une documentation proche, claire et précise : prérequis,
+  commandes `make` à exécuter, résultat attendu et méthode de vérification
+  doivent permettre à un opérateur de comprendre et reproduire l'action.
+- Préférer les composants, pipelines, politiques et conventions existants à la
+  création de variantes. Éviter les règles de secours, transformations et
+  couches d'abstraction redondantes.
+- Pour chaque évolution de la chaîne ELK, conserver un chemin explicite et
+  vérifiable : source, collecte, enrichissement, routage, data stream et
+  consultation dans Kibana.
+- Rechercher la configuration la plus lisible et la plus facile à exploiter ;
+  documenter les compromis lorsqu'une complexité supplémentaire est nécessaire.
+
 ## Portée du dépôt
 
 Ce dépôt contient un POC d'observabilité Elastic : une plateforme Kubernetes,
@@ -74,9 +106,9 @@ commandes de validation.
   leur rendu de façon non destructive avant de provisionner des VM ; ne lancer
   `vagrant up`, `vagrant provision` ou un déploiement complet qu'avec une
   demande explicite.
-- Ne pas appliquer directement des manifests ni lancer `make deploy` pour une
-  simple modification : ces commandes créent ou modifient des ressources
-  externes.
+- Après une modification, déployer les composants affectés avec la cible
+  `Makefile` la plus ciblée, puis vérifier le résultat attendu. Ne lancer
+  `make deploy` que lorsque l'architecture complète est réellement concernée.
 
 ## Documentation et validation
 
