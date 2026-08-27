@@ -11,7 +11,6 @@ data:
         port => 5044
         enrich => none
       }
-
     }
 
     filter {
@@ -50,22 +49,35 @@ data:
             }
           }
 
-          # Seules les métriques APM Java de conteneurs sont reroutées vers
-          # le data stream applicatif par environnement et plateforme.
-          if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] {
+          # Les traces Java sont routées depuis le namespace Kubernetes.
+          if [agent][name] == "java" and [data_stream][type] == "traces" {
             mutate {
               replace => {
-                "[data_stream][dataset]" => "k8s-%{environment_type}%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
           }
 
-          mutate {
-            remove_field => ["environment_type", "platform_code", "application_namespace"]
+          # Seules les métriques APM applicatives détaillées possèdent la
+          # métadonnée Kubernetes nécessaire à ce routage explicite.
+          if [agent][name] == "java" and
+             [data_stream][type] == "metrics" and
+             [data_stream][dataset] =~ /^apm\.app\./ {
+            mutate {
+              replace => {
+                "[data_stream][namespace]" => "%{[@metadata][environment]}"
+              }
+            }
           }
         }
+
+        mutate {
+          remove_field => ["environment_type", "platform_code", "application_namespace"]
+        }
       }
+
+      # Le dataset APM d'origine est conservé afin d'éviter de mélanger
+      # des mappings de métriques différents dans un même data stream.
     }
 
     output {
@@ -75,6 +87,8 @@ data:
         hosts => ["https://elasticsearch-es-http.elastic-stack.svc:9200"]
         api_key => "${ELASTICSEARCH_API_KEY}"
         data_stream => true
+        data_stream_auto_routing => true
+        ecs_compatibility => "v8"
         ssl_certificate_authorities => "/usr/share/logstash/config/elasticsearch-ca/ca.crt"
       }
     }
@@ -130,6 +144,8 @@ data:
         hosts => ["https://elasticsearch-es-http.elastic-stack.svc:9200"]
         api_key => "${ELASTICSEARCH_API_KEY}"
         data_stream => true
+        data_stream_auto_routing => true
+        ecs_compatibility => "v8"
         ssl_certificate_authorities => "/usr/share/logstash/config/elasticsearch-ca/ca.crt"
       }
     }

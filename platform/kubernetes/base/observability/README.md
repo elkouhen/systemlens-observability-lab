@@ -6,7 +6,8 @@ pour installer ou mettre à jour l'opérateur ECK 3.5.0 avant leur application.
 
 ## Lire les manifests dans cet ordre
 
-1. `elasticsearch-resources.yaml` : stockage et Kibana de base.
+1. `../../helm/eck-stack-values.yaml` : valeurs déclaratives de la release
+   Helm qui crée Elasticsearch et Kibana.
 2. `kibana.yaml`, puis `fleet-server.yaml` : gestion centralisée des
    Elastic Agents et la policy Fleet Server préconfigurée dans `xpack.fleet`.
 3. `apm-server.yaml` : endpoint d'ingestion APM.
@@ -39,15 +40,23 @@ port 5045 et les décode depuis `kubernetes.namespace`. Les identités utilisent
 `labels.namespace: supermarche-app`, puis normalise `service.environment` avec
 le dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
 `r` → `recette`, `p` → `production`, `h` → `homologation`, `i` →
-`integration` et `d` → `developpement`. Seules les
-métriques APM Java produites dans un conteneur sont reroutées vers le data
-stream applicatif correspondant, par exemple
-`metrics-k8s-h0tl-homologation`. Les logs, traces, erreurs et
-métriques non Java conservent leur data stream d'origine, mais bénéficient de
+`integration` et `d` → `developpement`. Les traces Java et les métriques APM
+applicatives détaillées (`apm.app.*`) sont reroutées vers le namespace du data
+stream correspondant à l'environnement lorsque `kubernetes.namespace` est
+présent. Les métriques agrégées APM qui ne portent pas cette métadonnée restent
+dans leur namespace d'origine. Le dataset APM d'origine est conservé afin que
+chaque famille de métriques garde son mapping, par exemple
+`metrics-apm.app.order_service-homologation`. Les événements non Java
+conservent leur data stream d'origine, mais bénéficient de
 la normalisation et des labels lorsque leur environnement respecte ce format.
 Les logs applicatifs Kubernetes respectant cette convention sont également
 routés vers un data stream par plateforme et environnement, par exemple
 `logs-kube-0tl-homologation`.
+
+Les deux sorties Elasticsearch activent `data_stream => true`,
+`data_stream_auto_routing => true` et `ecs_compatibility => "v8"` : les champs
+`data_stream.*` déterminent le data stream cible et les événements restent
+compatibles ECS v8.
 
 Après le déploiement, vérifier les deux composants et le relais :
 

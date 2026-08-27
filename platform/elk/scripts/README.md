@@ -14,7 +14,10 @@ ne stockent aucun mot de passe dans le dépôt.
 4. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
    qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
    PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script
-   directement : la cible lit le secret ECK sans l'afficher.
+directement : la cible lit le secret ECK sans l'afficher.
+5. `apply-apm-kibana-role.sh` crée ou met à jour un compte Kibana natif en
+   lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
+   identifiants et le certificat CA restent hors Git.
 
 Les valeurs `KIBANA_URL`, `ELASTICSEARCH_URL` et les options `--resolve` sont
 paramétrables par variables d'environnement pour adapter l'accès au cluster.

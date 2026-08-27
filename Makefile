@@ -23,10 +23,10 @@ ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
-.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate eck-deploy elastic-stack-deploy \
-	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync apm-deploy platform-deploy fleet-sync fleet-vms-provision vm-provision \
+.PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy \
+	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply beats-vm-provision fleet-data02-provision \
-	deploy architecture-deploy elasticsearch-ready package-registry-ready kibana-ready \
+	deploy elasticsearch-ready package-registry-ready kibana-ready apm-kibana-role-apply \
 	dashboard-deploy dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
@@ -112,8 +112,8 @@ eck-deploy: ## Installer ou mettre à jour l'opérateur ECK 3.5.0
 elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.11.3 avec le chart ECK
 	@helm repo add elastic $(ECK_HELM_REPOSITORY) --force-update
 	@helm repo update elastic
-	# ECK est propriétaire de nodeSets après la première réconciliation. Ne
-	# forcer ni Helm ni la ressource : seule la version doit évoluer.
+	# ECK devient propriétaire de nodeSets après la première réconciliation :
+	# Helm ne doit plus tenter de les réappliquer sur une release existante.
 	@if helm status es-kb-quickstart --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
 		$(KUBECTL) -n $(K8S_NAMESPACE) patch elasticsearch elasticsearch --type=merge \
 			-p '{"spec":{"version":"$(ELASTIC_STACK_VERSION)"}}'; \
@@ -122,13 +122,7 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.11.3 avec le chart 
 			--namespace $(K8S_NAMESPACE) --create-namespace --version $(ECK_STACK_CHART_VERSION) \
 			--set eck-elasticsearch.version=$(ELASTIC_STACK_VERSION) \
 			--set eck-kibana.version=$(ELASTIC_STACK_VERSION) \
-			--set eck-elasticsearch.fullnameOverride=elasticsearch \
-			--set eck-elasticsearch.nodeSets[0].name=default \
-			--set eck-elasticsearch.nodeSets[0].count=1 \
-			--set 'eck-elasticsearch.nodeSets[0].config.node\.store\.allow_mmap=false' \
-			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].name=elasticsearch \
-			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].resources.requests.memory=2Gi \
-			--set eck-elasticsearch.nodeSets[0].podTemplate.spec.containers[0].resources.limits.memory=2Gi; \
+			-f platform/helm/eck-stack-values.yaml; \
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
@@ -149,6 +143,12 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/deploy-kibana-dashboard.sh platform/elk/dashboards/apm-data-view.ndjson
 
+apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en lecture
+	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }
+	@ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' \
+		ELASTICSEARCH_PASSWORD="$$ELASTICSEARCH_PASSWORD" \
+		./platform/elk/scripts/apply-apm-kibana-role.sh
+
 apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash si absente
 	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch >/dev/null 2>&1; then \
 		echo "Secret apm-logstash-elasticsearch déjà présent"; \
@@ -163,7 +163,7 @@ apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash 
 			--from-literal=api-key="$$api_key"; \
 	fi
 
-apm-logstash-deploy: apm-logstash-credentials-apply ## Déployer Logstash et raccorder APM Server et Elastic Agent
+apm-logstash-deploy: apm-kibana-role-apply apm-logstash-credentials-apply ## Déployer Logstash et raccorder APM Server et Elastic Agent
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
@@ -188,6 +188,7 @@ apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstrat
 		inventory-service=inventory-service:$(APP_IMAGE_TAG) apm-truststore=inventory-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/restock-service \
 		restock-service=restock-service:$(APP_IMAGE_TAG) apm-truststore=restock-service:$(APP_IMAGE_TAG)
+	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/restock-service --timeout=180s
@@ -202,13 +203,6 @@ order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUA
 
 ##@ Déploiement complet et validation
 
-apm-deploy: ## Alias historique : déployer ELK et l'application
-	@$(MAKE) elk-deploy
-	@$(MAKE) apps-deploy
-
-platform-deploy: apps-build images-import ## Construire, importer et déployer l'ensemble séquencé
-	@$(MAKE) apm-deploy
-
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
 	$(MAKE) elk-deploy; \
@@ -219,13 +213,14 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
 
-architecture-deploy: deploy ## Alias explicite de deploy
-
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes >/dev/null
 
-ci: kubernetes-validate apps-test ## Exécuter les validations reproductibles du dépôt
+ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
+	@ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml ansible/site.yml
+
+ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
 ##@ Provisionnement des VM et Fleet
 

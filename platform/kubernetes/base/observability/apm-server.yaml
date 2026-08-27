@@ -11,7 +11,9 @@ spec:
   # Requis à partir d'APM Server 8 pour l'application APM et la configuration
   # centrale des agents Java Elastic APM.
   kibanaRef:
-    name: es-kb-quickstart-eck-kibana
+    # Secret créé par make apm-kibana-role-apply ; l'utilisateur viewer
+    # remplace le compte file-realm ECK dépourvu des droits Fleet requis.
+    secretName: apm-server-kibana-credentials
   config:
     # Les événements APM sont remis à Logstash par Lumberjack. Logstash est
     # responsable de leur écriture dans les data streams Elasticsearch.
