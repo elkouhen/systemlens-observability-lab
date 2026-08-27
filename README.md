@@ -53,12 +53,8 @@ scripts/             # utilitaires partagés aux VM
 ```
 
 Les cibles `make elk-deploy` et `make apps-deploy` permettent de déployer les
-deux périmètres séparément ; `make apm-deploy` reste disponible comme alias de
-compatibilité pour les déployer ensemble. `make apm-deploy` et
-`make platform-deploy` attendent Elasticsearch, synchronisent les secrets APM
-requis par les applications, puis déploient leurs manifests. Pour
-déployer l'architecture complète (Kubernetes, VM et applications), utiliser
-`make deploy` (ou son alias `make architecture-deploy`).
+deux périmètres séparément. Pour déployer l'architecture complète
+(Kubernetes, VM et applications), utiliser `make deploy`.
 
 ## Prérequis
 
@@ -91,7 +87,7 @@ Les opérations courantes sont regroupées dans le `Makefile` : `make help`
 affiche les cibles disponibles, sous la convention `ressource-action`, notamment
 `make elastic-password-show`, `make apm-token-show`,
 `make apm-report-api-key-create`, `make elasticsearch-api-key-create`,
-`make platform-deploy` et `make vm-provision`.
+`make deploy` et `make vm-provision`.
 `make apm-report-api-key-create` renvoie une clé de lecture APM brute au format
 `id:api_key`, que SystemLens encode lui-même pour l'en-tête HTTP.
 
@@ -157,7 +153,7 @@ importe dans k3d et déploie les trois applications. Une clé déjà fournie dan
 
    ```bash
    export ELASTICSEARCH_API_KEY='id:api_key'
-   # Token d'enrôlement unique de la policy Fleet `mongodb-hosts`.
+   # Token d'enrôlement unique de la policy Fleet `data-01-02-fleet`.
    # Cette policy est déclarée dans le manifest Kibana Kubernetes.
    export FLEET_ENROLLMENT_TOKEN='…'
    vagrant up
@@ -370,7 +366,7 @@ dépôt.
 
 ### Policy Fleet sur `data-01` et `data-02`
 
-La policy `mongodb-hosts` et ses intégrations MongoDB/Kafka sont déclarées dans
+La policy `data-01-02-fleet` et ses intégrations MongoDB/Kafka sont déclarées dans
 `platform/kubernetes/base/observability/kibana.yaml`. Les Agents de `data-01`
 et `data-02` doivent être enrôlés avec le **même** token de cette policy.
 Comme chaque Agent collecte `localhost`, les métriques restent correctement

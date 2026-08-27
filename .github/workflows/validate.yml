@@ -18,4 +18,10 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: mvn --batch-mode verify -f apps/supermarket-demo/pom.xml
+      - uses: azure/setup-kubectl@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pipx install ansible-core==2.19.3
+      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: make ci

@@ -4,7 +4,8 @@ Ce guide explique la package policy MongoDB déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
 Elle observe le replica set MongoDB du POC depuis les Elastic Agents Fleet de
 `data-01` et `data-02`. `data-03` utilise le profil Filebeat et Metricbeat.
-Le JSON voisin est le payload appliqué par `make fleet-sync`.
+La policy MongoDB est déclarée dans `kibana.yaml`; `make fleet-sync` applique
+seulement les pipelines Elasticsearch `@custom` complémentaires.
 
 ## Chemin des données
 
@@ -22,7 +23,7 @@ MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 
 ## Lire la policy
 
-1. La policy `mongodb-hosts` est créée par la préconfiguration Kibana dans
+1. La policy `data-01-02-fleet` est créée par la préconfiguration Kibana dans
    Kubernetes. Un Agent ne reçoit la configuration que s'il est enrôlé avec le
    token de cette policy commune.
 2. L'entrée `logfile` est activée : les logs MongoDB de cet hôte sont collectés
@@ -67,7 +68,7 @@ plus les droits détaillés par l'intégration officielle.
 ## Vérification et dépannage
 
 1. Dans Kibana > Fleet, vérifier que l'Agent est `Healthy` et qu'il a reçu la
-   policy `mongodb-hosts`.
+   policy `data-01-02-fleet`.
 2. Vérifier localement `mongosh` et l'écoute sur `localhost:27017` depuis la VM.
 3. Dans Discover, filtrer `data_stream.dataset: mongodb.status` et vérifier un
    événement récent pour chaque `host.name`.
