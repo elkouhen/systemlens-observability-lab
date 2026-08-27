@@ -51,11 +51,11 @@ data:
           }
 
           # Seules les métriques APM Java de conteneurs sont reroutées vers
-          # le data stream applicatif par environnement.
+          # le data stream applicatif par environnement et plateforme.
           if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] {
             mutate {
               replace => {
-                "[data_stream][dataset]" => "apm.app.kubernetes"
+                "[data_stream][dataset]" => "k8s-%{environment_type}%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }

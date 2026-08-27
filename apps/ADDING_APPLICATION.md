@@ -91,7 +91,7 @@ Les métriques APM dont `agent.name` vaut `java` et qui portent un `container.id
 sont routées vers :
 
 ```text
-metrics-apm.app.kubernetes-<environnement-elastic>
+metrics-k8s-<code_environnement><code_plateforme>-<environnement-elastic>
 ```
 
 Les traces et erreurs conservent leur data stream d'origine, tout en portant le
@@ -119,7 +119,7 @@ Discover avec les filtres suivants :
 
 ```kql
 # Métriques Java en homologation
-data_stream.dataset : "apm.app.kubernetes"
+data_stream.dataset : "k8s-h0tl"
 and data_stream.namespace : "homologation"
 and agent.name : "java"
 ```

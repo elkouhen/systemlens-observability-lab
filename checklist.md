@@ -56,7 +56,7 @@ attendu.
   dans `logs-kube-0tl-homologation`, avec
   `service.environment: homologation` et l'identité du service attendue.
 - [ ] Dans Kibana Discover, confirmer l'arrivée récente de métriques APM Java
-  dans `metrics-apm.app.kubernetes-homologation` pour les trois services.
+  dans `metrics-k8s-h0tl-homologation` pour les trois services.
 - [ ] Dans Observability > APM, confirmer que `order-service`,
   `inventory-service` et `restock-service` reçoivent transactions, erreurs
   éventuelles et métriques JVM après la transaction de recette.

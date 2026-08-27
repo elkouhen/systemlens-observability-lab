@@ -228,9 +228,9 @@ allocations natives.
 
    Le script installe le pipeline `metrics-kafka.topic@custom`, les pipelines
    Kafka associés et le pipeline APM qui route les métriques applicatives des
-   conteneurs Kubernetes vers un data stream commun à leur environnement
-   normalisé depuis `kubernetes.namespace`, par exemple
-   `metrics-apm.app.kubernetes-homologation`. Le dashboard System et les dashboards
+   conteneurs Kubernetes vers un data stream commun à leur environnement et
+   plateforme, normalisés depuis `kubernetes.namespace`, par exemple
+   `metrics-k8s-h0tl-homologation`. Le dashboard System et les dashboards
    Kubernetes, Kafka, MongoDB et PostgreSQL sont fournis par les packages
    Fleet déclarés dans Kubernetes ; seul le dashboard SystemLens MongoDB
    s'importe avec `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka

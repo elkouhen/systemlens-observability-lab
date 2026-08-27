@@ -108,7 +108,7 @@ ajoute les labels de plateforme et de namespace, puis aligne
   `logs-kube-<code_plateforme>-<environnement>`, d'après
   `kubernetes.namespace`.
 - Les métriques APM Java issues de conteneurs doivent être routées vers
-  `metrics-apm.app.kubernetes-<environnement>`.
+  `metrics-k8s-<code_environnement><code_plateforme>-<environnement>`.
 - Les traces, erreurs et métriques hors de ce périmètre conservent leur data
   stream d'origine.
 
@@ -139,7 +139,7 @@ ajoute les labels de plateforme et de namespace, puis aligne
 | CA-03 | Les trois services sont déployés et sains. | Les Deployments du namespace `h0tl-supermarche-app` sont disponibles. |
 | CA-04 | APM Server et Logstash sont disponibles. | Les Deployments correspondants du namespace `elastic-stack` sont disponibles ; les listeners Logstash 5044 et 5045 sont démarrés. |
 | CA-05 | Un signal portant `h0tl-supermarche-app` est normalisé. | `service.environment` vaut `homologation`, avec les labels `ptf: 0tl` et `namespace: supermarche-app`. |
-| CA-06 | Les logs et métriques applicatives sont routés par plateforme et environnement. | Les data streams `logs-kube-0tl-homologation` et `metrics-apm.app.kubernetes-homologation` reçoivent des documents. |
+| CA-06 | Les logs et métriques applicatives sont routés par plateforme et environnement. | Les data streams `logs-kube-0tl-homologation` et `metrics-k8s-h0tl-homologation` reçoivent des documents. |
 | CA-07 | Les cas d'usage commande, rupture et réassort sont consultables. | Les traces, logs et métriques associés sont visibles dans Kibana. |
 | CA-08 | Les dashboards utilisés sont reproductibles. | Les définitions versionnées sont déployées et la recette de dashboard documentée est concluante. |
 

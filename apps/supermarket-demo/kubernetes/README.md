@@ -17,7 +17,7 @@ Kubernetes via `KUBERNETES_NAMESPACE` et respectent la même convention
 `h0tl-supermarche-app`. Logstash normalise `service.environment` en
 `homologation`, tout en ajoutant `labels.ptf: 0tl` et
 `labels.namespace: supermarche-app`. Les métriques APM Java sont routées vers
-`metrics-apm.app.kubernetes-homologation`. Les logs et traces restent dans
+`metrics-k8s-h0tl-homologation`. Les logs et traces restent dans
 leurs data streams d'origine.
 
 ## Points à contrôler en lisant `deployment.yaml`

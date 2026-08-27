@@ -42,7 +42,7 @@ le dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles son
 `integration` et `d` → `developpement`. Seules les
 métriques APM Java produites dans un conteneur sont reroutées vers le data
 stream applicatif correspondant, par exemple
-`metrics-apm.app.kubernetes-homologation`. Les logs, traces, erreurs et
+`metrics-k8s-h0tl-homologation`. Les logs, traces, erreurs et
 métriques non Java conservent leur data stream d'origine, mais bénéficient de
 la normalisation et des labels lorsque leur environnement respecte ce format.
 Les logs applicatifs Kubernetes respectant cette convention sont également
