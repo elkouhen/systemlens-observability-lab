@@ -5,7 +5,7 @@ KUBECTL ?= kubectl
 VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 K8S_NAMESPACE ?= elastic-stack
-APP_NAMESPACE ?= supermarket-demo
+APP_NAMESPACE ?= h0tl-supermarche-app
 APP_IMAGE_TAG ?= 1.1.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
@@ -31,8 +31,12 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
 
+##@ Informations et diagnostic
+
 help: ## Afficher les tâches disponibles
-	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n"} \
+		/^##@/ {printf "\n%s\n", substr($$0, 5); next} \
+		/^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-32s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./platform/elk/scripts/load-credentials.sh\n'
@@ -50,6 +54,8 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@./scripts/cluster-status.sh
+
+##@ Construction et préparation locale
 
 apps-build: ## Construire les images applicatives (tag APP_IMAGE_TAG ; option ZSCALER_CA_CERT)
 	@zscaler_ca_b64=""; \
@@ -78,6 +84,8 @@ k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (req
 	  docker exec "$$node" update-ca-certificates; \
 	done
 	@echo "Redémarrer le cluster pour appliquer le nouveau magasin de confiance : k3d cluster stop $(K3D_CLUSTER) && k3d cluster start $(K3D_CLUSTER)"
+
+##@ Déploiement de la plateforme Elastic
 
 elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait \
@@ -160,8 +168,11 @@ apm-logstash-deploy: apm-logstash-credentials-apply ## Déployer Logstash et rac
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
 
+##@ Déploiement et recette de l'application
+
 apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
 	@set -euo pipefail; \
+	$(KUBECTL) apply -f apps/supermarket-demo/kubernetes/namespace.yaml; \
 	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
 	ca_file="$$(mktemp)"; \
 	trap 'rm -f "$$ca_file"' EXIT; \
@@ -189,6 +200,8 @@ order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUA
 		-H 'Content-Type: application/json' \
 		--data '{"productId":"$(ORDER_PRODUCT_ID)","quantity":$(ORDER_QUANTITY)}'
 
+##@ Déploiement complet et validation
+
 apm-deploy: ## Alias historique : déployer ELK et l'application
 	@$(MAKE) elk-deploy
 	@$(MAKE) apps-deploy
@@ -214,6 +227,8 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 
 ci: kubernetes-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
+##@ Provisionnement des VM et Fleet
+
 fleet-sync: ## Synchroniser les pipelines et la policy PostgreSQL Fleet déjà créée
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
 
@@ -231,6 +246,13 @@ fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet d
 beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
 	@$(VAGRANT) provision data-03
 
+vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
+	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
+	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
+	@POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
+
+##@ Dashboards et consultation
+
 dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
@@ -241,6 +263,8 @@ dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboar
 	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
 		./platform/elk/scripts/verify-dashboard-data.sh
 
+##@ Identifiants et clés d'accès
+
 apm-report-api-key-create: ## Créer une clé de lecture brute pour les rapports APM SystemLens
 	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }
 	@curl --fail --silent --show-error --insecure \
@@ -250,11 +274,6 @@ apm-report-api-key-create: ## Créer une clé de lecture brute pour les rapports
 		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 		--data "{\"name\":\"systemlens-apm-report-$$(date +%Y%m%d%H%M%S)\",\"role_descriptors\":{\"systemlens_apm_report_reader\":{\"cluster\":[\"monitor\"],\"indices\":[{\"names\":[\"traces-*\",\"metrics-*\"],\"privileges\":[\"read\",\"view_index_metadata\"]}]}}}" \
 		| jq -er '.id + ":" + .api_key'
-
-vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
-	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
-	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
-	@POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 
 elastic-password-show: ## Afficher le mot de passe du compte elastic ECK
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user \
@@ -284,6 +303,8 @@ beats-api-key-create: ## Créer une clé API brute id:api_key pour Filebeat/Metr
 		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","read","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
 		| jq -r '.id + ":" + .api_key'
+
+##@ Logs applicatifs
 
 order-service-logs-follow: ## Suivre les logs de order-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/order-service

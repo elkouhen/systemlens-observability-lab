@@ -11,7 +11,7 @@ attendu.
   composants transverses, `apps/` pour les workloads, `ansible/` pour les VM.
 - [ ] Les manifests Kubernetes sont modifiés via une base ou un overlay
   Kustomize ; aucun YAML rendu n'est ajouté au dépôt.
-- [ ] Les namespaces `elastic-stack` et `supermarket-demo`, les ressources ECK
+- [ ] Les namespaces `elastic-stack` et `h0tl-supermarche-app`, les ressources ECK
   et les conventions de nommage existantes sont conservés.
 - [ ] Les services `order-service`, `inventory-service` et `restock-service`
   gardent leur agent Java Elastic APM, leurs logs JSON ECS sur `stdout` et leur

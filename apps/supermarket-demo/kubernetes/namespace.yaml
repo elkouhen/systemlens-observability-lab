@@ -1,4 +1,4 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: supermarket-demo
+  name: h0tl-supermarche-app

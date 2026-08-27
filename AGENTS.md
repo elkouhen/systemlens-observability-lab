@@ -97,7 +97,7 @@ commandes de validation.
   make kubernetes-validate
   ```
 
-- Préserver les namespaces `elastic-stack` et `supermarket-demo`, les noms ECK
+- Préserver les namespaces `elastic-stack` et `h0tl-supermarche-app`, les noms ECK
   et les raccordements APM/OTLP/Fleet. Une modification de la télémétrie doit
   garder une chaîne complète et cohérente (source, collecte, pipeline, data
   stream et dashboard).

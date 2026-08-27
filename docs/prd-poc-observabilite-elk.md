@@ -133,7 +133,7 @@ puis aligne `service.environment` et les data streams concernés.
 | --- | --- | --- |
 | CA-01 | Le rendu Kubernetes est valide. | `make kubernetes-validate` réussit. |
 | CA-02 | Les modules applicatifs et leurs tests sont cohérents. | `make apps-test` réussit. |
-| CA-03 | Les trois services sont déployés et sains. | Les Deployments du namespace `supermarket-demo` sont disponibles. |
+| CA-03 | Les trois services sont déployés et sains. | Les Deployments du namespace `h0tl-supermarche-app` sont disponibles. |
 | CA-04 | APM Server et Logstash sont disponibles. | Les Deployments correspondants du namespace `elastic-stack` sont disponibles ; les listeners Logstash 5044 et 5045 sont démarrés. |
 | CA-05 | Un signal portant `h0p1-supermarket` est normalisé. | `service.environment` vaut `homologation`, avec les labels `ptf: 0p1` et `namespace: supermarket`. |
 | CA-06 | Les logs et métriques applicatives sont routés par environnement. | Les data streams `logs-kubernetes.container_logs-homologation` et `metrics-apm.app.kubernetes-homologation` reçoivent des documents. |

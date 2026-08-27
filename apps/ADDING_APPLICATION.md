@@ -103,7 +103,7 @@ logs-kubernetes.container_logs-homologation
 ## Raccorder la collecte des logs
 
 L'Agent Kubernetes actuel cible les fichiers des pods du namespace
-`supermarket-demo`. Pour une application dans un autre namespace, élargir de
+`h0tl-supermarche-app`. Pour une application dans un autre namespace, élargir de
 façon explicite le chemin `paths` dans
 `platform/kubernetes/base/observability/kubernetes-logs-agent.yaml`, ou ajouter
 un stream dédié. Appliquer ensuite `make kubernetes-validate`, puis

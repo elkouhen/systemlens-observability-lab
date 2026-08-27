@@ -163,14 +163,14 @@ spec:
             hosts: ["https://${env.NODE_NAME}:10250"]
             period: 10s
             ssl.verification_mode: none
-      - id: supermarket-demo-container-logs
+      - id: h0tl-supermarche-app-container-logs
         type: filestream
         streams:
-          - id: supermarket-demo-container-logs-stream
+          - id: h0tl-supermarche-app-container-logs-stream
             data_stream:
               dataset: kubernetes.container_logs
             paths:
-              - /var/log/containers/*_supermarket-demo_*.log
+              - /var/log/containers/*_h0tl-supermarche-app_*.log
             prospector.scanner.symlinks: true
             parsers:
               - container:

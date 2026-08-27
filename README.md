@@ -14,9 +14,9 @@ applications Java instrumentées avec Elastic APM.
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
-| `order-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
-| `inventory-service` | Kubernetes, namespace `supermarket-demo` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
-| `restock-service` | Kubernetes, namespace `supermarket-demo` | consommateur et producteur Kafka, port 3002 pour les probes | événements de réassort et dépendance Kafka |
+| `order-service` | Kubernetes, namespace `h0tl-supermarche-app` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
+| `inventory-service` | Kubernetes, namespace `h0tl-supermarche-app` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
+| `restock-service` | Kubernetes, namespace `h0tl-supermarche-app` | consommateur et producteur Kafka, port 3002 pour les probes | événements de réassort et dépendance Kafka |
 
 Le scénario métier simule un supermarché en ligne : `order-service` publie une
 commande Kafka chaque minute (commande en ligne) ; `inventory-service` la
@@ -213,7 +213,7 @@ allocations natives.
    kubectl apply -k platform/kubernetes/overlays/local
    kubectl apply -k apps/supermarket-demo/kubernetes
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
-   kubectl -n supermarket-demo get deploy,pods,svc
+   kubectl -n h0tl-supermarche-app get deploy,pods,svc
    ```
 
 3. La configuration Fleet MongoDB/Kafka/PostgreSQL est déclarée dans
@@ -272,7 +272,7 @@ téléchargement.
   les métadonnées du pod, ce qui permet la navigation log-trace. Les logs sont
   collectés sur stdout par Elastic Agent.
 - Logs Kubernetes : un Elastic Agent DaemonSet lit les logs de conteneurs du
-  namespace `supermarket-demo`, décode les logs JSON ECS et ajoute les métadonnées
+  namespace `h0tl-supermarche-app`, décode les logs JSON ECS et ajoute les métadonnées
   Kubernetes.
 - MongoDB : l’intégration Fleet collecte `collstats`, `dbstats`, `metrics`,
   `replstatus` et `status` toutes les 60 s.
