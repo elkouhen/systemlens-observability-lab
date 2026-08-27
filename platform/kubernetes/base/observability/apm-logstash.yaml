@@ -133,8 +133,13 @@ data:
               "[data_stream][dataset]" => "kube-%{platform_code}"
               "[data_stream][namespace]" => "%{[@metadata][environment]}"
             }
-            remove_field => ["environment_type", "platform_code", "application_namespace"]
           }
+        }
+
+        # Nettoyage systématique, y compris si la traduction échoue, pour
+        # éviter que les champs bruts ne fuient dans le document indexé.
+        mutate {
+          remove_field => ["environment_type", "platform_code", "application_namespace"]
         }
       }
     }
