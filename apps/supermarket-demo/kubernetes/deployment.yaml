@@ -43,6 +43,8 @@ spec:
               value: order-service
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: homologation
             - name: KUBERNETES_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -174,6 +176,8 @@ spec:
               value: inventory-service
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: homologation
             - name: KUBERNETES_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -307,6 +311,8 @@ spec:
               value: restock-service
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: homologation
             - name: KUBERNETES_NAMESPACE
               valueFrom:
                 fieldRef:
