@@ -19,13 +19,27 @@ data:
     }
 
     filter {
-      # Les applications emettent <type><ptf_sur_3_caracteres>-<namespace>,
-      # par exemple h0p1-supermarket. Conserver ce contrat applicatif, puis
-      # le convertir ici en environnement Elastic canonique.
-      if [service][environment] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
+      # Les logs Kubernetes tirent leur identité du namespace, par exemple
+      # h0tl-supermarche-app. Les signaux APM conservent ELASTIC_APM_ENVIRONMENT.
+      # Les deux sources respectent <type><ptf_sur_3_caracteres>-<namespace>.
+      if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" and [kubernetes][namespace] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
+        mutate {
+          copy => {
+            "[kubernetes][namespace]" => "[@metadata][routing_identity]"
+          }
+        }
+      } else if [service][environment] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
+        mutate {
+          copy => {
+            "[service][environment]" => "[@metadata][routing_identity]"
+          }
+        }
+      }
+
+      if [@metadata][routing_identity] {
         grok {
           match => {
-            "[service][environment]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
+            "[@metadata][routing_identity]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
           }
         }
 
@@ -55,11 +69,14 @@ data:
             }
           }
 
+          # Les logs Kubernetes sont séparés par plateforme et environnement,
+          # sans dépendre d'une variable de log applicative.
           # Seules les métriques APM Java de conteneurs sont reroutées vers
           # le data stream applicatif par environnement.
           if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" {
             mutate {
               replace => {
+                "[data_stream][dataset]" => "kube-%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }

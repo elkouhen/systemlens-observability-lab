@@ -31,7 +31,7 @@ Kubernetes les collecte sur le nœud.
 
 ## Déclarer les variables Kubernetes
 
-Dans le Deployment, définir les identifiants cohérents des logs et de l'APM :
+Dans le Deployment, définir les identifiants de service et l'environnement APM :
 
 ```yaml
 env:
@@ -39,14 +39,12 @@ env:
     value: ecs
   - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
     value: my-service
-  - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
-    value: h0p1-my-namespace
   - name: ELASTIC_APM_SERVICE_NAME
     value: my-service
   - name: ELASTIC_APM_SERVICE_VERSION
     value: "1.0.0"
   - name: ELASTIC_APM_ENVIRONMENT
-    value: h0p1-my-namespace
+    value: h0tl-my-namespace
   - name: ELASTIC_APM_APPLICATION_PACKAGES
     value: com.example.myservice
   - name: ELASTIC_APM_SERVER_URL
@@ -72,17 +70,19 @@ La valeur source a le format :
 <type><ptf_sur_3_caracteres>-<namespace>
 ```
 
-Exemple : `h0p1-supermarket` signifie :
+Le namespace Kubernetes et `ELASTIC_APM_ENVIRONMENT` portent cette valeur.
+Exemple : `h0tl-supermarche-app` signifie :
 
 | Partie | Valeur | Rôle |
 | --- | --- | --- |
 | Type | `h` | Environnement Elastic `homologation` |
-| PTF | `0p1` | Ajouté dans `labels.ptf` |
-| Namespace | `supermarket` | Ajouté dans `labels.namespace` |
+| PTF | `0tl` | Ajouté dans `labels.ptf` |
+| Namespace | `supermarche-app` | Ajouté dans `labels.namespace` |
 
 Les types acceptés sont `r` (recette), `p` (production), `h` (homologation),
 `i` (integration) et `d` (developpement). Logstash normalise ensuite
-`service.environment` avec ce nom canonique.
+`service.environment` avec ce nom canonique. Pour les logs, il utilise
+`kubernetes.namespace` ; pour l'APM, `ELASTIC_APM_ENVIRONMENT`.
 
 Les métriques APM dont `agent.name` vaut `java` et qui portent un `container.id`
 sont routées vers :
@@ -97,7 +97,7 @@ applicatifs Kubernetes dont la valeur source respecte la convention sont
 regroupés dans le même namespace Elastic, par exemple :
 
 ```text
-logs-kubernetes.container_logs-homologation
+logs-kube-0tl-homologation
 ```
 
 ## Raccorder la collecte des logs
@@ -123,10 +123,10 @@ and agent.name : "java"
 
 ```kql
 # Logs applicatifs normalisés
-data_stream.dataset : "kubernetes.container_logs"
+data_stream.dataset : "kube-0tl"
 and service.environment : "homologation"
-and labels.ptf : "0p1"
-and labels.namespace : "supermarket"
+and labels.ptf : "0tl"
+and labels.namespace : "supermarche-app"
 ```
 
 Le contrôle attendu est la présence de la même identité de service dans les

@@ -33,8 +33,6 @@ spec:
               value: ecs
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
               value: order-service
-            - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
-              value: h0p1-supermarket
             - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
               value: "1.0.0"
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NODE_NAME
@@ -46,9 +44,7 @@ spec:
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
             - name: ELASTIC_APM_ENVIRONMENT
-              value: h0p1-supermarket
-            - name: DEPLOYMENT_ENVIRONMENT
-              value: h0p1-supermarket
+              value: h0tl-supermarche-app
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.order
             - name: ELASTIC_APM_SERVER_URL
@@ -166,8 +162,6 @@ spec:
               value: ecs
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
               value: inventory-service
-            - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
-              value: h0p1-supermarket
             - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
               value: "1.0.0"
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NODE_NAME
@@ -179,7 +173,7 @@ spec:
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
             - name: ELASTIC_APM_ENVIRONMENT
-              value: h0p1-supermarket
+              value: h0tl-supermarche-app
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.inventory
             - name: ELASTIC_APM_SERVER_URL
@@ -299,8 +293,6 @@ spec:
               value: ecs
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
               value: restock-service
-            - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
-              value: h0p1-supermarket
             - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
               value: "1.0.0"
             - name: LOGGING_STRUCTURED_ECS_SERVICE_NODE_NAME
@@ -312,7 +304,7 @@ spec:
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
             - name: ELASTIC_APM_ENVIRONMENT
-              value: h0p1-supermarket
+              value: h0tl-supermarche-app
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.restock
             - name: ELASTIC_APM_SERVER_URL

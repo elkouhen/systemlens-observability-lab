@@ -31,9 +31,11 @@ monter un certificat géré par cert-manager ou la PKI de l'organisation.
 Le routage des données applicatives est exclusivement défini dans
 `apm-logstash.yaml`. Les applications émettent
 `<type><plateforme_sur_3_caractères>-<namespace>` (par exemple
-`h0p1-supermarket`). Logstash le décode, ajoute `labels.ptf: 0p1` et
-`labels.namespace: supermarket`, puis normalise `service.environment` avec le
-dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
+`h0tl-supermarche-app`). Pour les logs Kubernetes, cette identité provient de
+`kubernetes.namespace` ; pour les signaux APM, elle provient de
+`ELASTIC_APM_ENVIRONMENT`. Logstash la décode, ajoute `labels.ptf: 0tl` et
+`labels.namespace: supermarche-app`, puis normalise `service.environment` avec
+le dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
 `r` → `recette`, `p` → `production`, `h` → `homologation`, `i` →
 `integration` et `d` → `developpement`. Seules les
 métriques APM Java produites dans un conteneur sont reroutées vers le data
@@ -42,8 +44,8 @@ stream applicatif correspondant, par exemple
 métriques non Java conservent leur data stream d'origine, mais bénéficient de
 la normalisation et des labels lorsque leur environnement respecte ce format.
 Les logs applicatifs Kubernetes respectant cette convention sont également
-routés vers le namespace Elastic normalisé, par exemple
-`logs-kubernetes.container_logs-homologation`.
+routés vers un data stream par plateforme et environnement, par exemple
+`logs-kube-0tl-homologation`.
 
 Après le déploiement, vérifier les deux composants et le relais :
 

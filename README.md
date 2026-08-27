@@ -332,7 +332,7 @@ doit créer une erreur APM contrôlée.
 | --- | --- | --- |
 | Observability > APM > Services | les trois services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration ; logs ECS corrélés par `trace.id` dans l’onglet Logs d’une transaction | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods, le trafic généré et qu’un log métier est émis pendant la transaction |
 | Observability > Infrastructure > Hosts | hôtes suivis par le profil Beats/Fleet | vérifier le service de collecte correspondant ; aucun service EDOT ne doit être présent |
-| Observability > Infrastructure > Inventory / logs | logs `kubernetes.container_logs` des trois pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
+| Observability > Infrastructure > Inventory / logs | logs `kube-0tl` des trois pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
 | Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
 | Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
 | PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |

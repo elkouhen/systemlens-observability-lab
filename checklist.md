@@ -53,7 +53,7 @@ attendu.
 ## Remontée des logs et métriques
 
 - [ ] Dans Kibana Discover, confirmer l'arrivée récente de logs applicatifs
-  dans `logs-kubernetes.container_logs-homologation`, avec
+  dans `logs-kube-0tl-homologation`, avec
   `service.environment: homologation` et l'identité du service attendue.
 - [ ] Dans Kibana Discover, confirmer l'arrivée récente de métriques APM Java
   dans `metrics-apm.app.kubernetes-homologation` pour les trois services.

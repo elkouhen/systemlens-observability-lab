@@ -79,9 +79,11 @@ topics Kafka, les bases de données et les signaux Elastic.
 
 L'environnement applicatif respecte le contrat
 `<type><plateforme_sur_3_caractères>-<namespace>`, par exemple
-`h0p1-supermarket`. Dans Logstash, le dictionnaire `translate` transforme le
-code `h` en `homologation`, ajoute les labels de plateforme et de namespace,
-puis aligne `service.environment` et les data streams concernés.
+`h0tl-supermarche-app`. Dans Logstash, les logs utilisent
+`kubernetes.namespace` et les signaux APM `ELASTIC_APM_ENVIRONMENT`. Le
+dictionnaire `translate` transforme le code `h` en `homologation`, ajoute les
+labels de plateforme et de namespace, puis aligne `service.environment` et les
+data streams concernés.
 
 ## 8. Exigences fonctionnelles
 
@@ -103,7 +105,8 @@ puis aligne `service.environment` et les data streams concernés.
 - Le mapping des codes d'environnement doit être déclaré dans un dictionnaire,
   et non dans des conditions répétées.
 - Les logs Kubernetes applicatifs doivent être routés vers
-  `logs-kubernetes.container_logs-<environnement>`.
+  `logs-kube-<code_plateforme>-<environnement>`, d'après
+  `kubernetes.namespace`.
 - Les métriques APM Java issues de conteneurs doivent être routées vers
   `metrics-apm.app.kubernetes-<environnement>`.
 - Les traces, erreurs et métriques hors de ce périmètre conservent leur data
@@ -135,8 +138,8 @@ puis aligne `service.environment` et les data streams concernés.
 | CA-02 | Les modules applicatifs et leurs tests sont cohérents. | `make apps-test` réussit. |
 | CA-03 | Les trois services sont déployés et sains. | Les Deployments du namespace `h0tl-supermarche-app` sont disponibles. |
 | CA-04 | APM Server et Logstash sont disponibles. | Les Deployments correspondants du namespace `elastic-stack` sont disponibles ; les listeners Logstash 5044 et 5045 sont démarrés. |
-| CA-05 | Un signal portant `h0p1-supermarket` est normalisé. | `service.environment` vaut `homologation`, avec les labels `ptf: 0p1` et `namespace: supermarket`. |
-| CA-06 | Les logs et métriques applicatives sont routés par environnement. | Les data streams `logs-kubernetes.container_logs-homologation` et `metrics-apm.app.kubernetes-homologation` reçoivent des documents. |
+| CA-05 | Un signal portant `h0tl-supermarche-app` est normalisé. | `service.environment` vaut `homologation`, avec les labels `ptf: 0tl` et `namespace: supermarche-app`. |
+| CA-06 | Les logs et métriques applicatives sont routés par plateforme et environnement. | Les data streams `logs-kube-0tl-homologation` et `metrics-apm.app.kubernetes-homologation` reçoivent des documents. |
 | CA-07 | Les cas d'usage commande, rupture et réassort sont consultables. | Les traces, logs et métriques associés sont visibles dans Kibana. |
 | CA-08 | Les dashboards utilisés sont reproductibles. | Les définitions versionnées sont déployées et la recette de dashboard documentée est concluante. |
 

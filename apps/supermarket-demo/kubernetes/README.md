@@ -8,12 +8,15 @@ d'`order-service`, d'`inventory-service` et de `restock-service` vont
 directement à APM Server via l'agent Java Elastic APM.
 
 Les trois services écrivent leurs logs JSON ECS sur stdout. L'Elastic Agent
-Kubernetes les collecte dans `logs-kubernetes.container_logs-*`. La valeur
-`service.environment` est commune aux logs et aux signaux APM et respecte la
-convention `<type><plateforme_sur_3_caractères>-<namespace>`, par exemple
-`h0p1-supermarket`. Logstash le décode et normalise `service.environment` en
-`homologation`, tout en ajoutant `labels.ptf: 0p1` et
-`labels.namespace: supermarket`. Les métriques APM Java sont routées vers
+Kubernetes les collecte d'abord dans `kubernetes.container_logs`, puis Logstash
+utilise `kubernetes.namespace` et les route vers
+`logs-kube-<code_plateforme>-<environnement>`. Les logs n'ont donc pas de
+variable d'environnement dédiée. Les signaux APM utilisent
+`ELASTIC_APM_ENVIRONMENT` avec la même convention
+`<type><plateforme_sur_3_caractères>-<namespace>`, ici
+`h0tl-supermarche-app`. Logstash normalise `service.environment` en
+`homologation`, tout en ajoutant `labels.ptf: 0tl` et
+`labels.namespace: supermarche-app`. Les métriques APM Java sont routées vers
 `metrics-apm.app.kubernetes-homologation`. Les logs et traces restent dans
 leurs data streams d'origine.
 
