@@ -4,7 +4,7 @@ metadata:
   name: apm-logstash-pipeline
   namespace: elastic-stack
 data:
-  elastic-apm-and-agent.conf: |
+  apm.conf: |
     input {
       # Flux APM Server (protocole Lumberjack).
       elastic_agent {
@@ -12,34 +12,15 @@ data:
         enrich => none
       }
 
-      # Flux des Elastic Agents Kubernetes (protocole Beats/Logstash).
-      beats {
-        port => 5045
-      }
     }
 
     filter {
-      # Les logs Kubernetes tirent leur identité du namespace, par exemple
-      # h0tl-supermarche-app. Les signaux APM conservent ELASTIC_APM_ENVIRONMENT.
-      # Les deux sources respectent <type><ptf_sur_3_caracteres>-<namespace>.
-      if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" and [kubernetes][namespace] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
-        mutate {
-          copy => {
-            "[kubernetes][namespace]" => "[@metadata][routing_identity]"
-          }
-        }
-      } else if [service][environment] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
-        mutate {
-          copy => {
-            "[service][environment]" => "[@metadata][routing_identity]"
-          }
-        }
-      }
-
-      if [@metadata][routing_identity] {
+      # Pipeline APM réutilisable : le Java agent reçoit le namespace via la
+      # Downward API et le transmet à APM Server.
+      if [kubernetes][namespace] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
         grok {
           match => {
-            "[@metadata][routing_identity]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
+            "[kubernetes][namespace]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
           }
         }
 
@@ -69,18 +50,9 @@ data:
             }
           }
 
-          # Les logs Kubernetes sont séparés par plateforme et environnement,
-          # sans dépendre d'une variable de log applicative.
           # Seules les métriques APM Java de conteneurs sont reroutées vers
           # le data stream applicatif par environnement.
-          if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" {
-            mutate {
-              replace => {
-                "[data_stream][dataset]" => "kube-%{platform_code}"
-                "[data_stream][namespace]" => "%{[@metadata][environment]}"
-              }
-            }
-          } else if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] {
+          if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] {
             mutate {
               replace => {
                 "[data_stream][dataset]" => "apm.app.kubernetes"
@@ -106,6 +78,61 @@ data:
         ssl_certificate_authorities => "/usr/share/logstash/config/elasticsearch-ca/ca.crt"
       }
     }
+  kubernetes-logs.conf: |
+    input {
+      # Flux des Elastic Agents Kubernetes (protocole Beats/Logstash).
+      beats {
+        port => 5045
+      }
+    }
+
+    filter {
+      # Pipeline spécifique au POC Kubernetes : l'identité vient du namespace.
+      if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" and [kubernetes][namespace] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
+        grok {
+          match => {
+            "[kubernetes][namespace]" => "^(?<environment_type>[rphid])(?<platform_code>[A-Za-z0-9]{3})-(?<application_namespace>.+)$"
+          }
+        }
+
+        translate {
+          source => "environment_type"
+          target => "[@metadata][environment]"
+          dictionary => {
+            "r" => "recette"
+            "p" => "production"
+            "h" => "homologation"
+            "i" => "integration"
+            "d" => "developpement"
+          }
+          fallback => ""
+        }
+
+        if [@metadata][environment] {
+          mutate {
+            add_field => {
+              "[labels][ptf]" => "%{platform_code}"
+              "[labels][namespace]" => "%{application_namespace}"
+            }
+            replace => {
+              "[service][environment]" => "%{[@metadata][environment]}"
+              "[data_stream][dataset]" => "kube-%{platform_code}"
+              "[data_stream][namespace]" => "%{[@metadata][environment]}"
+            }
+            remove_field => ["environment_type", "platform_code", "application_namespace"]
+          }
+        }
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["https://elasticsearch-es-http.elastic-stack.svc:9200"]
+        api_key => "${ELASTICSEARCH_API_KEY}"
+        data_stream => true
+        ssl_certificate_authorities => "/usr/share/logstash/config/elasticsearch-ca/ca.crt"
+      }
+    }
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -118,6 +145,11 @@ data:
     pipeline.ecs_compatibility: v8
     config.reload.automatic: true
     config.reload.interval: 3s
+  pipelines.yml: |
+    - pipeline.id: apm
+      path.config: "/usr/share/logstash/pipeline/apm.conf"
+    - pipeline.id: kubernetes-logs
+      path.config: "/usr/share/logstash/pipeline/kubernetes-logs.conf"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -163,6 +195,10 @@ spec:
             - name: settings
               mountPath: /usr/share/logstash/config/logstash.yml
               subPath: logstash.yml
+              readOnly: true
+            - name: settings
+              mountPath: /usr/share/logstash/config/pipelines.yml
+              subPath: pipelines.yml
               readOnly: true
             - name: elasticsearch-ca
               mountPath: /usr/share/logstash/config/elasticsearch-ca

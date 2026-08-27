@@ -10,8 +10,9 @@ pour installer ou mettre à jour l'opérateur ECK 3.5.0 avant leur application.
 2. `kibana.yaml`, puis `fleet-server.yaml` : gestion centralisée des
    Elastic Agents et la policy Fleet Server préconfigurée dans `xpack.fleet`.
 3. `apm-server.yaml` : endpoint d'ingestion APM.
-4. `apm-logstash.yaml` : relais Logstash des événements APM et Elastic Agent
-   vers les data streams Elasticsearch.
+4. `apm-logstash.yaml` : deux pipelines Logstash vers les data streams
+   Elasticsearch : `apm` pour APM Server et `kubernetes-logs` pour Elastic
+   Agent Kubernetes.
 5. `kubernetes-logs-agent.yaml` : collecte des logs des pods et métriques kubelet.
 6. `kube-state-metrics.yaml` : métriques d'état des workloads Kubernetes.
 7. `elastic-ingress.yaml` : exposition TLS via Traefik.
@@ -29,11 +30,12 @@ dans ce POC. Pour un environnement de production, activer TLS sur les inputs et
 monter un certificat géré par cert-manager ou la PKI de l'organisation.
 
 Le routage des données applicatives est exclusivement défini dans
-`apm-logstash.yaml`. Les applications émettent
+`apm-logstash.yaml`. Le pipeline `apm` est réutilisable seul : il reçoit APM
+sur le port 5044 et décode `kubernetes.namespace`. Le pipeline
+`kubernetes-logs` est spécifique au POC : il reçoit les logs Kubernetes sur le
+port 5045 et les décode depuis `kubernetes.namespace`. Les identités utilisent
 `<type><plateforme_sur_3_caractères>-<namespace>` (par exemple
-`h0tl-supermarche-app`). Pour les logs Kubernetes, cette identité provient de
-`kubernetes.namespace` ; pour les signaux APM, elle provient de
-`ELASTIC_APM_ENVIRONMENT`. Logstash la décode, ajoute `labels.ptf: 0tl` et
+`h0tl-supermarche-app`). Logstash la décode, ajoute `labels.ptf: 0tl` et
 `labels.namespace: supermarche-app`, puis normalise `service.environment` avec
 le dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
 `r` → `recette`, `p` → `production`, `h` → `homologation`, `i` →

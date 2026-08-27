@@ -43,8 +43,10 @@ spec:
               value: order-service
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
-            - name: ELASTIC_APM_ENVIRONMENT
-              value: h0tl-supermarche-app
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.order
             - name: ELASTIC_APM_SERVER_URL
@@ -172,8 +174,10 @@ spec:
               value: inventory-service
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
-            - name: ELASTIC_APM_ENVIRONMENT
-              value: h0tl-supermarche-app
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.inventory
             - name: ELASTIC_APM_SERVER_URL
@@ -303,8 +307,10 @@ spec:
               value: restock-service
             - name: ELASTIC_APM_SERVICE_VERSION
               value: "1.0.0"
-            - name: ELASTIC_APM_ENVIRONMENT
-              value: h0tl-supermarche-app
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.restock
             - name: ELASTIC_APM_SERVER_URL

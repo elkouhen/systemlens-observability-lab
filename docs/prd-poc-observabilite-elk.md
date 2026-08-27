@@ -74,16 +74,16 @@ topics Kafka, les bases de données et les signaux Elastic.
 | Événements | Kafka transporte les commandes, ruptures et demandes de réassort ; les contrats sont partagés dans `supermarket-contracts`. |
 | Données | MongoDB et PostgreSQL conservent les écritures du scénario applicatif. |
 | Collecte | APM Server reçoit les signaux applicatifs ; Elastic Agent collecte les logs Kubernetes ; Agents/Fleet ou Beats collectent les VM. |
-| Enrichissement et routage | Une instance Logstash reçoit APM sur le port 5044 et les logs Kubernetes sur le port 5045, normalise l'environnement et route les data streams. |
+| Enrichissement et routage | Une instance Logstash héberge deux pipelines : `apm` reçoit APM sur le port 5044 et `kubernetes-logs` reçoit les logs Kubernetes sur le port 5045. Chacun normalise son identité et route ses data streams. |
 | Consultation | Elasticsearch conserve les données et Kibana fournit la recherche, APM, l'infrastructure et les dashboards versionnés. |
 
 L'environnement applicatif respecte le contrat
 `<type><plateforme_sur_3_caractères>-<namespace>`, par exemple
 `h0tl-supermarche-app`. Dans Logstash, les logs utilisent
-`kubernetes.namespace` et les signaux APM `ELASTIC_APM_ENVIRONMENT`. Le
-dictionnaire `translate` transforme le code `h` en `homologation`, ajoute les
-labels de plateforme et de namespace, puis aligne `service.environment` et les
-data streams concernés.
+`kubernetes.namespace`, y compris pour les signaux APM transmis par le Java
+agent. Le dictionnaire `translate` transforme le code `h` en `homologation`,
+ajoute les labels de plateforme et de namespace, puis aligne
+`service.environment` et les data streams concernés.
 
 ## 8. Exigences fonctionnelles
 

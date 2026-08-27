@@ -11,8 +11,8 @@ Les trois services écrivent leurs logs JSON ECS sur stdout. L'Elastic Agent
 Kubernetes les collecte d'abord dans `kubernetes.container_logs`, puis Logstash
 utilise `kubernetes.namespace` et les route vers
 `logs-kube-<code_plateforme>-<environnement>`. Les logs n'ont donc pas de
-variable d'environnement dédiée. Les signaux APM utilisent
-`ELASTIC_APM_ENVIRONMENT` avec la même convention
+variable d'environnement dédiée. Les signaux APM reçoivent le namespace
+Kubernetes via `KUBERNETES_NAMESPACE` et respectent la même convention
 `<type><plateforme_sur_3_caractères>-<namespace>`, ici
 `h0tl-supermarche-app`. Logstash normalise `service.environment` en
 `homologation`, tout en ajoutant `labels.ptf: 0tl` et

@@ -43,8 +43,10 @@ env:
     value: my-service
   - name: ELASTIC_APM_SERVICE_VERSION
     value: "1.0.0"
-  - name: ELASTIC_APM_ENVIRONMENT
-    value: h0tl-my-namespace
+  - name: KUBERNETES_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
   - name: ELASTIC_APM_APPLICATION_PACKAGES
     value: com.example.myservice
   - name: ELASTIC_APM_SERVER_URL
@@ -70,7 +72,8 @@ La valeur source a le format :
 <type><ptf_sur_3_caracteres>-<namespace>
 ```
 
-Le namespace Kubernetes et `ELASTIC_APM_ENVIRONMENT` portent cette valeur.
+Le namespace Kubernetes porte cette valeur et la Downward API le transmet à
+l'agent APM avec `KUBERNETES_NAMESPACE`.
 Exemple : `h0tl-supermarche-app` signifie :
 
 | Partie | Valeur | Rôle |
@@ -82,7 +85,7 @@ Exemple : `h0tl-supermarche-app` signifie :
 Les types acceptés sont `r` (recette), `p` (production), `h` (homologation),
 `i` (integration) et `d` (developpement). Logstash normalise ensuite
 `service.environment` avec ce nom canonique. Pour les logs, il utilise
-`kubernetes.namespace` ; pour l'APM, `ELASTIC_APM_ENVIRONMENT`.
+`kubernetes.namespace`, y compris pour l'APM.
 
 Les métriques APM dont `agent.name` vaut `java` et qui portent un `container.id`
 sont routées vers :
