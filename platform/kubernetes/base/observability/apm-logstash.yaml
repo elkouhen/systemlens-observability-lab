@@ -29,26 +29,29 @@ data:
           }
         }
 
-        if [environment_type] == "r" {
-          mutate { add_field => { "[@metadata][elastic_environment]" => "recette" } }
-        } else if [environment_type] == "p" {
-          mutate { add_field => { "[@metadata][elastic_environment]" => "production" } }
-        } else if [environment_type] == "h" {
-          mutate { add_field => { "[@metadata][elastic_environment]" => "homologation" } }
-        } else if [environment_type] == "i" {
-          mutate { add_field => { "[@metadata][elastic_environment]" => "integration" } }
-        } else if [environment_type] == "d" {
-          mutate { add_field => { "[@metadata][elastic_environment]" => "developpement" } }
+        # Le dictionnaire centralise la correspondance entre le code du contrat
+        # applicatif et le nom d'environnement Elastic attendu.
+        translate {
+          source => "environment_type"
+          target => "[@metadata][environment]"
+          dictionary => {
+            "r" => "recette"
+            "p" => "production"
+            "h" => "homologation"
+            "i" => "integration"
+            "d" => "developpement"
+          }
+          fallback => ""
         }
 
-        if [@metadata][elastic_environment] {
+        if [@metadata][environment] {
           mutate {
             add_field => {
               "[labels][ptf]" => "%{platform_code}"
               "[labels][namespace]" => "%{application_namespace}"
             }
             replace => {
-              "[service][environment]" => "%{[@metadata][elastic_environment]}"
+              "[service][environment]" => "%{[@metadata][environment]}"
             }
           }
 
@@ -57,14 +60,14 @@ data:
           if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" {
             mutate {
               replace => {
-                "[data_stream][namespace]" => "%{[@metadata][elastic_environment]}"
+                "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
           } else if [data_stream][type] == "metrics" and [agent][name] == "java" and [container][id] {
             mutate {
               replace => {
                 "[data_stream][dataset]" => "apm.app.kubernetes"
-                "[data_stream][namespace]" => "%{[@metadata][elastic_environment]}"
+                "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
           }

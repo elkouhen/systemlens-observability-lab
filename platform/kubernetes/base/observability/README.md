@@ -32,9 +32,10 @@ Le routage des données applicatives est exclusivement défini dans
 `apm-logstash.yaml`. Les applications émettent
 `<type><plateforme_sur_3_caractères>-<namespace>` (par exemple
 `h0p1-supermarket`). Logstash le décode, ajoute `labels.ptf: 0p1` et
-`labels.namespace: supermarket`, puis normalise `service.environment` vers
-`homologation`. Les règles sont : `r` → `recette`, `p` → `production`, `h` →
-`homologation`, `i` → `integration` et `d` → `developpement`. Seules les
+`labels.namespace: supermarket`, puis normalise `service.environment` avec le
+dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
+`r` → `recette`, `p` → `production`, `h` → `homologation`, `i` →
+`integration` et `d` → `developpement`. Seules les
 métriques APM Java produites dans un conteneur sont reroutées vers le data
 stream applicatif correspondant, par exemple
 `metrics-apm.app.kubernetes-homologation`. Les logs, traces, erreurs et
