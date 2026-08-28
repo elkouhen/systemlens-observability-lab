@@ -12,6 +12,8 @@ Maven.
 
 Pour intégrer une nouvelle application Java dans la chaîne APM, logs ECS et
 Logstash, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
+Pour vérifier l’intégration APM existante de bout en bout, consulter le
+[guide APM applications et Kubernetes](../docs/apm-application-kubernetes.md).
 
 ## Documentation externe
 

@@ -7,6 +7,8 @@ modification.
 
 - [`prd-poc-observabilite-elk.md`](prd-poc-observabilite-elk.md) : objectifs,
   périmètre et critères d'acceptation du POC d'observabilité Elastic.
+- [`apm-application-kubernetes.md`](apm-application-kubernetes.md) : impacts
+  de l'APM côté applications Java et Kubernetes, avec points de vérification.
 
 ## Vérification reproductible
 
