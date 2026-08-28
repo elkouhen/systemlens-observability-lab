@@ -41,12 +41,11 @@ port 5045 et les décode depuis `kubernetes.namespace`. Les identités utilisent
 le dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
 `r` → `recette`, `p` → `production`, `h` → `homologation`, `i` →
 `integration` et `d` → `developpement`. Les traces Java et les métriques APM
-applicatives détaillées (`apm.app.*`) sont reroutées vers le namespace du data
-stream correspondant à l'environnement lorsque `kubernetes.namespace` est
-présent. Les métriques agrégées APM qui ne portent pas cette métadonnée restent
-dans leur namespace d'origine. Le dataset APM d'origine est conservé afin que
-chaque famille de métriques garde son mapping, par exemple
-`metrics-apm.app.order_service-homologation`. Les événements non Java
+applicatives détaillées (`apm.app.*`) sont reroutées vers un dataset mutualisé
+par plateforme (`apm.app.0tl`) et vers le namespace du data stream correspondant
+à l'environnement lorsque `kubernetes.namespace` est présent. Les métriques
+agrégées APM qui ne portent pas cette métadonnée restent dans leur namespace et
+dataset d'origine. Les événements non Java
 conservent leur data stream d'origine, mais bénéficient de
 la normalisation et des labels lorsque leur environnement respecte ce format.
 Les logs applicatifs Kubernetes respectant cette convention sont également
@@ -57,6 +56,29 @@ Les deux sorties Elasticsearch activent `data_stream => true`,
 `data_stream_auto_routing => true` et `ecs_compatibility => "v8"` : les champs
 `data_stream.*` déterminent le data stream cible et les événements restent
 compatibles ECS v8.
+
+### Règle de mutualisation des pipelines
+
+Toute mutualisation de filtre entre les pipelines `apm` et
+`kubernetes-logs` doit préserver la responsabilité de routage de chaque
+signal. Un filtre commun peut enrichir les champs ECS et les labels, mais ne
+doit pas modifier globalement `data_stream.type`, `data_stream.dataset` ou
+`data_stream.namespace` sans condition explicite sur le type et le dataset.
+
+- Le pipeline APM mutualise le `data_stream.dataset` au niveau plateforme
+  (`apm.app.<code_plateforme>`) pour les traces Java et les métriques
+  applicatives `apm.app.*` portant les métadonnées Kubernetes nécessaires.
+  Le `data_stream.namespace` porte l’environnement.
+- Le pipeline des logs Kubernetes est propriétaire du dataset `kube-*` et du
+  namespace d’environnement pour les événements `kubernetes.container_logs`.
+- Une valeur `service.environment` déjà fournie par l’agent reste prioritaire ;
+  la convention du namespace Kubernetes ne sert que de valeur de secours.
+
+Toute nouvelle règle de routage doit donc préciser dans cette documentation sa
+source, ses conditions, son dataset cible, son namespace cible et la
+compatibilité de mapping attendue. Cette contrainte évite qu’un filtre
+réutilisé mélange des familles de métriques ou casse le mapping d’un data
+stream existant.
 
 Après le déploiement, vérifier les deux composants et le relais :
 

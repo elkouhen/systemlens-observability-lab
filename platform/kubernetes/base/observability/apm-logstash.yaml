@@ -44,8 +44,15 @@ data:
               "[labels][ptf]" => "%{platform_code}"
               "[labels][namespace]" => "%{application_namespace}"
             }
-            replace => {
-              "[service][environment]" => "%{[@metadata][environment]}"
+          }
+
+          # Une valeur explicitement fournie par l'agent Java est prioritaire.
+          # Le namespace Kubernetes ne sert que de valeur de secours.
+          if ![service][environment] or [service][environment] == "" {
+            mutate {
+              replace => {
+                "[service][environment]" => "%{[@metadata][environment]}"
+              }
             }
           }
 
@@ -53,6 +60,7 @@ data:
           if [agent][name] == "java" and [data_stream][type] == "traces" {
             mutate {
               replace => {
+                "[data_stream][dataset]" => "apm.app.%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
@@ -65,6 +73,7 @@ data:
              [data_stream][dataset] =~ /^apm\.app\./ {
             mutate {
               replace => {
+                "[data_stream][dataset]" => "apm.app.%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
@@ -76,8 +85,8 @@ data:
         }
       }
 
-      # Le dataset APM d'origine est conservé afin d'éviter de mélanger
-      # des mappings de métriques différents dans un même data stream.
+      # Les traces et métriques applicatives partagent le dataset de la
+      # plateforme ; le namespace sépare les environnements.
     }
 
     output {

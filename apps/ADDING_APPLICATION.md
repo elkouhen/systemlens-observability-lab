@@ -87,15 +87,16 @@ Les types acceptés sont `r` (recette), `p` (production), `h` (homologation),
 `service.environment` avec ce nom canonique. Pour les logs, il utilise
 `kubernetes.namespace`, y compris pour l'APM.
 
-Les métriques APM dont `agent.name` vaut `java` et qui portent un `container.id`
-sont routées vers :
+Les métriques APM dont `agent.name` vaut `java` et qui portent les métadonnées
+Kubernetes sont mutualisées par plateforme et routées vers :
 
 ```text
-metrics-k8s-<code_environnement><code_plateforme>-<environnement-elastic>
+metrics-apm.app.<code_plateforme>-<environnement-elastic>
 ```
 
-Les traces et erreurs conservent leur data stream d'origine, tout en portant le
-`service.environment` normalisé et les labels d'enrichissement. Les logs
+Les traces suivent la même règle de dataset mutualisé par plateforme. Les
+traces et erreurs portent le `service.environment` normalisé et les labels
+d'enrichissement. Les logs
 applicatifs Kubernetes dont la valeur source respecte la convention sont
 regroupés dans le même namespace Elastic, par exemple :
 
@@ -119,7 +120,7 @@ Discover avec les filtres suivants :
 
 ```kql
 # Métriques Java en homologation
-data_stream.dataset : "k8s-h0tl"
+data_stream.dataset : "apm.app.0tl"
 and data_stream.namespace : "homologation"
 and agent.name : "java"
 ```
