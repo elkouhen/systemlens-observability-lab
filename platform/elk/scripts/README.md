@@ -12,7 +12,8 @@ ne stockent aucun mot de passe dans le dépôt.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et met à jour la
    policy PostgreSQL Fleet existante afin qu'elle ne s'exécute que sur
    `data-01`.
-3. `deploy-kibana-dashboard.sh` importe un export NDJSON dans Kibana.
+3. `delete-kibana-dashboard.sh` supprime les objets sauvegardés du dashboard
+   MongoDB retiré.
 4. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
    qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
    PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script

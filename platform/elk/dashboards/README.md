@@ -14,7 +14,7 @@ sans export manuel à versionner.
 | Santé des hôtes | **[Metrics System] Overview** | `system.cpu`, `system.memory`, `system.filesystem`, `system.network` | CPU et charge, mémoire utilisée, saturation des volumes, débit et erreurs réseau, processus. |
 | Santé du cluster | **[Metrics Kubernetes] Cluster Overview**, **Nodes**, **Deployments**, **Pods** | `kubernetes.container`, `kubernetes.pod`, `kubernetes.state_*` | CPU/mémoire par pod et nœud, pods non prêts, redémarrages, réplicas souhaités/disponibles, capacité des volumes. |
 | Brokers et consommateurs | **[Metrics Kafka] Overview** | `kafka.broker`, `kafka.partition`, `kafka.consumergroup` | Brokers et contrôleurs actifs, partitions sous-répliquées, taille/lag des consumer groups, trafic réseau et JVM. |
-| Réplication MongoDB | **[Metrics MongoDB] Overview** et **SystemLens · MongoDB clusters** | `mongodb.status`, `mongodb.metrics`, `mongodb.replstatus`, `mongodb.collstats` | Primary/secondary, état du replica set, connexions, opérations, stockage et latence. |
+| Réplication MongoDB | **[Metrics MongoDB] Overview** | `mongodb.status`, `mongodb.metrics`, `mongodb.replstatus`, `mongodb.collstats` | Primary/secondary, état du replica set, connexions, opérations, stockage et latence. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `postgresql.activity`, `postgresql.database`, `postgresql.bgwriter`, `postgresql.statement` | Sessions actives/bloquées, taille et croissance, cache, écritures/checkpoints et requêtes coûteuses. |
 | Services applicatifs | Observability > APM > Services | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques JVM. |
 | Santé de la collecte | **[Elastic Agent] Agent metrics**, Fleet > Agents et services Beats de `data-03` | `elastic_agent.*` et métriques Beats | Agents Fleet sains sur `data-01`/`data-02`, services Filebeat/Metricbeat actifs sur `data-03`, erreurs d'input, débit d'événements et retards de collecte. |
@@ -43,14 +43,6 @@ make dashboards-verify
 La cible n'affiche aucun secret et échoue en signalant précisément le jeu de
 données absent. Elle permet de distinguer un dashboard vide d'un problème de
 collecte.
-
-## Fichiers SystemLens
-
-- `mongodb-cluster-primary.ndjson` : dashboard SystemLens du replica set
-  MongoDB et de son primary.
-
-Importer ce fichier avec `make dashboard-deploy`, ou sélectionner un autre
-export NDJSON en argument de `platform/elk/scripts/deploy-kibana-dashboard.sh`.
 
 ## Documentation externe
 

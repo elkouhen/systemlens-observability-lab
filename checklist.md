@@ -69,8 +69,8 @@ attendu.
   `service.name` et `host.name` adaptés : **[Metrics System] Overview**,
   **[Metrics Kubernetes] Cluster Overview**, **Nodes**, **Deployments** et
   **Pods**, **[Metrics Kafka] Overview**, **[Metrics MongoDB] Overview**,
-  **SystemLens · MongoDB clusters**, **[Metrics PostgreSQL] Database
-  Overview**, **[Elastic Agent] Agent metrics** et Observability > APM >
+  **[Metrics PostgreSQL] Database Overview**, **[Elastic Agent] Agent metrics**
+  et Observability > APM >
   Services. Pour PostgreSQL, ne retenir que `data-01`.
 - [ ] Si Fleet ou Beats est modifié, confirmer dans Kibana que les agents Fleet
   de `data-01` et `data-02` sont sains, et que Filebeat et Metricbeat sont

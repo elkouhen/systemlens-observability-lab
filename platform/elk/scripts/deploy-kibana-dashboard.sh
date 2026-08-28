@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Importe un dashboard Kibana et ses dépendances de manière idempotente.
+# Importe un export NDJSON Kibana de manière idempotente.
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elk_dir="$(cd "${script_dir}/.." && pwd)"
-dashboard_file="${1:-${elk_dir}/dashboards/mongodb-cluster-primary.ndjson}"
+dashboard_file="${1:?Usage : $0 <export.ndjson>}"
 kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
 kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.poc.test:443:127.0.0.1}"

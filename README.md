@@ -251,8 +251,7 @@ allocations natives.
    plateforme, normalisés depuis `kubernetes.namespace`, par exemple
    `metrics-k8s-h0tl-homologation`. Le dashboard System et les dashboards
    Kubernetes, Kafka, MongoDB et PostgreSQL sont fournis par les packages
-   Fleet déclarés dans Kubernetes ; seul le dashboard SystemLens MongoDB
-   s'importe avec `make dashboard-deploy`. Les policies Fleet MongoDB/Kafka
+   Fleet déclarés dans Kubernetes. Les policies Fleet MongoDB/Kafka
    restent visibles et gérées par la préconfiguration Kibana déclarée dans
    Kubernetes.
 
@@ -325,21 +324,6 @@ make dashboards-verify
 
 Le contrôle remonte les jeux de données absents. Il permet de corriger la
 collecte avant de conclure qu'un dashboard est vide.
-
-### Dashboard MongoDB : clusters et primary
-
-Déployer ou mettre à jour le dashboard automatiquement avec :
-
-```bash
-make dashboard-deploy
-```
-
-La commande importe [`mongodb-cluster-primary.ndjson`](platform/elk/dashboards/mongodb-cluster-primary.ndjson)
-dans Kibana et remplace les objets SystemLens existants. Le dashboard
-**SystemLens · MongoDB clusters** affiche un replica set par ligne, son primary
-issu du relevé `mongodb.replstatus` le plus récent, et l'horodatage de ce
-relevé. Il restaure une fenêtre de temps de 24 heures et se rafraîchit toutes
-les minutes.
 
 Générer de l’activité avant la recette : ouvrir `https://kibana.poc.test`,
 puis appeler l’endpoint de l’application via son Service/Ingress disponible.

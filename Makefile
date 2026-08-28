@@ -28,7 +28,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply beats-vm-provision fleet-data02-provision \
 	deploy elasticsearch-ready package-registry-ready kibana-ready apm-kibana-role-apply \
-	dashboard-deploy dashboards-verify apm-report-api-key-create \
+	dashboard-delete dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
 
@@ -253,10 +253,10 @@ vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
 
 ##@ Dashboards et consultation
 
-dashboard-deploy: ## Importer ou mettre à jour le dashboard MongoDB
+dashboard-delete: ## Supprimer les objets sauvegardés du dashboard MongoDB retiré
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./platform/elk/scripts/deploy-kibana-dashboard.sh
+		./platform/elk/scripts/delete-kibana-dashboard.sh
 
 dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboards sont récents
 	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
