@@ -195,3 +195,51 @@ spec:
                       to: span.id
                   ignore_missing: true
                   fail_on_error: false
+      # Les métriques applicatives sont scrutées par l'Elastic Agent puis
+      # envoyées vers Logstash avec un dataset mutualisé par plateforme.
+      - id: h0tl-supermarche-app-prometheus
+        type: prometheus/metrics
+        use_output: default
+        streams:
+          - id: order-service-kafka-client
+            data_stream:
+              type: metrics
+              dataset: apm.app.0tl
+              namespace: homologation
+            metricsets: [collector]
+            hosts: ["http://order-service.h0tl-supermarche-app.svc:3000"]
+            metrics_path: /actuator/prometheus
+            period: 15s
+            processors:
+              - add_fields:
+                  target: service
+                  fields:
+                    name: order-service
+          - id: inventory-service-kafka-client
+            data_stream:
+              type: metrics
+              dataset: apm.app.0tl
+              namespace: homologation
+            metricsets: [collector]
+            hosts: ["http://inventory-service.h0tl-supermarche-app.svc:3001"]
+            metrics_path: /actuator/prometheus
+            period: 15s
+            processors:
+              - add_fields:
+                  target: service
+                  fields:
+                    name: inventory-service
+          - id: restock-service-kafka-client
+            data_stream:
+              type: metrics
+              dataset: apm.app.0tl
+              namespace: homologation
+            metricsets: [collector]
+            hosts: ["http://restock-service.h0tl-supermarche-app.svc:3002"]
+            metrics_path: /actuator/prometheus
+            period: 15s
+            processors:
+              - add_fields:
+                  target: service
+                  fields:
+                    name: restock-service

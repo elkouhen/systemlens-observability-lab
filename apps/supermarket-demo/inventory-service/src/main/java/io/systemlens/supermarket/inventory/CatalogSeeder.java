@@ -1,5 +1,7 @@
 package io.systemlens.supermarket.inventory;
 
+import io.systemlens.supermarket.inventory.application.port.out.ProductPort;
+import io.systemlens.supermarket.inventory.domain.Product;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -20,16 +22,16 @@ public class CatalogSeeder implements CommandLineRunner {
             new Product("EGGS-12", "Œufs plein air x12", 500)
     );
 
-    private final ProductRepository productRepository;
+    private final ProductPort productPort;
 
-    public CatalogSeeder(ProductRepository productRepository) {
-        this.productRepository = productRepository;
+    public CatalogSeeder(ProductPort productPort) {
+        this.productPort = productPort;
     }
 
     @Override
     public void run(String... args) {
-        if (productRepository.count() == 0) {
-            productRepository.saveAll(CATALOG);
+        if (productPort.count() == 0) {
+            productPort.saveAll(CATALOG);
         }
     }
 }

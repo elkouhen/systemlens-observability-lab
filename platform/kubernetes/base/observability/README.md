@@ -90,8 +90,9 @@ kubectl -n elastic-stack logs deployment/apm-logstash --tail=50
 Le résultat attendu est deux Deployments `1/1`, les listeners Logstash sur les
 ports `5044` et `5045`, sans erreur d'indexation Elasticsearch.
 
-Les traces et métriques conservent l'environnement défini par les variables
-`ELASTIC_APM_*` ; les logs stdout et les métriques Kubernetes passent par
+Les traces conservent l'environnement défini par les variables `ELASTIC_APM_*`.
+Les métriques applicatives exposées par `/actuator/prometheus`, notamment les
+métriques Kafka client, les logs stdout et les métriques Kubernetes passent par
 l'Elastic Agent Kubernetes puis Logstash.
 
 ## Documentation externe

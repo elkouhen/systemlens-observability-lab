@@ -26,4 +26,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    enable:
+      kafka: true
+  export:
+    prometheus:
+      enabled: true

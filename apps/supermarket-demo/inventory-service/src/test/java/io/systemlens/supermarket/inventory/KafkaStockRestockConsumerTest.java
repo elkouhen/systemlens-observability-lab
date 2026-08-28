@@ -1,6 +1,8 @@
 package io.systemlens.supermarket.inventory;
 
 import io.systemlens.supermarket.contract.StockRestockRequested;
+import io.systemlens.supermarket.inventory.adapter.in.messaging.KafkaStockRestockConsumer;
+import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -10,7 +12,7 @@ import static org.mockito.Mockito.verify;
 
 class KafkaStockRestockConsumerTest {
 
-    private final ReservationService reservationService = mock(ReservationService.class);
+    private final InventoryUseCase reservationService = mock(InventoryUseCase.class);
     private final KafkaStockRestockConsumer consumer = new KafkaStockRestockConsumer(reservationService);
 
     @Test

@@ -26,6 +26,23 @@ Avec `ELASTIC_APM_ENABLE_LOG_CORRELATION=true`, ces événements contiennent les
 identifiants de trace injectés par l'agent et sont donc accessibles depuis la
 vue Logs des transactions APM.
 
+## Architecture hexagonale
+
+Le module sépare le métier des frameworks et des systèmes externes :
+
+- `domain/` contient les règles métier du stock et ne dépend pas de Spring,
+  JPA, MongoDB ou Kafka ;
+- `application/` contient le cas d’usage de réservation et les ports entrants
+  et sortants ;
+- `adapter/in/` contient les adaptateurs REST et Kafka ;
+- `adapter/out/` contient les adaptateurs de persistance JPA/MongoDB et de
+  publication Kafka.
+
+Toute évolution du stockage ou du transport doit rester dans un adaptateur.
+Le cas d’usage ne doit dépendre que des ports et du domaine, afin de préserver
+la testabilité et de permettre de remplacer une technologie sans modifier les
+règles métier.
+
 ## Documentation externe
 
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)
