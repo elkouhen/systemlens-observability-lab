@@ -28,7 +28,25 @@ command -v jq >/dev/null 2>&1 || {
 export ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test:443}"
 export KIBANA_URL="${KIBANA_URL:-https://kibana.poc.test}"
 _credentials_namespace="${ELASTIC_NAMESPACE:-elastic-stack}"
+_credentials_app_namespace="${APP_NAMESPACE:-h0tl-supermarche-app}"
 _credentials_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:127.0.0.1}"
+
+# Le Secret applicatif est la source persistante du mot de passe PostgreSQL.
+# Une valeur déjà fournie par un coffre-fort reste prioritaire ; le Secret est
+# utilisé pour permettre à `source` puis `make deploy` de fonctionner sans
+# recopier le mot de passe dans le shell.
+if [[ -z "${POSTGRESQL_PASSWORD:-}" ]]; then
+  POSTGRESQL_PASSWORD="$(kubectl -n "${_credentials_app_namespace}" get secret postgresql-credentials \
+    -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode)" || {
+      _credentials_fail 'impossible de lire le secret postgresql-credentials.'
+      return 1
+    }
+  [[ -n "${POSTGRESQL_PASSWORD}" ]] || {
+    _credentials_fail 'le secret postgresql-credentials ne contient pas de mot de passe.'
+    return 1
+  }
+  export POSTGRESQL_PASSWORD
+fi
 
 ELASTICSEARCH_PASSWORD="$(kubectl -n "${_credentials_namespace}" get secret elasticsearch-es-elastic-user \
   -o jsonpath='{.data.elastic}' | base64 --decode)" || {
@@ -61,5 +79,5 @@ if [[ -z "${ELASTICSEARCH_API_KEY:-}" ]]; then
   export ELASTICSEARCH_API_KEY
 fi
 
-printf 'Identifiants chargés : ELASTICSEARCH_PASSWORD, KIBANA_PASSWORD, APM_SECRET_TOKEN, ELASTICSEARCH_API_KEY.\n'
-unset _credentials_namespace _credentials_resolve _credentials_payload
+printf 'Identifiants chargés : ELASTICSEARCH_PASSWORD, KIBANA_PASSWORD, APM_SECRET_TOKEN, ELASTICSEARCH_API_KEY, POSTGRESQL_PASSWORD.\n'
+unset _credentials_namespace _credentials_app_namespace _credentials_resolve _credentials_payload

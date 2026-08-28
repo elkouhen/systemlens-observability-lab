@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-nodes=(data-01 data-02 data-03)
+profile="${POC_PROFILE:-minimal}"
+case "$profile" in
+  minimal) nodes=(data-01) ;;
+  distributed) nodes=(data-01 data-02 data-03) ;;
+  *) printf 'POC_PROFILE doit valoir minimal ou distributed\n' >&2; exit 2 ;;
+esac
 
 run_on_vm() {
   local node="$1"
@@ -17,13 +22,16 @@ for node in "${nodes[@]}"; do
   fi
 done
 
-printf '\n== MongoDB replica set ==\n'
+printf '\n== MongoDB (%s) ==\n' "$profile"
 mongo_status='JSON.stringify(rs.status().members.map(m => ({name:m.name,state:m.stateStr,health:m.health})))'
-for node in "${nodes[@]}"; do
-  if run_on_vm "$node" "timeout 15 sudo podman exec poc-mongodb mongosh --quiet --eval \"${mongo_status}\""; then
-    break
-  fi
-done
+if [[ "$profile" == distributed ]]; then
+  for node in "${nodes[@]}"; do
+    if run_on_vm "$node" "timeout 15 sudo podman exec poc-mongodb mongosh --quiet --eval \"${mongo_status}\""; then break; fi
+  done
+else
+  run_on_vm data-01 "timeout 15 sudo podman exec poc-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'" \
+    || printf 'MongoDB indisponible\n'
+fi
 
 printf '\n== Kafka KRaft quorum ==\n'
 for node in "${nodes[@]}"; do

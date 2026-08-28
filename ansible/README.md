@@ -1,9 +1,17 @@
 # Provisionnement Ansible des VM
 
-Les playbooks de ce répertoire créent l'infrastructure de données partagée :
-trois VM Vagrant avec MongoDB, Kafka, PostgreSQL sur `data-01`. Aucun
-collecteur EDOT n'est provisionné ; les profils de collecte reposent sur
-Beats et Fleet.
+Les playbooks de ce répertoire créent l'infrastructure de données partagée.
+Le profil `minimal` crée uniquement `data-01`, avec MongoDB standalone, Kafka
+mono-broker et PostgreSQL. Le profil `distributed` crée les trois VM avec
+replica set MongoDB et quorum Kafka KRaft. Aucun collecteur EDOT n'est
+provisionné ; les profils de collecte reposent sur Beats et Fleet.
+
+Le profil est transmis automatiquement par Vagrant ; pour un changement de
+topologie, utiliser `POC_PROFILE=minimal` ou `POC_PROFILE=distributed` avec la
+cible Make correspondante.
+
+La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
+sur `data-01`, commun aux deux profils.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |

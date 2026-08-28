@@ -4,6 +4,23 @@ Ce dépôt déploie un environnement de recette destiné à valider la visibilit
 de bout en bout dans Elastic : infrastructure, Kafka, MongoDB, PostgreSQL et deux
 applications Java instrumentées avec Elastic APM.
 
+## Profils d'exécution
+
+Le profil est sélectionné par `POC_PROFILE` et vaut `minimal` par défaut. Le
+profil minimal est destiné à un Mac Apple Silicon avec 16 Gio : une VM
+`data-01` de 3 Gio héberge MongoDB standalone, Kafka mono-broker et PostgreSQL.
+Le profil distribué conserve les trois VM, le replica set MongoDB et le quorum
+Kafka KRaft à trois nœuds :
+
+```bash
+make deploy
+POC_PROFILE=distributed make deploy
+```
+
+Le changement de profil modifie la topologie Vagrant. Arrêter et recréer les VM
+concernées avant de changer de profil. Le profil minimal ne valide pas la
+réplication ni la tolérance aux pannes.
+
 ## Architecture
 
 | Composant | Implantation | Configuration principale | Données observées |
@@ -26,6 +43,12 @@ HTTP synchrone entre les deux applications (commande passée en caisse).
 Quand une réservation épuise le stock, `inventory-service` publie un événement
 Kafka. `restock-service` produit alors une demande de réassort, appliquée par
 `inventory-service`, propriétaire du catalogue.
+
+Pour afficher le stock courant du catalogue PostgreSQL :
+
+```bash
+make stock-view
+```
 
 ## Guides de lecture
 

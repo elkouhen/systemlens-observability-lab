@@ -5,7 +5,9 @@ ne stockent aucun mot de passe dans le dépôt.
 
 ## Lire et exécuter
 
-1. `load-credentials.sh` lit les secrets ECK et exporte les variables utiles.
+1. `load-credentials.sh` lit les secrets ECK et le Secret
+   `h0tl-supermarche-app/postgresql-credentials`, puis exporte les variables
+   utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
    Il doit être *sourcé* : `source ./platform/elk/scripts/load-credentials.sh`.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et met à jour la
    policy PostgreSQL Fleet existante afin qu'elle ne s'exécute que sur

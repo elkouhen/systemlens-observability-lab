@@ -1,11 +1,19 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+PROFILE = ENV.fetch("POC_PROFILE", "minimal")
+abort("POC_PROFILE doit valoir minimal ou distributed") unless %w[minimal distributed].include?(PROFILE)
+
 NODES = [
   { name: "data-01", id: 1, ip: "192.168.33.10", jolokia_port: 18_781, jmx_port: 19_991 },
   { name: "data-02", id: 2, ip: "192.168.33.11", jolokia_port: 18_782, jmx_port: 19_992 },
   { name: "data-03", id: 3, ip: "192.168.33.12", jolokia_port: 18_783, jmx_port: 19_993 }
-].freeze
+].freeze.select { |node| PROFILE == "distributed" || node[:id] == 1 }
+
+VM_MEMORY = PROFILE == "distributed" ? 1536 : 3072
+KAFKA_CONTROLLER_VOTERS = PROFILE == "distributed" ?
+  "1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093" :
+  "1@192.168.33.10:9093"
 
 Vagrant.configure("2") do |config|
   config.vm.box = "cloud-image/rocky-10"
@@ -38,8 +46,8 @@ Vagrant.configure("2") do |config|
       node.vm.provider "virtualbox" do |vb|
         # Rocky Linux 10 needs an Intel NIC for the host-only interface.
         vb.customize ["modifyvm", :id, "--nictype2", "82540EM"]
-        vb.memory = "1536"
-        vb.cpus = 1
+        vb.memory = VM_MEMORY
+        vb.cpus = PROFILE == "distributed" ? 1 : 2
       end
 
       # data-01 et data-02 utilisent Elastic Agent/Fleet ; data-03 utilise
@@ -50,6 +58,8 @@ Vagrant.configure("2") do |config|
         ansible.extra_vars = {
           "poc_node_id" => node_config[:id],
           "poc_node_ip" => node_config[:ip],
+          "poc_profile" => PROFILE,
+          "kafka_controller_voters" => KAFKA_CONTROLLER_VOTERS,
           "elasticsearch_api_key" => elasticsearch_api_key || "",
           "fleet_enrollment_token" => fleet_enrollment_token || "",
           "postgresql_password" => postgresql_password || "",

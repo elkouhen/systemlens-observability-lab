@@ -4,6 +4,7 @@ SHELL := /bin/bash
 KUBECTL ?= kubectl
 VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
+POC_PROFILE ?= minimal
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
 APP_IMAGE_TAG ?= 1.1.1
@@ -29,7 +30,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	deploy elasticsearch-ready package-registry-ready kibana-ready apm-kibana-role-apply \
 	dashboard-deploy dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
+	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
 
 ##@ Informations et diagnostic
 
@@ -126,11 +127,12 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana 8.11.3 avec le chart 
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
-	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
-	@$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
-		--from-literal=password="$$POSTGRESQL_PASSWORD" --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	@$(KUBECTL) -n $(APP_NAMESPACE) create secret generic postgresql-credentials \
-		--from-literal=password="$$POSTGRESQL_PASSWORD" --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	@postgresql_password="$${POSTGRESQL_PASSWORD:-$$( $(KUBECTL) -n $(APP_NAMESPACE) get secret postgresql-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode )}"; \
+	test -n "$$postgresql_password" || { echo "Définir POSTGRESQL_PASSWORD hors Git (requis au premier déploiement)" >&2; exit 1; }; \
+	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
+		--from-literal=password="$$postgresql_password" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic postgresql-credentials \
+		--from-literal=password="$$postgresql_password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k platform/kubernetes/overlays/local
@@ -181,7 +183,7 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-server-ca --from-file=ca.crt="$$ca_file" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstration
-	@$(KUBECTL) apply -k apps/supermarket-demo/kubernetes
+	@$(KUBECTL) kustomize --load-restrictor LoadRestrictionsNone apps/supermarket-demo/kubernetes-profiles/$(POC_PROFILE) | $(KUBECTL) apply -f -
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
 		order-service=order-service:$(APP_IMAGE_TAG) apm-truststore=order-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
@@ -208,7 +210,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	$(MAKE) elk-deploy; \
 	source ./platform/elk/scripts/load-credentials.sh; \
 	$(MAKE) fleet-sync; \
-	POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
+	POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
@@ -216,6 +218,8 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes >/dev/null
+	@$(KUBECTL) kustomize --load-restrictor LoadRestrictionsNone apps/supermarket-demo/kubernetes-profiles/minimal >/dev/null
+	@$(KUBECTL) kustomize --load-restrictor LoadRestrictionsNone apps/supermarket-demo/kubernetes-profiles/distributed >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml ansible/site.yml
@@ -230,7 +234,7 @@ fleet-sync: ## Synchroniser les pipelines et la policy PostgreSQL Fleet déjà c
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+	FLEET_VM_NODES='$(if $(filter minimal,$(POC_PROFILE)),data-01,data-01 data-02)' POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/provision-fleet-vms.sh
 
 fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet déclarée
@@ -239,12 +243,13 @@ fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet d
 		./platform/elk/scripts/provision-fleet-vms.sh
 
 beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
-	@$(VAGRANT) provision data-03
+	@test '$(POC_PROFILE)' = distributed || { echo "POC_PROFILE=distributed requis pour data-03" >&2; exit 1; }
+	@POC_PROFILE='$(POC_PROFILE)' $(VAGRANT) provision data-03
 
 vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
 	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
-	@POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
+	@POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 
 ##@ Dashboards et consultation
 
@@ -300,6 +305,9 @@ beats-api-key-create: ## Créer une clé API brute id:api_key pour Filebeat/Metr
 		| jq -r '.id + ":" + .api_key'
 
 ##@ Logs applicatifs
+
+stock-view: ## Afficher le stock courant du catalogue PostgreSQL
+	@$(VAGRANT) ssh data-01 -c 'sudo podman exec poc-postgresql psql -U observability -d observability_test -P pager=off -c "SELECT id, name, stock_quantity AS stock FROM products ORDER BY id;"'
 
 order-service-logs-follow: ## Suivre les logs de order-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/order-service
