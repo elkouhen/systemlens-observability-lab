@@ -43,6 +43,14 @@ Le cas d’usage ne doit dépendre que des ports et du domaine, afin de préserv
 la testabilité et de permettre de remplacer une technologie sans modifier les
 règles métier.
 
+Le modèle de domaine doit rester propriétaire des invariants du stock :
+`Product` est l'agrégat racine, `Quantity` est le value object des quantités
+strictement positives et `StockReservation` représente le résultat métier d'une
+réservation. Les contrôleurs, consommateurs Kafka et adapters de persistance
+ne doivent pas reproduire ces règles. Les mesures techniques comme la durée
+d'exécution sont produites par la couche application ; elles ne doivent pas
+être simulées dans le domaine.
+
 ## Documentation externe
 
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)
