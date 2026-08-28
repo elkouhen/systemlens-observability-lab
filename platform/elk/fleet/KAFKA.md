@@ -27,7 +27,7 @@ les MBeans JMX nécessaires aux métriques JVM et broker détaillées. Le bind s
 
 ## Lire la policy
 
-1. La policy `data-01-02-fleet` rattache aussi Kafka à la VM Elastic Agent ; son
+1. La policy `data-fleet` rattache aussi Kafka à la VM Elastic Agent ; son
    nom historique ne limite pas son contenu à MongoDB.
 2. Le bloc `logfile` est actif et constitue l'unique source des logs Kafka sur
    `data-01` et `data-02`. Ne pas y démarrer Filebeat en parallèle ; `data-03`

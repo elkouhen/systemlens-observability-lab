@@ -26,9 +26,9 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
-	postgresql-credentials-apply beats-vm-provision fleet-data02-provision \
+	postgresql-credentials-apply beats-vm-provision fleet-data02-provision kafka-jolokia-verify mongodb-workload \
 	deploy elasticsearch-ready package-registry-ready kibana-ready apm-kibana-role-apply \
-	dashboard-delete dashboards-verify apm-report-api-key-create \
+	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
 
@@ -43,9 +43,8 @@ credentials-show: ## Indiquer comment charger les identifiants dans le shell cou
 	@printf 'source ./platform/elk/scripts/load-credentials.sh\n'
 
 cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
-	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\nPASSWORD=%s\n' \
-		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test' "$$es_password"
+	@printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\n' \
+		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test'
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -54,7 +53,7 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
-	@./scripts/cluster-status.sh
+	@POC_PROFILE='$(POC_PROFILE)' ./scripts/cluster-status.sh
 
 ##@ Construction et préparation locale
 
@@ -174,7 +173,7 @@ apm-logstash-deploy: apm-kibana-role-apply apm-logstash-credentials-apply ## Dé
 
 apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
 	@set -euo pipefail; \
-	$(KUBECTL) apply -f apps/supermarket-demo/kubernetes/namespace.yaml; \
+	$(KUBECTL) apply -f apps/supermarket-demo/kubernetes/base/namespace.yaml; \
 	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
 	ca_file="$$(mktemp)"; \
 	trap 'rm -f "$$ca_file"' EXIT; \
@@ -183,7 +182,7 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-server-ca --from-file=ca.crt="$$ca_file" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstration
-	@$(KUBECTL) kustomize --load-restrictor LoadRestrictionsNone apps/supermarket-demo/kubernetes-profiles/$(POC_PROFILE) | $(KUBECTL) apply -f -
+	@$(KUBECTL) apply -k apps/supermarket-demo/kubernetes-profiles/$(POC_PROFILE)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
 		order-service=order-service:$(APP_IMAGE_TAG) apm-truststore=order-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
@@ -218,8 +217,8 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes >/dev/null
-	@$(KUBECTL) kustomize --load-restrictor LoadRestrictionsNone apps/supermarket-demo/kubernetes-profiles/minimal >/dev/null
-	@$(KUBECTL) kustomize --load-restrictor LoadRestrictionsNone apps/supermarket-demo/kubernetes-profiles/distributed >/dev/null
+	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes-profiles/minimal >/dev/null
+	@$(KUBECTL) kustomize apps/supermarket-demo/kubernetes-profiles/distributed >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml ansible/site.yml
@@ -228,8 +227,15 @@ ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations 
 
 ##@ Provisionnement des VM et Fleet
 
-fleet-sync: ## Synchroniser les pipelines et la policy PostgreSQL Fleet déjà créée
-	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' ./platform/elk/scripts/sync-fleet-policies.sh
+fleet-sync: ## Synchroniser les pipelines, la policy Fleet et la compatibilité Kafka
+	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' POC_PROFILE='$(POC_PROFILE)' \
+		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./platform/elk/scripts/sync-fleet-policies.sh
+
+kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur data-01
+	@./scripts/check-kafka-jolokia.sh --url http://127.0.0.1:18781/jolokia
+
+mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
+	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < scripts/mongodb-elk-workload.js
 
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
@@ -238,6 +244,7 @@ fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la po
 		./platform/elk/scripts/provision-fleet-vms.sh
 
 fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet déclarée
+	@test '$(POC_PROFILE)' = distributed || { echo "POC_PROFILE=distributed requis pour data-02" >&2; exit 1; }
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	FLEET_VM_NODES='data-02' KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./platform/elk/scripts/provision-fleet-vms.sh
@@ -252,11 +259,6 @@ vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
 	@POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 
 ##@ Dashboards et consultation
-
-dashboard-delete: ## Supprimer les objets sauvegardés du dashboard MongoDB retiré
-	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./platform/elk/scripts/delete-kibana-dashboard.sh
 
 dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboards sont récents
 	@es_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \

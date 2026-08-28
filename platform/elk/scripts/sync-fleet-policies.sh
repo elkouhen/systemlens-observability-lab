@@ -6,10 +6,18 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elk_dir="$(cd "${script_dir}/.." && pwd)"
+command -v curl >/dev/null || { printf 'curl est requis.\n' >&2; exit 2; }
+command -v jq >/dev/null || { printf 'jq est requis.\n' >&2; exit 2; }
 elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test}"
 : "${ELASTICSEARCH_PASSWORD:?Definir ELASTICSEARCH_PASSWORD avant de synchroniser les pipelines}"
 kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
+fleet_policy_id='data-fleet'
+case "${POC_PROFILE:-minimal}" in
+  minimal) fleet_nodes=(data-01) ;;
+  distributed) fleet_nodes=(data-01 data-02) ;;
+  *) printf 'POC_PROFILE doit valoir minimal ou distributed.\n' >&2; exit 2 ;;
+esac
 
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.poc.test:443:127.0.0.1
@@ -18,6 +26,27 @@ kibana_args=(--fail --silent --show-error --insecure
   --resolve "${KIBANA_HOST:-kibana.poc.test}:443:127.0.0.1"
   -u "elastic:${kibana_password}" -H 'Content-Type: application/json'
   -H 'kbn-xsrf: systemlens-fleet-sync')
+
+# La policy et ses package policies restent déclarées par Kubernetes. Cette
+# étape ne fait que migrer les Agents déjà enrôlés dans une policy historique.
+fleet_agents="$(curl "${kibana_args[@]}" "${kibana_url}/api/fleet/agents?perPage=100")"
+for node in "${fleet_nodes[@]}"; do
+  agent_id="$(jq -r --arg node "${node}" --arg policy "${fleet_policy_id}" '
+    .items[] | select(.local_metadata.host.hostname == $node and .active == true and .status != "offline" and .policy_id != $policy) | .id
+  ' <<<"${fleet_agents}" | head -n 1)"
+  if [[ -n "${agent_id}" ]]; then
+    curl "${kibana_args[@]}" -X POST \
+      "${kibana_url}/api/fleet/agents/${agent_id}/reassign" \
+      --data "$(jq -n --arg policy "${fleet_policy_id}" '{policy_id: $policy}')" >/dev/null
+    printf 'Fleet agent reassigned: %s -> %s\n' "${node}" "${fleet_policy_id}"
+  fi
+done
+
+# Kafka 3.9 peut publier number-of-voters comme chaîne dans le MBean Raft.
+curl "${elasticsearch_args[@]}" -X PUT \
+  "${elasticsearch_url}/_ingest/pipeline/metrics-kafka.raft@custom" \
+  --data-binary "@${elk_dir}/fleet/kafka-raft-pipeline.json" >/dev/null
+printf 'Kafka Raft compatibility pipeline updated\n'
 
 # Les package policies Fleet sont préconfigurées par Kibana dans les manifests
 # Kubernetes. Ce script ne gère que les pipelines Elasticsearch @custom qui

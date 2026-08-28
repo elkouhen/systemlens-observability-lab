@@ -2,7 +2,7 @@
 # Enrôle les VM gérées par Fleet sans exposer le jeton dans le terminal.
 set -euo pipefail
 
-readonly policy_id='data-01-02-fleet'
+readonly policy_id='data-fleet'
 readonly kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
 readonly kibana_user="${KIBANA_USERNAME:-elastic}"
 readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.poc.test:443:127.0.0.1}"

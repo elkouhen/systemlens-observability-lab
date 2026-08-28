@@ -65,7 +65,7 @@ d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 
 Le tag des images Docker (`order-service:1.1.1` / `inventory-service:1.1.1` /
 `restock-service:1.1.1`,
-fixé dans `Makefile` et `kubernetes/deployment.yaml`) est géré indépendamment
+fixé dans `Makefile` et `kubernetes/base/deployment.yaml`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag

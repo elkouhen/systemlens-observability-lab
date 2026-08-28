@@ -176,7 +176,7 @@ importe dans k3d et déploie les trois applications. Une clé déjà fournie dan
 
    ```bash
    export ELASTICSEARCH_API_KEY='id:api_key'
-   # Token d'enrôlement unique de la policy Fleet `data-01-02-fleet`.
+   # Token d'enrôlement unique de la policy Fleet `data-fleet`.
    # Cette policy est déclarée dans le manifest Kibana Kubernetes.
    export FLEET_ENROLLMENT_TOKEN='…'
    vagrant up
@@ -304,7 +304,7 @@ téléchargement.
   `service.address`, jamais avec l’adresse locale de scrape.
 - PostgreSQL : il tourne seulement sur `data-01`; l'intégration Fleet collecte
   ses métriques et Filebeat y lit ses logs. L'input Fleet est conditionné
-  à `data-01`, bien que la policy soit commune aux trois VM.
+  à `data-01`, bien que la policy soit commune aux VM enrôlées.
 
 ## Recette des dashboards
 
@@ -336,8 +336,8 @@ doit créer une erreur APM contrôlée.
 | Observability > APM > Services | les trois services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration ; logs ECS corrélés par `trace.id` dans l’onglet Logs d’une transaction | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods, le trafic généré et qu’un log métier est émis pendant la transaction |
 | Observability > Infrastructure > Hosts | hôtes suivis par le profil Beats/Fleet | vérifier le service de collecte correspondant ; aucun service EDOT ne doit être présent |
 | Observability > Infrastructure > Inventory / logs | logs `kube-0tl` des trois pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
-| Intégration MongoDB | trois hôtes, état du replica set, connexions, opérations, stockage et logs MongoDB | exécuter `./scripts/cluster-status.sh`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
-| Intégration Kafka | trois brokers, contrôleurs KRaft, partitions, groupes, JVM/réseau/réplication et logs Kafka | contrôler le quorum avec `cluster-status.sh`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:8778` |
+| Intégration MongoDB | hôte(s) du profil, état du replica set en distribué ou du standalone en minimal, connexions, opérations, stockage et logs | exécuter `POC_PROFILE=${POC_PROFILE:-minimal} make vm-status`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
+| Intégration Kafka | broker mono-nœud en minimal ou trois brokers/contrôleurs KRaft en distribué, partitions, groupes, JVM/réseau et logs | contrôler le quorum avec `make vm-status`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:18781` |
 | PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |
 
 Une validation est réussie si les collecteurs Beats/Fleet attendus sont actifs,
@@ -359,21 +359,22 @@ persisté dans MongoDB et PostgreSQL :
 ansible-playbook -i ansible/inventory/vagrant.yml ansible/status.yml
 ```
 
-Pour Kafka 3.9, appliquer également le correctif Raft suivant : il retire
+Pour Kafka 3.9, `make fleet-sync` applique le correctif Raft qui retire
 l'attribut JMX absent `number-of-voters` afin que le champ `current_leader`
 soit indexé et visible dans la vue Raft.
 
 ```bash
-ELASTICSEARCH_PASSWORD='…' ansible-playbook ansible/kafka-raft-pipeline.yml
+source ./platform/elk/scripts/load-credentials.sh
+make fleet-sync
 ```
 
 L’inventaire utilise les ports SSH et clés privées générés par Vagrant ; il est
 donc valide après un `vagrant up` et doit être exécuté depuis la racine du
 dépôt.
 
-### Policy Fleet sur `data-01` et `data-02`
+### Policy Fleet sur les VM de données
 
-La policy `data-01-02-fleet` et ses intégrations MongoDB/Kafka sont déclarées dans
+La policy `data-fleet` et ses intégrations MongoDB/Kafka sont déclarées dans
 `platform/kubernetes/base/observability/kibana.yaml`. Les Agents de `data-01`
 et `data-02` doivent être enrôlés avec le **même** token de cette policy.
 Comme chaque Agent collecte `localhost`, les métriques restent correctement
@@ -385,17 +386,18 @@ Pour migrer des Agents déjà inscrits dans des policies historiques vers cette
 policy commune, exécuter :
 
 ```bash
-KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
+source ./platform/elk/scripts/load-credentials.sh
+make fleet-sync
 ```
 
-Le playbook ne crée ni policy ni package policy : Kubernetes reste la source de
-vérité. Il cible par défaut l’Ingress local `127.0.0.1` avec le nom d’hôte
-`kibana.poc.test`. Si Kibana est exposé ailleurs, remplacer ces valeurs sans
-modifier le playbook :
+La synchronisation ne crée ni policy ni package policy : Kubernetes reste la
+source de vérité. Elle cible par défaut l’Ingress local `127.0.0.1` avec le nom
+d’hôte `kibana.poc.test`. Si Kibana est exposé ailleurs, remplacer ces valeurs
+sans modifier le dépôt :
 
 ```bash
 KIBANA_URL='https://kibana.exemple.test' KIBANA_HOST='kibana.exemple.test' \
-  KIBANA_PASSWORD='…' ansible-playbook ansible/fleet-policies.yml
+  KIBANA_PASSWORD='…' make fleet-sync
 ```
 
 ## Constat de validation du 17 août 2026

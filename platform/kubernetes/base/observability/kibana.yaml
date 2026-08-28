@@ -123,8 +123,8 @@ spec:
       # Les deux VM Fleet partagent la même policy : les intégrations MongoDB
       # et Kafka parlent à localhost sur chaque VM. PostgreSQL est filtré sur
       # data-01, où le service est réellement présent.
-      - id: data-01-02-fleet
-        name: Data 01-02 — Elastic Agent
+      - id: data-fleet
+        name: Data — Elastic Agent
         namespace: default
         is_managed: true
         is_default: true

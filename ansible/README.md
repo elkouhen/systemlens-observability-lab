@@ -26,8 +26,9 @@ métriques sur une même VM.
 1. `inventory/vagrant.yml` : hôtes ciblés et connexion SSH.
 2. `site.yml` : provisionnement idempotent principal.
 3. `templates/` : unités Podman Quadlet et configurations Beats générées.
-4. `fleet-policies.yml` : policies par VM dans Kibana.
-5. `status.yml` et `kafka-raft-pipeline.yml` : diagnostic et correctif ciblé.
+4. `status.yml` : diagnostic détaillé des services sur les VM.
+5. La synchronisation Fleet, la migration des Agents et le correctif Kafka sont
+   regroupés dans `make fleet-sync`.
 
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 

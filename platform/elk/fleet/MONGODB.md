@@ -23,7 +23,7 @@ MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 
 ## Lire la policy
 
-1. La policy `data-01-02-fleet` est créée par la préconfiguration Kibana dans
+1. La policy `data-fleet` est créée par la préconfiguration Kibana dans
    Kubernetes. Un Agent ne reçoit la configuration que s'il est enrôlé avec le
    token de cette policy commune.
 2. L'entrée `logfile` est activée : les logs MongoDB de cet hôte sont collectés
@@ -68,7 +68,7 @@ plus les droits détaillés par l'intégration officielle.
 ## Vérification et dépannage
 
 1. Dans Kibana > Fleet, vérifier que l'Agent est `Healthy` et qu'il a reçu la
-   policy `data-01-02-fleet`.
+   policy `data-fleet`.
 2. Vérifier localement `mongosh` et l'écoute sur `localhost:27017` depuis la VM.
 3. Dans Discover, filtrer `data_stream.dataset: mongodb.status` et vérifier un
    événement récent pour chaque `host.name`.
