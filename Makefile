@@ -95,6 +95,14 @@ elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status \
 		deployment/es-kb-quickstart-eck-kibana-kb --timeout=300s
+	@for attempt in $$(seq 1 60); do \
+		if curl --fail --silent --show-error --insecure \
+			--resolve '$(KIBANA_CURL_RESOLVE)' '$(KIBANA_URL)/login' >/dev/null; then \
+			echo "Ingress Kibana accessible"; exit 0; \
+		fi; \
+		sleep 5; \
+	done; \
+	echo "Ingress Kibana inaccessible après 300s" >&2; exit 1
 
 package-registry-ready: ## Attendre le registre de packages Elastic 8.11.3
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/package-registry --timeout=300s
