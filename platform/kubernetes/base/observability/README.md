@@ -92,8 +92,11 @@ ports `5044` et `5045`, sans erreur d'indexation Elasticsearch.
 
 Les traces conservent l'environnement défini par les variables `ELASTIC_APM_*`.
 Les métriques applicatives exposées par `/actuator/prometheus`, notamment les
-métriques Kafka client, les logs stdout et les métriques Kubernetes passent par
-l'Elastic Agent Kubernetes puis Logstash.
+métriques Kafka client, passent par l’Elastic Agent Kubernetes puis Logstash
+vers le data stream dédié `metrics-app.prometheus.<plateforme>-<environnement>`.
+Ce data stream est séparé des métriques APM natives pour éviter un conflit de
+mapping entre les événements Prometheus et les événements APM ECS. Les logs
+stdout et les métriques Kubernetes suivent leurs propres data streams.
 
 ## Documentation externe
 

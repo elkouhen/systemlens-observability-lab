@@ -201,6 +201,9 @@ conserver :
 
 Le certificat permet à la JVM de vérifier le TLS interne ECK. Sans ce
 truststore, l’agent peut échouer avec une erreur SSL avant toute ingestion.
+Chaque application scrutée par l’Elastic Agent doit également disposer d’un
+Service Kubernetes. Le Service `restock-service` expose le port `3002` pour
+permettre le scrape Prometheus interne.
 
 ### Routage des signaux
 
@@ -353,10 +356,28 @@ kubectl -n h0tl-supermarche-app run metrics-check --rm --attach --stdin \
 Puis rechercher dans Discover :
 
 ```kql
-data_stream.dataset : "apm.app.0tl"
+data_stream.dataset : "app.prometheus.0tl"
 and data_stream.namespace : "homologation"
-and metricset.name : "kafka"
+and service.name : "order-service"
+and prometheus.metrics.kafka_producer_linger_milliseconds : *
 ```
+
+Les champs à rechercher sont notamment :
+
+- `prometheus.metrics.kafka_producer_linger_milliseconds` : valeur configurée
+  de `linger.ms` ;
+- `prometheus.metrics.kafka_producer_batch_size_configured_bytes` : valeur
+  configurée de `batch.size` ;
+- `prometheus.metrics.kafka_producer_batch_size_avg` et
+  `prometheus.metrics.kafka_producer_batch_size_max` : taille runtime des
+  batches effectivement envoyés.
+
+Le champ `metricset.name` vaut `collector` pour ce flux. Il ne faut pas le
+filtrer sur `kafka` : les métriques Kafka client sont scrutées sur l’endpoint
+Prometheus de l’application. Elles sont stockées dans le data stream dédié
+`metrics-app.prometheus.0tl-homologation`, séparé des métriques APM natives
+afin d’éviter un conflit de mapping ECS. Les métriques des brokers Kafka sont
+issues des intégrations Fleet des VM.
 
 Si l’endpoint expose les métriques mais qu’aucun document n’apparaît, vérifier
 les logs de l’Elastic Agent Kubernetes, le ciblage du Service DNS et les logs
@@ -386,8 +407,9 @@ qui sont collectées séparément par les intégrations Fleet des VM.
 - [ ] Une trace Kafka apparaît après le flux de commande en ligne.
 - [ ] Les spans MongoDB et PostgreSQL sont visibles pour une réservation.
 - [ ] Les logs ECS contiennent un identifiant de trace corrélable.
-- [ ] Les métriques Kafka client apparaissent dans `metrics-apm.app.0tl-homologation`.
-- [ ] Le dataset reste mutualisé (`apm.app.0tl`) et le namespace sépare
+- [ ] Les métriques Kafka client apparaissent dans
+      `metrics-app.prometheus.0tl-homologation`.
+- [ ] Le dataset reste mutualisé au niveau plateforme (`apm.app.*.0tl`) et le namespace sépare
       l’environnement (`homologation`).
 
 ## Références du dépôt

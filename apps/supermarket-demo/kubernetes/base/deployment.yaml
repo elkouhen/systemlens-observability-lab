@@ -124,6 +124,19 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: restock-service
+  namespace: h0tl-supermarche-app
+spec:
+  selector:
+    app.kubernetes.io/name: restock-service
+  ports:
+    - name: http
+      port: 3002
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: order-service
   namespace: h0tl-supermarche-app
 spec:
