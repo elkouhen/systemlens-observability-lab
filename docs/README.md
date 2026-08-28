@@ -9,6 +9,9 @@ modification.
   périmètre et critères d'acceptation du POC d'observabilité Elastic.
 - [`apm-application-kubernetes.md`](apm-application-kubernetes.md) : impacts
   de l'APM côté applications Java et Kubernetes, avec points de vérification.
+- [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
+  consignes d'instrumentation des clients Kafka et MongoDB et de collecte via
+  Actuator et Elastic Agent.
 
 ## Vérification reproductible
 

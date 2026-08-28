@@ -8,7 +8,7 @@ Usage:
 
 Variables facultatives:
   ELASTIC_AGENT_VERSION   Version de l'image Elastic Agent (défaut: 8.11.3)
-  ELASTIC_AGENT_NAME      Nom de la ressource Agent (défaut: java-metrics)
+  ELASTIC_AGENT_NAME      Nom du Deployment/ConfigMap (défaut: java-metrics)
   ELASTICSEARCH_HOST      URL Elasticsearch (défaut: https://elasticsearch.elastic-system.svc:9200)
   ELASTICSEARCH_SECRET    Secret contenant ELASTICSEARCH_API_KEY (optionnel)
   LOGSTASH_HOST           Adresse Logstash:port; prioritaire sur Elasticsearch
@@ -117,40 +117,24 @@ fi
 pod_env=''
 if [[ -z "${LOGSTASH_HOST:-}" ]]; then
   pod_env=$(cat <<EOF
-            env:
-              - name: ELASTICSEARCH_API_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: ${ELASTICSEARCH_SECRET}
-                    key: ELASTICSEARCH_API_KEY
+          env:
+            - name: ELASTICSEARCH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${ELASTICSEARCH_SECRET}
+                  key: ELASTICSEARCH_API_KEY
 EOF
 )
 fi
 
 cat <<EOF | kubectl apply -f -
-apiVersion: agent.k8s.elastic.co/v1alpha1
-kind: Agent
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: ${agent_name}
+  name: ${agent_name}-config
   namespace: ${namespace}
-spec:
-  version: ${agent_version}
-  mode: standalone
-  deployment:
-    replicas: 1
-    podTemplate:
-      spec:
-        containers:
-          - name: agent
-${pod_env}
-            resources:
-              requests:
-                cpu: 50m
-                memory: 128Mi
-              limits:
-                cpu: 250m
-                memory: 256Mi
-  config:
+data:
+  elastic-agent.yml: |
     outputs:
 ${output}
     inputs:
@@ -159,7 +143,45 @@ ${output}
         use_output: default
         streams:
 ${streams}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${agent_name}
+  namespace: ${namespace}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${agent_name}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ${agent_name}
+    spec:
+      containers:
+        - name: elastic-agent
+          image: docker.elastic.co/beats/elastic-agent:${agent_version}
+          imagePullPolicy: IfNotPresent
+${pod_env}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: agent-config
+              mountPath: /usr/share/elastic-agent/elastic-agent.yml
+              subPath: elastic-agent.yml
+              readOnly: true
+      volumes:
+        - name: agent-config
+          configMap:
+            name: ${agent_name}-config
 EOF
 
-echo "Agent ${agent_name} appliqué dans le namespace ${namespace}."
-echo "Vérification: kubectl -n ${namespace} get agent,deployments"
+kubectl -n "$namespace" rollout status deployment/${agent_name} --timeout=120s
+echo "Elastic Agent standalone ${agent_name} appliqué dans le namespace ${namespace}."
+echo "Vérification: kubectl -n ${namespace} get deployment/${agent_name}"
