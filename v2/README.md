@@ -12,6 +12,14 @@ l'application sont propres à cette version. Le chemin v2 est :
 Les applications Kubernetes envoient également leurs signaux OTLP au Gateway.
 Les secrets ne sont pas copiés dans cette variante.
 
+Les logs stdout des applications Java sont collectés par le DaemonSet EDOT
+Kubernetes. Les lignes ECS JSON sont décodées avant leur envoi dans Kafka : le
+message, le service, le niveau et le contexte `trace_id`/`span_id` restent
+recherchables dans `logs-generic.otel-*` et permettent de retrouver la trace
+associée dans la vue APM. Les logs ne sont donc pas exportés directement par
+l’agent Java (`OTEL_LOGS_EXPORTER=none`) : ils suivent le chemin Kubernetes
+`stdout → EDOT Collector → Kafka → Elasticsearch`.
+
 ```bash
 make architecture-switch VERSION=v2
 make architecture-status

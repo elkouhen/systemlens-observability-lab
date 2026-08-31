@@ -1,21 +1,20 @@
-# MongoDB dans Fleet
+# MongoDB avec EDOT Agent
 
-Ce guide explique la package policy MongoDB déclarée dans
+Ce guide décrit la collecte MongoDB v2 par EDOT Agent. La package policy
+MongoDB déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
-Elle observe le replica set MongoDB du POC depuis les Elastic Agents Fleet de
-`data-01` et `data-02`. `data-03` utilise le profil Filebeat et Metricbeat.
-La policy MongoDB est déclarée dans `kibana.yaml`; `make fleet-sync` applique
-seulement les pipelines Elasticsearch `@custom` complémentaires.
+`kibana.yaml` reste disponible pour les scénarios Fleet, mais n'est pas le
+chemin actif de la VM v2. `make fleet-sync` n'est pas nécessaire à cette
+collecte.
 
 ## Chemin des données
 
 ```text
-Elastic Agent de la VM Elastic Agent
-  └─ MongoDB local : localhost:27017
-       ├─ collstats, dbstats, metrics, status
-       └─ replstatus
+EDOT Agent de data-01
+  └─ receiver mongodb : localhost:27017
+       └─ dbStats, serverStatus, opérations, connexions, stockage
             ↓
-       metrics-mongodb.*-default → Elasticsearch → Kibana
+       edot-vm-metrics → Kafka → EDOT Collector → metrics-mongodb.otel-* → Kibana
 ```
 
 Le choix de `localhost:27017` est intentionnel : l'Agent partage l'hôte de
@@ -37,17 +36,16 @@ MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 
 | Data stream | Ce qu'il permet de diagnostiquer |
 | --- | --- |
-| `mongodb.collstats` | opérations et temps par collection |
-| `mongodb.dbstats` | taille et stockage par base |
-| `mongodb.metrics` | connexions, mémoire et activité du serveur |
-| `mongodb.replstatus` | rôle primary/secondary, lag et fenêtre d'oplog |
-| `mongodb.status` | état global renvoyé par `serverStatus` |
+| Famille OTel | Indicateurs attendus |
+| `mongodb.connection.*` | connexions et sessions |
+| `mongodb.operation.*` | opérations, durée et compteurs |
+| `mongodb.memory.*`, `mongodb.cache.*` | mémoire et cache |
+| `mongodb.storage.*`, `mongodb.data.*` | stockage et taille des données |
+| `mongodb.network.*`, `mongodb.cursor.*` | trafic, requêtes et curseurs |
 
-Les documents sont écrits dans des data streams de la forme
-`metrics-mongodb.<dataset>-default`. Rechercher d'abord
-`data_stream.dataset: mongodb.replstatus` dans Discover pour valider le
-replica set, puis utiliser `host.name` et `service.address` pour isoler un
-membre.
+Les documents sont écrits dans `metrics-mongodb.otel-*`. Rechercher
+`data_stream.dataset: mongodb.otel` dans Discover, puis utiliser `host.name`
+pour isoler le membre.
 
 ## Adapter à un autre environnement
 
@@ -67,15 +65,11 @@ plus les droits détaillés par l'intégration officielle.
 
 ## Vérification et dépannage
 
-1. Dans Kibana > Fleet, vérifier que l'Agent est `Healthy` et qu'il a reçu la
-   policy `data-fleet`.
-2. Vérifier localement `mongosh` et l'écoute sur `localhost:27017` depuis la VM.
-3. Dans Discover, filtrer `data_stream.dataset: mongodb.status` et vérifier un
-   événement récent pour chaque `host.name`.
-4. En cas d'erreur d'autorisation, corriger le rôle MongoDB, pas la policy
-   Fleet : les échecs de commande sont visibles dans les logs Elastic Agent.
-5. En cas d'absence de `replstatus`, vérifier le nom et l'état du replica set,
-   ainsi que l'accès à la base `local`.
+1. Vérifier localement `mongosh` et l'écoute sur `localhost:27017` depuis la VM.
+2. Dans Discover, filtrer `data_stream.dataset: mongodb.otel` et vérifier un
+   événement récent pour `host.name: data-01`.
+3. En cas d'erreur d'autorisation, corriger le rôle MongoDB utilisé par EDOT.
+4. En cas d'absence de métriques, consulter `journalctl -u poc-otel-agent`.
 
 ## Documentation officielle
 

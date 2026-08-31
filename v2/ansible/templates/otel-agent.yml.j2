@@ -20,14 +20,47 @@ receivers:
   hostmetrics:
     collection_interval: 30s
     scrapers:
-      cpu: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       disk: {}
       filesystem: {}
       load: {}
-      memory: {}
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       paging: {}
       processes: {}
+  kafka_metrics:
+    brokers:
+      - 127.0.0.1:9092
+    protocol_version: 3.9.0
+    collection_interval: 60s
+    scrapers:
+      - brokers
+      - topics
+      - consumers
+  mongodb:
+    hosts:
+      - endpoint: 127.0.0.1:27017
+    direct_connection: true
+    collection_interval: 60s
+    tls:
+      insecure: true
+{% if inventory_hostname == 'data-01' %}
+  postgresql:
+    endpoint: 127.0.0.1:5432
+    username: {{ postgresql_user }}
+    password: '{{ postgresql_password }}'
+    databases:
+      - {{ postgresql_database }}
+    collection_interval: 60s
+    tls:
+      insecure: true
+{% endif %}
 
 processors:
   resourcedetection/system:
@@ -42,6 +75,32 @@ processors:
       - key: service.namespace
         value: poc-vm
         action: upsert
+  resource/kafka:
+    attributes:
+      - key: service.name
+        value: kafka
+        action: upsert
+      - key: data_stream.dataset
+        value: kafka
+        action: upsert
+  resource/mongodb:
+    attributes:
+      - key: service.name
+        value: mongodb
+        action: upsert
+      - key: data_stream.dataset
+        value: mongodb
+        action: upsert
+{% if inventory_hostname == 'data-01' %}
+  resource/postgresql:
+    attributes:
+      - key: service.name
+        value: postgresql
+        action: upsert
+      - key: data_stream.dataset
+        value: postgresql
+        action: upsert
+{% endif %}
   memory_limiter:
     check_interval: 1s
     limit_mib: 256
@@ -80,3 +139,17 @@ service:
       receivers: [hostmetrics]
       processors: [resourcedetection/system, resource/vm, memory_limiter, batch]
       exporters: [kafka/vm]
+    metrics/kafka:
+      receivers: [kafka_metrics]
+      processors: [resourcedetection/system, resource/vm, resource/kafka, memory_limiter, batch]
+      exporters: [kafka/vm]
+    metrics/mongodb:
+      receivers: [mongodb]
+      processors: [resourcedetection/system, resource/vm, resource/mongodb, memory_limiter, batch]
+      exporters: [kafka/vm]
+{% if inventory_hostname == 'data-01' %}
+    metrics/postgresql:
+      receivers: [postgresql]
+      processors: [resourcedetection/system, resource/vm, resource/postgresql, memory_limiter, batch]
+      exporters: [kafka/vm]
+{% endif %}

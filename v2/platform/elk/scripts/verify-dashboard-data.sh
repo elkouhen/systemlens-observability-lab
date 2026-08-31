@@ -14,15 +14,14 @@ response="$(curl --fail --silent --show-error --insecure \
   -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
   -H 'Content-Type: application/json' \
   -X POST "${elasticsearch_url}/metrics-*,traces-*/_search" \
-  --data "{\"size\":0,\"query\":{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},\"aggs\":{\"datasets\":{\"terms\":{\"field\":\"data_stream.dataset\",\"size\":100}}}}")"
+  --data "{\"size\":10000,\"query\":{\"bool\":{\"filter\":[{\"term\":{\"data_stream.type\":\"metrics\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}}]}},\"_source\":[\"data_stream.dataset\",\"metrics\"],\"aggs\":{\"datasets\":{\"terms\":{\"field\":\"data_stream.dataset\",\"size\":100}}}}")"
 
-expected_datasets=(
-  system.cpu system.memory system.filesystem system.network
-  kubernetes.container kubernetes.state_pod
-  mongodb.status mongodb.replstatus
-  kafka.broker kafka.partition kafka.consumergroup
-  postgresql.activity postgresql.database
-  apm.service_transaction.1m
+expected_datasets=(hostmetricsreceiver.otel kafka.otel mongodb.otel postgresql.otel service_transaction.1m.otel)
+expected_metrics=(
+  system.cpu.utilization system.memory.utilization system.filesystem.usage system.network.io
+  kafka.brokers kafka.partition.current_offset kafka.consumer_group.lag
+  mongodb.connection.count mongodb.operation.count mongodb.storage.size
+  postgresql.backends postgresql.commits postgresql.db_size
 )
 
 missing=0
@@ -33,6 +32,27 @@ for dataset in "${expected_datasets[@]}"; do
     printf 'OK      %-28s %s document(s) sur %s\n' "${dataset}" "${count}" "${window}"
   else
     printf 'ABSENT  %-28s aucun document sur %s\n' "${dataset}" "${window}" >&2
+    missing=1
+  fi
+done
+
+for metric in "${expected_metrics[@]}"; do
+  dataset="${metric%%.*}"
+  if [[ "${dataset}" == system ]]; then
+    dataset=hostmetricsreceiver
+  fi
+  metric_response="$(curl --fail --silent --show-error --insecure \
+    --resolve "${elasticsearch_resolve}" \
+    -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
+    -H 'Content-Type: application/json' \
+    -X POST "${elasticsearch_url}/metrics-${dataset}.otel-*/_search" \
+    --data "{\"size\":10000,\"query\":{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},\"_source\":[\"metrics\"]}")"
+  count="$(jq -r --arg metric "${metric}" \
+    '[.hits.hits[]._source.metrics? | objects | keys[] | select(. == $metric)] | length' <<<"${metric_response}")"
+  if (( count > 0 )); then
+    printf 'OK      métrique %-24s %s occurrence(s) sur %s\n' "${metric}" "${count}" "${window}"
+  else
+    printf 'ABSENT  métrique %-24s aucune occurrence sur %s\n' "${metric}" "${window}" >&2
     missing=1
   fi
 done

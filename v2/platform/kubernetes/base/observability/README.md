@@ -21,6 +21,12 @@ Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
 consommés par le Collector EDOT Elasticsearch ; APM Server, Logstash et
 Elastic Agent Kubernetes ne sont pas utilisés pour ces signaux v2.
 
+Le pipeline de traces du Gateway applique aussi le processeur et le connector
+`elasticapm` avant Kafka. Ils enrichissent les traces OTLP et produisent les
+métriques APM agrégées nécessaires à la vue Applications (services,
+transactions, dépendances et service map). Ces métriques suivent ensuite le
+même chemin Kafka que les autres métriques.
+
 Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
 envoient traces et métriques en OTLP au Gateway. Les EDOT agents des VM et le
 DaemonSet EDOT lisent les logs et métriques, puis les trois signaux sont bufferisés dans

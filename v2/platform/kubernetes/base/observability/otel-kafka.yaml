@@ -46,9 +46,13 @@ data:
         check_interval: 1s
         limit_mib: 400
         spike_limit_mib: 100
+      elasticapm: {}
       batch:
         timeout: 1s
         send_batch_size: 512
+
+    connectors:
+      elasticapm: {}
 
     receivers:
       otlp:
@@ -80,8 +84,12 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, batch]
-          exporters: [kafka/traces]
+          processors: [memory_limiter, elasticapm, batch]
+          exporters: [elasticapm, kafka/traces]
+        metrics/aggregated-otel-metrics:
+          receivers: [elasticapm]
+          processors: [batch]
+          exporters: [kafka/metrics]
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, batch]
@@ -102,6 +110,21 @@ data:
         include_file_path: true
         operators:
           - type: container
+          # Les applications Java écrivent un événement ECS JSON sur stdout.
+          # On le décode ici afin que message, service et contexte de trace
+          # soient indexés comme champs de log, au lieu de rester dans body.text.
+          - type: json_parser
+            parse_from: body
+            parse_to: attributes
+            if: 'body matches "^\\s*\\{"'
+            body: attributes.message
+            trace:
+              trace_id:
+                parse_from: attributes.trace_id
+              span_id:
+                parse_from: attributes.span_id
+              trace_flags:
+                parse_from: attributes.trace_flags
       hostmetrics:
         root_path: /hostfs
         collection_interval: 30s
@@ -308,6 +331,7 @@ spec:
   template:
     metadata:
       labels: {app.kubernetes.io/name: otel-kafka-exporter}
+      annotations:
     spec:
       initContainers:
         - name: wait-for-kafka-topics
