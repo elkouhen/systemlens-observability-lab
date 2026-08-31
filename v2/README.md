@@ -2,13 +2,15 @@
 
 Variante de la plateforme du POC utilisant Kibana et le Stack Elastic `9.4.3`.
 La collecte des VM repose sur EDOT Collector `9.4.3` en mode agent. Les agents
-collectent les logs et métriques locaux, les transmettent en OTLP au EDOT
-Gateway Kubernetes, puis le Gateway utilise Kafka comme tampon avant
+collectent les logs et métriques locaux et les publient directement dans Kafka
+en OTLP ; le Collector EDOT Kubernetes consomme ensuite ces topics avant
 l'exportation vers Elasticsearch.
 
 Le code Java, Maven et Docker reste inchangé. Seuls les manifests Kubernetes de
-l'application sont propres à cette version. Le chemin v2 est :
-`EDOT agent VM → EDOT Gateway → Kafka → EDOT Kafka exporter → Elasticsearch → Kibana`.
+l'application sont propres à cette version. Le chemin VM v2 est :
+`EDOT Agent VM → Kafka → EDOT Kafka exporter → Elasticsearch → Kibana`.
+Le chemin APM Java est distinct :
+`OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Kafka exporter`.
 Les applications Kubernetes envoient également leurs signaux OTLP au Gateway.
 Les secrets ne sont pas copiés dans cette variante.
 

@@ -30,8 +30,10 @@ packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
 vers ce registre avant d’exécuter `make elk-deploy`.
 
 Le service `otel-gateway` est exposé par l'hôte TLS
-`otel-gateway-v2.poc.test`. Les VM l'utilisent comme endpoint OTLP ; leur EDOT
-Collector fonctionne en mode agent et ne se connecte pas à Fleet.
+`otel-gateway-v2.poc.test`. Les applications Kubernetes l'utilisent comme
+endpoint OTLP. Les VM publient directement leurs signaux dans Kafka avec leur
+EDOT Collector en mode agent ; elles ne passent pas par ce Gateway et ne se
+connectent pas à Fleet pour transporter leur télémétrie.
 
 Les URL fonctionnelles v2 utilisent les mêmes noms que v1 :
 `elasticsearch.poc.test`, `kibana.poc.test` et `fleet.poc.test`. Fleet Server

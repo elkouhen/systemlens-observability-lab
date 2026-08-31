@@ -2,7 +2,7 @@
 
 Les fichiers `.ndjson` sont des exports d'objets sauvegardés Kibana. La
 collecte v2 des VM est assurée par EDOT Agent ; elle produit donc des
-data streams OTel natifs. Les packages Fleet déclarés dans
+data streams OTel natifs. Les packages Fleet de plateforme déclarés dans
 [`platform/kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
 La collecte v2 produit des data streams OTel natifs. Les dashboards Fleet
 classiques attendent encore les datasets et champs ECS historiques ; ils ne
@@ -18,7 +18,7 @@ sont donc pas compatibles automatiquement avec cette collecte.
 | Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb.otel-*` | Réplication, connexions, opérations, stockage et latence. Le dashboard Fleet classique attend des champs ECS différents. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql.otel-*` | Sessions, taille, cache, checkpoints et requêtes. Le dashboard Fleet classique attend des champs ECS différents. |
 | Services applicatifs | Observability > APM > Services | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques JVM. |
-| Santé de la collecte | **[Elastic Agent] Agent metrics**, Fleet > Agents et services Beats de `data-03` | `elastic_agent.*` et métriques Beats | Agents Fleet sains sur `data-01`/`data-02`, services Filebeat/Metricbeat actifs sur `data-03`, erreurs d'input, débit d'événements et retards de collecte. |
+| Santé de la collecte | Logs du service `poc-otel-agent`, métriques des Collectors et consumer lag Kafka | journaux systemd, métriques Collector et état des groupes Kafka | Agent EDOT actif sur `data-01`, absence d'erreurs de collecte/export, débit des topics et absence de lag durable. |
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.

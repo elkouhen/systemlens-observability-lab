@@ -3,9 +3,9 @@
 Ce guide décrit la collecte MongoDB v2 par EDOT Agent. La package policy
 MongoDB déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
-`kibana.yaml` reste disponible pour les scénarios Fleet, mais n'est pas le
-chemin actif de la VM v2. `make fleet-sync` n'est pas nécessaire à cette
-collecte.
+`kibana.yaml` reste disponible pour la configuration Fleet de la plateforme,
+mais n'est pas le chemin actif de la VM v2. `make fleet-sync` n'est pas
+nécessaire à cette collecte.
 
 ## Chemin des données
 
@@ -20,14 +20,14 @@ EDOT Agent de data-01
 Le choix de `localhost:27017` est intentionnel : l'Agent partage l'hôte de
 MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 
-## Lire la policy
+## Lire la configuration
 
-1. La policy `data-fleet` est créée par la préconfiguration Kibana dans
-   Kubernetes. Un Agent ne reçoit la configuration que s'il est enrôlé avec le
-   token de cette policy commune.
-2. L'entrée `logfile` est activée : les logs MongoDB de cet hôte sont collectés
-   par Elastic Agent, sans Filebeat concurrent.
-3. L'entrée `mongodb/metrics` utilise `localhost:27017` et un intervalle de
+1. Le receiver `mongodb` est déclaré dans `v2/ansible/templates/otel-agent.yml.j2`
+   et s'exécute localement sur la VM ; aucun enrôlement Fleet n'est requis pour
+   cette collecte.
+2. Le receiver `filelog/vm` collecte les logs MongoDB locaux, sans Filebeat
+   concurrent.
+3. Le receiver `mongodb` utilise `localhost:27017` et un intervalle de
    60 secondes pour chaque stream.
 4. `ssl.enabled: false` convient seulement au POC local. Ce réglage doit être
    revu dès que MongoDB expose TLS.
@@ -56,7 +56,7 @@ pour isoler le membre.
 | Authentification | fournir un utilisateur de supervision ; ne jamais committer son mot de passe dans le JSON |
 | TLS | activer TLS et fournir la CA par le mécanisme de secrets/variables Fleet adapté à l'environnement |
 | Moins de charge | augmenter `period` au-delà de `60s` |
-| Logs via Fleet | déjà actif dans ce profil ; ne jamais activer une source Filebeat équivalente |
+| Logs via Fleet | non utilisé dans le chemin v2 ; ne jamais activer une source Filebeat équivalente |
 
 L'utilisateur MongoDB doit disposer des droits nécessaires aux commandes de
 supervision. Le rôle intégré `clusterMonitor` couvre notamment les commandes
