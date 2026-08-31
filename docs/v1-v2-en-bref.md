@@ -44,6 +44,13 @@ Pour comprendre les flux en détail :
 - [Comparatif technique complet v1/v2](architecture-v1-v2-differences.md)
 - [Schémas Mermaid des flux](observability-flows-v1-v2.md)
 
+Pour la solution v2 choisie, voir aussi les deux références officielles Elastic :
+
+- [Elastic OpenTelemetry (EDOT)](https://www.elastic.co/docs/reference/opentelemetry) :
+  rôle des distributions Elastic d'OpenTelemetry et du Collector ;
+- [OpenTelemetry quickstarts Elastic](https://www.elastic.co/docs/reference/opentelemetry/quickstart) :
+  collecte des métriques, logs et traces sur Kubernetes et les hôtes/VM.
+
 Pour l'APM et les applications Java :
 
 - [APM des applications Java sur Kubernetes](apm-application-kubernetes.md)
