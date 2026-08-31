@@ -161,7 +161,7 @@ otel-elasticsearch-credentials-apply: ## Créer la clé API Elasticsearch du Col
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
-			| jq -er '.id + ":" + .api_key' | awk '{printf "%s", $$0}')"; \
+			| jq -er '.id + ":" + .api_key' | base64 | awk '{printf "%s", $$0}')"; \
 		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic otel-elasticsearch-credentials --from-literal=api-key="$$api_key"; \
 	fi
 

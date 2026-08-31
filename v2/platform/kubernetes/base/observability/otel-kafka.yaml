@@ -309,6 +309,16 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: otel-kafka-exporter}
     spec:
+      initContainers:
+        - name: wait-for-kafka-topics
+          image: apache/kafka:3.9.0
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              for topic in otel-traces otel-metrics otel-logs edot-vm-logs edot-vm-metrics; do
+              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server
+              192.168.33.10:9092 --describe --topic "$topic" >/dev/null 2>&1; do
+              sleep 2; done; done
       containers:
         - name: collector
           image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
