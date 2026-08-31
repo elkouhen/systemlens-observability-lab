@@ -17,13 +17,10 @@
     kafka_controller_voters: 1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093
     poc_profile: minimal
     poc_distributed: "{{ poc_profile == 'distributed' }}"
-    beats_version: 9.4.3
-    elastic_agent_version: 9.4.3
+    edot_collector_version: 9.4.3
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
     elasticsearch_url: https://elasticsearch-v2.poc.test:443
-    fleet_url: https://fleet-v2.poc.test
-    fleet_insecure: true
     poc_redeploy_services: false
     # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
     # équivalent), fourni par Vagrant via ZSCALER_CA_CERT. Vide par défaut :
@@ -46,7 +43,7 @@
       when: inventory_hostname == 'data-01'
 
     # Doit précéder toute installation de paquet (dnf) et tout téléchargement
-    # HTTPS (Jolokia, Beats, Elastic Agent) : ces opérations échouent avec une
+    # HTTPS (Jolokia, Elastic Agent) : ces opérations échouent avec une
     # erreur TLS si le trafic sortant de la VM est intercepté par Zscaler et
     # que son certificat racine n'est pas encore approuvé par le système.
     - name: Installer le certificat racine Zscaler si fourni
@@ -179,7 +176,7 @@
         path: /etc/hosts
         marker: '# {mark} POC ELASTIC HOSTS'
         block: |
-          192.168.33.1 kibana-v2.poc.test elasticsearch-v2.poc.test fleet-v2.poc.test apm.poc.test
+          192.168.33.1 kibana-v2.poc.test elasticsearch-v2.poc.test fleet-v2.poc.test otel-gateway-v2.poc.test apm.poc.test
 
     - name: Lire le certificat TLS public Elasticsearch du POC
       ansible.builtin.shell: |
@@ -603,207 +600,103 @@
         - poc_node_id | int > 1
         - poc_distributed | bool
 
-    - name: Vérifier la clé API Elasticsearch des Beats
-      ansible.builtin.assert:
-        that: elasticsearch_api_key | default('') | length > 0
-        fail_msg: Définir ELASTICSEARCH_API_KEY avant de provisionner les VM.
-      when: inventory_hostname == 'data-03' and poc_distributed | bool
+    - name: Créer le répertoire de configuration EDOT
+      ansible.builtin.file:
+        path: /etc/poc-observability
+        state: directory
+        owner: root
+        mode: '0750'
 
-    - name: Installer et configurer Filebeat et Metricbeat sur data-03
-      when: inventory_hostname == 'data-03'
-      block:
-        - name: Déterminer l'architecture des Beats
-          ansible.builtin.set_fact:
-            beats_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+    - name: Déployer la configuration EDOT agent de la VM
+      ansible.builtin.template:
+        src: otel-agent.yml.j2
+        dest: /etc/poc-observability/otel-agent.yml
+        mode: '0644'
+      register: edot_config
 
-        - name: Vérifier les binaires Beats déjà installés
-          ansible.builtin.stat:
-            path: "/opt/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}/{{ item }}"
-          loop: [filebeat, metricbeat]
-          register: beats_binaries
+    - name: Créer le stockage persistant local de la file EDOT
+      ansible.builtin.file:
+        path: /var/lib/poc-otel-agent
+        state: directory
+        owner: root
+        mode: '0750'
 
-        - name: Télécharger les archives des Beats absents
-          ansible.builtin.get_url:
-            url: "https://artifacts.elastic.co/downloads/beats/{{ item.item }}/{{ item.item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
-            dest: "/var/cache/poc-observability/{{ item.item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
-            mode: '0644'
-          loop: "{{ beats_binaries.results }}"
-          when: not item.stat.exists
-
-        - name: Extraire Filebeat et Metricbeat
-          ansible.builtin.unarchive:
-            src: "/var/cache/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}.tar.gz"
-            dest: /opt/poc-observability
-            remote_src: true
-            creates: "/opt/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}/{{ item }}"
-          loop: [filebeat, metricbeat]
-
-        - name: Créer les répertoires de configuration des Beats
-          ansible.builtin.file:
-            path: "/etc/{{ item }}"
-            state: directory
-            mode: '0750'
-          loop: [filebeat, metricbeat]
-
-        - name: Déployer la configuration des Beats
-          ansible.builtin.template:
-            src: "{{ item }}.yml.j2"
-            dest: "/etc/{{ item }}/{{ item }}.yml"
-            mode: '0600'
-          loop: [filebeat, metricbeat]
-          no_log: true
-
-        - name: Installer les services systemd des Beats
-          ansible.builtin.template:
-            src: beat.service.j2
-            dest: "/etc/systemd/system/{{ item }}.service"
-            mode: '0644'
-          loop: [filebeat, metricbeat]
-
-        - name: Recharger systemd après l'installation des Beats
-          ansible.builtin.systemd_service:
-            daemon_reload: true
-
-        - name: Démarrer les Beats
-          ansible.builtin.systemd_service:
-            name: "{{ item }}"
-            enabled: true
-            state: restarted
-          loop: [filebeat, metricbeat]
-
-    - name: Arrêter les Beats hors du profil Beats
+    - name: Arrêter les anciens collecteurs de la v2
       ansible.builtin.systemd_service:
         name: "{{ item }}"
         enabled: false
         state: stopped
-      loop: [filebeat, metricbeat]
-      when:
-        - inventory_hostname != 'data-03' or not (poc_distributed | bool)
-        - (item + '.service') in ansible_facts.services
-
-    - name: Retirer le collecteur EDOT de data-01
-      when: inventory_hostname == 'data-01'
-      block:
-        - name: Arrêter le service EDOT
-          ansible.builtin.systemd_service:
-            name: poc-otel-collector.service
-            enabled: false
-            state: stopped
-          failed_when: false
-
-        - name: Supprimer les fichiers EDOT
-          ansible.builtin.file:
-            path: "{{ item }}"
-            state: absent
-          loop:
-            - /etc/containers/systemd/poc-otel-collector.container
-            - /etc/poc-observability/otel-collector.yml
-            - /var/lib/poc-otel-collector
-
-        - name: Recharger systemd après le retrait EDOT
-          ansible.builtin.systemd_service:
-            daemon_reload: true
-
-    # data-01 et data-02 sont gérés par Fleet. data-03 conserve exclusivement
-    # Filebeat et Metricbeat afin d'éviter toute duplication de signaux.
-    - name: Installer Elastic Agent pour Fleet sur data-01 et data-02
-      when:
-        - inventory_hostname in (['data-01', 'data-02'] if poc_distributed | bool else ['data-01'])
-        - fleet_enrollment_token | default('') | length > 0
-      block:
-        - name: Déterminer l'architecture Elastic Agent
-          ansible.builtin.set_fact:
-            elastic_agent_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
-
-        - name: Vérifier le binaire Elastic Agent déjà installé
-          ansible.builtin.stat:
-            path: /opt/Elastic/Agent/elastic-agent
-          register: elastic_agent_binary
-
-        - name: Lire la version de l'Elastic Agent installé
-          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent version
-          register: installed_elastic_agent_version
-          changed_when: false
-          failed_when: false
-          when: elastic_agent_binary.stat.exists
-
-        - name: Identifier un Elastic Agent hors de la version imposée
-          ansible.builtin.set_fact:
-            elastic_agent_reinstall: >-
-              {{ elastic_agent_binary.stat.exists and
-                 elastic_agent_version not in installed_elastic_agent_version.stdout }}
-
-        - name: Retirer l'Elastic Agent hors version avant réinstallation
-          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent uninstall --force
-          when: elastic_agent_reinstall | bool
-          no_log: true
-          changed_when: true
-
-        - name: Attendre la suppression de l'Elastic Agent hors version
-          ansible.builtin.wait_for:
-            path: /opt/Elastic/Agent/elastic-agent
-            state: absent
-            timeout: 60
-          when: elastic_agent_reinstall | bool
-
-        - name: Télécharger Elastic Agent s'il est absent
-          ansible.builtin.get_url:
-            url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
-            dest: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
-            mode: '0644'
-          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
-
-        # `elastic-agent install` déplace son binaire source. L'extraction ne
-        # doit donc jamais réutiliser le répertoire de cache, sinon une
-        # réinstallation ultérieure ne trouve plus l'exécutable.
-        - name: Nettoyer le répertoire temporaire d'installation Elastic Agent
-          ansible.builtin.file:
-            path: "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}"
-            state: absent
-          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
-
-        - name: Extraire Elastic Agent dans un répertoire temporaire
-          ansible.builtin.unarchive:
-            src: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
-            dest: /var/tmp
-            remote_src: true
-          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
-
-        - name: Installer et enrôler Elastic Agent
-          ansible.builtin.command: >-
-            /var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent
-            install --force --non-interactive --url={{ fleet_url }}
-            --enrollment-token={{ fleet_enrollment_token }}
-            {{ '--insecure' if fleet_insecure | bool else '' }}
-          args:
-            creates: /opt/Elastic/Agent/elastic-agent
-          no_log: true
-
-        # Un Agent déjà présent peut conserver une clé API Fleet révoquée
-        # après la recréation de la policy. Le réenrôler avec le jeton créé
-        # pour ce provisionnement restaure la remontée sans réinstaller le
-        # binaire ni laisser une identité Fleet obsolète.
-        - name: Réenrôler Elastic Agent déjà installé
-          ansible.builtin.command: >-
-            /opt/Elastic/Agent/elastic-agent enroll --force --url={{ fleet_url }}
-            --enrollment-token={{ fleet_enrollment_token }}
-            {{ '--insecure' if fleet_insecure | bool else '' }}
-          when:
-            - elastic_agent_binary.stat.exists
-            - not (elastic_agent_reinstall | bool)
-          no_log: true
-          changed_when: true
-
-        - name: Démarrer Elastic Agent
-          ansible.builtin.systemd_service:
-            name: elastic-agent
-            enabled: true
-            state: started
-
-    - name: Arrêter Elastic Agent hors du profil Fleet
-      ansible.builtin.systemd_service:
-        name: elastic-agent
-        enabled: false
-        state: stopped
-      when: inventory_hostname == 'data-03'
+      loop: [elastic-agent, filebeat, metricbeat]
       failed_when: false
+
+    - name: Déployer l'unité systemd EDOT agent
+      ansible.builtin.template:
+        src: poc-otel-agent.service.j2
+        dest: /etc/systemd/system/poc-otel-agent.service
+        mode: '0644'
+      register: edot_unit
+
+    - name: Déterminer l'architecture EDOT
+      ansible.builtin.set_fact:
+        edot_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+    - name: Télécharger le paquet Elastic Agent contenant EDOT s'il est absent
+      ansible.builtin.get_url:
+        url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ edot_collector_version }}-linux-{{ edot_arch }}.tar.gz"
+        dest: "/var/cache/poc-observability/elastic-agent-{{ edot_collector_version }}-linux-{{ edot_arch }}.tar.gz"
+        mode: '0644'
+      register: edot_archive
+
+    - name: Vérifier le binaire EDOT déjà installé
+      ansible.builtin.stat:
+        path: /opt/poc-observability/otelcol
+      register: edot_binary_stat
+
+    - name: Extraire le binaire EDOT dans son répertoire versionné
+      ansible.builtin.unarchive:
+        src: "/var/cache/poc-observability/elastic-agent-{{ edot_collector_version }}-linux-{{ edot_arch }}.tar.gz"
+        dest: /var/tmp
+        remote_src: true
+      when: edot_archive.changed or not edot_binary_stat.stat.exists
+
+    - name: Installer le binaire EDOT Collector
+      ansible.builtin.copy:
+        src: "/var/tmp/elastic-agent-{{ edot_collector_version }}-linux-{{ edot_arch }}/otelcol"
+        dest: /opt/poc-observability/otelcol
+        mode: '0755'
+        remote_src: true
+      register: edot_binary
+
+    - name: Installer le binaire Elastic Agent requis par le lanceur EDOT
+      ansible.builtin.copy:
+        src: "/var/tmp/elastic-agent-{{ edot_collector_version }}-linux-{{ edot_arch }}/elastic-agent"
+        dest: /opt/poc-observability/elastic-agent
+        mode: '0755'
+        remote_src: true
+      register: elastic_agent_binary
+
+    - name: Créer le répertoire du composant EDOT
+      ansible.builtin.file:
+        path: /opt/poc-observability/data/elastic-agent-1bfb56/components
+        state: directory
+        mode: '0755'
+
+    - name: Installer le composant EDOT Collector
+      ansible.builtin.copy:
+        src: "/var/tmp/elastic-agent-{{ edot_collector_version }}-linux-{{ edot_arch }}/data/elastic-agent-1bfb56/components/elastic-otel-collector"
+        dest: /opt/poc-observability/data/elastic-agent-1bfb56/components/elastic-otel-collector
+        mode: '0755'
+        remote_src: true
+      register: edot_component
+
+    - name: Recharger systemd après la configuration EDOT
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: edot_unit.changed
+
+    - name: Activer et démarrer EDOT agent
+      ansible.builtin.systemd_service:
+        name: poc-otel-agent.service
+        enabled: true
+        state: restarted
+      when: edot_config.changed or edot_unit.changed or edot_binary.changed or elastic_agent_binary.changed or edot_component.changed

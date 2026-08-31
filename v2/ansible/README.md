@@ -3,8 +3,10 @@
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
 Le profil `minimal` crée uniquement `data-01`, avec MongoDB standalone, Kafka
 mono-broker et PostgreSQL. Le profil `distributed` crée les trois VM avec
-replica set MongoDB et quorum Kafka KRaft. Aucun collecteur EDOT n'est
-provisionné ; les profils de collecte reposent sur Beats et Fleet.
+replica set MongoDB et quorum Kafka KRaft. Chaque VM active reçoit un EDOT
+Collector en mode agent, qui transmet ses logs et métriques dans Kafka au
+format OTLP. Le Collector EDOT Kubernetes consomme ensuite ces topics et
+exporte vers Elasticsearch.
 
 Le profil est transmis automatiquement par Vagrant ; pour un changement de
 topologie, utiliser `POC_PROFILE=minimal` ou `POC_PROFILE=distributed` avec la
@@ -21,8 +23,7 @@ sur `data-01`, commun aux deux profils.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| `data-01`, `data-02` | Elastic Agent enrôlé dans Fleet | Elasticsearch, piloté par Fleet |
-| `data-03` | Filebeat et Metricbeat | Elasticsearch avec clé API Beats |
+| VM active du profil | EDOT Collector agent | Kafka OTLP, puis EDOT Collector Kubernetes et Elasticsearch |
 
 Les profils sont exclusifs afin d'éviter toute duplication de logs ou de
 métriques sur une même VM.
@@ -31,10 +32,10 @@ métriques sur une même VM.
 
 1. `inventory/vagrant.yml` : hôtes ciblés et connexion SSH.
 2. `site.yml` : provisionnement idempotent principal.
-3. `templates/` : unités Podman Quadlet et configurations Beats générées.
+3. `templates/` : unités Podman Quadlet et configuration EDOT générées.
 4. `status.yml` : diagnostic détaillé des services sur les VM.
-5. La synchronisation Fleet, la migration des Agents et le correctif Kafka sont
-   regroupés dans `make fleet-sync`.
+5. Le déploiement des VM avec `make vm-provision` ou `make deploy` installe et
+   démarre l'agent EDOT de façon idempotente.
 
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 

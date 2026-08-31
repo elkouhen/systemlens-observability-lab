@@ -84,3 +84,20 @@ spec:
           serversTransport: eck-fleet-https
   tls:
     secretName: elastic-public-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: otel-gateway
+  namespace: elastic-stack-v2
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`otel-gateway-v2.poc.test`)
+      services:
+        - name: otel-gateway
+          port: 4318
+  tls:
+    secretName: elastic-public-tls

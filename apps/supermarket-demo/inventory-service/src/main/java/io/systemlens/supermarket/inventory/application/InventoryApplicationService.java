@@ -11,6 +11,7 @@ import io.systemlens.supermarket.inventory.domain.Quantity;
 import io.systemlens.supermarket.inventory.domain.StockReservation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class InventoryApplicationService implements InventoryUseCase {
     private final StockDepletedPort stockDepleted;
     private final Clock clock;
 
+    @Autowired
     public InventoryApplicationService(ProductPort products, OrderFulfillmentPort fulfillments,
                                        StockMovementPort movements, StockDepletedPort stockDepleted) {
         this(products, fulfillments, movements, stockDepleted, Clock.systemUTC());

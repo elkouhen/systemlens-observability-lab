@@ -12,19 +12,18 @@ ne crée les package policies standards MongoDB/Kafka.
   Jolokia.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
 
-Les trois package policies System, MongoDB et Kafka sont associées à l'agent
-policy `data-fleet`, appliquée aux Elastic Agents de `data-01` et
-`data-02`. Chaque VM exécute un seul Agent : `localhost` désigne donc le
-service local de cet hôte, jamais le poste qui exécute `make fleet-sync`.
-PostgreSQL appartient à la VM `data-01`. `data-03` reste hors Fleet et utilise
-exclusivement Filebeat et Metricbeat.
+Les package policies System, MongoDB, Kafka et PostgreSQL sont associées à
+`data-fleet`, appliquée à toutes les VM actives du profil. Chaque VM exécute un
+seul Elastic Agent : `localhost` désigne donc le service local de cet hôte.
+Les VM ne sont plus enrôlées dans Fleet pour leur télémétrie. Elles exécutent
+EDOT Collector en mode agent et publient de l'OTLP dans Kafka ; le Collector
+EDOT Kubernetes consomme ces topics et exporte vers Elasticsearch.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
 préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` met à jour
 les pipelines Elasticsearch `@custom`, la condition PostgreSQL de la policy
-déclarée, les Agents hérités et la compatibilité Kafka Raft. Il ne route pas
-les logs, métriques ni traces applicatifs Kubernetes : ce routage appartient au
-pipeline Logstash `apm-logstash.yaml`.
+déclarée, les Agents hérités et la compatibilité Kafka Raft. Le flux OTel des
+applications et de Kubernetes reste séparé du flux ECS Fleet des VM.
 
 ## Documentation externe
 

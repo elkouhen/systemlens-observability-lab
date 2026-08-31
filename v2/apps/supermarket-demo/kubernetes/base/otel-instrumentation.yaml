@@ -57,7 +57,7 @@ spec:
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
-              value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+              value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar
           volumeMounts:
             - $patch: delete
               name: apm-server-ca
@@ -132,7 +132,7 @@ spec:
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
-              value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+              value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar
           volumeMounts:
             - $patch: delete
               name: apm-server-ca
@@ -207,7 +207,7 @@ spec:
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
-              value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+              value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar
           volumeMounts:
             - $patch: delete
               name: apm-server-ca

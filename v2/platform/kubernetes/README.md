@@ -25,6 +25,14 @@ ressource. Les secrets ne sont pas stockés ici : ils doivent
 être fournis par un gestionnaire de secrets (SOPS ou External Secrets) avant un
 déploiement GitOps autonome.
 
+Kibana utilise le registre public Elastic (`https://epr.elastic.co`) pour les
+packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
+vers ce registre avant d’exécuter `make elk-deploy`.
+
+Le service `otel-gateway` est exposé par l'hôte TLS
+`otel-gateway-v2.poc.test`. Les VM l'utilisent comme endpoint OTLP ; leur EDOT
+Collector fonctionne en mode agent et ne se connecte pas à Fleet.
+
 Pour un Elasticsearch déjà existant, la configuration de stockage ne doit pas
 être ajoutée rétrospectivement : ECK interdit ce changement. Prévoir une
 migration dédiée par snapshot/restauration vers un nouveau cluster avec ses

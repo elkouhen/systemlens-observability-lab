@@ -14,6 +14,6 @@ eck-elasticsearch:
             - name: elasticsearch
               resources:
                 requests:
-                  memory: 2Gi
+                  memory: 1Gi
                 limits:
-                  memory: 2Gi
+                  memory: 1Gi

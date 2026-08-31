@@ -29,7 +29,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply beats-vm-provision fleet-data02-provision kafka-jolokia-verify mongodb-workload \
-	deploy elasticsearch-ready package-registry-ready kibana-ready apm-kibana-role-apply \
+	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
@@ -114,9 +114,6 @@ kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	done; \
 	echo "Ingress Kibana inaccessible après 300s" >&2; exit 1
 
-package-registry-ready: ## Attendre le registre de packages Elastic de l'architecture sélectionnée
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/package-registry --timeout=300s
-
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 
@@ -133,8 +130,12 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana de l'architecture sé
 	# ECK devient propriétaire de nodeSets après la première réconciliation :
 	# Helm ne doit plus tenter de les réappliquer sur une release existante.
 	@if helm status es-kb-quickstart --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
-		$(KUBECTL) -n $(K8S_NAMESPACE) patch elasticsearch elasticsearch --type=merge \
-			-p '{"spec":{"version":"$(ELASTIC_STACK_VERSION)"}}'; \
+		helm upgrade es-kb-quickstart elastic/eck-stack \
+			--namespace $(K8S_NAMESPACE) --version $(ECK_STACK_CHART_VERSION) \
+			--force-conflicts \
+			--set eck-elasticsearch.version=$(ELASTIC_STACK_VERSION) \
+			--set eck-kibana.version=$(ELASTIC_STACK_VERSION) \
+			-f $(ARCH_ROOT)/platform/helm/eck-stack-values.yaml; \
 	else \
 		helm install es-kb-quickstart elastic/eck-stack \
 			--namespace $(K8S_NAMESPACE) --create-namespace --version $(ECK_STACK_CHART_VERSION) \
@@ -144,6 +145,7 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana de l'architecture sé
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
+	@$(KUBECTL) apply -f $(ARCH_ROOT)/apps/supermarket-demo/kubernetes/base/namespace.yaml
 	@postgresql_password="$${POSTGRESQL_PASSWORD:-$$( $(KUBECTL) -n $(APP_NAMESPACE) get secret postgresql-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode )}"; \
 	test -n "$$postgresql_password" || { echo "Définir POSTGRESQL_PASSWORD hors Git (requis au premier déploiement)" >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
@@ -159,13 +161,12 @@ otel-elasticsearch-credentials-apply: ## Créer la clé API Elasticsearch du Col
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
-			| jq -er '.id + ":" + .api_key')"; \
+			| jq -er '.id + ":" + .api_key' | awk '{printf "%s", $$0}')"; \
 		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic otel-elasticsearch-credentials --from-literal=api-key="$$api_key"; \
 	fi
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply otel-elasticsearch-credentials-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(MAKE) package-registry-ready
 	@$(MAKE) kibana-ready
 	@$(MAKE) apm-data-view-deploy
 
@@ -180,7 +181,7 @@ apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en 
 		ELASTICSEARCH_PASSWORD="$$ELASTICSEARCH_PASSWORD" \
 		./$(ARCH_ROOT)/platform/elk/scripts/apply-apm-kibana-role.sh
 
-apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash si absente
+apm-logstash-credentials-apply: ## Compatibilité historique (aucun Logstash v2)
 	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch >/dev/null 2>&1; then \
 		echo "Secret apm-logstash-elasticsearch déjà présent"; \
 	else \
@@ -194,7 +195,7 @@ apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash 
 			--from-literal=api-key="$$api_key"; \
 	fi
 
-apm-logstash-deploy: apm-kibana-role-apply apm-logstash-credentials-apply ## Déployer Logstash et raccorder APM Server et Elastic Agent
+apm-logstash-deploy: ## Compatibilité historique : Logstash n'est pas déployé en v2
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
@@ -214,11 +215,11 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 apps-deploy: ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/$(POC_PROFILE)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
-		order-service=order-service:$(APP_IMAGE_TAG) apm-truststore=order-service:$(APP_IMAGE_TAG)
+		order-service=order-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
-		inventory-service=inventory-service:$(APP_IMAGE_TAG) apm-truststore=inventory-service:$(APP_IMAGE_TAG)
+		inventory-service=inventory-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/restock-service \
-		restock-service=restock-service:$(APP_IMAGE_TAG) apm-truststore=restock-service:$(APP_IMAGE_TAG)
+		restock-service=restock-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
@@ -237,8 +238,6 @@ order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUA
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
 	$(MAKE) elk-deploy; \
-	source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh; \
-	$(MAKE) fleet-sync; \
 	POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
@@ -251,7 +250,7 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/distributed >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
-	@ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 
 ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
@@ -267,24 +266,7 @@ kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur dat
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
 	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
-fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
-	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
-	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	FLEET_VM_NODES='$(if $(filter minimal,$(POC_PROFILE)),data-01,data-01 data-02)' POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
-
-fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet déclarée
-	@test '$(POC_PROFILE)' = distributed || { echo "POC_PROFILE=distributed requis pour data-02" >&2; exit 1; }
-	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	FLEET_VM_NODES='data-02' KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
-
-beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
-	@test '$(POC_PROFILE)' = distributed || { echo "POC_PROFILE=distributed requis pour data-03" >&2; exit 1; }
-	@POC_PROFILE='$(POC_PROFILE)' $(VAGRANT) provision data-03
-
-vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
-	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
+vm-provision: ## Provisionner les VM avec EDOT (requiert POSTGRESQL_PASSWORD)
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
 	@POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 
@@ -326,15 +308,6 @@ elasticsearch-api-key-create: ## Créer une clé API Base64 pour les rapports AP
 		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","read","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
 		| jq -er '.id + ":" + .api_key')"; \
 	printf '%s' "$$api_key" | base64 | tr -d '\n'; echo
-
-beats-api-key-create: ## Créer une clé API brute id:api_key pour Filebeat/Metricbeat
-	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (make elastic-password-show)" >&2; exit 1; }
-	@curl --fail --silent --show-error --insecure \
-		-u "elastic:$$ELASTICSEARCH_PASSWORD" \
-		-H 'Content-Type: application/json' \
-		-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
-		--data '{"name":"vm-beats-$$(date +%Y%m%d%H%M%S)","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","read","view_index_metadata"]},{"names":["traces-*"],"privileges":["read","view_index_metadata"]}]}}}' \
-		| jq -r '.id + ":" + .api_key'
 
 ##@ Logs applicatifs
 

@@ -16,19 +16,6 @@ spec:
     name: elasticsearch
   podTemplate:
     spec:
-      # Fleet installe les packages durant le bootstrap de Kibana. Attendre le
-      # registre évite une initialisation en échec lors d'un cluster vierge.
-      initContainers:
-        - name: wait-package-registry
-          image: curlimages/curl:8.5.0
-          command:
-            - sh
-            - -ec
-            - |
-              until curl --fail --silent http://package-registry.elastic-stack-v2.svc:8080/health; do
-                echo 'Attente du registre de packages Elastic 9.4.3…'
-                sleep 2
-              done
       containers:
         - name: kibana
           env:
@@ -41,13 +28,13 @@ spec:
             # Node par défaut à l'intérieur d'un cgroup de 1 Gio est trop
             # basse et provoque un "JavaScript heap out of memory".
             - name: NODE_OPTIONS
-              value: --max-old-space-size=1280
+              value: --max-old-space-size=768
           resources:
             requests:
               cpu: 100m
-              memory: 1Gi
+              memory: 512Mi
             limits:
-              memory: 2Gi
+              memory: 1Gi
   config:
     # URL utilisée par Kibana pour les redirections et les liens générés derrière
     # l'IngressRoute Traefik.
@@ -55,9 +42,9 @@ spec:
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
       - https://fleet-v2.poc.test:443
-    # Registre versionné avec le Stack : il contient notamment APM 9.4.3,
-    # contrairement à l'EPR public courant qui ne propose plus que 8.4.2.
-    xpack.fleet.registryUrl: http://package-registry.elastic-stack-v2.svc:8080
+    # Registre public Elastic pour l'installation et la mise à jour des packages
+    # Fleet. Les pods doivent disposer d'un accès HTTPS sortant.
+    xpack.fleet.registryUrl: https://epr.elastic.co
     xpack.fleet.outputs:
       # Fleet Server s'exécute dans le cluster : il doit utiliser le service
       # Elasticsearch interne, et non l'Ingress public qui n'est pas
@@ -138,6 +125,8 @@ spec:
               name: system
             inputs:
               - type: system/metrics
+                enabled: true
+              - type: journald
                 enabled: true
           - id: mongodb-data-01-02
             name: mongodb-data-01-02

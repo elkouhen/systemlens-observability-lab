@@ -1,0 +1,82 @@
+extensions:
+  file_storage:
+    directory: /var/lib/poc-otel-agent
+  health_check:
+    endpoint: 127.0.0.1:13133
+
+receivers:
+  filelog/vm:
+    include:
+      - /var/log/messages
+      - /var/log/secure
+      - /var/log/kafka/*.log
+      - /var/log/mongodb/*.log
+      - /var/log/postgresql/*.log
+    exclude:
+      - /var/log/**/*.gz
+    start_at: end
+    include_file_path: true
+    include_file_name: true
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      disk: {}
+      filesystem: {}
+      load: {}
+      memory: {}
+      network: {}
+      paging: {}
+      processes: {}
+
+processors:
+  resourcedetection/system:
+    detectors: [system]
+    system:
+      hostname_sources: [os]
+  resource/vm:
+    attributes:
+      - key: deployment.environment.name
+        value: v2
+        action: upsert
+      - key: service.namespace
+        value: poc-vm
+        action: upsert
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    timeout: 1s
+    send_batch_size: 256
+
+exporters:
+  kafka/vm:
+    brokers:
+      - 192.168.33.10:9092
+      - 192.168.33.11:9092
+      - 192.168.33.12:9092
+    protocol_version: 3.9.0
+    logs:
+      topic: edot-vm-logs
+      encoding: otlp_proto
+    metrics:
+      topic: edot-vm-metrics
+      encoding: otlp_proto
+    sending_queue:
+      enabled: true
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+
+service:
+  extensions: [file_storage, health_check]
+  pipelines:
+    logs:
+      receivers: [filelog/vm]
+      processors: [resourcedetection/system, resource/vm, memory_limiter, batch]
+      exporters: [kafka/vm]
+    metrics:
+      receivers: [hostmetrics]
+      processors: [resourcedetection/system, resource/vm, memory_limiter, batch]
+      exporters: [kafka/vm]

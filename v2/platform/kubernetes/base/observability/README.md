@@ -8,27 +8,29 @@ pour installer ou mettre à jour l'opérateur ECK 3.5.0 avant leur application.
 
 1. `../../helm/eck-stack-values.yaml` : valeurs déclaratives de la release
    Helm qui crée Elasticsearch et Kibana.
-2. `kibana.yaml`, puis `fleet-server.yaml` : gestion Fleet conservée pour les
-   VM et préconfiguration des packages Kibana.
+2. `kibana.yaml`, puis `fleet-server.yaml` : préconfiguration Kibana et
+   composants Elastic conservés pour les intégrations de plateforme.
 3. `otel-kafka.yaml` : collecte OTel, buffer Kafka et export OTLP vers
    Elasticsearch.
 4. `elastic-ingress.yaml` : exposition TLS v2 via Traefik.
 
 En v2, les applications utilisent l'agent Java OpenTelemetry injecté par leur
-manifest Kubernetes. Les traces et métriques vont au Collector OTel gateway.
+manifest Kubernetes. Les traces et métriques vont au Collector EDOT Gateway.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
-Collector OTel DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
-consommés par le Collector OTel Elasticsearch ; APM Server, Logstash et
+Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
+consommés par le Collector EDOT Elasticsearch ; APM Server, Logstash et
 Elastic Agent Kubernetes ne sont pas utilisés pour ces signaux v2.
 
 Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
-envoient traces et métriques en OTLP au gateway. Le DaemonSet OTel lit les logs
-stdout et les métriques hôte, puis les trois signaux sont bufferisés dans
+envoient traces et métriques en OTLP au Gateway. Les EDOT agents des VM et le
+DaemonSet EDOT lisent les logs et métriques, puis les trois signaux sont bufferisés dans
 Kafka avant leur export OTLP vers Elasticsearch. Les identités Kubernetes sont
 enrichies par `k8sattributes`; les data streams OTel sont contrôlés par
 Elasticsearch.
 
-En v1, les deux sorties Elasticsearch activent `data_stream => true`,
+Le flux VM utilise EDOT Agent sur chaque VM et les topics OTLP
+`edot-vm-logs` et `edot-vm-metrics`. Le Collector EDOT Kubernetes les consomme
+et les exporte vers Elasticsearch. En v1, les deux sorties Elasticsearch activent `data_stream => true`,
 `data_stream_auto_routing => true` et `ecs_compatibility => "v8"` : les champs
 `data_stream.*` déterminent le data stream cible et les événements restent
 compatibles ECS v8.
@@ -56,20 +58,20 @@ compatibilité de mapping attendue. Cette contrainte évite qu’un filtre
 réutilisé mélange des familles de métriques ou casse le mapping d’un data
 stream existant.
 
-Après le déploiement, vérifier les deux composants et le relais :
+Après le déploiement, vérifier les composants et les relais :
 
 ```bash
-kubectl -n elastic-stack-v2 get deployment apm-server-apm-server apm-logstash
-kubectl -n elastic-stack-v2 logs deployment/apm-logstash --tail=50
+kubectl -n elastic-stack-v2 get deployment otel-gateway otel-kafka-exporter
+kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
 ```
 
-Le résultat attendu est deux Deployments `1/1`, les listeners Logstash sur les
-ports `5044` et `5045`, sans erreur d'indexation Elasticsearch.
+Le résultat attendu est un Deployment EDOT Elasticsearch `1/1`, sans erreur de
+consommation Kafka ni d'indexation.
 
 Les traces conservent l'environnement défini par les variables `ELASTIC_APM_*`.
 Les métriques applicatives exposées par `/actuator/prometheus`, notamment les
-métriques Kafka client, passent par l’Elastic Agent Kubernetes puis Logstash
-vers le data stream dédié `metrics-app.prometheus.<plateforme>-<environnement>`.
+métriques Kafka client, passent par l'agent Java OpenTelemetry vers le gateway
+OTLP, puis Kafka et le Collector OTel Elasticsearch.
 Ce data stream est séparé des métriques APM natives pour éviter un conflit de
 mapping entre les événements Prometheus et les événements APM ECS. Les logs
 stdout et les métriques Kubernetes suivent leurs propres data streams.

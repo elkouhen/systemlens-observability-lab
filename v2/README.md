@@ -1,14 +1,16 @@
 # Architecture v2
 
-Variante de la plateforme du POC utilisant Kibana et le Stack Elastic `9.4.3`,
-version publiée par Elastic le 20 août 2026. Elasticsearch, APM Server, Fleet
-Server, Elastic Agent, Logstash, le registre de packages et les Beats suivent
-la même version afin de préserver la compatibilité du couplage Elastic.
+Variante de la plateforme du POC utilisant Kibana et le Stack Elastic `9.4.3`.
+La collecte des VM repose sur EDOT Collector `9.4.3` en mode agent. Les agents
+collectent les logs et métriques locaux, les transmettent en OTLP au EDOT
+Gateway Kubernetes, puis le Gateway utilise Kafka comme tampon avant
+l'exportation vers Elasticsearch.
 
 Le code Java, Maven et Docker reste inchangé. Seuls les manifests Kubernetes de
-l'application sont propres à cette version. Les signaux suivent le même chemin :
-APM/agents → Logstash ou Elasticsearch → data streams → Kibana. Les secrets ne
-sont pas copiés dans cette variante.
+l'application sont propres à cette version. Le chemin v2 est :
+`EDOT agent VM → EDOT Gateway → Kafka → EDOT Kafka exporter → Elasticsearch → Kibana`.
+Les applications Kubernetes envoient également leurs signaux OTLP au Gateway.
+Les secrets ne sont pas copiés dans cette variante.
 
 ```bash
 make architecture-switch VERSION=v2

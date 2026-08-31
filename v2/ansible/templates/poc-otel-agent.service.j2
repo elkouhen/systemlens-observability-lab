@@ -1,0 +1,15 @@
+[Unit]
+Description=EDOT Collector agent for the v2 observability platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/poc-observability/otelcol --config /etc/poc-observability/otel-agent.yml
+Restart=on-failure
+RestartSec=5s
+User=root
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
