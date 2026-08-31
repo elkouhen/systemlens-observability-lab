@@ -1,7 +1,8 @@
 # Différences entre les architectures v1 et v2
 
 Ce document est la référence de comparaison entre les deux bundles
-d'architecture. Il sera complété à chaque évolution de `v2`.
+d'architecture. Les deux bundles supportent un profil léger, utilisé par
+défaut dans ce POC.
 
 ## Vue d'ensemble
 
@@ -13,12 +14,15 @@ d'architecture. Il sera complété à chaque évolution de `v2`.
 | Makefile/Vagrantfile | Bundle `v1/` | Bundle `v2/` | Implémenté |
 | Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Namespace `elastic-stack-v2`, application `h0tl-supermarche-app-v2` | Implémenté |
 | Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | `elasticsearch-v2.poc.test`, `kibana-v2.poc.test`, `fleet-v2.poc.test` | Implémenté |
-| Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → Collector OTel → Kafka → Collector OTel → Elasticsearch OTLP | En cours v2 |
-| Métriques applicatives/Kubernetes | Elastic Agent et pipelines Logstash | Collector OTel → Kafka → Elasticsearch OTLP | En cours v2 |
-| Logs applicatifs/Kubernetes | Elastic Agent → Logstash | Collector OTel `filelog` → Kafka → Elasticsearch OTLP | En cours v2 |
-| Stabilisation Kafka | Kafka transporte les événements métier et est observé par Fleet | Kafka transporte aussi les signaux OTel avec trois topics dédiés | En cours v2 |
-| Versions OTel | Non utilisé pour les signaux du POC | Collector Contrib `0.153.0`, agent Java `2.28.1` | Implémenté v2 |
-| VM `data-*` | Elastic Agent/Filebeat/Metricbeat selon le profil | Fleet conservé temporairement | À migrer |
+| Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Collector → Elasticsearch | Implémenté |
+| Métriques applicatives/Kubernetes | Elastic Agent et pipelines Logstash | EDOT Java Agent/EDOT Kubernetes → Kafka → EDOT Collector → Elasticsearch | Implémenté |
+| Métriques Prometheus | Endpoint Actuator `/actuator/prometheus` collecté par Metricbeat/Elastic Agent | Endpoint Actuator conservé ; les métriques Java exportées utilisent OTLP → Kafka → EDOT Collector, sans scraping Prometheus dans le pipeline actuel | Implémenté |
+| Logs applicatifs/Kubernetes | Elastic Agent → Logstash | EDOT Kubernetes `filelog` → Kafka → EDOT Collector → Elasticsearch | Implémenté |
+| Logs et métriques des VM | `data-01` et `data-02` via Elastic Agent/Fleet ; `data-03` via Filebeat/Metricbeat | EDOT Agent sur chaque VM active → Kafka OTLP → EDOT Collector → Elasticsearch | Implémenté |
+| Topologie VM par défaut | `POC_PROFILE=minimal` : `data-01` seule | `POC_PROFILE=minimal` : `data-01` seule | Implémenté |
+| Topologie VM distribuée | `POC_PROFILE=distributed` : trois VM | `POC_PROFILE=distributed` : trois VM | Disponible |
+| Stabilisation Kafka | Kafka transporte les événements métier ; les signaux passent par Fleet/Logstash | Kafka transporte les événements métier et les signaux OTLP avec des topics dédiés | Implémenté |
+| Versions OTel | Non utilisé pour les signaux du POC | EDOT Collector `9.4.3`, agent Java OTel `2.28.1` | Implémenté |
 
 ## Contrat de transport v2
 
@@ -30,6 +34,8 @@ l'encodage OTLP protobuf :
 | `otel-traces` | Traces | Collector OTel gateway | Collector OTel Elasticsearch |
 | `otel-metrics` | Métriques | Collector OTel gateway/DaemonSet | Collector OTel Elasticsearch |
 | `otel-logs` | Logs | Collector OTel DaemonSet | Collector OTel Elasticsearch |
+| `edot-vm-logs` | Logs des VM | EDOT Agent VM | Collector EDOT Elasticsearch |
+| `edot-vm-metrics` | Métriques des VM | EDOT Agent VM | Collector EDOT Elasticsearch |
 
 Les topics sont créés par un Job Kubernetes idempotent. Le Collector de sortie
 utilise un batch et une file d'attente locale éphémère ; la rétention et
@@ -41,16 +47,18 @@ mesurés avant un usage de production.
 
 ```bash
 make architecture-switch VERSION=v2
-make kubernetes-validate
-make elk-deploy
-make apps-deploy
-kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics
+POC_PROFILE=minimal make kubernetes-validate
+POC_PROFILE=minimal make elk-deploy
+POC_PROFILE=minimal make apps-deploy
+kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter edot-vm-telemetry-topics
+POC_PROFILE=minimal make vm-provision
 kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
 ```
 
-Résultat attendu : les trois topics existent, les Collectors sont prêts, et
-les data streams `traces-*.otel-*`, `metrics-*.otel-*` et `logs-*.otel-*`
-reçoivent les signaux de la démo.
+Résultat attendu : `data-01` est la seule VM active du profil minimal, les
+topics OTLP existent, les Collectors sont prêts, et les data streams
+`traces-*.otel-*`, `metrics-*.otel-*` et `logs-*.otel-*` reçoivent les signaux
+de la démo.
 
 ## Séquence de migration
 
@@ -63,8 +71,8 @@ reçoivent les signaux de la démo.
 4. Déployer v2 avec `make -C v2 elk-deploy`, puis les images et manifests de la
    démo avec `make -C v2 apps-build`, `make -C v2 images-import` et
    `make -C v2 apps-deploy`.
-5. Produire une charge de test et vérifier les topics Kafka, le consumer lag et
-   les data streams dans Kibana v2.
+5. Produire une charge de test et vérifier les topics Kafka, le consumer lag,
+   les métriques Prometheus et les data streams dans Kibana v2.
 6. En cas d'échec, revenir à v1 avec `make architecture-switch VERSION=v1`;
    ne pas supprimer les ressources v2 avant l'analyse des offsets Kafka.
 
@@ -74,8 +82,8 @@ reçoivent les signaux de la démo.
   pas OTLP/gRPC pour cette destination.
 - Les logs sont collectés à partir de stdout Kubernetes par `filelog`; ils ne
   sont pas envoyés par le code Java.
-- La migration des agents des VM vers OTel Collector doit être conçue dans
-  `v2/ansible/` avant de retirer Fleet pour `data-01`, `data-02` et `data-03`.
+- En profil minimal, seule `data-01` est provisionnée ; les profils distribués
+  restent disponibles pour tester la réplication MongoDB et le quorum Kafka.
 - Les tailles de file Kafka, les partitions et les règles de rétention restent
   à valider avec une charge représentative.
 - La migration doit commencer par un déploiement v2 isolé. Le retour vers v1

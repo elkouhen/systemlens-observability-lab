@@ -12,6 +12,9 @@ modification.
 - [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
   consignes d'instrumentation des clients Kafka et MongoDB et de collecte via
   Actuator et Elastic Agent.
+- [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
+  comparatif des flux d'observabilité, des profils VM et du transport Kafka
+  entre v1 et v2.
 
 ## Vérification reproductible
 
