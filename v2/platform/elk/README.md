@@ -23,13 +23,19 @@ télémétrie des VM v2.
 Les trois services reçoivent l'agent Java OpenTelemetry par init container et
 exportent leurs traces et métriques en OTLP/HTTP. Le Collector DaemonSet lit
 les logs stdout et les métriques hôte, puis tous les signaux sont envoyés dans
-les topics Kafka `otel-traces`, `otel-metrics` et `otel-logs`. Le Collector de
+les topics Kafka OTLP par signal (`otel-traces`, `otel-metrics`, `otel-logs`). Le Collector de
 sortie consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
 
 Chaque VM active exécute le service EDOT Agent provisionné par Ansible. Il lit
 les logs locaux et les métriques système/Kafka/MongoDB/PostgreSQL, puis publie
-directement dans `edot-vm-logs` et `edot-vm-metrics`. Les VM ne passent pas par
+directement dans `otel-logs` et `otel-metrics`. Les VM ne passent pas par
 le Gateway OTLP Kubernetes.
+
+Les topics sont séparés par signal. L'exemple Elastic avec un topic partagé est
+un pattern d'architecture, mais le receiver Kafka embarqué dans EDOT Collector
+9.4.3 ne route pas automatiquement des payloads logs, métriques et traces
+mélangés dans un même topic ; les séparer évite les erreurs de décodage et
+conserve le même flux edge → Kafka → backend → Elasticsearch.
 
 Les règles de collecte, de buffer Kafka et de routage OTLP sont dans
 `../kubernetes/base/observability/otel-kafka.yaml`. Le provisioning EDOT des

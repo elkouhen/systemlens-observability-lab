@@ -12,6 +12,9 @@ l'application sont propres à cette version. Le chemin VM v2 est :
 Le chemin APM Java est distinct :
 `OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Kafka exporter`.
 Les applications Kubernetes envoient également leurs signaux OTLP au Gateway.
+Les producteurs edge publient les trois signaux dans des topics OTLP séparés par
+signal (`otel-traces`, `otel-metrics` et `otel-logs`), consommés par le backend EDOT avant
+l'indexation Elasticsearch.
 Les secrets ne sont pas copiés dans cette variante.
 
 Les logs stdout des applications Java sont collectés par le DaemonSet EDOT

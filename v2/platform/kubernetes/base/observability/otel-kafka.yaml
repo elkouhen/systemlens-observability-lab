@@ -46,13 +46,9 @@ data:
         check_interval: 1s
         limit_mib: 400
         spike_limit_mib: 100
-      elasticapm: {}
       batch:
         timeout: 1s
         send_batch_size: 512
-
-    connectors:
-      elasticapm: {}
 
     receivers:
       otlp:
@@ -63,18 +59,14 @@ data:
             endpoint: 0.0.0.0:4317
 
     exporters:
-      kafka/traces:
+      kafka/otlp:
         brokers: ["192.168.33.10:9092"]
         traces:
           topic: otel-traces
           encoding: otlp_proto
-      kafka/metrics:
-        brokers: ["192.168.33.10:9092"]
         metrics:
           topic: otel-metrics
           encoding: otlp_proto
-      kafka/logs:
-        brokers: ["192.168.33.10:9092"]
         logs:
           topic: otel-logs
           encoding: otlp_proto
@@ -84,20 +76,16 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, elasticapm, batch]
-          exporters: [elasticapm, kafka/traces]
-        metrics/aggregated-otel-metrics:
-          receivers: [elasticapm]
-          processors: [batch]
-          exporters: [kafka/metrics]
+          processors: [memory_limiter, batch]
+          exporters: [kafka/otlp]
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, batch]
-          exporters: [kafka/metrics]
+          exporters: [kafka/otlp]
         logs:
           receivers: [otlp]
           processors: [memory_limiter, batch]
-          exporters: [kafka/logs]
+          exporters: [kafka/otlp]
 
   daemonset.yaml: |
     extensions:
@@ -147,15 +135,16 @@ data:
         timeout: 1s
         send_batch_size: 512
     exporters:
-      kafka/logs:
+      kafka/otlp:
         brokers: ["192.168.33.10:9092"]
-        logs:
-          topic: otel-logs
+        traces:
+          topic: otel-traces
           encoding: otlp_proto
-      kafka/metrics:
-        brokers: ["192.168.33.10:9092"]
         metrics:
           topic: otel-metrics
+          encoding: otlp_proto
+        logs:
+          topic: otel-logs
           encoding: otlp_proto
     service:
       extensions: [health_check]
@@ -163,57 +152,38 @@ data:
         logs:
           receivers: [filelog/kubernetes]
           processors: [k8sattributes, batch]
-          exporters: [kafka/logs]
+          exporters: [kafka/otlp]
         metrics:
           receivers: [hostmetrics]
           processors: [batch]
-          exporters: [kafka/metrics]
+          exporters: [kafka/otlp]
 
   exporter.yaml: |
     receivers:
-      kafka/traces:
+      kafka/otlp:
         brokers: ["192.168.33.10:9092"]
         protocol_version: 3.9.0
+        group_id: otel-backend
         traces:
           topics: [otel-traces]
           encoding: otlp_proto
-        group_id: otel-traces-elasticsearch
-      kafka/metrics:
-        brokers: ["192.168.33.10:9092"]
-        protocol_version: 3.9.0
         metrics:
           topics: [otel-metrics]
           encoding: otlp_proto
-        group_id: otel-metrics-elasticsearch
-      kafka/logs:
-        brokers: ["192.168.33.10:9092"]
-        protocol_version: 3.9.0
         logs:
           topics: [otel-logs]
           encoding: otlp_proto
-        group_id: otel-logs-elasticsearch
-      kafka/vm-logs:
-        brokers: ["192.168.33.10:9092"]
-        protocol_version: 3.9.0
-        logs:
-          topics: [edot-vm-logs]
-          encoding: otlp_proto
-        group_id: edot-vm-logs-elasticsearch
-      kafka/vm-metrics:
-        brokers: ["192.168.33.10:9092"]
-        protocol_version: 3.9.0
-        metrics:
-          topics: [edot-vm-metrics]
-          encoding: otlp_proto
-        group_id: edot-vm-metrics-elasticsearch
     processors:
       memory_limiter:
         check_interval: 1s
         limit_mib: 700
         spike_limit_mib: 150
+      elasticapm: {}
       batch:
         timeout: 1s
         send_batch_size: 512
+    connectors:
+      elasticapm: {}
     exporters:
       elasticsearch/otel:
         endpoints:
@@ -236,15 +206,19 @@ data:
       extensions: [health_check, file_storage]
       pipelines:
         traces:
-          receivers: [kafka/traces]
-          processors: [memory_limiter, batch]
+          receivers: [kafka/otlp]
+          processors: [memory_limiter, elasticapm, batch]
+          exporters: [elasticapm, elasticsearch/otel]
+        metrics/aggregated-apm:
+          receivers: [elasticapm]
+          processors: [batch]
           exporters: [elasticsearch/otel]
         metrics:
-          receivers: [kafka/metrics, kafka/vm-metrics]
+          receivers: [kafka/otlp]
           processors: [memory_limiter, batch]
           exporters: [elasticsearch/otel]
         logs:
-          receivers: [kafka/logs, kafka/vm-logs]
+          receivers: [kafka/otlp]
           processors: [memory_limiter, batch]
           exporters: [elasticsearch/otel]
 ---
@@ -339,7 +313,7 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - >-
-              for topic in otel-traces otel-metrics otel-logs edot-vm-logs edot-vm-metrics; do
+              for topic in otel-traces otel-metrics otel-logs; do
               until /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.10:9092 --describe --topic "$topic" >/dev/null 2>&1; do
               sleep 2; done; done
@@ -367,7 +341,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: otel-telemetry-topics
+  name: otel-telemetry-topics-v2
   namespace: elastic-stack-v2
 spec:
   backoffLimit: 6
@@ -385,25 +359,3 @@ spec:
               192.168.33.10:9092
               --create --if-not-exists --topic "$topic" --partitions 3
               --replication-factor 1 --config min.insync.replicas=1; done
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: edot-vm-telemetry-topics
-  namespace: elastic-stack-v2
-spec:
-  backoffLimit: 6
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: create-topics
-          image: apache/kafka:3.9.0
-          command: ["/bin/sh", "-ec"]
-          args:
-            - >-
-              for topic in edot-vm-logs edot-vm-metrics; do
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092 --create --if-not-exists --topic "$topic"
-              --partitions 3 --replication-factor 1 --config min.insync.replicas=1;
-              done

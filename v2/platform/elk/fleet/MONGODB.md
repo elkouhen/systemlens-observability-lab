@@ -14,7 +14,7 @@ EDOT Agent de data-01
   └─ receiver mongodb : localhost:27017
        └─ dbStats, serverStatus, opérations, connexions, stockage
             ↓
-       edot-vm-metrics → Kafka → EDOT Collector → metrics-mongodb.otel-* → Kibana
+       otel-metrics → Kafka → EDOT Collector backend → metrics-mongodb.otel-* → Kibana
 ```
 
 Le choix de `localhost:27017` est intentionnel : l'Agent partage l'hôte de

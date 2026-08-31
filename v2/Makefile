@@ -167,6 +167,8 @@ otel-elasticsearch-credentials-apply: ## Créer la clé API Elasticsearch du Col
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply otel-elasticsearch-credentials-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway deployment/otel-kafka-exporter
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
 	@$(MAKE) kibana-ready
 	@$(MAKE) apm-data-view-deploy
 

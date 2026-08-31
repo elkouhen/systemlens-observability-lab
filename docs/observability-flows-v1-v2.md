@@ -44,10 +44,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     J[Applications Java\nOpenTelemetry Java Agent] -->|OTLP HTTP :4318| G[EDOT Collector Gateway]
-    G -->|elasticapm processor + connector| T[Kafka\notel-traces]
-    G -->|métriques APM agrégées\notel-metrics| M[Kafka\notel-metrics]
-    T --> X[EDOT Kafka exporter]
-    M --> X
+    G -->|kafkaexporter · otlp_proto| T[Kafka\notel-traces / otel-metrics]
+    T --> X[EDOT backend collector\nkafkareceiver]
     X -->|data streams OTel\ntraces-* / metrics-*| E[(Elasticsearch)]
     E --> K[Kibana\nAPM Services / traces]
 ```
@@ -60,10 +58,8 @@ partir des traces ; elles suivent le même buffer Kafka avant indexation.
 ```mermaid
 flowchart LR
     V[VM data-01\nhostmetrics\nKafka · MongoDB · PostgreSQL\nlogs système et services] --> A[EDOT Agent VM]
-    A -->|OTLP Kafka\nedot-vm-metrics| KM[Kafka]
-    A -->|OTLP Kafka\nedot-vm-logs| KL[Kafka]
-    KM --> X[EDOT Kafka exporter]
-    KL --> X
+    A -->|kafkaexporter · otlp_proto| K[Kafka\notel-metrics / otel-logs]
+    K --> X[EDOT backend collector\nkafkareceiver]
     X -->|data streams OTel\nmetrics / logs| E[(Elasticsearch)]
     E --> K[Kibana\nSystem / Kafka / MongoDB / PostgreSQL]
 ```
@@ -76,8 +72,8 @@ Kafka → EDOT Kafka exporter → Elasticsearch`.
 ```mermaid
 flowchart LR
     P["Pods Java — stdout ECS JSON — trace_id / span_id"] --> D["EDOT Collector DaemonSet — filelog + parser container"]
-    D -->|"OTLP Kafka — otel-logs"| L[Kafka]
-    L --> X[EDOT Kafka exporter]
+    D -->|"kafkaexporter — otlp_proto"| L[Kafka\notel-logs]
+    L --> X[EDOT backend collector\nkafkareceiver]
     X -->|logs-generic.otel-*| E[(Elasticsearch)]
     E --> K["Kibana — Discover / Logs"]
     E -.-> AP["APM — trace associée"]

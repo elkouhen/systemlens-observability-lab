@@ -441,26 +441,6 @@
       run_once: true
       delegate_to: data-01
 
-    - name: Supprimer le topic hérité des traces de migration
-      ansible.builtin.command:
-        argv:
-          - podman
-          - exec
-          - -e
-          - KAFKA_OPTS=
-          - poc-kafka
-          - /opt/kafka/bin/kafka-topics.sh
-          - --bootstrap-server
-          - localhost:9092
-          - --delete
-          - --if-exists
-          - --topic
-          - otel-traces
-      register: kafka_legacy_traces_topic_removal
-      changed_when: "'marked for deletion' in kafka_legacy_traces_topic_removal.stdout"
-      run_once: true
-      delegate_to: data-01
-
     - name: Lire le nombre de partitions du topic de démonstration
       ansible.builtin.command:
         argv:

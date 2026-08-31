@@ -117,10 +117,10 @@ exporters:
       - 192.168.33.12:9092
     protocol_version: 3.9.0
     logs:
-      topic: edot-vm-logs
+      topic: otel-logs
       encoding: otlp_proto
     metrics:
-      topic: edot-vm-metrics
+      topic: otel-metrics
       encoding: otlp_proto
     sending_queue:
       enabled: true

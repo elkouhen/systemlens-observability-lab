@@ -1,7 +1,7 @@
 # PostgreSQL avec EDOT Agent
 
 La VM `data-01` collecte PostgreSQL localement avec le receiver OTel
-`postgresql`. Les métriques transitent par `edot-vm-metrics`, Kafka et
+`postgresql`. Les métriques transitent par `otel-metrics`, Kafka et
 `otel-kafka-exporter`, puis sont indexées dans `metrics-postgresql.otel-*`.
 
 | Famille | Métriques attendues |

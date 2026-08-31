@@ -9,9 +9,10 @@ ne stockent aucun mot de passe dans le dépôt.
    `h0tl-supermarche-app-v2/postgresql-credentials`, puis exporte les variables
    utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
    Il doit être *sourcé* : `source ./platform/elk/scripts/load-credentials.sh`.
-2. `sync-fleet-policies.sh` pousse les pipelines `@custom`, réaffecte les
-   Agents actifs à `data-fleet`, applique le correctif Kafka Raft et met à jour
-   la policy PostgreSQL afin qu'elle ne s'exécute que sur `data-01`.
+2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et applique les
+   correctifs de compatibilité encore nécessaires au POC. Il ne configure pas
+   le chemin actif de télémétrie EDOT, qui est déclaré dans Ansible et dans les
+   manifests du Collector Kubernetes.
 3. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
    qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
    PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script

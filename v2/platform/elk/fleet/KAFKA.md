@@ -15,7 +15,7 @@ EDOT Agent de chaque VM
   └─ kafka_metrics : localhost:9092
        └─ brokers, topics, partitions, consumer groups
             ↓
-       edot-vm-metrics → Kafka → EDOT Collector → Elasticsearch
+       otel-metrics → Kafka → EDOT Collector backend → Elasticsearch
 ```
 
 Le receiver OTel couvre les métriques Kafka exposées par le protocole Kafka.
@@ -70,10 +70,10 @@ service `poc-otel-agent` sur chaque VM et les data streams dans Discover.
 3. Vérifier les métriques `kafka.brokers`, `kafka.partition.current_offset`
    et `kafka.consumer_group.lag`.
 4. En cas d'échec EDOT, consulter `journalctl -u poc-otel-agent` et vérifier
-   que les topics `edot-vm-logs` et `edot-vm-metrics` existent dans Kafka.
+que le topic `otel-metrics` existe dans Kafka.
 
-Le Deployment `otel-kafka-exporter` consomme les topics OTLP `edot-vm-logs` et
-`edot-vm-metrics`, en plus des topics OTLP des applications et de Kubernetes.
+Le Deployment `otel-kafka-exporter` consomme le topic OTLP `otel-metrics`
+pour les applications, Kubernetes et les VM.
 
 ## Documentation officielle
 

@@ -12,7 +12,7 @@ rendue par Ansible.
   `poc-postgresql.container.j2` : unités Quadlet
   créant les conteneurs de données.
 - `otel-agent.yml.j2` : collecte des logs et métriques locaux et publication
-  dans Kafka via `edot-vm-logs` et `edot-vm-metrics`.
+  dans Kafka via les topics OTLP par signal `otel-logs` et `otel-metrics`.
 
 Après une modification, relancer `vagrant provision` puis contrôler les
 services avec `systemctl` ou `make vm-status`.
