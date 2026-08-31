@@ -13,7 +13,7 @@ défaut dans ce POC.
 | Code Java, POM, Dockerfile | Partagé sous `apps/supermarket-demo/` | Partagé sous `apps/supermarket-demo/` | Inchangé |
 | Makefile/Vagrantfile | Bundle `v1/` | Bundle `v2/` | Implémenté |
 | Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Namespace `elastic-stack-v2`, application `h0tl-supermarche-app-v2` | Implémenté |
-| Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | `elasticsearch-v2.poc.test`, `kibana-v2.poc.test`, `fleet-v2.poc.test` | Implémenté |
+| Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | Les mêmes URL, selon le bundle actif | Implémenté |
 | Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Collector → Elasticsearch | Implémenté |
 | Métriques applicatives/Kubernetes | Elastic Agent et pipelines Logstash | EDOT Java Agent/EDOT Kubernetes → Kafka → EDOT Collector → Elasticsearch | Implémenté |
 | Métriques Prometheus | Endpoint Actuator `/actuator/prometheus` collecté par Metricbeat/Elastic Agent | Endpoint Actuator conservé ; les métriques Java exportées utilisent OTLP → Kafka → EDOT Collector, sans scraping Prometheus dans le pipeline actuel | Implémenté |
@@ -59,6 +59,9 @@ Résultat attendu : `data-01` est la seule VM active du profil minimal, les
 topics OTLP existent, les Collectors sont prêts, et les data streams
 `traces-*.otel-*`, `metrics-*.otel-*` et `logs-*.otel-*` reçoivent les signaux
 de la démo.
+
+Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
+`fleet.poc.test/` est normal, car Fleet Server ne fournit pas d'interface web.
 
 ## Séquence de migration
 

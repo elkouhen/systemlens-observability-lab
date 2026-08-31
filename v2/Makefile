@@ -16,11 +16,11 @@ ELASTIC_STACK_VERSION ?= 9.4.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
 ECK_STACK_CHART_VERSION ?= 0.20.0
-ELASTICSEARCH_URL ?= https://elasticsearch-v2.poc.test:443
-KIBANA_URL ?= https://kibana-v2.poc.test
-KIBANA_HOST ?= kibana-v2.poc.test
-KIBANA_CURL_RESOLVE ?= kibana-v2.poc.test:443:127.0.0.1
-ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch-v2.poc.test:443:127.0.0.1
+ELASTICSEARCH_URL ?= https://elasticsearch.poc.test:443
+KIBANA_URL ?= https://kibana.poc.test
+KIBANA_HOST ?= kibana.poc.test
+KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
+ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
@@ -54,7 +54,7 @@ credentials-show: ## Indiquer comment charger les identifiants dans le shell cou
 
 cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
 	@printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\n' \
-		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet-v2.poc.test'
+		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test'
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 

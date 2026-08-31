@@ -33,6 +33,12 @@ Le service `otel-gateway` est exposé par l'hôte TLS
 `otel-gateway-v2.poc.test`. Les VM l'utilisent comme endpoint OTLP ; leur EDOT
 Collector fonctionne en mode agent et ne se connecte pas à Fleet.
 
+Les URL fonctionnelles v2 utilisent les mêmes noms que v1 :
+`elasticsearch.poc.test`, `kibana.poc.test` et `fleet.poc.test`. Fleet Server
+n'est pas une interface web : la racine `/` peut répondre `404`. Pour vérifier
+son état, utiliser `https://fleet.poc.test/api/status` ; une réponse `200`
+confirme que le routage et le service sont opérationnels.
+
 Pour un Elasticsearch déjà existant, la configuration de stockage ne doit pas
 être ajoutée rétrospectivement : ECK interdit ce changement. Prévoir une
 migration dédiée par snapshot/restauration vers un nouveau cluster avec ses

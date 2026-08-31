@@ -38,7 +38,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`elasticsearch-v2.poc.test`)
+      match: Host(`elasticsearch.poc.test`)
       services:
         - name: elasticsearch-es-http
           port: 9200
@@ -57,7 +57,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`kibana-v2.poc.test`)
+      match: Host(`kibana.poc.test`)
       services:
         - name: es-kb-quickstart-eck-kibana-kb-http
           port: 5601
@@ -76,7 +76,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`fleet-v2.poc.test`)
+      match: Host(`fleet.poc.test`)
       services:
         - name: fleet-server-agent-http
           port: 8220

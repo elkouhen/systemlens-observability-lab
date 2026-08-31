@@ -21,6 +21,6 @@ make kubernetes-validate
 Déployer la plateforme sélectionnée avec `make elk-deploy`.
 
 La v2 est isolée de la v1 avec les namespaces `elastic-stack-v2` et
-`h0tl-supermarche-app-v2`, ainsi que les hôtes `elasticsearch-v2.poc.test`,
-`kibana-v2.poc.test` et `fleet-v2.poc.test`. Cette isolation permet de valider
-la migration avant de retirer la v1.
+`h0tl-supermarche-app-v2`. Elle réutilise les hôtes fonctionnels
+`elasticsearch.poc.test`, `kibana.poc.test` et `fleet.poc.test` ; un seul bundle
+doit être exposé à la fois derrière ces URL.

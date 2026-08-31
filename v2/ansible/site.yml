@@ -20,7 +20,7 @@
     edot_collector_version: 9.4.3
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
-    elasticsearch_url: https://elasticsearch-v2.poc.test:443
+    elasticsearch_url: https://elasticsearch.poc.test:443
     poc_redeploy_services: false
     # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
     # équivalent), fourni par Vagrant via ZSCALER_CA_CERT. Vide par défaut :
@@ -176,12 +176,12 @@
         path: /etc/hosts
         marker: '# {mark} POC ELASTIC HOSTS'
         block: |
-          192.168.33.1 kibana-v2.poc.test elasticsearch-v2.poc.test fleet-v2.poc.test otel-gateway-v2.poc.test apm.poc.test
+          192.168.33.1 kibana.poc.test elasticsearch.poc.test fleet.poc.test otel-gateway-v2.poc.test apm.poc.test
 
     - name: Lire le certificat TLS public Elasticsearch du POC
       ansible.builtin.shell: |
-        openssl s_client -showcerts -connect elasticsearch-v2.poc.test:443 \
-          -servername elasticsearch-v2.poc.test </dev/null 2>/dev/null |
+        openssl s_client -showcerts -connect elasticsearch.poc.test:443 \
+          -servername elasticsearch.poc.test </dev/null 2>/dev/null |
         awk '/BEGIN CERTIFICATE/{found=1} found {print} /END CERTIFICATE/{exit}'
       args:
         executable: /bin/bash
@@ -191,7 +191,7 @@
     - name: Vérifier le certificat public Elasticsearch
       ansible.builtin.assert:
         that: "'BEGIN CERTIFICATE' in elasticsearch_public_certificate.stdout"
-        fail_msg: Le certificat TLS de elasticsearch-v2.poc.test est inaccessible.
+        fail_msg: Le certificat TLS de elasticsearch.poc.test est inaccessible.
 
     - name: Installer le certificat public dans le magasin de confiance système
       ansible.builtin.copy:

@@ -38,10 +38,10 @@ spec:
   config:
     # URL utilisée par Kibana pour les redirections et les liens générés derrière
     # l'IngressRoute Traefik.
-    server.publicBaseUrl: https://kibana-v2.poc.test
+    server.publicBaseUrl: https://kibana.poc.test
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
-      - https://fleet-v2.poc.test:443
+      - https://fleet.poc.test:443
     # Registre public Elastic pour l'installation et la mise à jour des packages
     # Fleet. Les pods doivent disposer d'un accès HTTPS sortant.
     xpack.fleet.registryUrl: https://epr.elastic.co
@@ -60,7 +60,7 @@ spec:
         is_default: true
         is_default_monitoring: true
         hosts:
-          - https://elasticsearch-v2.poc.test:443
+          - https://elasticsearch.poc.test:443
         # Le certificat de démonstration de l'Ingress n'est pas signé par une
         # AC publique. Cette sortie est réservée aux VM du POC ; les pods ECK
         # utilisent leur sortie interne et conservent leur validation TLS.
