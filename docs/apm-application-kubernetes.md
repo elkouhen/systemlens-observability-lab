@@ -215,7 +215,8 @@ Logstash normalise l’identité issue du namespace Kubernetes. Pour
 | type d’environnement | `h` → `homologation` |
 | code plateforme | `0tl` |
 | namespace applicatif | `supermarche-app` |
-| dataset APM applicatif | `apm.app.0tl` |
+| dataset APM traces | `apm-0tl` |
+| dataset APM traces et métriques applicatives | `apm-0tl` |
 | namespace data stream | `homologation` |
 
 Le dataset est mutualisé au niveau plateforme et le namespace du data stream
@@ -325,7 +326,7 @@ Dans APM, contrôler :
 Dans Discover, utiliser les filtres suivants :
 
 ```kql
-data_stream.dataset : "apm.app.0tl"
+data_stream.dataset : "apm-0tl"
 and data_stream.namespace : "homologation"
 and service.name : ("order-service" or "inventory-service" or "restock-service")
 ```
@@ -409,7 +410,7 @@ qui sont collectées séparément par les intégrations Fleet des VM.
 - [ ] Les logs ECS contiennent un identifiant de trace corrélable.
 - [ ] Les métriques Kafka client apparaissent dans
       `metrics-app.prometheus.0tl-homologation`.
-- [ ] Le dataset reste mutualisé au niveau plateforme (`apm.app.*.0tl`) et le namespace sépare
+- [ ] Le dataset traces reste lié à la plateforme (`apm-0tl`) et le namespace sépare
       l’environnement (`homologation`).
 
 ## Références du dépôt

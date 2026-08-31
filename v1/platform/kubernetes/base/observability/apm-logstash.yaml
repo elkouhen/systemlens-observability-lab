@@ -56,24 +56,26 @@ data:
             }
           }
 
-          # Les traces Java sont routées depuis le namespace Kubernetes.
+          # Les signaux APM Java sont routés depuis le namespace Kubernetes.
           if [agent][name] == "java" and [data_stream][type] == "traces" {
             mutate {
               replace => {
-                "[data_stream][dataset]" => "apm.app.%{platform_code}"
+                # Le dataset porte l'identité de la plateforme ; le namespace
+                # sépare l'environnement sans perdre cette information.
+                "[data_stream][dataset]" => "apm-%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
           }
 
-          # Seules les métriques APM applicatives détaillées possèdent la
-          # métadonnée Kubernetes nécessaire à ce routage explicite.
+          # Seules les métriques APM applicatives détaillées sont reroutées ;
+          # les métriques internes APM restent gérées par les templates Elastic.
           if [agent][name] == "java" and
              [data_stream][type] == "metrics" and
              [data_stream][dataset] =~ /^apm\.app\./ {
             mutate {
               replace => {
-                "[data_stream][dataset]" => "apm.app.%{platform_code}"
+                "[data_stream][dataset]" => "apm-%{platform_code}"
                 "[data_stream][namespace]" => "%{[@metadata][environment]}"
               }
             }
@@ -82,6 +84,19 @@ data:
 
         mutate {
           remove_field => ["environment_type", "platform_code", "application_namespace"]
+        }
+      }
+
+      # APM Server peut perdre processor.event lors du passage par l'entrée
+      # Logstash. Le nom de span distingue un span ; sinon le nom de transaction
+      # identifie l'événement racine utilisé par la waterfall Kibana.
+      if [data_stream][type] == "traces" and [span][name] and [span][name] != "" {
+        mutate {
+          replace => { "[processor][event]" => "span" }
+        }
+      } else if [data_stream][type] == "traces" and [transaction][name] {
+        mutate {
+          replace => { "[processor][event]" => "transaction" }
         }
       }
 

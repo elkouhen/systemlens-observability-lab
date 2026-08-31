@@ -41,8 +41,8 @@ port 5045 et les décode depuis `kubernetes.namespace`. Les identités utilisent
 le dictionnaire `translate` versionné dans `apm-logstash.yaml`. Les règles sont :
 `r` → `recette`, `p` → `production`, `h` → `homologation`, `i` →
 `integration` et `d` → `developpement`. Les traces Java et les métriques APM
-applicatives détaillées (`apm.app.*`) sont reroutées vers un dataset mutualisé
-par plateforme (`apm.app.0tl`) et vers le namespace du data stream correspondant
+applicatives détaillées sont reroutées vers un dataset traces mutualisé par
+plateforme (`apm-0tl`) et vers le namespace du data stream correspondant.
 à l'environnement lorsque `kubernetes.namespace` est présent. Les métriques
 agrégées APM qui ne portent pas cette métadonnée restent dans leur namespace et
 dataset d'origine. Les événements non Java
@@ -66,7 +66,8 @@ doit pas modifier globalement `data_stream.type`, `data_stream.dataset` ou
 `data_stream.namespace` sans condition explicite sur le type et le dataset.
 
 - Le pipeline APM mutualise le `data_stream.dataset` au niveau plateforme
-  (`apm.app.<code_plateforme>`) pour les traces Java et les métriques
+  (`apm-<code_plateforme>`) pour les traces Java ; les métriques détaillées
+  utilisent le même dataset (`apm-<code_plateforme>`)
   applicatives `apm.app.*` portant les métadonnées Kubernetes nécessaires.
   Le `data_stream.namespace` porte l’environnement.
 - Le pipeline des logs Kubernetes est propriétaire du dataset `kube-*` et du

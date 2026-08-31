@@ -52,6 +52,13 @@ spec:
     # URL utilisée par Kibana pour les redirections et les liens générés derrière
     # l'IngressRoute Traefik.
     server.publicBaseUrl: https://kibana.poc.test
+    # Les traces applicatives sont routées vers un index dédié par Logstash.
+    # Déclarer explicitement les motifs permet à l'API APM de reconstruire les
+    # waterfalls, y compris pour les datasets propres à la plateforme.
+    xpack.apm.indices.transaction: "traces-apm*,apm-*"
+    xpack.apm.indices.span: "traces-apm*,apm-*"
+    xpack.apm.indices.error: "logs-apm*,apm-*"
+    xpack.apm.indices.metric: "metrics-apm*,apm-*"
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
       - https://fleet.poc.test:443
