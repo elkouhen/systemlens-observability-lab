@@ -63,7 +63,7 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
-	@POC_PROFILE='$(POC_PROFILE)' ./scripts/cluster-status.sh
+	@POC_PROFILE='$(POC_PROFILE)' ../scripts/cluster-status.sh
 
 ##@ Construction et préparation locale
 
@@ -250,10 +250,10 @@ fleet-sync: ## Synchroniser les pipelines, la policy Fleet et la compatibilité 
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
 kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur data-01
-	@./scripts/check-kafka-jolokia.sh --url http://127.0.0.1:18781/jolokia
+	@../scripts/check-kafka-jolokia.sh --url http://127.0.0.1:18781/jolokia
 
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
-	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < scripts/mongodb-elk-workload.js
+	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }

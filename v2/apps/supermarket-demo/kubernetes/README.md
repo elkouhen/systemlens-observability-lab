@@ -1,7 +1,7 @@
 # Déploiement Kubernetes de l'application
 
 `kustomization.yaml` est le point d'entrée IaC de l'application. `namespace.yaml`
-isole l'application dans le namespace `h0tl-supermarche-app`.
+isole l'application dans le namespace `h0tl-supermarche-app-v2`.
 `deployment.yaml` décrit ses Deployments, Services et variables
 d'environnement : adresses Kafka/MongoDB et identité de télémétrie. Les traces
 d'`order-service`, d'`inventory-service` et de `restock-service` vont
@@ -14,7 +14,7 @@ utilise `kubernetes.namespace` et les route vers
 variable d'environnement dédiée. Les signaux APM reçoivent le namespace
 Kubernetes via `KUBERNETES_NAMESPACE` et respectent la même convention
 `<type><plateforme_sur_3_caractères>-<namespace>`, ici
-`h0tl-supermarche-app`. Logstash normalise `service.environment` en
+`h0tl-supermarche-app-v2`. Logstash normalise `service.environment` en
 `homologation`, tout en ajoutant `labels.ptf: 0tl` et
 `labels.namespace: supermarche-app`. Les métriques APM Java applicatives
 détaillées sont routées vers leur data stream d'environnement. Les métriques

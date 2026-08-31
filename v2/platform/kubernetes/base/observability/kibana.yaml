@@ -4,7 +4,7 @@ apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
 metadata:
   name: es-kb-quickstart-eck-kibana
-  namespace: elastic-stack
+  namespace: elastic-stack-v2
   annotations:
     # Déclenche la réconciliation des package policies après l'installation
     # initiale des packages du registre Elastic 9.4.3.
@@ -25,7 +25,7 @@ spec:
             - sh
             - -ec
             - |
-              until curl --fail --silent http://package-registry.elastic-stack.svc:8080/health; do
+              until curl --fail --silent http://package-registry.elastic-stack-v2.svc:8080/health; do
                 echo 'Attente du registre de packages Elastic 9.4.3…'
                 sleep 2
               done
@@ -51,13 +51,13 @@ spec:
   config:
     # URL utilisée par Kibana pour les redirections et les liens générés derrière
     # l'IngressRoute Traefik.
-    server.publicBaseUrl: https://kibana.poc.test
+    server.publicBaseUrl: https://kibana-v2.poc.test
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
-      - https://fleet.poc.test:443
+      - https://fleet-v2.poc.test:443
     # Registre versionné avec le Stack : il contient notamment APM 9.4.3,
     # contrairement à l'EPR public courant qui ne propose plus que 8.4.2.
-    xpack.fleet.registryUrl: http://package-registry.elastic-stack.svc:8080
+    xpack.fleet.registryUrl: http://package-registry.elastic-stack-v2.svc:8080
     xpack.fleet.outputs:
       # Fleet Server s'exécute dans le cluster : il doit utiliser le service
       # Elasticsearch interne, et non l'Ingress public qui n'est pas
@@ -66,14 +66,14 @@ spec:
         name: Elasticsearch interne pour Fleet Server
         type: elasticsearch
         hosts:
-          - https://elasticsearch-es-http.elastic-stack.svc:9200
+          - https://elasticsearch-es-http.elastic-stack-v2.svc:9200
       - id: fleet-default-output
         name: Elasticsearch ECK
         type: elasticsearch
         is_default: true
         is_default_monitoring: true
         hosts:
-          - https://elasticsearch.poc.test:443
+          - https://elasticsearch-v2.poc.test:443
         # Le certificat de démonstration de l'Ingress n'est pas signé par une
         # AC publique. Cette sortie est réservée aux VM du POC ; les pods ECK
         # utilisent leur sortie interne et conservent leur validation TLS.

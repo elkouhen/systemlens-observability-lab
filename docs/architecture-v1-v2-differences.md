@@ -11,6 +11,8 @@ d'architecture. Il sera complété à chaque évolution de `v2`.
 | Organisation | `v1/` contient la plateforme, Ansible et les manifests applicatifs | `v2/` contient sa propre plateforme, son Ansible et ses manifests applicatifs | Implémenté |
 | Code Java, POM, Dockerfile | Partagé sous `apps/supermarket-demo/` | Partagé sous `apps/supermarket-demo/` | Inchangé |
 | Makefile/Vagrantfile | Bundle `v1/` | Bundle `v2/` | Implémenté |
+| Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Namespace `elastic-stack-v2`, application `h0tl-supermarche-app-v2` | Implémenté |
+| Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | `elasticsearch-v2.poc.test`, `kibana-v2.poc.test`, `fleet-v2.poc.test` | Implémenté |
 | Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → Collector OTel → Kafka → Collector OTel → Elasticsearch OTLP | En cours v2 |
 | Métriques applicatives/Kubernetes | Elastic Agent et pipelines Logstash | Collector OTel → Kafka → Elasticsearch OTLP | En cours v2 |
 | Logs applicatifs/Kubernetes | Elastic Agent → Logstash | Collector OTel `filelog` → Kafka → Elasticsearch OTLP | En cours v2 |
@@ -42,13 +44,29 @@ make architecture-switch VERSION=v2
 make kubernetes-validate
 make elk-deploy
 make apps-deploy
-kubectl -n elastic-stack get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics
-kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
+kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics
+kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
 ```
 
 Résultat attendu : les trois topics existent, les Collectors sont prêts, et
 les data streams `traces-*.otel-*`, `metrics-*.otel-*` et `logs-*.otel-*`
 reçoivent les signaux de la démo.
+
+## Séquence de migration
+
+1. Vérifier la santé de v1 et prendre un snapshot Elasticsearch.
+2. Valider les manifests et le playbook v2 :
+   `make ARCH_VERSION=v2 kubernetes-validate`, puis
+   `make -C v2 ansible-validate`.
+3. Préparer le DNS ou `/etc/hosts` pour les hôtes `*-v2.poc.test` et le
+   certificat TLS correspondant.
+4. Déployer v2 avec `make -C v2 elk-deploy`, puis les images et manifests de la
+   démo avec `make -C v2 apps-build`, `make -C v2 images-import` et
+   `make -C v2 apps-deploy`.
+5. Produire une charge de test et vérifier les topics Kafka, le consumer lag et
+   les data streams dans Kibana v2.
+6. En cas d'échec, revenir à v1 avec `make architecture-switch VERSION=v1`;
+   ne pas supprimer les ressources v2 avant l'analyse des offsets Kafka.
 
 ## Décisions et points ouverts
 
@@ -60,3 +78,7 @@ reçoivent les signaux de la démo.
   `v2/ansible/` avant de retirer Fleet pour `data-01`, `data-02` et `data-03`.
 - Les tailles de file Kafka, les partitions et les règles de rétention restent
   à valider avec une charge représentative.
+- La migration doit commencer par un déploiement v2 isolé. Le retour vers v1
+  consiste à resélectionner v1 et à vérifier ses endpoints ; il ne faut pas
+  supprimer les ressources v1 avant d'avoir validé la restauration et la
+  consultation des données.

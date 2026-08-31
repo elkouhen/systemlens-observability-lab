@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: package-registry
-  namespace: elastic-stack
+  namespace: elastic-stack-v2
 spec:
   replicas: 1
   selector:
@@ -36,7 +36,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: package-registry
-  namespace: elastic-stack
+  namespace: elastic-stack-v2
 spec:
   selector:
     app.kubernetes.io/name: package-registry

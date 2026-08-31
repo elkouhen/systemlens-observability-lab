@@ -7,8 +7,8 @@ K3D_CLUSTER ?= elastic
 POC_PROFILE ?= minimal
 ARCH_VERSION := v2
 ARCH_ROOT := .
-K8S_NAMESPACE ?= elastic-stack
-APP_NAMESPACE ?= h0tl-supermarche-app
+K8S_NAMESPACE ?= elastic-stack-v2
+APP_NAMESPACE ?= h0tl-supermarche-app-v2
 APP_IMAGE_TAG ?= 1.1.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
@@ -16,11 +16,11 @@ ELASTIC_STACK_VERSION ?= 9.4.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
 ECK_STACK_CHART_VERSION ?= 0.20.0
-ELASTICSEARCH_URL ?= https://elasticsearch.poc.test:443
-KIBANA_URL ?= https://kibana.poc.test
-KIBANA_HOST ?= kibana.poc.test
-KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
-ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
+ELASTICSEARCH_URL ?= https://elasticsearch-v2.poc.test:443
+KIBANA_URL ?= https://kibana-v2.poc.test
+KIBANA_HOST ?= kibana-v2.poc.test
+KIBANA_CURL_RESOLVE ?= kibana-v2.poc.test:443:127.0.0.1
+ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch-v2.poc.test:443:127.0.0.1
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
@@ -54,7 +54,7 @@ credentials-show: ## Indiquer comment charger les identifiants dans le shell cou
 
 cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
 	@printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\n' \
-		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test'
+		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet-v2.poc.test'
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -63,7 +63,7 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
-	@POC_PROFILE='$(POC_PROFILE)' ./scripts/cluster-status.sh
+	@POC_PROFILE='$(POC_PROFILE)' ../scripts/cluster-status.sh
 
 ##@ Construction et préparation locale
 
@@ -262,10 +262,10 @@ fleet-sync: ## Synchroniser les pipelines, la policy Fleet et la compatibilité 
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
 kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur data-01
-	@./scripts/check-kafka-jolokia.sh --url http://127.0.0.1:18781/jolokia
+	@../scripts/check-kafka-jolokia.sh --url http://127.0.0.1:18781/jolokia
 
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
-	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < scripts/mongodb-elk-workload.js
+	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
 fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }

@@ -62,48 +62,6 @@
       when: zscaler_ca.changed | default(false)
       changed_when: true
 
-    - name: Inventorier les paquets déjà installés
-      ansible.builtin.package_facts:
-        manager: auto
-
-    - name: Installer les dépendances système absentes
-      ansible.builtin.dnf:
-        name: "{{ item }}"
-        state: present
-      loop: [podman, curl, openssl, chrony]
-      when: item not in ansible_facts.packages
-
-    - name: Collecter l'état des services
-      ansible.builtin.service_facts:
-
-    - name: Activer la synchronisation NTP des VM
-      ansible.builtin.systemd_service:
-        name: chronyd
-        enabled: true
-        state: started
-
-    - name: Autoriser Chrony à corriger immédiatement les grands décalages
-      ansible.builtin.lineinfile:
-        path: /etc/chrony.conf
-        regexp: '^makestep\\s+'
-        line: 'makestep 1.0 -1'
-      register: chrony_makestep_config
-
-    - name: Redémarrer Chrony après une modification de sa stratégie de correction
-      ansible.builtin.systemd_service:
-        name: chronyd
-        state: restarted
-      when: chrony_makestep_config.changed
-
-    - name: Corriger immédiatement un éventuel décalage d'horloge
-      ansible.builtin.command: chronyc -a makestep
-      register: chrony_step
-      # chronyc retourne 0 même si aucun ajustement n'est nécessaire. L'agent
-      # se recale seul avec Fleet ; ne pas provoquer de redémarrage à chaque
-      # provisionnement.
-      changed_when: false
-      failed_when: false
-
     - name: Identifier l'interface du réseau privé VirtualBox
       ansible.builtin.shell: |
         ip -o -4 addr show | awk -v ip='{{ poc_node_ip }}' '$4 ~ ("^" ip "/") { print $2; exit }'
@@ -161,6 +119,51 @@
     - name: Appliquer la configuration DNS de la route par défaut
       ansible.builtin.command: "nmcli device reapply {{ default_network_device.stdout }}"
       changed_when: false
+
+    # Cette étape doit rester avant tout téléchargement DNF : sur certaines
+    # images Rocky, le réseau privé reçoit la route par défaut et le DNS DHCP
+    # associé ne permet alors pas de résoudre les miroirs.
+    - name: Inventorier les paquets déjà installés
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Installer les dépendances système absentes
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      loop: [podman, curl, openssl, chrony]
+      when: item not in ansible_facts.packages
+
+    - name: Collecter l'état des services
+      ansible.builtin.service_facts:
+
+    - name: Activer la synchronisation NTP des VM
+      ansible.builtin.systemd_service:
+        name: chronyd
+        enabled: true
+        state: started
+
+    - name: Autoriser Chrony à corriger immédiatement les grands décalages
+      ansible.builtin.lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^makestep\\s+'
+        line: 'makestep 1.0 -1'
+      register: chrony_makestep_config
+
+    - name: Redémarrer Chrony après une modification de sa stratégie de correction
+      ansible.builtin.systemd_service:
+        name: chronyd
+        state: restarted
+      when: chrony_makestep_config.changed
+
+    - name: Corriger immédiatement un éventuel décalage d'horloge
+      ansible.builtin.command: chronyc -a makestep
+      register: chrony_step
+      # chronyc retourne 0 même si aucun ajustement n'est nécessaire. L'agent
+      # se recale seul avec Fleet ; ne pas provoquer de redémarrage à chaque
+      # provisionnement.
+      changed_when: false
+      failed_when: false
 
     - name: Ouvrir les ports inter-nœuds si firewalld est actif
       ansible.posix.firewalld:
@@ -674,7 +677,9 @@
         enabled: false
         state: stopped
       loop: [filebeat, metricbeat]
-      when: inventory_hostname != 'data-03' or not (poc_distributed | bool)
+      when:
+        - inventory_hostname != 'data-03' or not (poc_distributed | bool)
+        - (item + '.service') in ansible_facts.services
 
     - name: Retirer le collecteur EDOT de data-01
       when: inventory_hostname == 'data-01'

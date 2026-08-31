@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-service
-  namespace: h0tl-supermarche-app
+  namespace: h0tl-supermarche-app-v2
 spec:
   template:
     spec:
@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: inventory-service
-  namespace: h0tl-supermarche-app
+  namespace: h0tl-supermarche-app-v2
 spec:
   template:
     spec:
@@ -32,7 +32,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: restock-service
-  namespace: h0tl-supermarche-app
+  namespace: h0tl-supermarche-app-v2
 spec:
   template:
     spec:

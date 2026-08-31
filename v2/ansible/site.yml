@@ -21,8 +21,8 @@
     elastic_agent_version: 9.4.3
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
-    elasticsearch_url: https://elasticsearch.poc.test:443
-    fleet_url: https://fleet.poc.test
+    elasticsearch_url: https://elasticsearch-v2.poc.test:443
+    fleet_url: https://fleet-v2.poc.test
     fleet_insecure: true
     poc_redeploy_services: false
     # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
@@ -61,48 +61,6 @@
       ansible.builtin.command: update-ca-trust extract
       when: zscaler_ca.changed | default(false)
       changed_when: true
-
-    - name: Inventorier les paquets déjà installés
-      ansible.builtin.package_facts:
-        manager: auto
-
-    - name: Installer les dépendances système absentes
-      ansible.builtin.dnf:
-        name: "{{ item }}"
-        state: present
-      loop: [podman, curl, openssl, chrony]
-      when: item not in ansible_facts.packages
-
-    - name: Collecter l'état des services
-      ansible.builtin.service_facts:
-
-    - name: Activer la synchronisation NTP des VM
-      ansible.builtin.systemd_service:
-        name: chronyd
-        enabled: true
-        state: started
-
-    - name: Autoriser Chrony à corriger immédiatement les grands décalages
-      ansible.builtin.lineinfile:
-        path: /etc/chrony.conf
-        regexp: '^makestep\\s+'
-        line: 'makestep 1.0 -1'
-      register: chrony_makestep_config
-
-    - name: Redémarrer Chrony après une modification de sa stratégie de correction
-      ansible.builtin.systemd_service:
-        name: chronyd
-        state: restarted
-      when: chrony_makestep_config.changed
-
-    - name: Corriger immédiatement un éventuel décalage d'horloge
-      ansible.builtin.command: chronyc -a makestep
-      register: chrony_step
-      # chronyc retourne 0 même si aucun ajustement n'est nécessaire. L'agent
-      # se recale seul avec Fleet ; ne pas provoquer de redémarrage à chaque
-      # provisionnement.
-      changed_when: false
-      failed_when: false
 
     - name: Identifier l'interface du réseau privé VirtualBox
       ansible.builtin.shell: |
@@ -162,6 +120,51 @@
       ansible.builtin.command: "nmcli device reapply {{ default_network_device.stdout }}"
       changed_when: false
 
+    # Cette étape doit rester avant tout téléchargement DNF : sur certaines
+    # images Rocky, le réseau privé reçoit la route par défaut et le DNS DHCP
+    # associé ne permet alors pas de résoudre les miroirs.
+    - name: Inventorier les paquets déjà installés
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Installer les dépendances système absentes
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      loop: [podman, curl, openssl, chrony]
+      when: item not in ansible_facts.packages
+
+    - name: Collecter l'état des services
+      ansible.builtin.service_facts:
+
+    - name: Activer la synchronisation NTP des VM
+      ansible.builtin.systemd_service:
+        name: chronyd
+        enabled: true
+        state: started
+
+    - name: Autoriser Chrony à corriger immédiatement les grands décalages
+      ansible.builtin.lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^makestep\\s+'
+        line: 'makestep 1.0 -1'
+      register: chrony_makestep_config
+
+    - name: Redémarrer Chrony après une modification de sa stratégie de correction
+      ansible.builtin.systemd_service:
+        name: chronyd
+        state: restarted
+      when: chrony_makestep_config.changed
+
+    - name: Corriger immédiatement un éventuel décalage d'horloge
+      ansible.builtin.command: chronyc -a makestep
+      register: chrony_step
+      # chronyc retourne 0 même si aucun ajustement n'est nécessaire. L'agent
+      # se recale seul avec Fleet ; ne pas provoquer de redémarrage à chaque
+      # provisionnement.
+      changed_when: false
+      failed_when: false
+
     - name: Ouvrir les ports inter-nœuds si firewalld est actif
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
@@ -176,12 +179,12 @@
         path: /etc/hosts
         marker: '# {mark} POC ELASTIC HOSTS'
         block: |
-          192.168.33.1 kibana.poc.test elasticsearch.poc.test fleet.poc.test apm.poc.test
+          192.168.33.1 kibana-v2.poc.test elasticsearch-v2.poc.test fleet-v2.poc.test apm.poc.test
 
     - name: Lire le certificat TLS public Elasticsearch du POC
       ansible.builtin.shell: |
-        openssl s_client -showcerts -connect elasticsearch.poc.test:443 \
-          -servername elasticsearch.poc.test </dev/null 2>/dev/null |
+        openssl s_client -showcerts -connect elasticsearch-v2.poc.test:443 \
+          -servername elasticsearch-v2.poc.test </dev/null 2>/dev/null |
         awk '/BEGIN CERTIFICATE/{found=1} found {print} /END CERTIFICATE/{exit}'
       args:
         executable: /bin/bash
@@ -191,7 +194,7 @@
     - name: Vérifier le certificat public Elasticsearch
       ansible.builtin.assert:
         that: "'BEGIN CERTIFICATE' in elasticsearch_public_certificate.stdout"
-        fail_msg: Le certificat TLS de elasticsearch.poc.test est inaccessible.
+        fail_msg: Le certificat TLS de elasticsearch-v2.poc.test est inaccessible.
 
     - name: Installer le certificat public dans le magasin de confiance système
       ansible.builtin.copy:
@@ -674,7 +677,9 @@
         enabled: false
         state: stopped
       loop: [filebeat, metricbeat]
-      when: inventory_hostname != 'data-03' or not (poc_distributed | bool)
+      when:
+        - inventory_hostname != 'data-03' or not (poc_distributed | bool)
+        - (item + '.service') in ansible_facts.services
 
     - name: Retirer le collecteur EDOT de data-01
       when: inventory_hostname == 'data-01'

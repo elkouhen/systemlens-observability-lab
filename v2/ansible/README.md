@@ -10,6 +10,12 @@ Le profil est transmis automatiquement par Vagrant ; pour un changement de
 topologie, utiliser `POC_PROFILE=minimal` ou `POC_PROFILE=distributed` avec la
 cible Make correspondante.
 
+Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
+privé VirtualBox et configure des résolveurs DNS sur l'interface NAT. Cette
+séquence est nécessaire dès le premier provisioning, car les images Rocky
+peuvent donner la priorité au réseau privé et empêcher la résolution des
+miroirs de paquets.
+
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `data-01`, commun aux deux profils.
 

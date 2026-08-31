@@ -16,7 +16,7 @@ make elk-deploy
 ```
 
 Traefik reste un prérequis de bootstrap du cluster. La cible `make
-elastic-stack-deploy`, appelée par `make elk-deploy`, installe ou met à jour la
+elastic-stack-v2-deploy`, appelée par `make elk-deploy`, installe ou met à jour la
 release Helm `es-kb-quickstart` avec Elasticsearch et Kibana `9.4.3`. Ses
 valeurs d'installation sont versionnées dans
 `platform/helm/eck-stack-values.yaml`; Elasticsearch est volontairement exclu

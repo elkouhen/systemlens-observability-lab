@@ -8,9 +8,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elk_dir="$(cd "${script_dir}/.." && pwd)"
 command -v curl >/dev/null || { printf 'curl est requis.\n' >&2; exit 2; }
 command -v jq >/dev/null || { printf 'jq est requis.\n' >&2; exit 2; }
-elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test}"
+elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch-v2.poc.test}"
 : "${ELASTICSEARCH_PASSWORD:?Definir ELASTICSEARCH_PASSWORD avant de synchroniser les pipelines}"
-kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
+kibana_url="${KIBANA_URL:-https://kibana-v2.poc.test}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
 fleet_policy_id='data-fleet'
 case "${POC_PROFILE:-minimal}" in
@@ -20,10 +20,10 @@ case "${POC_PROFILE:-minimal}" in
 esac
 
 elasticsearch_args=(--fail --silent --show-error --insecure
-  --resolve elasticsearch.poc.test:443:127.0.0.1
+  --resolve elasticsearch-v2.poc.test:443:127.0.0.1
   -u "elastic:${ELASTICSEARCH_PASSWORD}" -H 'Content-Type: application/json')
 kibana_args=(--fail --silent --show-error --insecure
-  --resolve "${KIBANA_HOST:-kibana.poc.test}:443:127.0.0.1"
+  --resolve "${KIBANA_HOST:-kibana-v2.poc.test}:443:127.0.0.1"
   -u "elastic:${kibana_password}" -H 'Content-Type: application/json'
   -H 'kbn-xsrf: systemlens-fleet-sync')
 
