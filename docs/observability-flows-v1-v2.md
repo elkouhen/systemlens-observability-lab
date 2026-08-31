@@ -112,5 +112,5 @@ Elles ne doivent pas être confondues avec les métriques APM agrégées.
   `v1/ansible/templates/filebeat.yml.j2`, `metricbeat.yml.j2` ;
 - v2 : `v2/platform/kubernetes/base/observability/otel-kafka.yaml` et
   `v2/ansible/templates/otel-agent.yml.j2` ;
-- vue structurée Archify : [`observability-v1.dataflow.json`](observability-v1.dataflow.json)
-  et [`observability-v2.dataflow.json`](observability-v2.dataflow.json).
+- vue de référence lisible directement sur GitHub : ce document Markdown et ses
+  six schémas Mermaid.

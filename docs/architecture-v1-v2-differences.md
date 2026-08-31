@@ -1,8 +1,9 @@
 # Différences entre les architectures v1 et v2
 
-Ce document est la référence de comparaison entre les deux bundles
-d'architecture. Les deux bundles supportent un profil léger, utilisé par
-défaut dans ce POC.
+Ce document est la référence de comparaison entre les implémentations des deux
+bundles d'architecture. Les deux bundles supportent un profil léger, utilisé
+par défaut dans ce POC. Les flux détaillés sont représentés dans
+[`observability-flows-v1-v2.md`](observability-flows-v1-v2.md).
 
 ## Vue d'ensemble
 
@@ -15,14 +16,16 @@ défaut dans ce POC.
 | Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Namespace `elastic-stack-v2`, application `h0tl-supermarche-app-v2` | Implémenté |
 | Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | Les mêmes URL, selon le bundle actif | Implémenté |
 | Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Collector → Elasticsearch | Implémenté |
-| Métriques applicatives/Kubernetes | Elastic Agent et pipelines Logstash | EDOT Java Agent/EDOT Kubernetes → Kafka → EDOT Collector → Elasticsearch | Implémenté |
-| Métriques Prometheus | Endpoint Actuator `/actuator/prometheus` collecté par Metricbeat/Elastic Agent | Endpoint Actuator conservé ; les métriques Java exportées utilisent OTLP → Kafka → EDOT Collector, sans scraping Prometheus dans le pipeline actuel | Implémenté |
+| Métriques applicatives/Kubernetes | Métriques APM via APM Server/Logstash ; métriques kubelet et état Kubernetes via Elastic Agent/Logstash | Métriques Java via OTel Agent → EDOT Gateway → `otel-metrics` ; métriques hôte et Kubernetes via EDOT DaemonSet → `otel-metrics` → EDOT Collector | Implémenté |
+| Métriques Prometheus | Elastic Agent Kubernetes scrape `/actuator/prometheus`, puis Logstash → data stream Prometheus dédié | Endpoint Actuator conservé, mais pas de scraping Prometheus dans le chemin v2 actuel ; les métriques Java exportées par OTel suivent OTLP → Kafka → EDOT Collector | Implémenté |
 | Logs applicatifs/Kubernetes | Elastic Agent → Logstash | EDOT Kubernetes `filelog` → Kafka → EDOT Collector → Elasticsearch | Implémenté |
-| Logs et métriques des VM | `data-01` et `data-02` via Elastic Agent/Fleet ; `data-03` via Filebeat/Metricbeat | EDOT Agent sur chaque VM active → Kafka OTLP → EDOT Collector → Elasticsearch | Implémenté |
+| Logs et métriques des VM | Profil minimal : `data-01` via Elastic Agent/Fleet → Elasticsearch ; profil distribué : `data-01`/`data-02` via Fleet et `data-03` via Filebeat/Metricbeat | EDOT Agent sur chaque VM active → `edot-vm-logs`/`edot-vm-metrics` → Kafka → EDOT Collector → Elasticsearch | Implémenté |
 | Topologie VM par défaut | `POC_PROFILE=minimal` : `data-01` seule | `POC_PROFILE=minimal` : `data-01` seule | Implémenté |
 | Topologie VM distribuée | `POC_PROFILE=distributed` : trois VM | `POC_PROFILE=distributed` : trois VM | Disponible |
-| Stabilisation Kafka | Kafka transporte les événements métier ; les signaux passent par Fleet/Logstash | Kafka transporte les événements métier et les signaux OTLP avec des topics dédiés | Implémenté |
+| Stabilisation Kafka | Kafka transporte les événements métier ; la télémétrie utilise les sorties Elastic directes | Kafka transporte les événements métier et sert aussi de buffer OTLP pour les signaux, avec des topics dédiés et des consumer groups | Implémenté |
 | Versions OTel | Non utilisé pour les signaux du POC | EDOT Collector `9.4.3`, agent Java OTel `2.28.1` | Implémenté |
+| Corrélation logs/traces | Agent Elastic APM enrichit le MDC ; logs ECS avec `trace.id`/`span.id` | Logs ECS stdout parsés par EDOT ; `trace_id`/`span_id` sont conservés pour retrouver la trace | Implémenté |
+| Dashboards et data streams | Data streams ECS v8 et dashboards classiques Elastic/Prometheus | Data streams OTel (`*.otel-*`) et dashboards OTel/compatibles ; les noms de métriques OTel ne sont pas renommés en métriques legacy | Implémenté |
 
 ## Contrat de transport v2
 
@@ -43,6 +46,26 @@ la reprise après indisponibilité d'Elasticsearch sont d'abord assurées par
 Kafka. La capacité, le nombre de partitions et la réplication devront être
 mesurés avant un usage de production.
 
+### Chemins réellement utilisés
+
+- APM Java v1 : agent Elastic APM → APM Server → Logstash `5044` →
+  Elasticsearch.
+- APM Java v2 : OTel Java Agent → EDOT Gateway `4317/4318` → Kafka
+  `otel-traces` et `otel-metrics` → EDOT Collector → Elasticsearch.
+- VM v1 : Elastic Agent/Fleet ou Beats selon la VM → Elasticsearch.
+- VM v2 : EDOT Agent local → Kafka directement ; les VM ne passent pas par le
+  Gateway OTLP Kubernetes.
+- Logs applicatifs v1 : stdout → Elastic Agent Kubernetes → Logstash `5045` →
+  Elasticsearch.
+- Logs applicatifs v2 : stdout ECS → EDOT DaemonSet `filelog` → Kafka
+  `otel-logs` → EDOT Collector → Elasticsearch.
+
+Fleet Server reste nécessaire pour l'administration des agents Fleet présents
+en v1. En v2, les métriques et logs des VM sont produits par le service EDOT
+Agent provisionné par Ansible ; les artefacts Fleet conservés dans le bundle
+servent au bootstrap et à la gestion de la plateforme, pas au transport de ces
+signaux.
+
 ## Vérification prévue
 
 ```bash
@@ -55,10 +78,9 @@ POC_PROFILE=minimal make vm-provision
 kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
 ```
 
-Résultat attendu : `data-01` est la seule VM active du profil minimal, les
-topics OTLP existent, les Collectors sont prêts, et les data streams
-`traces-*.otel-*`, `metrics-*.otel-*` et `logs-*.otel-*` reçoivent les signaux
-de la démo.
+Résultat attendu : `data-01` est la seule VM active du profil minimal dans les
+deux versions, les topics OTLP existent en v2, les Collectors sont prêts, et
+les data streams de traces, métriques et logs reçoivent les signaux de la démo.
 
 Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
 `fleet.poc.test/` est normal, car Fleet Server ne fournit pas d'interface web.
@@ -81,8 +103,8 @@ Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
 
 ## Décisions et points ouverts
 
-- La v2 utilise l'endpoint OTLP/HTTP Elasticsearch ; Elasticsearch n'accepte
-  pas OTLP/gRPC pour cette destination.
+- La v2 utilise l'endpoint OTLP/HTTP Elasticsearch côté Collector de sortie ;
+  Elasticsearch n'accepte pas OTLP/gRPC pour cette destination.
 - Les logs sont collectés à partir de stdout Kubernetes par `filelog`; ils ne
   sont pas envoyés par le code Java.
 - En profil minimal, seule `data-01` est provisionnée ; les profils distribués
