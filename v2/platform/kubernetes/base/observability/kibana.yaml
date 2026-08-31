@@ -1,0 +1,195 @@
+# Cette ressource est entièrement gérée par ce dépôt. Garder les références
+# Kibana cohérentes dans fleet-server.yaml et apm-server.yaml si son nom change.
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: es-kb-quickstart-eck-kibana
+  namespace: elastic-stack
+  annotations:
+    # Déclenche la réconciliation des package policies après l'installation
+    # initiale des packages du registre Elastic 9.4.3.
+    observability.systemlens.io/fleet-packages-revision: "4"
+spec:
+  version: 9.4.3
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+  podTemplate:
+    spec:
+      # Fleet installe les packages durant le bootstrap de Kibana. Attendre le
+      # registre évite une initialisation en échec lors d'un cluster vierge.
+      initContainers:
+        - name: wait-package-registry
+          image: curlimages/curl:8.5.0
+          command:
+            - sh
+            - -ec
+            - |
+              until curl --fail --silent http://package-registry.elastic-stack.svc:8080/health; do
+                echo 'Attente du registre de packages Elastic 9.4.3…'
+                sleep 2
+              done
+      containers:
+        - name: kibana
+          env:
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-fleet-credentials
+                  key: password
+            # Kibana/Fleet charge de nombreux assets au démarrage. La limite
+            # Node par défaut à l'intérieur d'un cgroup de 1 Gio est trop
+            # basse et provoque un "JavaScript heap out of memory".
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=1280
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+  config:
+    # URL utilisée par Kibana pour les redirections et les liens générés derrière
+    # l'IngressRoute Traefik.
+    server.publicBaseUrl: https://kibana.poc.test
+    # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
+    xpack.fleet.agents.fleet_server.hosts:
+      - https://fleet.poc.test:443
+    # Registre versionné avec le Stack : il contient notamment APM 9.4.3,
+    # contrairement à l'EPR public courant qui ne propose plus que 8.4.2.
+    xpack.fleet.registryUrl: http://package-registry.elastic-stack.svc:8080
+    xpack.fleet.outputs:
+      # Fleet Server s'exécute dans le cluster : il doit utiliser le service
+      # Elasticsearch interne, et non l'Ingress public qui n'est pas
+      # nécessairement joignable depuis les pods.
+      - id: fleet-server-output
+        name: Elasticsearch interne pour Fleet Server
+        type: elasticsearch
+        hosts:
+          - https://elasticsearch-es-http.elastic-stack.svc:9200
+      - id: fleet-default-output
+        name: Elasticsearch ECK
+        type: elasticsearch
+        is_default: true
+        is_default_monitoring: true
+        hosts:
+          - https://elasticsearch.poc.test:443
+        # Le certificat de démonstration de l'Ingress n'est pas signé par une
+        # AC publique. Cette sortie est réservée aux VM du POC ; les pods ECK
+        # utilisent leur sortie interne et conservent leur validation TLS.
+        config:
+          ssl.verification_mode: none
+    xpack.fleet.packages:
+      - name: fleet_server
+        # 1.2.0 est la dernière version publiée par l'EPR compatible avec
+        # Kibana 8.5.x. Les versions récentes du package nécessitent Kibana
+        # 8.12+ et empêchent l'initialisation du Fleet Server.
+        version: 1.2.0
+      # La version doit suivre APM Server, sinon ses pipelines refusent les
+      # documents et les data views APM ne peuvent pas charger leurs champs.
+      - name: apm
+        version: 9.4.3
+      # Installe les assets et tableaux de bord Kubernetes. Les deux Agents
+      # standalone restent pilotés exclusivement par les manifests ECK.
+      - name: kubernetes
+        version: 1.27.1
+      # Versions figées et validées pour le Stack 9.4.3 du POC.
+      - name: system
+        version: 1.20.4
+      - name: mongodb
+        version: 1.5.0
+      - name: kafka
+        version: 1.3.0
+      - name: postgresql
+        version: 1.5.0
+    xpack.fleet.agentPolicies:
+      - id: eck-fleet-server
+        name: Fleet Server on ECK
+        namespace: default
+        is_managed: true
+        # ECK crée un token d'enrôlement seulement pour une policy marquée
+        # Fleet Server par défaut. Les sorties propres à une policy demandent
+        # une licence Platinum ; conserver la sortie Fleet par défaut.
+        is_default_fleet_server: true
+        unenroll_timeout: 901
+        monitoring_enabled:
+          - logs
+          - metrics
+        package_policies:
+          - id: fleet-server-1
+            name: fleet_server-1
+            package:
+              name: fleet_server
+      # Les deux VM Fleet partagent la même policy : les intégrations MongoDB
+      # et Kafka parlent à localhost sur chaque VM. PostgreSQL est filtré sur
+      # data-01, où le service est réellement présent.
+      - id: data-fleet
+        name: Data — Elastic Agent
+        namespace: default
+        is_managed: true
+        is_default: true
+        monitoring_enabled:
+          - logs
+          - metrics
+        package_policies:
+          - id: system-data-01-02
+            name: system-data-01-02
+            package:
+              name: system
+            inputs:
+              - type: system/metrics
+                enabled: true
+          - id: mongodb-data-01-02
+            name: mongodb-data-01-02
+            package:
+              name: mongodb
+            inputs:
+              - type: mongodb/metrics
+                enabled: true
+                vars:
+                  - name: hosts
+                    type: text
+                    value:
+                      - mongodb://127.0.0.1:27017
+          - id: kafka-data-01-02
+            name: kafka-data-01-02
+            package:
+              name: kafka
+            inputs:
+              - type: kafka/metrics
+                enabled: true
+                vars:
+                  - name: hosts
+                    type: text
+                    value:
+                      - 127.0.0.1:9092
+              - type: jolokia/metrics
+                enabled: true
+                vars:
+                  - name: hosts
+                    type: text
+                    value:
+                      - http://127.0.0.1:8778
+          # PostgreSQL n'existe que sur data-01. La condition évite que
+          # l'Agent de data-02 tente une connexion localhost inexistante.
+          - id: postgresql-data-01
+            name: postgresql-data-01
+            package:
+              name: postgresql
+            inputs:
+              - type: postgresql/metrics
+                enabled: true
+                vars:
+                  - name: condition
+                    type: text
+                    value: ${host.name} == 'data-01'
+                  - name: hosts
+                    type: text
+                    value:
+                      - postgres://127.0.0.1:5432/observability_test?sslmode=disable
+                  - name: username
+                    type: text
+                    value: observability
+                  - name: password
+                    type: password
+                    value: ${POSTGRESQL_PASSWORD}

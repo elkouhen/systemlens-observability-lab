@@ -21,6 +21,28 @@ Le changement de profil modifie la topologie Vagrant. Arrêter et recréer les V
 concernées avant de changer de profil. Le profil minimal ne valide pas la
 réplication ni la tolérance aux pannes.
 
+## Versions d'architecture
+
+Le dépôt contient deux snapshots de la chaîne Elastic : `v1/` conserve la
+configuration existante en Elastic Stack `8.11.3`, et `v2/` propose Kibana et
+les composants couplés en `9.4.3`. Le code Java, Maven et Docker reste partagé ;
+chaque architecture possède ses propres manifests Kubernetes applicatifs sous
+`v1/apps/` et `v2/apps/`.
+
+La version active est persistée localement dans `.architecture-version` (non
+versionné) et vaut `v1` par défaut :
+
+```bash
+make architecture-switch VERSION=v1
+make architecture-switch VERSION=v2
+make architecture-status
+make kubernetes-validate
+```
+
+Les cibles de plateforme utilisent le répertoire sélectionné. Ne pas changer de
+version pendant qu'une même release Kubernetes est en cours de mise à jour sans
+préparer la montée de version Elastic et ses données.
+
 ## Architecture
 
 | Composant | Implantation | Configuration principale | Données observées |
@@ -54,11 +76,11 @@ make stock-view
 
 Avant de modifier une configuration, suivre les README locaux :
 
-- [`platform/README.md`](platform/README.md) : point d'entrée de la plateforme ;
-- [`platform/elk/README.md`](platform/elk/README.md) : chaîne de télémétrie
+- [`v1/platform/README.md`](v1/platform/README.md) : point d'entrée de la plateforme v1 ;
+- [`v1/platform/elk/README.md`](v1/platform/elk/README.md) : chaîne de télémétrie
   Elastic et ses sous-répertoires ;
 - [`apps/README.md`](apps/README.md) : séparation entre plateforme et workloads ;
-- [`ansible/README.md`](ansible/README.md) : infrastructure des VM et templates ;
+- [`v1/ansible/README.md`](v1/ansible/README.md) : infrastructure des VM et templates ;
 - [`scripts/README.md`](scripts/README.md) : outils de diagnostic partagés.
 - [`docs/README.md`](docs/README.md) : objectifs du POC, architecture des
   signaux, comparatif des intégrations et matrices de recette.
@@ -69,9 +91,9 @@ références officielles nécessaires pour comprendre les choix de configuration
 ## Organisation du dépôt
 
 ```
-platform/elk/       # Kubernetes ELK, Fleet, dashboards et scripts Elastic
-apps/supermarket-demo/  # code Java, Dockerfile et manifests de l'application
-ansible/             # infrastructure partagée des VM MongoDB/Kafka/PostgreSQL
+v1/                 # bundle complet : Makefile, Vagrantfile, ELK, Kubernetes, Ansible
+v2/                 # bundle complet : Makefile, Vagrantfile, ELK, Kubernetes, Ansible
+apps/supermarket-demo/  # code Java, Dockerfile et configuration Maven partagés
 scripts/             # utilitaires partagés aux VM
 ```
 
@@ -85,7 +107,7 @@ deux périmètres séparément. Pour déployer l'architecture complète
 - Ansible Core et la collection `ansible.posix` sur l’hôte de provisionnement :
 
   ```bash
-  ansible-galaxy collection install -r ansible/requirements.yml
+  ansible-galaxy collection install -r v1/ansible/requirements.yml
   ```
 - un cluster Kubernetes avec Traefik ; `make eck-deploy` installe ou met à jour
   l’opérateur ECK 3.5.0 avant le déploiement des ressources Elastic ;
@@ -167,7 +189,7 @@ importe dans k3d et déploie les trois applications. Une clé déjà fournie dan
 `ELASTICSEARCH_API_KEY` n'est pas remplacée.
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
-   `ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
+   `v1/ansible/site.yml` ou `v2/ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
    MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat sur
    les VM correspondant au profil Beats. `data-01` et `data-02` reçoivent
    l'Elastic Agent enrôlé dans Fleet. La clé API
@@ -229,8 +251,8 @@ allocations natives.
    POC ne requiert pas d'autre collecteur de traces.
 
    ```bash
-   kubectl apply -k platform/kubernetes/overlays/local
-   kubectl apply -k apps/supermarket-demo/kubernetes
+   make elk-deploy
+   make apps-deploy
    kubectl -n elastic-stack get elasticsearch,kibana,apmserver,agent
    kubectl -n h0tl-supermarche-app get deploy,pods,svc
    ```
@@ -242,7 +264,7 @@ allocations natives.
 
    ```bash
    export KIBANA_PASSWORD='…'
-   ./platform/elk/scripts/sync-fleet-policies.sh
+   make fleet-sync
    ```
 
    Le script installe le pipeline `metrics-kafka.topic@custom`, les pipelines
@@ -356,7 +378,7 @@ Kafka KRaft, le lag du groupe `inventory-service` et le dernier traitement Kafka
 persisté dans MongoDB et PostgreSQL :
 
 ```bash
-ansible-playbook -i ansible/inventory/vagrant.yml ansible/status.yml
+ansible-playbook -i v1/ansible/inventory/vagrant.yml v1/ansible/status.yml
 ```
 
 Pour Kafka 3.9, `make fleet-sync` applique le correctif Raft qui retire

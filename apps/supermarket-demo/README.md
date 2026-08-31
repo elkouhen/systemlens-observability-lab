@@ -30,7 +30,7 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 1. `pom.xml` : agrégateur Maven et versions communes.
 2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic APM pour les
    trois services.
-3. [`kubernetes/README.md`](kubernetes/README.md) : variables de déploiement
+3. [`v1/apps/supermarket-demo/kubernetes/README.md`](../../v1/apps/supermarket-demo/kubernetes/README.md) : variables de déploiement Kubernetes versionnées
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même
@@ -40,7 +40,10 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
    `inventory-service/.../inventory`, `restock-service/.../restock`).
 
 Construire les trois images avec `make apps-build`, puis déployer uniquement
-l'application avec `make apps-deploy`.
+l'application avec `make apps-deploy`. Cette cible prend les manifests
+Kubernetes dans `v1/apps/supermarket-demo/` ou `v2/apps/supermarket-demo/`,
+selon l'architecture sélectionnée. Le code Java, les POM et le Dockerfile
+restent communs aux deux architectures.
 
 Pour déclencher une commande de recette via le service Kubernetes, exécuter
 `make order-service-command`. La cible crée un pod `curl` éphémère, appelle
@@ -65,7 +68,7 @@ d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 
 Le tag des images Docker (`order-service:1.1.1` / `inventory-service:1.1.1` /
 `restock-service:1.1.1`,
-fixé dans `Makefile` et `kubernetes/base/deployment.yaml`) est géré indépendamment
+fixé dans `Makefile` et les manifests Kubernetes de `v1/` ou `v2/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag

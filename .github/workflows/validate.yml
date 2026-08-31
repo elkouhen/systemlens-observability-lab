@@ -23,5 +23,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: pipx install ansible-core==2.19.3
-      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: ansible-galaxy collection install -r v1/ansible/requirements.yml
       - run: make ci

@@ -1,6 +1,11 @@
 certs/*
 !certs/README.md
 .vagrant
+*/.vagrant
+
+# Sélection locale de l'architecture déployée (v1 par défaut).
+.architecture-version
+*/.architecture-version
 
 # Artéfacts de compilation Maven, quel que soit le module.
 target/

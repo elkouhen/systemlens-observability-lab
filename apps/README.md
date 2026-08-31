@@ -7,8 +7,8 @@ porter la configuration de la plateforme ELK qui l'observe.
 ## Parcours conseillé
 
 Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis les
-manifests Kubernetes dans `supermarket-demo/kubernetes/` et enfin les modules
-Maven.
+manifests Kubernetes de l'architecture sélectionnée dans `v1/apps/` ou
+`v2/apps/`, et enfin les modules Maven communs.
 
 Pour intégrer une nouvelle application Java dans la chaîne APM, logs ECS et
 Logstash, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
