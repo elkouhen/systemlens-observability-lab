@@ -32,11 +32,11 @@ v1 ; Kafka est une source observée, pas un buffer de télémétrie.
 
 ```mermaid
 flowchart LR
-    P[Pods Java\nstdout ECS JSON\ntrace.id / span.id] --> A[Elastic Agent Kubernetes]
-    A -->|Beats :5045| L[Logstash\npipeline kubernetes-logs]
-    L -->|logs-* ECS\nnamespace + dataset| E[(Elasticsearch)]
-    E --> K[Kibana\nDiscover / Logs]
-    E -. corrélation .-> AP[APM\nView surrounding logs]
+    P["Pods Java — stdout ECS JSON — trace.id / span.id"] --> A["Elastic Agent Kubernetes"]
+    A -->|"Beats port 5045"| L["Logstash — pipeline kubernetes-logs"]
+    L -->|"logs ECS — namespace + dataset"| E[(Elasticsearch)]
+    E --> K["Kibana — Discover / Logs"]
+    E -.-> AP["APM — corrélation logs/traces"]
 ```
 
 ## v2 — métriques et traces APM Java
@@ -75,12 +75,12 @@ Kafka → EDOT Kafka exporter → Elasticsearch`.
 
 ```mermaid
 flowchart LR
-    P[Pods Java\nstdout ECS JSON\ntrace_id / span_id] --> D[EDOT Collector DaemonSet\nfilelog + parser container]
-    D -->|OTLP Kafka\notel-logs| L[Kafka]
+    P["Pods Java — stdout ECS JSON — trace_id / span_id"] --> D["EDOT Collector DaemonSet — filelog + parser container"]
+    D -->|"OTLP Kafka — otel-logs"| L[Kafka]
     L --> X[EDOT Kafka exporter]
     X -->|logs-generic.otel-*| E[(Elasticsearch)]
-    E --> K[Kibana\nDiscover / Logs]
-    E -. trace.id .-> AP[APM\ntrace associée]
+    E --> K["Kibana — Discover / Logs"]
+    E -.-> AP["APM — trace associée"]
 ```
 
 Les applications Java n'exportent pas les logs via l'agent OpenTelemetry
