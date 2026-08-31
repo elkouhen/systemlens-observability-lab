@@ -51,6 +51,17 @@ ne doivent pas reproduire ces règles. Les mesures techniques comme la durée
 d'exécution sont produites par la couche application ; elles ne doivent pas
 être simulées dans le domaine.
 
+Les règles d'architecture sont vérifiées par ArchUnit dans
+`src/test/java/io/systemlens/supermarket/inventory/ArchitectureTest.java`.
+Elles garantissent notamment l'indépendance du domaine vis-à-vis des
+frameworks, l'absence de dépendance de l'application vers les adapters, des
+ports sous forme d'interfaces et la finalité des types du domaine. Les exécuter
+avec :
+
+```bash
+mvn -pl inventory-service -am verify
+```
+
 ## Documentation externe
 
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)

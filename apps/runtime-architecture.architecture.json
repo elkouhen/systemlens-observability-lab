@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Supermarché en ligne — architecture runtime",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elkouhen/systemlens-observability-lab.git",
+      "revision": "45c7dd07883b017c7037a1dd122d77abc78c3b69"
+    },
+    "viewBox": [1350, 860]
+  },
+  "components": [
+    { "id": "customers", "type": "external", "label": "Clients / recette", "sublabel": "POST /api/orders", "pos": [40, 330], "size": [160, 70], "sources": [{ "path": "apps/supermarket-demo/README.md", "label": "scénario métier" }] },
+    { "id": "order-service", "type": "backend", "label": "order-service", "sublabel": "Spring Boot · REST + Kafka", "pos": [270, 330], "size": [190, 78], "sources": [{ "path": "apps/supermarket-demo/README.md", "label": "prise de commande" }, { "path": "apps/supermarket-demo/kubernetes/base/deployment.yaml", "label": "Deployment" }] },
+    { "id": "inventory-service", "type": "backend", "label": "inventory-service", "sublabel": "propriétaire du catalogue", "pos": [540, 330], "size": [200, 78], "sources": [{ "path": "apps/supermarket-demo/README.md", "label": "gestion du stock" }, { "path": "apps/supermarket-demo/kubernetes/base/deployment.yaml", "label": "Deployment" }] },
+    { "id": "restock-service", "type": "backend", "label": "restock-service", "sublabel": "réassort asynchrone", "pos": [820, 530], "size": [200, 78], "sources": [{ "path": "apps/supermarket-demo/README.md", "label": "orchestration" }, { "path": "apps/supermarket-demo/kubernetes/base/deployment.yaml", "label": "Deployment" }] },
+    { "id": "kafka", "type": "messagebus", "label": "Kafka", "sublabel": "VM · événements métier", "pos": [820, 300], "size": [180, 78], "sources": [{ "path": "apps/supermarket-demo/kubernetes/base/deployment.yaml", "label": "bootstrap servers" }] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "catalogue · stock_movements", "pos": [540, 120], "size": [200, 78], "sources": [{ "path": "apps/supermarket-demo/README.md", "label": "registre du stock" }] },
+    { "id": "mongo", "type": "database", "label": "MongoDB", "sublabel": "order_fulfillments · VM", "pos": [540, 600], "size": [200, 78], "sources": [{ "path": "apps/supermarket-demo/README.md", "label": "journalisation" }] },
+    { "id": "elastic-observability", "type": "cloud", "label": "Chaîne Elastic", "sublabel": "APM Server · Agent · Logstash · data streams", "pos": [1020, 300], "size": [260, 90], "sources": [{ "path": "apps/supermarket-demo/kubernetes/README.md", "label": "APM + logs ECS" }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Kubernetes · h0tl-supermarche-app", "wraps": ["order-service", "inventory-service", "restock-service", "elastic-observability"], "pad": 30 },
+    { "kind": "security-group", "label": "Services de données sur VM", "wraps": ["kafka", "postgres", "mongo"], "pad": 26 }
+  ],
+  "connections": [
+    { "id": "client-order", "from": "customers", "to": "order-service", "variant": "emphasis" },
+    { "id": "order-inventory", "from": "order-service", "to": "inventory-service", "variant": "emphasis" },
+    { "id": "kafka-inventory", "from": "kafka", "to": "inventory-service", "variant": "dashed" },
+    { "id": "inventory-postgres", "from": "inventory-service", "to": "postgres", "variant": "security" },
+    { "id": "inventory-mongo", "from": "inventory-service", "to": "mongo", "variant": "security" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Flux métier", "items": ["La caisse réserve le stock via REST", "Les commandes et événements de stock transitent par Kafka", "inventory-service écrit PostgreSQL et MongoDB"] },
+    { "dot": "violet", "title": "Observabilité", "items": ["Les trois services Java envoient leur APM directement à APM Server", "Les logs ECS stdout sont collectés par Elastic Agent puis routés par Logstash", "Les signaux aboutissent dans les data streams Elastic"] }
+  ]
+}
