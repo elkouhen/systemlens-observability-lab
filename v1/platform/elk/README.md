@@ -13,6 +13,8 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 3. [`scripts/README.md`](scripts/README.md) : l'initialisation des secrets et
    la synchronisation de Fleet.
 4. [`dashboards/README.md`](dashboards/README.md) : les objets Kibana importés.
+5. [`verification.md`](verification.md) : vérifier chaque famille de logs et
+   de métriques de la chaîne v1.
 
 ## Modèle mental
 
@@ -20,9 +22,9 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 
 `data-01` utilise exclusivement Filebeat et Metricbeat. Les deux Beats envoient
 les logs et métriques au pipeline `kubernetes-logs` de Logstash sur le port
-`5045`, puis Logstash écrit dans Elasticsearch. La VM doit pouvoir résoudre et
-atteindre l'adresse Logstash configurée par `LOGSTASH_URL` (par défaut
-`apm-logstash.elastic-stack.svc:5045`) depuis le réseau Kubernetes.
+`5045`, puis Logstash écrit dans Elasticsearch. Traefik expose cette entrée
+Beats en TLS avec le nom `logstash.poc.test:443`, ajouté dans `/etc/hosts` de
+la VM. `LOGSTASH_URL` permet de remplacer cette adresse.
 
 Lors d'un déploiement initial, `make deploy` attend d'abord que Kibana soit
 prêt, puis démarre `data-01` avec Filebeat et Metricbeat.

@@ -53,6 +53,7 @@ setup.ilm.enabled: false
 
 output.logstash:
   hosts: ["{{ logstash_url }}"]
+  ssl.enabled: true
   # Une règle par dataset est nécessaire : le champ data_stream.dataset seul ne
   # pilote pas le choix du data stream de sortie par Filebeat.
   indices:

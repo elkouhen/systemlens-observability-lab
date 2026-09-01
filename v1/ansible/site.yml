@@ -22,7 +22,7 @@
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
     elasticsearch_url: https://elasticsearch.poc.test:443
-    logstash_url: apm-logstash.elastic-stack.svc:5045
+    logstash_url: logstash.poc.test:443
     fleet_url: https://fleet.poc.test
     fleet_insecure: true
     poc_redeploy_services: false
@@ -180,7 +180,7 @@
         path: /etc/hosts
         marker: '# {mark} POC ELASTIC HOSTS'
         block: |
-          192.168.33.1 kibana.poc.test elasticsearch.poc.test fleet.poc.test apm.poc.test
+          192.168.33.1 kibana.poc.test elasticsearch.poc.test fleet.poc.test apm.poc.test logstash.poc.test
 
     - name: Lire le certificat TLS public Elasticsearch du POC
       ansible.builtin.shell: |

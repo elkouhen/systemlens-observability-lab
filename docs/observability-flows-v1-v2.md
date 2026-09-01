@@ -23,8 +23,9 @@ et [sortie APM Server vers Logstash](https://www.elastic.co/docs/solutions/obser
 flowchart LR
     S[VM data-01] --> MB[Metricbeat\nCPU · mémoire · disque · réseau\nKafka · MongoDB]
     S --> FB[Filebeat\nlogs système\nKafka · MongoDB · PostgreSQL]
-    MB -->|Beats :5045| L[Logstash\npipeline kubernetes-logs]
-    FB -->|Beats :5045| L
+    MB -->|TLS :443\nlogstash.poc.test| T[Traefik\nIngressRouteTCP]
+    FB -->|TLS :443\nlogstash.poc.test| T
+    T -->|Beats :5045| L[Logstash\npipeline kubernetes-logs]
     L -->|data streams metrics-* / logs-*| E[(Elasticsearch)]
     E --> K[Kibana\nSystem / Kafka / MongoDB / PostgreSQL]
 ```

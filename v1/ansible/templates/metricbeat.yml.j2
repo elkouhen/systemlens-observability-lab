@@ -32,6 +32,5 @@ setup.ilm.enabled: false
 
 output.logstash:
   hosts: ["{{ logstash_url }}"]
-  # L'Ingress de démonstration utilise un certificat non approuvé par défaut
-  # dans l'image Rocky. Cette exception est limitée au POC local.
-  ssl.verification_mode: none
+  ssl.enabled: true
+  ssl.certificate_authorities: ["/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"]

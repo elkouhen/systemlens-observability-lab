@@ -165,6 +165,13 @@ elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply ## Dép
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) kibana-ready
+	# APM Server référence ce Secret Kibana ; il doit exister avant sa
+	# réconciliation par ECK. Logstash doit également disposer de sa clé avant
+	# le démarrage du pipeline d'ingestion.
+	@$(MAKE) apm-kibana-role-apply
+	@$(MAKE) apm-logstash-credentials-apply
+	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	@$(MAKE) apm-server-ready
 	@$(MAKE) apm-data-view-deploy
 
 apm-data-view-deploy: ## Importer le data view APM versionné
