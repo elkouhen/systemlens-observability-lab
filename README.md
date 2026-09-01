@@ -218,8 +218,6 @@ uniquement sur la boucle locale de l'hôte :
 | VM | Jolokia | JConsole (JMX/RMI) |
 | --- | --- | --- |
 | `data-01` | `http://127.0.0.1:18781/jolokia` | `service:jmx:rmi:///jndi/rmi://127.0.0.1:19991/jmxrmi` |
-| `data-02` | `http://127.0.0.1:18782/jolokia` | `service:jmx:rmi:///jndi/rmi://127.0.0.1:19992/jmxrmi` |
-| `data-03` | `http://127.0.0.1:18783/jolokia` | `service:jmx:rmi:///jndi/rmi://127.0.0.1:19993/jmxrmi` |
 
 JConsole ne peut pas se connecter directement à Jolokia, qui est une API HTTP.
 Utiliser l'URL JMX/RMI correspondante et laisser les identifiants vides. Cette
@@ -419,12 +417,9 @@ opérationnel mais `yellow` car il ne possède qu’un nœud : les réplicas non
 alloués sont attendus dans cette topologie de POC, mais cet état ne convient pas
 à une validation de haute disponibilité.
 
-Kafka est déployé exclusivement sur les trois VM Vagrant (`data-01` à
-`data-03`). Il n'existe volontairement aucun Deployment ou Service Kafka dans
-Kubernetes : les applications doivent joindre les brokers
-`192.168.33.10:9092` à `.12:9092`. Cette règle évite qu'un Kafka mono-nœud de
-test dans Kubernetes masque une erreur de connectivité ou de réplication du
-cluster KRaft de référence.
+Kafka v1 est déployé sur l'unique VM Vagrant `data-01`. Il n'existe
+volontairement aucun Deployment ou Service Kafka dans Kubernetes : les
+applications doivent joindre le broker `192.168.33.10:9092`.
 
 La recette fonctionnelle doit donc valider un cycle complet
 producteur → Kafka sur VM → consommateur → MongoDB + PostgreSQL. Tout `TimeoutException`,

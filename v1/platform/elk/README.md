@@ -8,8 +8,8 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 
 1. [`../kubernetes/README.md`](../kubernetes/README.md) : le point d'entrée
    Kustomize des ressources qui tournent dans le cluster.
-2. [`fleet/README.md`](fleet/README.md) : les policies qui observent les VM
-   MongoDB et Kafka.
+2. [`fleet/README.md`](fleet/README.md) : les policies Fleet conservées comme
+   référence pour la plateforme Kubernetes.
 3. [`scripts/README.md`](scripts/README.md) : l'initialisation des secrets et
    la synchronisation de Fleet.
 4. [`dashboards/README.md`](dashboards/README.md) : les objets Kibana importés.

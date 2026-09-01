@@ -379,12 +379,12 @@ filtrer sur `kafka` : les métriques Kafka client sont scrutées sur l’endpoin
 Prometheus de l’application. Elles sont stockées dans le data stream dédié
 `metrics-app.prometheus.0tl-homologation`, séparé des métriques APM natives
 afin d’éviter un conflit de mapping ECS. Les métriques des brokers Kafka sont
-issues des intégrations Fleet des VM.
+issues de Metricbeat sur `data-01` et passent par Logstash `5045`.
 
 Si l’endpoint expose les métriques mais qu’aucun document n’apparaît, vérifier
 les logs de l’Elastic Agent Kubernetes, le ciblage du Service DNS et les logs
 Logstash. Les métriques Kafka client ne sont pas les métriques des brokers,
-qui sont collectées séparément par les intégrations Fleet des VM.
+qui sont collectées séparément par Metricbeat sur `data-01`.
 
 ## Diagnostic rapide
 
