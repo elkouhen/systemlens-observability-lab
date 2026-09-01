@@ -5,7 +5,7 @@ bundles d'architecture. Les deux bundles utilisent une topologie minimale avec
 l'unique VM `data-01`. Les flux détaillés sont représentés dans
 [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md).
 La revue de mutualisation du code est détaillée dans
-[`../diff-code-v1-v2.md`](../diff-code-v1-v2.md).
+[`diff-code-v1-v2.md`](diff-code-v1-v2.md).
 
 ## Vue d'ensemble
 

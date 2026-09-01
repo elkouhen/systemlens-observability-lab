@@ -5,6 +5,8 @@ opérationnelle la plus proche d'un composant reste sa source de vérité : lire
 `platform/README.md`, `apps/README.md` ou `ansible/README.md` avant toute
 modification.
 
+Pour commencer, consulter le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
+
 - [`prd-poc-observabilite-elk.md`](prd-poc-observabilite-elk.md) : objectifs,
   périmètre et critères d'acceptation du POC d'observabilité Elastic.
 - [`apm-application-kubernetes.md`](apm-application-kubernetes.md) : impacts
@@ -15,7 +17,7 @@ modification.
 - [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
   comparatif des flux d'observabilité, des profils VM et du transport Kafka
   entre v1 et v2.
-- [`../diff-code-v1-v2.md`](../diff-code-v1-v2.md) : revue des différences de
+- [`diff-code-v1-v2.md`](diff-code-v1-v2.md) : revue des différences de
   code, des duplications et des priorités de mutualisation entre les bundles.
 - [`v1-v2-en-bref.md`](v1-v2-en-bref.md) : lecture rapide des différences et
   liens vers les documentations utiles.
