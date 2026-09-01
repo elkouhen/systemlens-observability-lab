@@ -163,8 +163,7 @@ spec:
                     type: text
                     value:
                       - http://127.0.0.1:8778
-          # PostgreSQL n'existe que sur data-01. La condition évite que
-          # l'Agent de data-02 tente une connexion localhost inexistante.
+          # PostgreSQL est installé sur l'unique VM data-01.
           - id: postgresql-data-01
             name: postgresql-data-01
             package:

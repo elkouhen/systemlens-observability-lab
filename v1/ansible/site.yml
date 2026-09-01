@@ -5,7 +5,6 @@
   gather_facts: true
 
   vars:
-    mongodb_replica_set: poc-rs
     mongodb_primary_ip: 192.168.33.10
     postgresql_host: 192.168.33.10
     postgresql_database: observability_test
@@ -14,9 +13,8 @@
     # valeur. Le même secret est injecté dans la policy Fleet par Kubernetes.
     postgresql_password: ""
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
-    kafka_controller_voters: 1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093
+    kafka_controller_voters: 1@192.168.33.10:9093
     poc_profile: minimal
-    poc_distributed: false
     beats_version: 8.11.3
     elastic_agent_version: 8.11.3
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
@@ -378,7 +376,7 @@
       delay: 2
       until: >-
         kafka_quorum_ready.rc == 0 and
-        (kafka_quorum_ready.stdout | regex_findall('"id"') | length) >= (3 if poc_distributed | bool else 1)
+        (kafka_quorum_ready.stdout | regex_findall('"id"') | length) >= 1
       changed_when: false
       run_once: true
       delegate_to: data-01
@@ -401,9 +399,9 @@
           - --partitions
           - '3'
           - --replication-factor
-          - "{{ 3 if poc_distributed | bool else 1 }}"
+          - '1'
           - --config
-          - "min.insync.replicas={{ 2 if poc_distributed | bool else 1 }}"
+          - min.insync.replicas=1
       register: kafka_demo_topic
       changed_when: "'Created topic' in kafka_demo_topic.stdout"
       run_once: true
@@ -427,9 +425,9 @@
           - --partitions
           - '3'
           - --replication-factor
-          - "{{ 3 if poc_distributed | bool else 1 }}"
+          - '1'
           - --config
-          - "min.insync.replicas={{ 2 if poc_distributed | bool else 1 }}"
+          - min.insync.replicas=1
       register: kafka_stock_depleted_topic
       changed_when: "'Created topic' in kafka_stock_depleted_topic.stdout"
       run_once: true
@@ -453,9 +451,9 @@
           - --partitions
           - '3'
           - --replication-factor
-          - "{{ 3 if poc_distributed | bool else 1 }}"
+          - '1'
           - --config
-          - "min.insync.replicas={{ 2 if poc_distributed | bool else 1 }}"
+          - min.insync.replicas=1
       register: kafka_stock_restock_requested_topic
       changed_when: "'Created topic' in kafka_stock_restock_requested_topic.stdout"
       run_once: true
@@ -500,28 +498,6 @@
       run_once: true
       delegate_to: data-01
 
-    - name: Augmenter le topic de démonstration à trois partitions si nécessaire
-      ansible.builtin.command:
-        argv:
-          - podman
-          - exec
-          - -e
-          - KAFKA_OPTS=
-          - poc-kafka
-          - /opt/kafka/bin/kafka-topics.sh
-          - --bootstrap-server
-          - localhost:9092
-          - --alter
-          - --topic
-          - supermarket.order.placed
-          - --partitions
-          - '3'
-      when:
-        - poc_distributed | bool
-        - "'PartitionCount: 1' in kafka_demo_topic_description.stdout or 'PartitionCount: 2' in kafka_demo_topic_description.stdout"
-      run_once: true
-      delegate_to: data-01
-
     - name: Lire le nombre de partitions des topics de réassort
       ansible.builtin.command:
         argv:
@@ -544,31 +520,6 @@
       run_once: true
       delegate_to: data-01
 
-    - name: Augmenter les topics de réassort à trois partitions si nécessaire
-      ansible.builtin.command:
-        argv:
-          - podman
-          - exec
-          - -e
-          - KAFKA_OPTS=
-          - poc-kafka
-          - /opt/kafka/bin/kafka-topics.sh
-          - --bootstrap-server
-          - localhost:9092
-          - --alter
-          - --topic
-          - "{{ item.item }}"
-          - --partitions
-          - '3'
-      loop: "{{ kafka_restock_topics_description.results }}"
-      when:
-        - poc_distributed | bool
-        - "'PartitionCount: 1' in item.stdout or 'PartitionCount: 2' in item.stdout"
-      loop_control:
-        label: "{{ item.item }}"
-      run_once: true
-      delegate_to: data-01
-
     - name: Attendre MongoDB local
       # `retries` ne protège pas contre un mongosh bloqué : borner chaque
       # tentative permet à Ansible de continuer les contrôles et d'échouer
@@ -582,43 +533,6 @@
       delay: 2
       until: mongodb_ping.stdout | trim == '1'
       changed_when: false
-
-    - name: Initialiser le replica set sur le premier nœud
-      ansible.builtin.command:
-        argv:
-          - podman
-          - exec
-          - poc-mongodb
-          - mongosh
-          - --quiet
-          - --eval
-          - "try { rs.status(); print('already-initialized') } catch (_) { rs.initiate({_id: '{{ mongodb_replica_set }}', members: [{_id: 0, host: '{{ mongodb_primary_ip }}:27017'}]}); print('initialized') }"
-      register: mongodb_init
-      changed_when: mongodb_init.stdout | trim == 'initialized'
-      when:
-        - poc_node_id | int == 1
-        - poc_distributed | bool
-
-    - name: Ajouter ce nœud au replica set
-      ansible.builtin.command:
-        argv:
-          - podman
-          - exec
-          - poc-mongodb
-          - mongosh
-          - --quiet
-          - --host
-          - "{{ mongodb_primary_ip }}:27017"
-          - --eval
-          - "const cfg = rs.conf(); if (!cfg.members.some(member => member.host === '{{ poc_node_ip }}:27017')) { rs.add({host: '{{ poc_node_ip }}:27017'}); print('added') } else { print('already-member') }"
-      register: mongodb_member
-      retries: 30
-      delay: 2
-      until: mongodb_member.rc == 0
-      changed_when: "'added' in mongodb_member.stdout"
-      when:
-        - poc_node_id | int > 1
-        - poc_distributed | bool
 
     - name: Installer et configurer Filebeat et Metricbeat sur data-01
       when: inventory_hostname == 'data-01'

@@ -319,7 +319,6 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes >/dev/null
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/minimal >/dev/null
-	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/distributed >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml

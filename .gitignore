@@ -13,6 +13,7 @@ target/
 # Métadonnées locales des agents.
 .agent/
 .agents/
+**/.systemlens/findings.db
 
 # Rapport APM généré localement.
 /apm.html
