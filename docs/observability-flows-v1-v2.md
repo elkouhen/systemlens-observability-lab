@@ -1,7 +1,7 @@
 # Schémas de remontée de l'observabilité v1/v2
 
-Ces schémas décrivent les flux déclarés dans le dépôt pour le profil léger,
-avec la VM `data-01`. Les flèches indiquent le transport et les data streams
+Ces schémas décrivent les flux déclarés dans le dépôt avec l'unique VM
+`data-01`. Les flèches indiquent le transport et les data streams
 indiquent la destination logique dans Elasticsearch.
 
 ## v1 — métriques et traces APM Java
@@ -83,7 +83,9 @@ flowchart LR
 ```
 
 Le chemin VM v2 est volontairement distinct du Gateway : `EDOT Agent VM →
-Kafka → EDOT Kafka exporter → Elasticsearch`. Le Collector backend exporte en
+Kafka → EDOT Kafka exporter → Elasticsearch`. L'Agent utilise le listener
+interne `192.168.33.10:9092`; les composants Kubernetes utilisent le listener
+Vagrant accessible sur `192.168.5.2:19092`. Le Collector backend exporte en
 mapping ECS afin que les dashboards classiques puissent exploiter les champs
 attendus (`service.name`, `trace.id`, `span.id`, `host.name`, etc.).
 
@@ -112,7 +114,7 @@ Références Elastic : [receiver filelog](https://www.elastic.co/docs/reference/
 [configuration Kubernetes EDOT](https://www.elastic.co/docs/reference/edot-collector/config/default-config-k8s)
 et [pipeline Kafka OTLP](https://www.elastic.co/docs/reference/opentelemetry/architecture/kafka).
 
-## Ce qui manquait dans la liste initiale
+## Périmètre Kubernetes et limites connues
 
 Les trois familles citées couvrent les flux principaux. Pour une chaîne
 complète, il faut également expliciter :

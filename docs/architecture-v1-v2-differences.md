@@ -1,9 +1,11 @@
 # Différences entre les architectures v1 et v2
 
 Ce document est la référence de comparaison entre les implémentations des deux
-bundles d'architecture. Les deux bundles supportent un profil léger, utilisé
-par défaut dans ce POC. Les flux détaillés sont représentés dans
+bundles d'architecture. Les deux bundles utilisent une topologie minimale avec
+l'unique VM `data-01`. Les flux détaillés sont représentés dans
 [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md).
+La revue de mutualisation du code est détaillée dans
+[`../diff-code-v1-v2.md`](../diff-code-v1-v2.md).
 
 ## Vue d'ensemble
 
@@ -19,9 +21,8 @@ par défaut dans ce POC. Les flux détaillés sont représentés dans
 | Métriques applicatives/Kubernetes | Métriques APM via APM Server/Logstash ; métriques kubelet et état Kubernetes via Elastic Agent/Logstash | Métriques Java via OTel Agent → collector edge → Kafka `otel-metrics` ; métriques hôte et Kubernetes via EDOT DaemonSet → Kafka `otel-metrics` → collector backend | Implémenté |
 | Métriques Prometheus | Elastic Agent Kubernetes scrape `/actuator/prometheus`, puis Logstash → data stream Prometheus dédié | Endpoint Actuator conservé, mais pas de scraping Prometheus dans le chemin v2 actuel ; les métriques Java exportées par OTel suivent OTLP → Kafka → EDOT Collector | Implémenté |
 | Logs applicatifs/Kubernetes | Elastic Agent → Logstash | EDOT Kubernetes `filelog` → Kafka → EDOT Collector → Elasticsearch | Implémenté |
-| Logs et métriques des VM | `data-01` : Filebeat/Metricbeat → Logstash `5045` → Elasticsearch | EDOT Agent sur chaque VM active → Kafka `otel-logs` / `otel-metrics` → collector backend → Elasticsearch | Implémenté |
-| Topologie VM par défaut | `POC_PROFILE=minimal` : `data-01` seule | `POC_PROFILE=minimal` : `data-01` seule | Implémenté |
-| Topologie VM distribuée | Non disponible en v1 ; une seule VM `data-01` | `POC_PROFILE=distributed` : trois VM | v1 simplifiée |
+| Logs et métriques des VM | `data-01` : Filebeat/Metricbeat → Logstash `5045` → Elasticsearch | EDOT Agent sur `data-01` → Kafka `otel-logs` / `otel-metrics` → collector backend → Elasticsearch | Implémenté |
+| Topologie VM | Une seule VM `data-01` | Une seule VM `data-01` | Implémenté |
 | Stabilisation Kafka | Kafka transporte les événements métier ; la télémétrie utilise les sorties Elastic directes | Kafka transporte les événements métier et sert aussi de buffer OTLP pour les signaux, avec des topics dédiés et des consumer groups | Implémenté |
 | Versions OTel | Non utilisé pour les signaux du POC | EDOT Collector `9.4.3`, agent Java OTel `2.28.1` | Implémenté |
 | Corrélation logs/traces | Agent Elastic APM enrichit le MDC ; logs ECS avec `trace.id`/`span.id` | Logs ECS stdout parsés par EDOT ; `trace_id`/`span_id` sont conservés pour retrouver la trace | Implémenté |
@@ -38,7 +39,8 @@ l'encodage OTLP protobuf :
 | `otel-metrics` | Métriques OTLP | Collectors edge applicatif/Kubernetes et EDOT Agent VM | Collector backend Kafka → Elasticsearch |
 | `otel-logs` | Logs OTLP | EDOT DaemonSet Kubernetes et EDOT Agent VM | Collector backend Kafka → Elasticsearch |
 
-Les topics sont créés par un Job Kubernetes idempotent. Le Collector de sortie
+Les topics sont créés par un Job Kubernetes idempotent après le provisionnement
+de `data-01`. Le Collector de sortie
 utilise un batch et une file d'attente locale éphémère ; la rétention et
 la reprise après indisponibilité d'Elasticsearch sont d'abord assurées par
 Kafka. La capacité, le nombre de partitions et la réplication devront être
@@ -66,7 +68,7 @@ documentée par Elastic.
   `otel-logs` → collector backend → Elasticsearch.
 
 Fleet Server reste nécessaire pour l'administration des agents Fleet présents
-en v1. En v2, les métriques et logs des VM sont produits par le service EDOT
+en v1. En v2, les métriques et logs de `data-01` sont produits par le service EDOT
 Agent provisionné par Ansible ; les artefacts Fleet conservés dans le bundle
 servent au bootstrap et à la gestion de la plateforme, pas au transport de ces
 signaux.
@@ -76,15 +78,13 @@ signaux.
 ```bash
 make architecture-switch VERSION=v2
 POC_PROFILE=minimal make kubernetes-validate
-POC_PROFILE=minimal make elk-deploy
-POC_PROFILE=minimal make apps-deploy
+make -C v2 deploy
 kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics-v3
-POC_PROFILE=minimal make vm-provision
 kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
 ```
 
-Résultat attendu : `data-01` est la seule VM active du profil minimal dans les
-deux versions, les topics OTLP existent en v2, les Collectors sont prêts, et
+Résultat attendu : `data-01` est l'unique VM des deux versions, les topics OTLP
+existent en v2, les Collectors sont prêts, et
 les data streams de traces, métriques et logs reçoivent les signaux de la démo.
 
 Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
@@ -95,7 +95,8 @@ Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
 1. Vérifier la santé de v1 et prendre un snapshot Elasticsearch.
 2. Valider les manifests et le playbook v2 :
    `make ARCH_VERSION=v2 kubernetes-validate`, puis
-   `make -C v2 ansible-validate`.
+   `make -C v2 ansible-validate`. La VM doit être provisionnée avant le Job
+   Kafka v2 ; `make -C v2 deploy` respecte cet ordre.
 3. Préparer le DNS ou `/etc/hosts` pour les hôtes `*-v2.poc.test` et le
    certificat TLS correspondant.
 4. Déployer v2 avec `make -C v2 elk-deploy`, puis les images et manifests de la
@@ -112,8 +113,9 @@ Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
   Elasticsearch n'accepte pas OTLP/gRPC pour cette destination.
 - Les logs sont collectés à partir de stdout Kubernetes par `filelog`; ils ne
   sont pas envoyés par le code Java.
-- En profil minimal, seule `data-01` est provisionnée ; les profils distribués
-  restent disponibles pour tester la réplication MongoDB et le quorum Kafka.
+- Les deux versions provisionnent uniquement `data-01`. MongoDB est standalone
+  et Kafka est mono-broker ; la réplication et le quorum multi-nœuds ne font pas
+  partie du périmètre actuel.
 - Les tailles de file Kafka, les partitions et les règles de rétention restent
   à valider avec une charge représentative.
 - La migration doit commencer par un déploiement v2 isolé. Le retour vers v1

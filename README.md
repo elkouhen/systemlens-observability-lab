@@ -4,21 +4,12 @@ Ce dépôt déploie un environnement de recette destiné à valider la visibilit
 de bout en bout dans Elastic : infrastructure, Kafka, MongoDB, PostgreSQL et deux
 applications Java instrumentées avec Elastic APM.
 
-## Profils d'exécution
+## Topologie d'exécution
 
-Le profil est sélectionné par `POC_PROFILE` et vaut `minimal` par défaut. La v1
-utilise une seule VM `data-01`, avec MongoDB standalone, Kafka mono-broker et
-PostgreSQL. La v2 conserve les profils minimal et distribué ; son profil
-minimal est destiné à un Mac Apple Silicon avec 16 Gio.
-
-```bash
-make deploy
-POC_PROFILE=distributed make deploy
-```
-
-Le changement de profil modifie la topologie Vagrant. Arrêter et recréer les VM
-concernées avant de changer de profil. Le profil minimal ne valide pas la
-réplication ni la tolérance aux pannes.
+Les deux versions utilisent une seule VM `data-01`, avec MongoDB standalone,
+Kafka mono-broker et PostgreSQL. La v2 ne propose plus de profil distribué.
+`POC_PROFILE` est conservé comme variable de compatibilité et vaut toujours
+`minimal`.
 
 ## Versions d'architecture
 
@@ -48,9 +39,9 @@ préparer la montée de version Elastic et ses données.
 | --- | --- | --- | --- |
 | Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | Elastic Stack 8.11.3, pilotée par ECK 3.5.0, TLS ECK, accès Traefik | APM, logs et métriques |
 | `data-01` | Vagrant / Rocky Linux 10 | `192.168.33.10`, Filebeat et Metricbeat → Logstash `5045` | logs et métriques système, MongoDB, Kafka et PostgreSQL |
-| MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
+| MongoDB | conteneur Podman sur `data-01` | standalone, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
-| Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
+| Kafka | broker/controller KRaft sur `data-01` | réplication 1, `min.insync.replicas=1`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
 | `order-service` | Kubernetes, namespace `h0tl-supermarche-app` | service HTTP 3000, producteur Kafka | transactions et dépendance Kafka |
 | `inventory-service` | Kubernetes, namespace `h0tl-supermarche-app` | service HTTP 3001, consommateur Kafka, MongoDB et PostgreSQL | transactions, dépendances Kafka, MongoDB et PostgreSQL |
 | `restock-service` | Kubernetes, namespace `h0tl-supermarche-app` | consommateur et producteur Kafka, port 3002 pour les probes | événements de réassort et dépendance Kafka |
@@ -180,8 +171,8 @@ export POSTGRESQL_PASSWORD='…'
 make deploy
 ```
 
-La cible applique d'abord la plateforme Kubernetes, attend Elasticsearch,
-lance `vagrant up`, puis construit,
+La cible provisionne d'abord `data-01` afin que Kafka soit disponible, applique
+ensuite la plateforme Kubernetes, puis construit,
 importe dans k3d et déploie les trois applications. Une clé déjà fournie dans
 `ELASTICSEARCH_API_KEY` n'est pas remplacée.
 
@@ -199,7 +190,7 @@ importe dans k3d et déploie les trois applications. Une clé déjà fournie dan
    ./scripts/cluster-status.sh
    ```
 
-   Chaque VM installe MongoDB 8.0 et Kafka 3.9.2 sous Podman ; `data-01`
+   La VM `data-01` installe MongoDB 8.0 et Kafka 3.9.2 sous Podman ; elle
    installe aussi PostgreSQL 17. Les services sont gérés via des unités
    systemd Quadlet. Ansible ouvre uniquement les ports inter-nœuds nécessaires
    et démarre Filebeat et Metricbeat sur `data-01`. Aucun agent Fleet VM ni
@@ -349,8 +340,8 @@ doit créer une erreur APM contrôlée.
 | Observability > APM > Services | les trois services, transactions HTTP, planifiées et messaging ; dépendances Kafka/MongoDB/PostgreSQL ; erreur de démonstration ; logs ECS corrélés par `trace.id` dans l’onglet Logs d’une transaction | vérifier le secret/token APM, l’URL `apm-server-apm-http`, les pods, le trafic généré et qu’un log métier est émis pendant la transaction |
 | Observability > Infrastructure > Hosts | hôtes suivis par le profil Beats/Fleet | vérifier le service de collecte correspondant ; aucun service EDOT ne doit être présent |
 | Observability > Infrastructure > Inventory / logs | logs `kube-0tl` des trois pods, métadonnées Kubernetes et champs ECS | vérifier le DaemonSet `kubernetes-logs`, ses RBAC et les montages `/var/log` |
-| Intégration MongoDB | hôte(s) du profil, état du replica set en distribué ou du standalone en minimal, connexions, opérations, stockage et logs | exécuter `POC_PROFILE=${POC_PROFILE:-minimal} make vm-status`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
-| Intégration Kafka | broker mono-nœud en minimal ou trois brokers/contrôleurs KRaft en distribué, partitions, groupes, JVM/réseau et logs | contrôler le quorum avec `make vm-status`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:18781` |
+| Intégration MongoDB | standalone sur `data-01`, connexions, opérations, stockage et logs | exécuter `make vm-status`, contrôler `mongodb-fleet` et l’accès local à `localhost:27017` |
+| Intégration Kafka | broker/controller KRaft mono-nœud sur `data-01`, partitions, groupes, JVM/réseau et logs | contrôler le quorum avec `make vm-status`, le conteneur `poc-kafka` et Jolokia sur `127.0.0.1:18781` |
 | PostgreSQL | `data-01`, activité, bgwriter, taille de base et logs | contrôler `poc-postgresql`, `logs-postgresql.log-*` et `metrics-postgresql.*` |
 
 Une validation est réussie si les collecteurs Beats/Fleet attendus sont actifs,
@@ -363,10 +354,10 @@ conteneur concerné.
 
 ### Statut des clusters avec Ansible
 
-Depuis la racine du dépôt, la commande suivante vérifie les conteneurs sur les
-trois VM, affiche les membres et rôles du replica set MongoDB, l'état du quorum
-Kafka KRaft, le lag du groupe `inventory-service` et le dernier traitement Kafka
-persisté dans MongoDB et PostgreSQL :
+Depuis la racine du dépôt, la commande suivante vérifie les conteneurs de
+`data-01`, la disponibilité de MongoDB standalone, l'état du quorum Kafka KRaft,
+le lag du groupe `inventory-service` et le dernier traitement Kafka persisté
+dans MongoDB et PostgreSQL :
 
 ```bash
 ansible-playbook -i v1/ansible/inventory/vagrant.yml v1/ansible/status.yml
@@ -427,9 +418,10 @@ producteur → Kafka sur VM → consommateur → MongoDB + PostgreSQL. Tout `Tim
 est un défaut à corriger sur ce chemin, et non un motif pour basculer vers un
 broker Kubernetes.
 
-La validation du 17 août confirme que les trois VM sont joignables en SSH et
-que les pods Kubernetes atteignent les trois brokers Kafka (`9092`) et les trois
-membres MongoDB (`27017`) et PostgreSQL (`data-01:5432`) sur le réseau VirtualBox `192.168.33.0/24`. Rejouer
+La recette attend une VM `data-01` joignable en SSH et des pods Kubernetes
+capables d'atteindre Kafka via son listener externe, ainsi que MongoDB
+(`27017`) et PostgreSQL (`data-01:5432`) sur le réseau VirtualBox.
+Rejouer
 la recette après chaque redéploiement afin de vérifier la production, la
 consommation et la persistance du message, pas seulement l'ouverture des ports.
 

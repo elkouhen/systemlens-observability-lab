@@ -17,8 +17,9 @@ Choisir **v1** pour reproduire l'architecture historique du POC.
 Choisir **v2** pour tester la chaîne OpenTelemetry/EDOT avec Kafka et un
 Collector backend avant Elasticsearch.
 
-Dans les deux cas, le code Java reste partagé et le profil léger utilise
-uniquement la VM `data-01`.
+Dans les deux cas, le code Java reste partagé et l'unique VM `data-01` porte
+les services de données. La v1 utilise Filebeat/Metricbeat et Logstash ; la v2
+utilise EDOT et Kafka comme buffer de télémétrie.
 
 ## Architectures de référence
 
@@ -53,4 +54,6 @@ make kubernetes-validate
 ```
 
 Les commandes de déploiement et de diagnostic sont documentées dans les
-README des architectures ci-dessus.
+README des architectures ci-dessus. La cible `make deploy` provisionne d'abord
+la VM puis déploie la chaîne Kubernetes, afin que Kafka soit disponible avant
+la création des topics OTLP v2.
