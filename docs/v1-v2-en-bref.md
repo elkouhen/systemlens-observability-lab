@@ -1,59 +1,28 @@
 # V1 et V2 en bref
 
-Cette page aide à choisir rapidement une architecture et renvoie vers les
-documents de référence.
+Cette page sert uniquement de point d'orientation. Les procédures et les
+comparaisons détaillées sont maintenues dans les documents liés ci-dessous.
 
-## La différence en une phrase
+## Choisir une version
 
-- **V1** utilise les composants Elastic historiques : Elastic APM, APM Server,
-  Elastic Agent/Beats et Logstash.
-- **V2** utilise OpenTelemetry/EDOT et Kafka comme tampon entre la collecte et
-  Elasticsearch.
+- **v1** : Elastic APM, Filebeat/Metricbeat et Logstash ; adaptée à la
+  reproduction du chemin historique du POC.
+- **v2** : OpenTelemetry/EDOT et Kafka comme tampon de télémétrie ; adaptée au
+  test du nouveau chemin OTLP.
 
-## Quelle version choisir ?
+Les deux variantes partagent le code Java, utilisent l'unique VM `data-01`, les
+services de données en mode minimal et les namespaces Kubernetes
+`elastic-stack` et `h0tl-supermarche-app`. Une seule variante doit être active à
+la fois.
 
-Choisir **v1** pour reproduire l'architecture historique du POC.
+## Parcours recommandé
 
-Choisir **v2** pour tester la chaîne OpenTelemetry/EDOT avec Kafka et un
-Collector backend avant Elasticsearch.
+1. Lire le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
+2. Consulter le [comparatif fonctionnel](architecture-v1-v2-differences.md).
+3. Utiliser les [schémas des flux](observability-flows-v1-v2.md) pour suivre
+   un signal jusqu'à Elasticsearch.
+4. Consulter le [diff de code](diff-code-v1-v2.md) uniquement pour les sujets
+   de maintenance et de mutualisation.
 
-Dans les deux cas, le code Java reste partagé et l'unique VM `data-01` porte
-les services de données. La v1 utilise Filebeat/Metricbeat et Logstash ; la v2
-utilise EDOT et Kafka comme buffer de télémétrie.
-
-## Architectures de référence
-
-- [Architecture v1](../v1/README.md)
-- [Architecture v2](../v2/README.md)
-- [Comparatif détaillé v1/v2](architecture-v1-v2-differences.md)
-- [Schémas des flux d'observabilité](observability-flows-v1-v2.md)
-
-## Documents utiles
-
-- [APM des applications Java sur Kubernetes](apm-application-kubernetes.md)
-- [Métriques Kafka, MongoDB et Prometheus](metrics-clients-kafka-mongodb.md)
-- [Dashboards v1](../v1/platform/elk/dashboards/README.md)
-- [Dashboards v2](../v2/platform/elk/dashboards/README.md)
-- [Provisionnement VM v1](../v1/ansible/README.md)
-- [Provisionnement VM v2](../v2/ansible/README.md)
-
-## Références officielles Elastic
-
-- [OpenTelemetry avec Elastic (EDOT)](https://www.elastic.co/docs/reference/opentelemetry)
-- [Architecture Kafka avec OpenTelemetry](https://www.elastic.co/docs/reference/opentelemetry/architecture/kafka)
-- [Intégration Kafka OTLP](https://www.elastic.co/docs/reference/integrations/kafka_otel)
-
-## Déployer une version
-
-```bash
-make architecture-switch VERSION=v1
-make kubernetes-validate
-
-make architecture-switch VERSION=v2
-make kubernetes-validate
-```
-
-Les commandes de déploiement et de diagnostic sont documentées dans les
-README des architectures ci-dessus. La cible `make deploy` provisionne d'abord
-la VM puis déploie la chaîne Kubernetes, afin que Kafka soit disponible avant
-la création des topics OTLP v2.
+Pour les détails d'un composant, suivre les README locaux des répertoires
+[`v1`](../v1/README.md), [`v2`](../v2/README.md), `apps/` et `scripts/`.

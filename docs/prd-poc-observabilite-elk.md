@@ -1,5 +1,11 @@
 # PRD — POC d'observabilité Elastic
 
+Ce document décrit le besoin et le périmètre initial du POC, principalement
+formalisé autour de la v1. Il ne constitue pas une procédure de déploiement ni
+un comparatif des implémentations ; consulter le
+[guide d'exploitation](deploiement-et-exploitation.md) et le
+[comparatif v1/v2](architecture-v1-v2-differences.md) pour ces sujets.
+
 ## 1. Vision
 
 Le produit est un POC d'observabilité fondé sur la stack Elastic. Il doit

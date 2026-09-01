@@ -5,25 +5,34 @@ opérationnelle la plus proche d'un composant reste sa source de vérité : lire
 `platform/README.md`, `apps/README.md` ou `ansible/README.md` avant toute
 modification.
 
-Pour commencer, consulter le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
+Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
 
-- [`prd-poc-observabilite-elk.md`](prd-poc-observabilite-elk.md) : objectifs,
-  périmètre et critères d'acceptation du POC d'observabilité Elastic.
-- [`apm-application-kubernetes.md`](apm-application-kubernetes.md) : impacts
-  de l'APM côté applications Java et Kubernetes, avec points de vérification.
-- [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
-  consignes d'instrumentation des clients Kafka et MongoDB et de collecte via
-  Actuator et Elastic Agent.
+## Comprendre les variantes
+
+- [`v1-v2-en-bref.md`](v1-v2-en-bref.md) : orientation rapide et choix d'une
+  version.
 - [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
-  comparatif de référence des flux d'observabilité, de la topologie VM et du
-  transport entre v1 et v2.
-- [`diff-code-v1-v2.md`](diff-code-v1-v2.md) : revue des différences de
-  code, des duplications et des priorités de mutualisation entre les bundles.
-- [`v1-v2-en-bref.md`](v1-v2-en-bref.md) : lecture rapide des différences et
-  liens vers les documentations utiles.
+  source de vérité pour les différences fonctionnelles et les flux.
 - [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md) : schémas
-  Mermaid des flux APM, VM et logs applicatifs, avec les flux Kubernetes et la
-  corrélation à ne pas oublier.
+  détaillés des flux APM, VM, Kubernetes et logs.
+
+## Référence spécialisée
+
+- [`apm-application-kubernetes.md`](apm-application-kubernetes.md) : APM de la
+  v1 côté applications Java et Kubernetes.
+- [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
+  instrumentation des clients Kafka/MongoDB et métriques Actuator.
+- [`prd-poc-observabilite-elk.md`](prd-poc-observabilite-elk.md) : objectifs,
+  périmètre et critères d'acceptation du POC.
+
+## Revue du dépôt
+
+- [`diff-code-v1-v2.md`](diff-code-v1-v2.md) : différences de code et
+  priorités de mutualisation. Ce document ne remplace pas le comparatif
+  fonctionnel.
+
+Les procédures propres à un composant restent dans son README local ; elles
+ne sont pas recopiées ici.
 
 ## Vérification reproductible
 

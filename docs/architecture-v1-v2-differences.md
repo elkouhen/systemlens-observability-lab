@@ -73,39 +73,12 @@ Agent provisionné par Ansible ; les artefacts Fleet conservés dans le bundle
 servent au bootstrap et à la gestion de la plateforme, pas au transport de ces
 signaux.
 
-## Vérification prévue
+## Vérification et changement de version
 
-```bash
-make architecture-switch VERSION=v2
-POC_PROFILE=minimal make kubernetes-validate
-make -C v2 deploy
-kubectl -n elastic-stack get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics-v3
-kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
-```
-
-Résultat attendu : `data-01` est l'unique VM des deux versions, les topics OTLP
-existent en v2, les Collectors sont prêts, et
-les data streams de traces, métriques et logs reçoivent les signaux de la démo.
-
-Le contrôle HTTP de Fleet doit viser `/api/status` ; un `404` sur la racine
-`fleet.poc.test/` est normal, car Fleet Server ne fournit pas d'interface web.
-
-## Séquence de migration
-
-1. Vérifier la santé de v1 et prendre un snapshot Elasticsearch.
-2. Valider les manifests et le playbook v2 :
-   `make ARCH_VERSION=v2 kubernetes-validate`, puis
-   `make -C v2 ansible-validate`. La VM doit être provisionnée avant le Job
-   Kafka v2 ; `make -C v2 deploy` respecte cet ordre.
-3. Préparer le DNS ou `/etc/hosts` pour les hôtes `*-v2.poc.test` et le
-   certificat TLS correspondant.
-4. Déployer v2 avec `make -C v2 elk-deploy`, puis les images et manifests de la
-   démo avec `make -C v2 apps-build`, `make -C v2 images-import` et
-   `make -C v2 apps-deploy`.
-5. Produire une charge de test et vérifier les topics Kafka, le consumer lag,
-   les métriques Prometheus et les data streams dans Kibana v2.
-6. En cas d'échec, revenir à v1 avec `make architecture-switch VERSION=v1`;
-   ne pas supprimer les ressources v2 avant l'analyse des offsets Kafka.
+Les commandes de validation, de déploiement, de bascule et de diagnostic sont
+centralisées dans le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
+Ce document conserve uniquement le contrat d'architecture ; il ne duplique pas
+la procédure opérateur.
 
 ## Décisions et points ouverts
 
