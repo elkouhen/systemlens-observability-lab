@@ -24,7 +24,7 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 les logs et métriques au pipeline `kubernetes-logs` de Logstash sur le port
 `5045`, puis Logstash écrit dans Elasticsearch. Traefik expose cette entrée
 Beats en TLS avec le nom `logstash.poc.test:443`, ajouté dans `/etc/hosts` de
-la VM. `LOGSTASH_URL` permet de remplacer cette adresse.
+la VM. Cette adresse est fixe dans la v1.
 
 Lors d'un déploiement initial, `make deploy` attend d'abord que Kibana soit
 prêt, puis démarre `data-01` avec Filebeat et Metricbeat.

@@ -22,7 +22,6 @@
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
     elasticsearch_url: https://elasticsearch.poc.test:443
-    logstash_url: logstash.poc.test:443
     fleet_url: https://fleet.poc.test
     fleet_insecure: true
     poc_redeploy_services: false

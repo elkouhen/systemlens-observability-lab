@@ -9,6 +9,9 @@ ne stockent aucun mot de passe dans le dépôt.
    `h0tl-supermarche-app/postgresql-credentials`, puis exporte les variables
    utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
    Il doit être *sourcé* : `source ./platform/elk/scripts/load-credentials.sh`.
+   Avant la première installation, les secrets ECK n'existent pas encore : le
+   script affiche un avertissement et retourne avec succès. Le mot de passe
+   PostgreSQL doit alors être fourni dans l'environnement avant `make deploy`.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom`, réaffecte les
    Agents actifs à `data-fleet`, applique le correctif Kafka Raft et met à jour
    la policy PostgreSQL afin qu'elle ne s'exécute que sur `data-01`.

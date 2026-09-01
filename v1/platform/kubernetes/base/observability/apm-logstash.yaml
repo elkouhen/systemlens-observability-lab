@@ -125,6 +125,18 @@ data:
     }
 
     filter {
+      # Metricbeat v1 n'installe pas les assets Kibana et ne renseigne pas
+      # systématiquement les champs data_stream.*. Le type et le dataset ECS
+      # sont donc reconstruits avant le routage automatique vers metrics-*.
+      if [agent][type] == "metricbeat" and [event][dataset] {
+        mutate {
+          replace => {
+            "[data_stream][type]" => "metrics"
+            "[data_stream][dataset]" => "%{[event][dataset]}"
+          }
+        }
+      }
+
       # Pipeline spécifique au POC Kubernetes : l'identité vient du namespace.
       if [data_stream][type] == "logs" and [data_stream][dataset] == "kubernetes.container_logs" and [kubernetes][namespace] =~ /^[rphid][A-Za-z0-9]{3}-.+$/ {
         grok {

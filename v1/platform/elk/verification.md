@@ -27,9 +27,9 @@ export ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test:44
 export ELASTICSEARCH_CURL_RESOLVE="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:127.0.0.1}"
 ```
 
-La plateforme, `data-01` et les applications doivent être déployés. La
-variable `LOGSTASH_URL` peut remplacer l'adresse par défaut utilisée lors du
-provisionnement de la VM : `logstash.poc.test:443`.
+La plateforme, `data-01` et les applications doivent être déployés. L'adresse
+`logstash.poc.test:443` est fixe dans la v1 et est ajoutée dans `/etc/hosts` de
+`data-01`.
 
 ## Vérifier dans Kibana Discover
 
@@ -250,7 +250,7 @@ make -C v1 order-service-command ORDER_PRODUCT_ID=1 ORDER_QUANTITY=1
 | Point contrôlé | Symptôme si le point est en panne | Contrôle suivant |
 | --- | --- | --- |
 | Beat actif sur `data-01` | aucun événement local | `systemctl status`, `journalctl` |
-| Connexion VM → Traefik → Logstash `5045` | erreurs de connexion dans les logs Beat | vérifier `logstash.poc.test`, le certificat et `LOGSTASH_URL` |
+| Connexion VM → Traefik → Logstash `5045` | erreurs de connexion dans les logs Beat | vérifier `logstash.poc.test` et le certificat |
 | Pipeline `kubernetes-logs` | événements reçus mais absents d'Elasticsearch | logs du Deployment Logstash |
 | Sortie Elasticsearch Logstash | erreurs `401`, `403` ou mapping | Secret `apm-logstash-elasticsearch`, logs Logstash |
 | Data stream | documents présents dans un dataset inattendu | champs `data_stream.*` et configuration du Beat |

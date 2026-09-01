@@ -32,7 +32,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	deploy elasticsearch-ready kibana-ready apm-server-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
+	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
 ##@ Informations et diagnostic
 
@@ -97,6 +97,46 @@ k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (req
 
 ##@ Déploiement de la plateforme Elastic
 
+public-tls-apply: ## Créer le certificat TLS public local du POC si absent
+	@tmp_dir="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	recreate=1; \
+	if $(KUBECTL) -n $(K8S_NAMESPACE) get secret elastic-public-tls >/dev/null 2>&1; then \
+		$(KUBECTL) -n $(K8S_NAMESPACE) get secret elastic-public-tls \
+			-o jsonpath='{.data.tls\.crt}' | base64 --decode > "$$tmp_dir/current.crt"; \
+		if openssl x509 -in "$$tmp_dir/current.crt" -noout -checkend 0 >/dev/null 2>&1 \
+			&& openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'CA:TRUE' \
+			&& openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'DNS:*.poc.test'; then \
+			recreate=0; \
+			echo "Secret TLS public elastic-public-tls valide"; \
+		else \
+			echo "Secret TLS public elastic-public-tls invalide ou expiré : régénération"; \
+		fi; \
+	fi; \
+	if test "$$recreate" = 1; then \
+		printf '%s\n' \
+			'[req]' \
+			'distinguished_name = req_distinguished_name' \
+			'x509_extensions = v3_req' \
+			'prompt = no' \
+			'' \
+			'[req_distinguished_name]' \
+			'CN = *.poc.test' \
+			'' \
+			'[v3_req]' \
+			'subjectAltName = DNS:*.poc.test,DNS:poc.test' \
+			'basicConstraints = critical,CA:TRUE' \
+			'keyUsage = critical,digitalSignature,keyEncipherment' \
+			'extendedKeyUsage = serverAuth' > "$$tmp_dir/openssl.cnf"; \
+		openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+			-keyout "$$tmp_dir/tls.key" -out "$$tmp_dir/tls.crt" \
+			-config "$$tmp_dir/openssl.cnf" >/dev/null 2>&1; \
+		$(KUBECTL) -n $(K8S_NAMESPACE) create secret tls elastic-public-tls \
+			--cert="$$tmp_dir/tls.crt" --key="$$tmp_dir/tls.key" \
+			--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+		echo "Secret TLS public elastic-public-tls créé ou réparé"; \
+	fi
+
 elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait \
 		--for=condition=ElasticsearchIsReachable=True \
@@ -120,7 +160,16 @@ kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarat
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 
 apm-server-ready: ## Attendre APM Server et son token ECK
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
+	@for attempt in $$(seq 1 60); do \
+		if $(KUBECTL) -n $(K8S_NAMESPACE) get deployment/apm-server-apm-server >/dev/null 2>&1; then \
+			echo "Deployment APM Server créé"; break; \
+		fi; \
+		sleep 5; \
+	done; \
+	$(KUBECTL) -n $(K8S_NAMESPACE) get deployment/apm-server-apm-server >/dev/null 2>&1 || { \
+		echo "Deployment apm-server-apm-server indisponible après 300s" >&2; exit 1; \
+	}; \
+	$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
 	@for attempt in $$(seq 1 60); do \
 		if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token >/dev/null 2>&1; then \
 			echo "Secret du token APM disponible"; exit 0; \
@@ -161,7 +210,7 @@ postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL F
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic postgresql-credentials \
 		--from-literal=password="$$postgresql_password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
-elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply ## Déployer la plateforme d'observabilité Elastic
+elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply public-tls-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) kibana-ready
@@ -212,7 +261,7 @@ apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash 
 apm-logstash-deploy: apm-kibana-role-apply apm-logstash-credentials-apply ## Déployer Logstash et raccorder APM Server et Elastic Agent
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
+	@$(MAKE) apm-server-ready
 
 ##@ Déploiement et recette de l'application
 
