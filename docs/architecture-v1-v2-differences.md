@@ -12,7 +12,7 @@ La revue de mutualisation du code est détaillée dans
 | Sujet | v1 | v2 | État |
 | --- | --- | --- | --- |
 | Elastic/Kibana | Elastic Stack `8.11.3` | Elastic Stack `9.4.3` | Implémenté |
-| Organisation | `v1/` contient la plateforme, Ansible et les manifests applicatifs | `v2/` contient sa propre plateforme, son Ansible et ses manifests applicatifs | Implémenté |
+| Organisation | `v1/` contient la plateforme et Ansible ; les manifests applicatifs sont mutualisés sous `kubernetes/` | `v2/` contient sa propre plateforme et son Ansible ; les manifests applicatifs utilisent le même socle sous `kubernetes/` | Implémenté |
 | Code Java, POM, Dockerfile | Partagé sous `apps/supermarket-demo/` | Partagé sous `apps/supermarket-demo/` | Inchangé |
 | Makefile/Vagrantfile | Bundle `v1/` | Bundle `v2/` | Implémenté |
 | Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Les mêmes namespaces, selon le bundle actif | Implémenté |

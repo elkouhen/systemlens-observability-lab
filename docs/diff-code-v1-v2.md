@@ -38,9 +38,9 @@ manifests applicatifs.
 
 Fichiers concernés :
 
-- [`v1/Makefile`](v1/Makefile) / [`v2/Makefile`](v2/Makefile)
-- [`v1/Vagrantfile`](v1/Vagrantfile) / [`v2/Vagrantfile`](v2/Vagrantfile)
-- [`v1/README.md`](v1/README.md) / [`v2/README.md`](v2/README.md)
+- [`v1/Makefile`](../v1/Makefile) / [`v2/Makefile`](../v2/Makefile)
+- [`v1/Vagrantfile`](../v1/Vagrantfile) / [`v2/Vagrantfile`](../v2/Vagrantfile)
+- [`v1/README.md`](../v1/README.md) / [`v2/README.md`](../v2/README.md)
 
 Les deux Makefiles exposent les mêmes familles de cibles : validation,
 déploiement Elastic, provisionnement VM, déploiement applicatif et contrôles.
@@ -73,10 +73,10 @@ logique.
 
 Fichiers concernés :
 
-- [`v1/ansible/site.yml`](v1/ansible/site.yml) /
-  [`v2/ansible/site.yml`](v2/ansible/site.yml)
-- [`v1/ansible/status.yml`](v1/ansible/status.yml) /
-  [`v2/ansible/status.yml`](v2/ansible/status.yml)
+- [`v1/ansible/site.yml`](../v1/ansible/site.yml) /
+  [`v2/ansible/site.yml`](../v2/ansible/site.yml)
+- [`v1/ansible/status.yml`](../v1/ansible/status.yml) /
+  [`v2/ansible/status.yml`](../v2/ansible/status.yml)
 - inventaires et README associés sous `v1/ansible/` et `v2/ansible/`
 
 Le socle est commun : réseau NetworkManager, DNS, certificats CA, paquets,
@@ -142,7 +142,7 @@ Fichiers v1 uniquement :
 
 Fichier v2 uniquement :
 
-- [`v2/platform/kubernetes/base/observability/otel-kafka.yaml`](v2/platform/kubernetes/base/observability/otel-kafka.yaml).
+- [`v2/platform/kubernetes/base/observability/otel-kafka.yaml`](../v2/platform/kubernetes/base/observability/otel-kafka.yaml).
 
 Ces différences sont nécessaires. Elles correspondent à deux chaînes de
 transport incompatibles :

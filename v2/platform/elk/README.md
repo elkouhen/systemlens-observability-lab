@@ -51,6 +51,6 @@ VM est décrit dans `../../ansible/site.yml` et
 ## Documentation externe
 
 - [Déployer et administrer ECK](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)
-- [Configurer APM Server](https://www.elastic.co/docs/solutions/observability/apm/apm-server/setup)
-- [Configurer la sortie APM Server vers Logstash](https://www.elastic.co/docs/solutions/observability/apm/configure-logstash-output)
+- [OpenTelemetry avec Elastic (EDOT)](https://www.elastic.co/docs/reference/opentelemetry)
+- [Architecture Kafka avec OpenTelemetry](https://www.elastic.co/docs/reference/opentelemetry/architecture/kafka)
 - [Modèles de déploiement Fleet](https://www.elastic.co/docs/reference/fleet/deployment-models)

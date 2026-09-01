@@ -13,7 +13,7 @@ Kubernetes.
 3. Consulter les scripts et dashboards une fois le déploiement compris.
 
 Pour les impacts et les contrôles APM communs aux applications et à
-Kubernetes, consulter le [guide APM applications et Kubernetes](../docs/apm-application-kubernetes.md).
+Kubernetes, consulter le [guide APM applications et Kubernetes](../../docs/apm-application-kubernetes.md).
 
 ## Documentation externe
 

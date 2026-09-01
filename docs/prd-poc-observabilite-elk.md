@@ -171,9 +171,11 @@ ajoute les labels de plateforme et de namespace, puis aligne
 ## 13. Références d'exploitation
 
 - `README.md` : architecture générale et prérequis.
-- `platform/README.md` : déploiement et exploitation de la plateforme.
-- `platform/kubernetes/base/observability/README.md` : chaîne APM, Logstash et
-  vérifications.
-- `platform/elk/dashboards/README.md` : dashboards et recette associée.
+- `docs/deploiement-et-exploitation.md` : déploiement et exploitation des deux
+  variantes.
+- `v1/platform/kubernetes/base/observability/README.md` : chaîne APM, Logstash
+  et vérifications v1.
+- `v1/platform/elk/dashboards/README.md` et
+  `v2/platform/elk/dashboards/README.md` : dashboards et recettes associées.
 - `apps/supermarket-demo/README.md` : application de démonstration et scénario
   métier.

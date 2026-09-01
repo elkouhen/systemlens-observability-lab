@@ -42,33 +42,6 @@ Le flux VM utilise EDOT Agent sur chaque VM et les topics OTLP par signal
 vers Elasticsearch avec le mapping ECS pour alimenter les dashboards
 classiques. Le topic historique `otel-otlp`, créé lors d'une version
 intermédiaire, n'est plus consommé et n'est pas supprimé automatiquement.
-En v1, les deux sorties Elasticsearch activent `data_stream => true`,
-`data_stream_auto_routing => true` et `ecs_compatibility => "v8"` : les champs
-`data_stream.*` déterminent le data stream cible et les événements restent
-compatibles ECS v8.
-
-### Règle de mutualisation des pipelines
-
-Toute mutualisation de filtre entre les pipelines `apm` et
-`kubernetes-logs` doit préserver la responsabilité de routage de chaque
-signal. Un filtre commun peut enrichir les champs ECS et les labels, mais ne
-doit pas modifier globalement `data_stream.type`, `data_stream.dataset` ou
-`data_stream.namespace` sans condition explicite sur le type et le dataset.
-
-- Le pipeline APM mutualise le `data_stream.dataset` au niveau plateforme
-  (`apm.app.<code_plateforme>`) pour les traces Java et les métriques
-  applicatives `apm.app.*` portant les métadonnées Kubernetes nécessaires.
-  Le `data_stream.namespace` porte l’environnement.
-- Le pipeline des logs Kubernetes est propriétaire du dataset `kube-*` et du
-  namespace d’environnement pour les événements `kubernetes.container_logs`.
-- Une valeur `service.environment` déjà fournie par l’agent reste prioritaire ;
-  la convention du namespace Kubernetes ne sert que de valeur de secours.
-
-Toute nouvelle règle de routage doit donc préciser dans cette documentation sa
-source, ses conditions, son dataset cible, son namespace cible et la
-compatibilité de mapping attendue. Cette contrainte évite qu’un filtre
-réutilisé mélange des familles de métriques ou casse le mapping d’un data
-stream existant.
 
 Après le déploiement, vérifier les composants et les relais :
 

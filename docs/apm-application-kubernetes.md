@@ -4,6 +4,9 @@ Ce guide décrit le chemin APM historique de la v1. Pour la chaîne v2 basée su
 OpenTelemetry, utiliser le [comparatif v1/v2](architecture-v1-v2-differences.md)
 et le [guide de déploiement](deploiement-et-exploitation.md).
 
+Les commandes de ce document sont à exécuter depuis la racine du dépôt, après
+avoir sélectionné `v1` avec `make architecture-switch VERSION=v1`.
+
 Ce document décrit les impacts de la mise en place d’Elastic APM pour les
 applications Java du POC et fournit une recette de vérification reproductible.
 Il couvre les trois services `order-service`, `inventory-service` et
@@ -67,7 +70,7 @@ Ces éléments doivent déjà être disponibles sur le cluster :
 | IngressRoutes TLS | Accès externe aux endpoints Elastic |
 
 Le manifest Kustomize de la plateforme est le point d’entrée de ces ressources :
-[`platform/kubernetes/base/observability/kustomization.yaml`](../platform/kubernetes/base/observability/kustomization.yaml).
+[`v1/platform/kubernetes/base/observability/kustomization.yaml`](../v1/platform/kubernetes/base/observability/kustomization.yaml).
 Elasticsearch et Kibana sont initialement créés par la release Helm ECK ; les
 autres composants sont appliqués par Kustomize.
 
@@ -189,8 +192,8 @@ apm-server-apm-http.elastic-stack.svc:8200
 ```
 
 La configuration est déclarée dans
-[`apm-server.yaml`](../platform/kubernetes/base/observability/apm-server.yaml)
-et [`apm-logstash.yaml`](../platform/kubernetes/base/observability/apm-logstash.yaml).
+[`apm-server.yaml`](../v1/platform/kubernetes/base/observability/apm-server.yaml)
+et [`apm-logstash.yaml`](../v1/platform/kubernetes/base/observability/apm-logstash.yaml).
 
 ### Ressources applicatives
 
@@ -424,6 +427,6 @@ qui sont collectées séparément par Metricbeat sur `data-01`.
   nouvelle application Java observée ;
 - [`kubernetes/apps/supermarket-demo/`](../kubernetes/apps/supermarket-demo/) :
   base commune et patches des Deployments applicatifs ;
-- [`platform/kubernetes/base/observability/README.md`](../platform/kubernetes/base/observability/README.md) :
+- [`v1/platform/kubernetes/base/observability/README.md`](../v1/platform/kubernetes/base/observability/README.md) :
   chaîne APM, Logstash et règles de routage ;
 - [`Makefile`](../Makefile) : cibles de test, validation et déploiement.

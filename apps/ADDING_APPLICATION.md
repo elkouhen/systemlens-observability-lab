@@ -1,5 +1,12 @@
 # Ajouter une application Java observée
 
+Ce guide décrit le raccordement à la chaîne d'observabilité v1 (Elastic APM,
+Elastic Agent et Logstash). Pour la v2, conserver le socle applicatif commun
+et ajouter le patch d'instrumentation OTel décrit dans
+`kubernetes/apps/supermarket-demo/v2/otel-instrumentation.yaml` ; consulter le
+[comparatif v1/v2](../docs/architecture-v1-v2-differences.md) avant toute
+extension.
+
 Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
 d'observabilité du POC. Le chemin des signaux est le suivant :
 
@@ -109,7 +116,7 @@ logs-kube-0tl-homologation
 L'Agent Kubernetes actuel cible les fichiers des pods du namespace
 `h0tl-supermarche-app`. Pour une application dans un autre namespace, élargir de
 façon explicite le chemin `paths` dans
-`platform/kubernetes/base/observability/kubernetes-logs-agent.yaml`, ou ajouter
+`v1/platform/kubernetes/base/observability/kubernetes-logs-agent.yaml`, ou ajouter
 un stream dédié. Appliquer ensuite `make kubernetes-validate`, puis
 `make apm-logstash-deploy`.
 
