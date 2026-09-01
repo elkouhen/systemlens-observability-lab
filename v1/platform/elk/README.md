@@ -24,6 +24,11 @@ Elasticsearch. `data-03` utilise exclusivement Filebeat et Metricbeat, qui
 envoient également leurs données directement vers Elasticsearch avec une clé
 API dédiée.
 
+Lors d'un déploiement initial, `make deploy` attend d'abord que Kibana soit
+prêt, crée la clé d'API Elasticsearch nécessaire à Filebeat/Metricbeat, puis
+démarre les VM. Il crée ensuite une clé d'enrôlement Fleet via l'API Kibana et
+réenrôle `data-01` (et `data-02` en profil distribué) avec la policy `data-fleet`.
+
 APM Server est déployé par ECK. Les trois services lui envoient leurs signaux
 avec l'agent Java Elastic APM. APM Server valide le token ECK puis remet
 les événements à Logstash par Lumberjack. Les Elastic Agents Kubernetes y

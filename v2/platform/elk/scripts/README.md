@@ -8,6 +8,8 @@ ne stockent aucun mot de passe dans le dépôt.
 1. `load-credentials.sh` lit le secret ECK Elasticsearch et le Secret
    `h0tl-supermarche-app-v2/postgresql-credentials`, puis exporte les variables
    utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
+   La clé API Elasticsearch déjà exportée est vérifiée contre le cluster ; si
+   elle appartient à un ancien cluster, elle est automatiquement remplacée.
    En v2, aucun Secret APM n'est requis : les applications utilisent
    OpenTelemetry et le Gateway EDOT. Le script doit être *sourcé* :
    `source ./platform/elk/scripts/load-credentials.sh`.

@@ -93,7 +93,8 @@ kubectl -n elastic-stack get ingressroute
 
 Résultat attendu : l’opérateur ECK est disponible, Elasticsearch/Kibana/APM
 Server sont prêts, les Agents Fleet sont actifs et les Deployments
-`apm-logstash`, `kube-state-metrics` et `package-registry` sont disponibles.
+`apm-logstash` et `kube-state-metrics` sont disponibles. Fleet utilise l'EPR
+public Elastic pour télécharger les packages.
 
 Pour vérifier la chaîne complète avant de déployer une application :
 

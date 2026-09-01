@@ -318,6 +318,23 @@
       changed_when: false
       when: inventory_hostname == 'data-01'
 
+    - name: Synchroniser le mot de passe du rôle PostgreSQL sur data-01
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -i
+          - poc-postgresql
+          - psql
+          - -U
+          - "{{ postgresql_user }}"
+          - -d
+          - postgres
+        stdin: "ALTER ROLE {{ postgresql_user }} WITH LOGIN PASSWORD '{{ postgresql_password | replace(\"'\", \"''\") }}';"
+      no_log: true
+      changed_when: true
+      when: inventory_hostname == 'data-01'
+
     - name: Attendre que le broker Kafka local accepte les requêtes d'administration
       ansible.builtin.command:
         argv:

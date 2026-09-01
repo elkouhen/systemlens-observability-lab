@@ -20,6 +20,17 @@ ne stockent aucun mot de passe dans le dépôt.
    lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
    identifiants et le certificat CA restent hors Git.
 
+La cible `make apm-logstash-credentials-apply` vérifie la clé API persistée
+contre Elasticsearch. Si le cluster a été recréé et que la clé est devenue
+invalide, elle en crée automatiquement une nouvelle et redémarre Logstash. Le
+Secret contient la forme brute `id:api_key` ; Logstash encode cette valeur lui-
+même pour l'en-tête `Authorization: ApiKey`.
+
+Lors de `make deploy`, la clé Elasticsearch est préparée après la disponibilité
+du cluster et transmise au premier `vagrant up`. Une clé d'enrôlement Fleet est
+ensuite créée par `provision-fleet-vms.sh` via Kibana pour enrôler les VM dans
+`data-fleet`.
+
 Les valeurs `KIBANA_URL`, `ELASTICSEARCH_URL` et les options `--resolve` sont
 paramétrables par variables d'environnement pour adapter l'accès au cluster.
 

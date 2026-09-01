@@ -29,7 +29,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply beats-vm-provision fleet-data02-provision kafka-jolokia-verify mongodb-workload \
-	deploy elasticsearch-ready package-registry-ready kibana-ready apm-kibana-role-apply \
+	deploy elasticsearch-ready kibana-ready apm-server-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
@@ -106,19 +106,28 @@ kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status \
 		deployment/es-kb-quickstart-eck-kibana-kb --timeout=300s
 	@for attempt in $$(seq 1 60); do \
-		if curl --fail --silent --show-error --insecure \
-			--resolve '$(KIBANA_CURL_RESOLVE)' '$(KIBANA_URL)/login' >/dev/null; then \
+		status="$$(curl --silent --show-error --insecure \
+			--resolve '$(KIBANA_CURL_RESOLVE)' -o /dev/null -w '%{http_code}' \
+			'$(KIBANA_URL)/login' || true)"; \
+		if test "$$status" = 200 || test "$$status" = 302 || test "$$status" = 401; then \
 			echo "Ingress Kibana accessible"; exit 0; \
 		fi; \
 		sleep 5; \
 	done; \
 	echo "Ingress Kibana inaccessible après 300s" >&2; exit 1
 
-package-registry-ready: ## Attendre le registre de packages Elastic de l'architecture sélectionnée
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/package-registry --timeout=300s
-
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+
+apm-server-ready: ## Attendre APM Server et son token ECK
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
+	@for attempt in $$(seq 1 60); do \
+		if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token >/dev/null 2>&1; then \
+			echo "Secret du token APM disponible"; exit 0; \
+		fi; \
+		sleep 5; \
+	done; \
+	echo "Secret apm-server-apm-token indisponible après 300s" >&2; exit 1
 
 eck-deploy: ## Installer ou mettre à jour l'opérateur ECK 3.5.0
 	@helm repo add elastic $(ECK_HELM_REPOSITORY) --force-update
@@ -144,6 +153,7 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana de l'architecture sé
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
+	@$(KUBECTL) apply -f $(ARCH_ROOT)/apps/supermarket-demo/kubernetes/base/namespace.yaml
 	@postgresql_password="$${POSTGRESQL_PASSWORD:-$$( $(KUBECTL) -n $(APP_NAMESPACE) get secret postgresql-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode )}"; \
 	test -n "$$postgresql_password" || { echo "Définir POSTGRESQL_PASSWORD hors Git (requis au premier déploiement)" >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
@@ -153,7 +163,7 @@ postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL F
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(MAKE) package-registry-ready
+	@$(MAKE) elasticsearch-ready
 	@$(MAKE) kibana-ready
 	@$(MAKE) apm-data-view-deploy
 
@@ -163,14 +173,21 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 		./$(ARCH_ROOT)/platform/elk/scripts/deploy-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/apm-data-view.ndjson
 
 apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en lecture
-	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source $(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }
-	@ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' \
-		ELASTICSEARCH_PASSWORD="$$ELASTICSEARCH_PASSWORD" \
+	@elasticsearch_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode )"; \
+	test -n "$$elasticsearch_password" || { echo "Impossible de lire le mot de passe Elasticsearch" >&2; exit 1; }; \
+	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' \
+		ELASTICSEARCH_PASSWORD="$$elasticsearch_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/apply-apm-kibana-role.sh
 
 apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash si absente
-	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch >/dev/null 2>&1; then \
-		echo "Secret apm-logstash-elasticsearch déjà présent"; \
+	@current_api_key="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch \
+		-o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode)"; \
+	current_api_key_encoded="$$(printf '%s' "$$current_api_key" | base64 | tr -d '\\n')"; \
+	if test -n "$$current_api_key" && test "$$(curl --silent --show-error --insecure \
+		--resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+		-H "Authorization: ApiKey $$current_api_key_encoded" \
+		-o /dev/null -w '%{http_code}' '$(ELASTICSEARCH_URL)/_security/_authenticate')" = 200; then \
+		echo "Clé API Logstash existante et valide"; \
 	else \
 		password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
@@ -179,7 +196,10 @@ apm-logstash-credentials-apply: ## Créer la clé API Elasticsearch de Logstash 
 			--data '{"name":"apm-logstash-writer","role_descriptors":{"apm_logstash_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
 			| jq -er '.id + ":" + .api_key')"; \
 		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic apm-logstash-elasticsearch \
-			--from-literal=api-key="$$api_key"; \
+			--from-literal=api-key="$$api_key" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+	fi; \
+	if $(KUBECTL) -n $(K8S_NAMESPACE) get deployment apm-logstash >/dev/null 2>&1; then \
+		$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/apm-logstash; \
 	fi
 
 apm-logstash-deploy: apm-kibana-role-apply apm-logstash-credentials-apply ## Déployer Logstash et raccorder APM Server et Elastic Agent
@@ -228,6 +248,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh; \
 	$(MAKE) fleet-sync; \
 	POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
+	$(MAKE) fleet-vms-provision; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy

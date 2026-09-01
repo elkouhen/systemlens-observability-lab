@@ -106,8 +106,10 @@ kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status \
 		deployment/es-kb-quickstart-eck-kibana-kb --timeout=300s
 	@for attempt in $$(seq 1 60); do \
-		if curl --fail --silent --show-error --insecure \
-			--resolve '$(KIBANA_CURL_RESOLVE)' '$(KIBANA_URL)/login' >/dev/null; then \
+		status="$$(curl --silent --show-error --insecure \
+			--resolve '$(KIBANA_CURL_RESOLVE)' -o /dev/null -w '%{http_code}' \
+			'$(KIBANA_URL)/login' || true)"; \
+		if test "$$status" = 200 || test "$$status" = 302 || test "$$status" = 401; then \
 			echo "Ingress Kibana accessible"; exit 0; \
 		fi; \
 		sleep 5; \
@@ -185,9 +187,10 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 		./$(ARCH_ROOT)/platform/elk/scripts/deploy-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/apm-data-view.ndjson
 
 apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en lecture
-	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (source $(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh)" >&2; exit 1; }
-	@ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' \
-		ELASTICSEARCH_PASSWORD="$$ELASTICSEARCH_PASSWORD" \
+	@elasticsearch_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode )"; \
+	test -n "$$elasticsearch_password" || { echo "Impossible de lire le mot de passe Elasticsearch" >&2; exit 1; }; \
+	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' \
+		ELASTICSEARCH_PASSWORD="$$elasticsearch_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/apply-apm-kibana-role.sh
 
 apm-logstash-credentials-apply: ## Compatibilité historique (aucun Logstash v2)

@@ -31,6 +31,12 @@ les logs locaux et les métriques système/Kafka/MongoDB/PostgreSQL, puis publie
 directement dans `otel-logs` et `otel-metrics`. Les VM ne passent pas par
 le Gateway OTLP Kubernetes.
 
+Lors d'un déploiement initial, `make elk-deploy` crée ou réconcilie la clé
+d'API Elasticsearch du Collector backend avant de démarrer les workloads.
+Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
+d'enrôlement Fleet. Les VM v2 restent EDOT standalone afin d'éviter une double
+collecte par un Elastic Agent Fleet.
+
 Les topics sont séparés par signal. L'exemple Elastic avec un topic partagé est
 un pattern d'architecture, mais le receiver Kafka embarqué dans EDOT Collector
 9.4.3 ne route pas automatiquement des payloads logs, métriques et traces

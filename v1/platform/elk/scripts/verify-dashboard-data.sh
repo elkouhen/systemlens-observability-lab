@@ -28,7 +28,7 @@ expected_datasets=(
 missing=0
 for dataset in "${expected_datasets[@]}"; do
   count="$(jq -r --arg dataset "${dataset}" \
-    '[.aggregations.datasets.buckets[] | select(.key == $dataset) | .doc_count] | first // 0' <<<"${response}")"
+    '[.aggregations.datasets.buckets[]? | select(.key == $dataset) | .doc_count] | first // 0' <<<"${response}")"
   if (( count > 0 )); then
     printf 'OK      %-28s %s document(s) sur %s\n' "${dataset}" "${count}" "${window}"
   else

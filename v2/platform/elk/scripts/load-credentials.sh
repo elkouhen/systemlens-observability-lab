@@ -54,11 +54,20 @@ ELASTICSEARCH_PASSWORD="$(kubectl -n "${_credentials_namespace}" get secret elas
   return 1
 }
 export ELASTICSEARCH_PASSWORD
-export KIBANA_PASSWORD="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
+export KIBANA_PASSWORD="${ELASTICSEARCH_PASSWORD}"
 
-# Une clé déjà chargée (par exemple depuis un coffre-fort) n'est jamais
-# remplacée. Sinon une nouvelle clé limitée aux data streams Beats est créée.
-if [[ -z "${ELASTICSEARCH_API_KEY:-}" ]]; then
+# Une clé déjà chargée est vérifiée contre le cluster courant. Après une
+# recréation Elasticsearch, une ancienne clé peut être invalide : elle doit
+# alors être remplacée automatiquement avant le provisionnement des VM.
+api_key_status=''
+if [[ -n "${ELASTICSEARCH_API_KEY:-}" ]]; then
+  api_key_status="$(curl --silent --show-error --insecure \
+    --resolve "${_credentials_resolve}" \
+    -H "Authorization: ApiKey ${ELASTICSEARCH_API_KEY}" \
+    -o /dev/null -w '%{http_code}' \
+    "${ELASTICSEARCH_URL}/_security/_authenticate" || true)"
+fi
+if [[ "${api_key_status}" != 200 ]]; then
   _credentials_payload='{"name":"vm-beats-shell","role_descriptors":{"vm_beats_writer":{"cluster":["monitor","read_ilm","manage_ilm","manage_index_templates"],"indices":[{"names":["logs-*","metrics-*","filebeat-*","metricbeat-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}'
   ELASTICSEARCH_API_KEY="$(curl --fail --silent --show-error --insecure \
     --resolve "${_credentials_resolve}" \
@@ -73,4 +82,4 @@ if [[ -z "${ELASTICSEARCH_API_KEY:-}" ]]; then
 fi
 
 printf 'Identifiants chargés : ELASTICSEARCH_PASSWORD, KIBANA_PASSWORD, ELASTICSEARCH_API_KEY, POSTGRESQL_PASSWORD.\n'
-unset _credentials_namespace _credentials_app_namespace _credentials_resolve _credentials_payload
+unset _credentials_namespace _credentials_app_namespace _credentials_resolve _credentials_payload api_key_status

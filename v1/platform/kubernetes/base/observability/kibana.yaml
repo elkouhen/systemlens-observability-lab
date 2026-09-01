@@ -16,19 +16,6 @@ spec:
     name: elasticsearch
   podTemplate:
     spec:
-      # Fleet installe les packages durant le bootstrap de Kibana. Attendre le
-      # registre évite une initialisation en échec lors d'un cluster vierge.
-      initContainers:
-        - name: wait-package-registry
-          image: curlimages/curl:8.5.0
-          command:
-            - sh
-            - -ec
-            - |
-              until curl --fail --silent http://package-registry.elastic-stack.svc:8080/health; do
-                echo 'Attente du registre de packages Elastic 8.11.3…'
-                sleep 2
-              done
       containers:
         - name: kibana
           env:
@@ -62,9 +49,8 @@ spec:
     # Adresses publiées dans les politiques remises aux agents hors Kubernetes.
     xpack.fleet.agents.fleet_server.hosts:
       - https://fleet.poc.test:443
-    # Registre versionné avec le Stack : il contient notamment APM 8.11.3,
-    # contrairement à l'EPR public courant qui ne propose plus que 8.4.2.
-    xpack.fleet.registryUrl: http://package-registry.elastic-stack.svc:8080
+    # Utiliser le registre public Elastic pour les packages Fleet.
+    xpack.fleet.registryUrl: https://epr.elastic.co
     xpack.fleet.outputs:
       # Fleet Server s'exécute dans le cluster : il doit utiliser le service
       # Elasticsearch interne, et non l'Ingress public qui n'est pas
