@@ -1,5 +1,5 @@
 [Unit]
-Description=MongoDB POC{% if poc_distributed | bool %} replica set{% else %} standalone{% endif %}
+Description=MongoDB POC standalone
 After=network-online.target
 Wants=network-online.target
 
@@ -10,7 +10,7 @@ PublishPort=27017:27017
 Volume=mongodb-data:/data/db:Z
 Volume=/var/log/mongodb:/var/log/mongodb:Z
 Memory=512m
-Exec=mongod{% if poc_distributed | bool %} --replSet {{ mongodb_replica_set }}{% endif %} --bind_ip_all --wiredTigerCacheSizeGB 0.25 --logpath /var/log/mongodb/mongod.log --logappend
+Exec=mongod --bind_ip_all --wiredTigerCacheSizeGB 0.25 --logpath /var/log/mongodb/mongod.log --logappend
 
 [Service]
 Restart=always

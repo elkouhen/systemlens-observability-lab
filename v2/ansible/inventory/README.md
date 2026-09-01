@@ -1,8 +1,7 @@
 # Inventaire Ansible
 
-`vagrant.yml` décrit le profil distribué (`data-01` à `data-03`). En profil
-minimal, limiter les commandes Ansible à `data-01` ; les cibles Make et le
-script de statut sélectionnent automatiquement le profil actif.
+`vagrant.yml` décrit l'unique VM `data-01`. Les commandes Ansible et les
+cibles Make ciblent directement cette VM.
 
 Lire cet inventaire avant `site.yml` pour savoir quels hôtes recevront les
 services. Ne pas y ajouter de secret : fournir les valeurs sensibles via

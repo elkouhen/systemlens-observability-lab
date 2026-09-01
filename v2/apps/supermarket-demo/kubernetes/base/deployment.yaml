@@ -67,7 +67,7 @@ spec:
             - name: ORDER_SERVICE_INVENTORY_SERVICE_URL
               value: http://inventory-service:3001
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092
+              value: 192.168.5.2:19092
           readinessProbe:
             httpGet:
               path: /api/health
@@ -209,7 +209,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
             - name: SPRING_DATA_MONGODB_URI
-              value: mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs
+              value: mongodb://192.168.33.10:27017/observability_test?directConnection=true
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://192.168.33.10:5432/observability_test
             - name: SPRING_DATASOURCE_USERNAME
@@ -220,7 +220,7 @@ spec:
                   name: postgresql-credentials
                   key: password
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092
+              value: 192.168.5.2:19092
           readinessProbe:
             httpGet:
               path: /api/health
@@ -344,7 +344,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.33.10:9092,192.168.33.11:9092,192.168.33.12:9092
+              value: 192.168.5.2:19092
           readinessProbe:
             httpGet:
               path: /actuator/health

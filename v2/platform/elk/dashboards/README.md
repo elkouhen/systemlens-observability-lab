@@ -22,7 +22,7 @@ produits par la collecte v2.
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.
 Pour ce POC, PostgreSQL est attendu uniquement sur `data-01`; le dashboard ne
-doit donc pas afficher de métriques PostgreSQL de `data-02`.
+doit afficher les métriques PostgreSQL de `data-01`.
 
 ## Déploiement et vérification
 

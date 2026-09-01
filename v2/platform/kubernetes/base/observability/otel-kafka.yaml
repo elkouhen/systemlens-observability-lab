@@ -60,7 +60,7 @@ data:
 
     exporters:
       kafka/otlp:
-        brokers: ["192.168.33.10:9092"]
+        brokers: ["192.168.5.2:19092"]
         traces:
           topic: otel-traces
           encoding: otlp_proto
@@ -136,7 +136,7 @@ data:
         send_batch_size: 512
     exporters:
       kafka/otlp:
-        brokers: ["192.168.33.10:9092"]
+        brokers: ["192.168.5.2:19092"]
         traces:
           topic: otel-traces
           encoding: otlp_proto
@@ -161,7 +161,7 @@ data:
   exporter.yaml: |
     receivers:
       kafka/otlp:
-        brokers: ["192.168.33.10:9092"]
+        brokers: ["192.168.5.2:19092"]
         protocol_version: 3.9.0
         group_id: otel-backend
         traces:
@@ -328,9 +328,12 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - >-
+              deadline=$(($(date +%s) + 180));
               for topic in otel-traces otel-metrics otel-logs; do
               until /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092 --describe --topic "$topic" >/dev/null 2>&1; do
+              192.168.5.2:19092 --describe --topic "$topic" >/dev/null 2>&1; do
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "Kafka inaccessible ou topic absent après 180s: $topic" >&2; exit 1; fi;
               sleep 2; done; done
       containers:
         - name: collector
@@ -371,13 +374,13 @@ spec:
             - >-
               for topic in otel-traces otel-metrics otel-logs; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092 --create --if-not-exists --topic "$topic"
+              192.168.5.2:19092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1
               --config min.insync.replicas=1;
               partitions=$(/opt/kafka/bin/kafka-topics.sh
-              --bootstrap-server 192.168.33.10:9092 --describe --topic "$topic"
+              --bootstrap-server 192.168.5.2:19092 --describe --topic "$topic"
               | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1);
               if [ "${partitions:-0}" -lt 3 ]; then
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092 --alter --topic "$topic" --partitions 3;
+              192.168.5.2:19092 --alter --topic "$topic" --partitions 3;
               fi; done

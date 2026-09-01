@@ -13,11 +13,7 @@ elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test}"
 kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
 fleet_policy_id='data-fleet'
-case "${POC_PROFILE:-minimal}" in
-  minimal) fleet_nodes=(data-01) ;;
-  distributed) fleet_nodes=(data-01 data-02 data-03) ;;
-  *) printf 'POC_PROFILE doit valoir minimal ou distributed.\n' >&2; exit 2 ;;
-esac
+fleet_nodes=(data-01)
 
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.poc.test:443:127.0.0.1

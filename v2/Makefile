@@ -4,7 +4,7 @@ SHELL := /bin/bash
 KUBECTL ?= kubectl
 VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
-POC_PROFILE ?= minimal
+POC_PROFILE := minimal
 ARCH_VERSION := v2
 ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack-v2
@@ -28,7 +28,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
-	postgresql-credentials-apply beats-vm-provision fleet-data02-provision kafka-jolokia-verify mongodb-workload \
+	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload \
 	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -188,7 +188,9 @@ otel-elasticsearch-credentials-apply: elasticsearch-ready ## Créer ou réconcil
 	fi
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply public-tls-apply otel-elasticsearch-credentials-apply ## Déployer la plateforme d'observabilité Elastic
+	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics-v3 --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics-v3 --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway deployment/otel-kafka-exporter
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
 	@$(MAKE) kibana-ready
@@ -249,8 +251,8 @@ order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUA
 
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
-	$(MAKE) elk-deploy; \
 	POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
+	$(MAKE) elk-deploy; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
@@ -259,7 +261,6 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes >/dev/null
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/minimal >/dev/null
-	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/distributed >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml

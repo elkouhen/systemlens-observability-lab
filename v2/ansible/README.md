@@ -1,16 +1,10 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
-Le profil `minimal` crée uniquement `data-01`, avec MongoDB standalone, Kafka
-mono-broker et PostgreSQL. Le profil `distributed` crée les trois VM avec
-replica set MongoDB et quorum Kafka KRaft. Chaque VM active reçoit un EDOT
-Collector en mode agent, qui transmet ses logs et métriques dans Kafka au
-format OTLP. Le Collector EDOT Kubernetes consomme ensuite ces topics et
-exporte vers Elasticsearch.
-
-Le profil est transmis automatiquement par Vagrant ; pour un changement de
-topologie, utiliser `POC_PROFILE=minimal` ou `POC_PROFILE=distributed` avec la
-cible Make correspondante.
+La v2 crée uniquement `data-01`, avec MongoDB standalone, Kafka mono-broker et
+PostgreSQL. La VM reçoit un EDOT Collector en mode agent, qui transmet ses
+logs et métriques dans Kafka au format OTLP. Le Collector EDOT Kubernetes
+consomme ensuite ces topics et exporte vers Elasticsearch.
 
 Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
 privé VirtualBox et configure des résolveurs DNS sur l'interface NAT. Cette
@@ -19,14 +13,11 @@ peuvent donner la priorité au réseau privé et empêcher la résolution des
 miroirs de paquets.
 
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
-sur `data-01`, commun aux deux profils.
+sur `data-01`.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| VM active du profil | EDOT Collector agent | Kafka OTLP, puis EDOT Collector Kubernetes et Elasticsearch |
-
-Les profils sont exclusifs afin d'éviter toute duplication de logs ou de
-métriques sur une même VM.
+| `data-01` | EDOT Collector agent | Kafka OTLP, puis EDOT Collector Kubernetes et Elasticsearch |
 
 ## Ordre de lecture
 

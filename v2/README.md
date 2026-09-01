@@ -9,6 +9,8 @@ l'exportation vers Elasticsearch.
 Le code Java, Maven et Docker reste inchangé. Seuls les manifests Kubernetes de
 l'application sont propres à cette version. Le chemin VM v2 est :
 `EDOT Agent VM → Kafka → EDOT Kafka exporter → Elasticsearch → Kibana`.
+Kafka expose son listener interne sur `192.168.33.10:9092` et un listener
+redirigé par Vagrant sur `192.168.5.2:19092`, passerelle Docker utilisée par les pods k3d.
 Le chemin APM Java est distinct :
 `OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Kafka exporter`.
 Les applications Kubernetes envoient également leurs signaux OTLP au Gateway.

@@ -52,7 +52,7 @@ pour isoler le membre.
 | Besoin | Modification à faire |
 | --- | --- |
 | Agent hors de l'hôte MongoDB | remplacer `hosts` par une URI MongoDB accessible depuis l'Agent |
-| Replica set distant | utiliser une URI avec tous les membres et `replicaSet=<nom>` |
+| MongoDB distant | remplacer `localhost:27017` par l'URI accessible depuis l'Agent |
 | Authentification | fournir un utilisateur de supervision ; ne jamais committer son mot de passe dans le JSON |
 | TLS | activer TLS et fournir la CA par le mécanisme de secrets/variables Fleet adapté à l'environnement |
 | Moins de charge | augmenter `period` au-delà de `60s` |
