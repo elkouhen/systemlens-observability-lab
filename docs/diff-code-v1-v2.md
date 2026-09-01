@@ -167,10 +167,10 @@ documentation historique.
 
 Fichiers concernés :
 
-- `v1/apps/supermarket-demo/kubernetes/base/deployment.yaml` ;
-- `v2/apps/supermarket-demo/kubernetes/base/deployment.yaml` ;
-- `v1/apps/.../kubernetes-profiles/minimal/data-endpoints.yaml` ;
-- `v2/apps/.../kubernetes-profiles/minimal/data-endpoints.yaml`.
+- `kubernetes/apps/supermarket-demo/base/deployment.yaml` ;
+- `kubernetes/apps/supermarket-demo/v1/data-endpoints.yaml` ;
+- `kubernetes/apps/supermarket-demo/v2/data-endpoints.yaml` ;
+- `kubernetes/apps/supermarket-demo/v2/otel-instrumentation.yaml`.
 
 Les trois Deployments Java, leurs probes, leurs ressources, leurs noms de
 service et la configuration métier sont presque identiques. Les divergences
@@ -184,9 +184,9 @@ principales sont les endpoints :
 | Logs | collectés par l'agent Kubernetes v1 | collectés par le DaemonSet EDOT |
 | Métriques applicatives | chemin APM/Logstash | OTLP vers le Gateway puis Kafka |
 
-La duplication du `deployment.yaml` est la meilleure cible de mutualisation.
-Le manifest commun devrait contenir les Deployments, probes, ports, images et
-configuration métier. Les overlays v1/v2 ne devraient fournir que :
+Le `deployment.yaml` est désormais mutualisé dans la base commune. Les
+différences d'endpoint Kafka et d'instrumentation restent de petits patches
+dans les overlays v1/v2 :
 
 - endpoints Kafka et MongoDB ;
 - variables APM/OTel ;
@@ -196,7 +196,7 @@ configuration métier. Les overlays v1/v2 ne devraient fournir que :
 
 Il faut éviter de conserver simultanément une configuration APM inline dans
 les Deployments v2 et une configuration équivalente dans
-[`otel-instrumentation.yaml`](v2/apps/supermarket-demo/kubernetes/base/otel-instrumentation.yaml)
+[`otel-instrumentation.yaml`](../kubernetes/apps/supermarket-demo/v2/otel-instrumentation.yaml)
 sans documenter précisément la priorité d'injection.
 
 ### 6. Scripts et diagnostics
@@ -255,36 +255,29 @@ sont très proches mais ne ciblent pas les mêmes composants.
 2. Harmoniser les messages et les cibles `Makefile`.
 3. Réduire les différences de style YAML et de commentaires entre les copies.
 
-## Proposition de structure cible
+## Structure Kubernetes mutualisée
 
 ```text
-shared/
-  ansible/tasks/system.yml
-  ansible/templates/poc-kafka.container.j2
-  ansible/templates/poc-mongodb.container.j2
-  ansible/templates/poc-postgresql.container.j2
-  kubernetes/apps/supermarket-demo/base/
-  scripts/credentials.sh
-  scripts/cluster-status.sh
+kubernetes/
+  apps/supermarket-demo/base/       # socle applicatif commun
+  apps/supermarket-demo/v1/         # endpoints Kafka v1
+  apps/supermarket-demo/v2/         # endpoints Kafka + instrumentation OTel
 
 v1/
   Makefile
   platform/kubernetes/       # Elastic 8 + APM Server + Logstash
   ansible/collector-beats/   # Filebeat + Metricbeat
-  kubernetes/apps-overlay/
 
 v2/
   Makefile
   platform/kubernetes/       # Elastic 9 + EDOT + Kafka OTLP
   ansible/collector-edot/    # EDOT Agent
-  kubernetes/apps-overlay/
 ```
 
-Une étape intermédiaire moins invasive consiste à garder l'arborescence
-actuelle et à introduire seulement des fichiers communs sous `shared/`, puis à
-faire consommer ces fichiers par les deux bundles. Il faut éviter les
-symlinks de configuration Kubernetes si l'outil de déploiement ou le contexte
-de build ne les gère pas de manière uniforme.
+La base applicative commune est désormais en place. Les composants de plateforme
+et les collecteurs restent volontairement versionnés séparément. Les symlinks
+de configuration Kubernetes sont à éviter si l'outil de déploiement ou le
+contexte de build ne les gère pas de manière uniforme.
 
 ## Méthode de validation recommandée
 

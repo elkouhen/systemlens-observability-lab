@@ -67,7 +67,7 @@ spec:
             - name: ORDER_SERVICE_INVENTORY_SERVICE_URL
               value: http://inventory-service:3001
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.5.2:19092
+              value: 192.168.33.10:9092
           readinessProbe:
             httpGet:
               path: /api/health
@@ -220,7 +220,7 @@ spec:
                   name: postgresql-credentials
                   key: password
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.5.2:19092
+              value: 192.168.33.10:9092
           readinessProbe:
             httpGet:
               path: /api/health
@@ -344,7 +344,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.5.2:19092
+              value: 192.168.33.10:9092
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -397,3 +397,4 @@ spec:
             secretName: order-service-apm-server-ca
         - name: apm-truststore
           emptyDir: {}
+

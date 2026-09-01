@@ -422,8 +422,8 @@ qui sont collectées séparément par Metricbeat sur `data-01`.
 
 - [`apps/ADDING_APPLICATION.md`](../apps/ADDING_APPLICATION.md) : intégrer une
   nouvelle application Java observée ;
-- [`apps/supermarket-demo/kubernetes/README.md`](../apps/supermarket-demo/kubernetes/README.md) :
-  configuration des Deployments applicatifs ;
+- [`kubernetes/apps/supermarket-demo/`](../kubernetes/apps/supermarket-demo/) :
+  base commune et patches des Deployments applicatifs ;
 - [`platform/kubernetes/base/observability/README.md`](../platform/kubernetes/base/observability/README.md) :
   chaîne APM, Logstash et règles de routage ;
 - [`Makefile`](../Makefile) : cibles de test, validation et déploiement.

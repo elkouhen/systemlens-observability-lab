@@ -160,7 +160,7 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana de l'architecture sé
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
-	@$(KUBECTL) apply -f $(ARCH_ROOT)/apps/supermarket-demo/kubernetes/base/namespace.yaml
+	@$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml
 	@postgresql_password="$${POSTGRESQL_PASSWORD:-$$( $(KUBECTL) -n $(APP_NAMESPACE) get secret postgresql-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode )}"; \
 	test -n "$$postgresql_password" || { echo "Définir POSTGRESQL_PASSWORD hors Git (requis au premier déploiement)" >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
@@ -218,7 +218,7 @@ apm-logstash-deploy: ## Compatibilité historique : Logstash n'est pas déployé
 
 apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
 	@set -euo pipefail; \
-	$(KUBECTL) apply -f $(ARCH_ROOT)/apps/supermarket-demo/kubernetes/base/namespace.yaml; \
+	$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml; \
 	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
 	ca_file="$$(mktemp)"; \
 	trap 'rm -f "$$ca_file"' EXIT; \
@@ -227,7 +227,8 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-server-ca --from-file=ca.crt="$$ca_file" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 apps-deploy: ## Déployer uniquement l'application de démonstration
-	@$(KUBECTL) apply -k $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/$(POC_PROFILE)
+	@test '$(POC_PROFILE)' = minimal || { echo "Profil Kubernetes inconnu : $(POC_PROFILE) (seul minimal est supporté)" >&2; exit 1; }
+	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/v2
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
 		order-service=order-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
@@ -259,8 +260,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
-	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes >/dev/null
-	@$(KUBECTL) kustomize $(ARCH_ROOT)/apps/supermarket-demo/kubernetes-profiles/minimal >/dev/null
+	@$(KUBECTL) kustomize ../kubernetes/apps/supermarket-demo/v2 >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml

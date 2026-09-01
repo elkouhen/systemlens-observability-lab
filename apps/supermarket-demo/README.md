@@ -30,7 +30,7 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 1. `pom.xml` : agrégateur Maven et versions communes.
 2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic APM pour les
    trois services.
-3. [`v1/apps/supermarket-demo/kubernetes/README.md`](../../v1/apps/supermarket-demo/kubernetes/README.md) : variables de déploiement Kubernetes versionnées
+3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patches v1/v2
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même
@@ -40,10 +40,9 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
    `inventory-service/.../inventory`, `restock-service/.../restock`).
 
 Construire les trois images avec `make apps-build`, puis déployer uniquement
-l'application avec `make apps-deploy`. Cette cible prend les manifests
-Kubernetes dans `v1/apps/supermarket-demo/` ou `v2/apps/supermarket-demo/`,
-selon l'architecture sélectionnée. Le code Java, les POM et le Dockerfile
-restent communs aux deux architectures.
+l'application avec `make apps-deploy`. Cette cible sélectionne l'overlay v1 ou
+v2 sous `kubernetes/apps/supermarket-demo/`. Le code Java, les POM, le
+Dockerfile et le socle des manifests restent communs aux deux architectures.
 
 Pour déclencher une commande de recette via le service Kubernetes, exécuter
 `make order-service-command`. La cible crée un pod `curl` éphémère, appelle

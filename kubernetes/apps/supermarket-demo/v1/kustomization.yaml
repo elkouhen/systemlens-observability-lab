@@ -3,4 +3,6 @@ kind: Kustomization
 commonAnnotations:
   observability.systemlens.io/architecture-version: v1
 resources:
-  - base
+  - ../base
+patches:
+  - path: data-endpoints.yaml

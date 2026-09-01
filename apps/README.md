@@ -6,10 +6,10 @@ porter la configuration de la plateforme ELK qui l'observe.
 
 ## Parcours conseillé
 
-Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis les
-manifests Kubernetes de l'architecture sélectionnée dans `v1/apps/` ou
-`v2/apps/`, et enfin les modules Maven communs. Les manifests v1 et v2
-déploient le même métier avec des raccordements de télémétrie différents.
+Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis la base
+commune et les overlays Kubernetes sous `../kubernetes/apps/`, et enfin les
+modules Maven communs. Les overlays v1 et v2 déploient le même métier avec des
+raccordements de télémétrie différents.
 
 Pour intégrer une nouvelle application Java dans les chaînes APM/OTel et logs
 ECS, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).

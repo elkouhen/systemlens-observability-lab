@@ -144,9 +144,12 @@ et [connecteur APM](https://www.elastic.co/docs/reference/edot-collector/compone
 
 ## Sources IaC
 
-- v1 : `v1/platform/kubernetes/base/observability/` et
+- socle applicatif commun : `kubernetes/apps/supermarket-demo/base/` ;
+- patches applicatifs : `kubernetes/apps/supermarket-demo/v1/` et
+  `kubernetes/apps/supermarket-demo/v2/` ;
+- plateforme v1 : `v1/platform/kubernetes/base/observability/` et
   `v1/ansible/templates/filebeat.yml.j2`, `metricbeat.yml.j2` ;
-- v2 : `v2/platform/kubernetes/base/observability/otel-kafka.yaml` et
+- plateforme v2 : `v2/platform/kubernetes/base/observability/otel-kafka.yaml` et
   `v2/ansible/templates/otel-agent.yml.j2` ;
 - vue de référence lisible directement sur GitHub : ce document Markdown et ses
   six schémas Mermaid.

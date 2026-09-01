@@ -3,4 +3,7 @@ kind: Kustomization
 commonAnnotations:
   observability.systemlens.io/architecture-version: v2
 resources:
-  - base
+  - ../base
+patches:
+  - path: data-endpoints.yaml
+  - path: otel-instrumentation.yaml
