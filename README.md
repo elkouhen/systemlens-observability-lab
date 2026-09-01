@@ -40,6 +40,7 @@ make deploy
 - [Objectifs et périmètre du POC](docs/prd-observabilite-elk.md)
 - [APM des applications Java et Kubernetes](docs/apm-application-kubernetes.md)
 - [Métriques Kafka et MongoDB](docs/metrics-clients-kafka-mongodb.md)
+- [Agent Package Manager](docs/agent-package-manager.md)
 
 Les documentations proches des composants se trouvent dans `v1/`, `v2/`,
 `apps/` et `scripts/`. L’index complet est disponible dans

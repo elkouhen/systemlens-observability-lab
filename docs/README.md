@@ -30,6 +30,8 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
 - [`diff-code-v1-v2.md`](diff-code-v1-v2.md) : différences de code et
   priorités de mutualisation. Ce document ne remplace pas le comparatif
   fonctionnel.
+- [`agent-package-manager.md`](agent-package-manager.md) : installation et
+  contrôle du contexte d'agents avec Microsoft APM.
 
 Les procédures propres à un composant restent dans son README local ; elles
 ne sont pas recopiées ici.

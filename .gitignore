@@ -15,8 +15,11 @@ target/
 .agents/
 **/.systemlens/findings.db
 
-# Rapport APM généré localement.
+# Rapport APM Elastic généré localement.
 /apm.html
+
+# Cache local des dépendances APM ; le manifeste et le lockfile restent versionnés.
+/apm_modules/
 
 # Export local potentiellement sensible ; ne jamais versionner une clé Kibana.
 /kibana-key.md
