@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: otel-collector
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -28,13 +28,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: otel-collector
-    namespace: elastic-stack-v2
+    namespace: elastic-stack
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: otel-kafka-config
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 data:
   collector.yaml: |
     extensions:
@@ -204,7 +204,7 @@ data:
     exporters:
       elasticsearch/otel:
         endpoints:
-          - https://elasticsearch-es-http.elastic-stack-v2.svc:9200
+          - https://elasticsearch-es-http.elastic-stack.svc:9200
         api_key: ${env:ELASTICSEARCH_API_KEY}
         tls:
           ca_file: /etc/otel/elasticsearch-ca/ca.crt
@@ -241,7 +241,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: otel-gateway
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 spec:
   replicas: 1
   selector:
@@ -270,7 +270,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: otel-gateway
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 spec:
   selector: {app.kubernetes.io/name: otel-gateway}
   ports:
@@ -281,7 +281,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: otel-kubernetes
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 spec:
   selector:
     matchLabels: {app.kubernetes.io/name: otel-kubernetes}
@@ -312,7 +312,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: otel-kafka-exporter
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 spec:
   replicas: 1
   selector:
@@ -360,7 +360,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: otel-telemetry-topics-v3
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 spec:
   backoffLimit: 6
   template:

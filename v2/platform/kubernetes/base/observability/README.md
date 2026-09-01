@@ -73,8 +73,8 @@ stream existant.
 Après le déploiement, vérifier les composants et les relais :
 
 ```bash
-kubectl -n elastic-stack-v2 get deployment otel-gateway otel-kafka-exporter
-kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
+kubectl -n elastic-stack get deployment otel-gateway otel-kafka-exporter
+kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
 ```
 
 Le résultat attendu est un Deployment EDOT Elasticsearch `1/1`, sans erreur de

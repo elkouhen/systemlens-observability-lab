@@ -5,7 +5,7 @@ set -euo pipefail
 
 elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test:443}"
 curl_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:127.0.0.1}"
-k8s_namespace="${K8S_NAMESPACE:-elastic-stack-v2}"
+k8s_namespace="${K8S_NAMESPACE:-elastic-stack}"
 kubectl_bin="${KUBECTL:-kubectl}"
 kibana_user="${APM_KIBANA_USERNAME:-apm-server-kibana}"
 kibana_secret="apm-server-kibana-credentials"

@@ -27,8 +27,8 @@ command -v jq >/dev/null 2>&1 || {
 
 export ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test:443}"
 export KIBANA_URL="${KIBANA_URL:-https://kibana.poc.test}"
-_credentials_namespace="${ELASTIC_NAMESPACE:-elastic-stack-v2}"
-_credentials_app_namespace="${APP_NAMESPACE:-h0tl-supermarche-app-v2}"
+_credentials_namespace="${ELASTIC_NAMESPACE:-elastic-stack}"
+_credentials_app_namespace="${APP_NAMESPACE:-h0tl-supermarche-app}"
 _credentials_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:127.0.0.1}"
 
 # Le Secret applicatif est la source persistante du mot de passe PostgreSQL.

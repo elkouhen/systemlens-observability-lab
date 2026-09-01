@@ -15,7 +15,7 @@ La revue de mutualisation du code est détaillée dans
 | Organisation | `v1/` contient la plateforme, Ansible et les manifests applicatifs | `v2/` contient sa propre plateforme, son Ansible et ses manifests applicatifs | Implémenté |
 | Code Java, POM, Dockerfile | Partagé sous `apps/supermarket-demo/` | Partagé sous `apps/supermarket-demo/` | Inchangé |
 | Makefile/Vagrantfile | Bundle `v1/` | Bundle `v2/` | Implémenté |
-| Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Namespace `elastic-stack-v2`, application `h0tl-supermarche-app-v2` | Implémenté |
+| Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Les mêmes namespaces, selon le bundle actif | Implémenté |
 | Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | Les mêmes URL, selon le bundle actif | Implémenté |
 | Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Collector → Elasticsearch | Implémenté |
 | Métriques applicatives/Kubernetes | Métriques APM via APM Server/Logstash ; métriques kubelet et état Kubernetes via Elastic Agent/Logstash | Métriques Java via OTel Agent → collector edge → Kafka `otel-metrics` ; métriques hôte et Kubernetes via EDOT DaemonSet → Kafka `otel-metrics` → collector backend | Implémenté |
@@ -79,8 +79,8 @@ signaux.
 make architecture-switch VERSION=v2
 POC_PROFILE=minimal make kubernetes-validate
 make -C v2 deploy
-kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics-v3
-kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
+kubectl -n elastic-stack get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics-v3
+kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
 ```
 
 Résultat attendu : `data-01` est l'unique VM des deux versions, les topics OTLP

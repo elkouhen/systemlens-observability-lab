@@ -6,7 +6,7 @@ ne stockent aucun mot de passe dans le dépôt.
 ## Lire et exécuter
 
 1. `load-credentials.sh` lit le secret ECK Elasticsearch et le Secret
-   `h0tl-supermarche-app-v2/postgresql-credentials`, puis exporte les variables
+   `h0tl-supermarche-app/postgresql-credentials`, puis exporte les variables
    utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
    La clé API Elasticsearch déjà exportée est vérifiée contre le cluster ; si
    elle appartient à un ancien cluster, elle est automatiquement remplacée.

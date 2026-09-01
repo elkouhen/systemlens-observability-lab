@@ -4,7 +4,7 @@ apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
 metadata:
   name: es-kb-quickstart-eck-kibana
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
   annotations:
     # Déclenche la réconciliation des package policies après l'installation
     # initiale des packages du registre Elastic 9.4.3.
@@ -53,7 +53,7 @@ spec:
         name: Elasticsearch interne pour Fleet Server
         type: elasticsearch
         hosts:
-          - https://elasticsearch-es-http.elastic-stack-v2.svc:9200
+          - https://elasticsearch-es-http.elastic-stack.svc:9200
       - id: fleet-default-output
         name: Elasticsearch ECK
         type: elasticsearch

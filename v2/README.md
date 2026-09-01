@@ -43,7 +43,7 @@ Le déploiement crée ou répare d'abord le certificat TLS POC
 `elastic-public-tls`, prépare la clé API du Collector EDOT, puis applique les
 manifests Kubernetes et provisionne les VM EDOT.
 
-La v2 est isolée de la v1 avec les namespaces `elastic-stack-v2` et
-`h0tl-supermarche-app-v2`. Elle réutilise les hôtes fonctionnels
+La v2 utilise les mêmes namespaces que la v1 : `elastic-stack` et
+`h0tl-supermarche-app`. Elle réutilise les hôtes fonctionnels
 `elasticsearch.poc.test`, `kibana.poc.test` et `fleet.poc.test` ; un seul bundle
 doit être exposé à la fois derrière ces URL.

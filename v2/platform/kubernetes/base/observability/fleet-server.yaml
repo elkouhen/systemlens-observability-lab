@@ -2,7 +2,7 @@ apiVersion: agent.k8s.elastic.co/v1alpha1
 kind: Agent
 metadata:
   name: fleet-server
-  namespace: elastic-stack-v2
+  namespace: elastic-stack
 spec:
   version: 9.4.3
   mode: fleet

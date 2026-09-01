@@ -1,7 +1,7 @@
 # Déploiement Kubernetes de l'application
 
 `kustomization.yaml` est le point d'entrée IaC de l'application. `namespace.yaml`
-isole l'application dans le namespace `h0tl-supermarche-app-v2`.
+isole l'application dans le namespace `h0tl-supermarche-app`.
 `deployment.yaml` décrit ses Deployments, Services et variables
 d'environnement : adresses Kafka/MongoDB et identité de télémétrie. Les traces
 d'`order-service`, d'`inventory-service` et de `restock-service` vont au

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-service
-  namespace: h0tl-supermarche-app-v2
+  namespace: h0tl-supermarche-app
 spec:
   replicas: 1
   # Le cluster k3d du POC ne dispose que d'un nœud à 2 vCPU : remplacer le
@@ -52,7 +52,7 @@ spec:
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.order
             - name: ELASTIC_APM_SERVER_URL
-              value: https://apm-server-apm-http.elastic-stack-v2.svc:8200
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
             - name: ELASTIC_APM_SECRET_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -125,7 +125,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: restock-service
-  namespace: h0tl-supermarche-app-v2
+  namespace: h0tl-supermarche-app
 spec:
   selector:
     app.kubernetes.io/name: restock-service
@@ -138,7 +138,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: order-service
-  namespace: h0tl-supermarche-app-v2
+  namespace: h0tl-supermarche-app
 spec:
   selector:
     app.kubernetes.io/name: order-service
@@ -151,7 +151,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: inventory-service
-  namespace: h0tl-supermarche-app-v2
+  namespace: h0tl-supermarche-app
 spec:
   replicas: 1
   strategy:
@@ -198,7 +198,7 @@ spec:
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.inventory
             - name: ELASTIC_APM_SERVER_URL
-              value: https://apm-server-apm-http.elastic-stack-v2.svc:8200
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
             - name: ELASTIC_APM_SECRET_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -278,7 +278,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: inventory-service
-  namespace: h0tl-supermarche-app-v2
+  namespace: h0tl-supermarche-app
 spec:
   selector:
     app.kubernetes.io/name: inventory-service
@@ -291,7 +291,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: restock-service
-  namespace: h0tl-supermarche-app-v2
+  namespace: h0tl-supermarche-app
 spec:
   replicas: 1
   selector:
@@ -333,7 +333,7 @@ spec:
             - name: ELASTIC_APM_APPLICATION_PACKAGES
               value: io.systemlens.supermarket.restock
             - name: ELASTIC_APM_SERVER_URL
-              value: https://apm-server-apm-http.elastic-stack-v2.svc:8200
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
             - name: ELASTIC_APM_SECRET_TOKEN
               valueFrom:
                 secretKeyRef:
