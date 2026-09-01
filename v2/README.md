@@ -31,7 +31,15 @@ make architecture-status
 make kubernetes-validate
 ```
 
-Déployer la plateforme sélectionnée avec `make elk-deploy`.
+Avant le premier déploiement, fournir le mot de passe PostgreSQL hors du
+dépôt, puis lancer :
+
+    export POSTGRESQL_PASSWORD
+    make -C v2 deploy
+
+Le déploiement crée ou répare d'abord le certificat TLS POC
+`elastic-public-tls`, prépare la clé API du Collector EDOT, puis applique les
+manifests Kubernetes et provisionne les VM EDOT.
 
 La v2 est isolée de la v1 avec les namespaces `elastic-stack-v2` et
 `h0tl-supermarche-app-v2`. Elle réutilise les hôtes fonctionnels

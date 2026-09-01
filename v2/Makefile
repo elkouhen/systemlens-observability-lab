@@ -32,7 +32,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import ci
+	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
 ##@ Informations et diagnostic
 
@@ -58,8 +58,8 @@ cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
-kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
-	@$(KUBECTL) -n $(K8S_NAMESPACE) get elasticsearch,kibana,apmserver,agent
+kubernetes-status: ## Afficher l’état Elastic et applications
+	@$(KUBECTL) -n $(K8S_NAMESPACE) get elasticsearch,kibana,agent
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
@@ -96,6 +96,19 @@ k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (req
 	@echo "Redémarrer le cluster pour appliquer le nouveau magasin de confiance : k3d cluster stop $(K3D_CLUSTER) && k3d cluster start $(K3D_CLUSTER)"
 
 ##@ Déploiement de la plateforme Elastic
+
+public-tls-apply: ## Créer ou réparer le certificat TLS public local du POC
+	@tmp_dir="$$(mktemp -d)"; trap 'rm -rf "$$tmp_dir"' EXIT; recreate=1; \
+	if $(KUBECTL) -n $(K8S_NAMESPACE) get secret elastic-public-tls >/dev/null 2>&1; then \
+		$(KUBECTL) -n $(K8S_NAMESPACE) get secret elastic-public-tls -o jsonpath='{.data.tls\.crt}' | base64 --decode > "$$tmp_dir/current.crt"; \
+		if openssl x509 -in "$$tmp_dir/current.crt" -noout -checkend 0 >/dev/null 2>&1 && openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'CA:TRUE' && openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'DNS:*.poc.test'; then recreate=0; echo "Secret TLS public elastic-public-tls valide"; fi; \
+	fi; \
+	if test "$$recreate" = 1; then \
+		printf '%s\n' '[req]' 'distinguished_name = req_distinguished_name' 'x509_extensions = v3_req' 'prompt = no' '' '[req_distinguished_name]' 'CN = *.poc.test' '' '[v3_req]' 'subjectAltName = DNS:*.poc.test,DNS:poc.test' 'basicConstraints = critical,CA:TRUE' 'keyUsage = critical,digitalSignature,keyEncipherment' 'extendedKeyUsage = serverAuth' > "$$tmp_dir/openssl.cnf"; \
+		openssl req -x509 -nodes -newkey rsa:2048 -days 825 -keyout "$$tmp_dir/tls.key" -out "$$tmp_dir/tls.crt" -config "$$tmp_dir/openssl.cnf" >/dev/null 2>&1; \
+		$(KUBECTL) -n $(K8S_NAMESPACE) create secret tls elastic-public-tls --cert="$$tmp_dir/tls.crt" --key="$$tmp_dir/tls.key" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+		echo "Secret TLS public elastic-public-tls créé ou réparé"; \
+	fi
 
 elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait \
@@ -174,7 +187,7 @@ otel-elasticsearch-credentials-apply: elasticsearch-ready ## Créer ou réconcil
 		echo "Clé API otel-elasticsearch-credentials réconciliée"; \
 	fi
 
-elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply otel-elasticsearch-credentials-apply ## Déployer la plateforme d'observabilité Elastic
+elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply public-tls-apply otel-elasticsearch-credentials-apply ## Déployer la plateforme d'observabilité Elastic
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway deployment/otel-kafka-exporter
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
@@ -194,23 +207,10 @@ apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en 
 		./$(ARCH_ROOT)/platform/elk/scripts/apply-apm-kibana-role.sh
 
 apm-logstash-credentials-apply: ## Compatibilité historique (aucun Logstash v2)
-	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-logstash-elasticsearch >/dev/null 2>&1; then \
-		echo "Secret apm-logstash-elasticsearch déjà présent"; \
-	else \
-		password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
-			-u "elastic:$$password" -H 'Content-Type: application/json' \
-			-X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
-			--data '{"name":"apm-logstash-writer","role_descriptors":{"apm_logstash_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
-			| jq -er '.id + ":" + .api_key')"; \
-		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic apm-logstash-elasticsearch \
-			--from-literal=api-key="$$api_key"; \
-	fi
+	@echo "Aucun secret Logstash n'est utilisé par l'architecture v2 (EDOT/Kafka)."
 
 apm-logstash-deploy: ## Compatibilité historique : Logstash n'est pas déployé en v2
-	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-logstash --timeout=300s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/apm-server-apm-server --timeout=300s
+	@echo "Aucun Logstash ni APM Server n'est déployé par l'architecture v2."
 
 ##@ Déploiement et recette de l'application
 

@@ -211,12 +211,20 @@ postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL F
 		--from-literal=password="$$postgresql_password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply public-tls-apply ## Déployer la plateforme d'observabilité Elastic
-	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	# Le bootstrap ne crée pas APM Server ni Logstash : leurs Secrets sont
+	# préparés après la disponibilité d'Elasticsearch et de Kibana.
+	@$(KUBECTL) apply \
+		-f $(ARCH_ROOT)/platform/kubernetes/base/observability/namespace.yaml \
+		-f $(ARCH_ROOT)/platform/kubernetes/base/observability/kibana.yaml \
+		-f $(ARCH_ROOT)/platform/kubernetes/base/observability/fleet-server.yaml \
+		-f $(ARCH_ROOT)/platform/kubernetes/base/observability/kubernetes-logs-agent.yaml \
+		-f $(ARCH_ROOT)/platform/kubernetes/base/observability/kube-state-metrics.yaml \
+		-f $(ARCH_ROOT)/platform/kubernetes/base/observability/elastic-ingress.yaml
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) kibana-ready
-	# APM Server référence ce Secret Kibana ; il doit exister avant sa
-	# réconciliation par ECK. Logstash doit également disposer de sa clé avant
-	# le démarrage du pipeline d'ingestion.
+	# Ces deux Secrets doivent exister avant la création des ressources APM Server
+	# et Logstash afin qu'ECK et le Deployment Logstash démarrent directement
+	# avec leur configuration complète.
 	@$(MAKE) apm-kibana-role-apply
 	@$(MAKE) apm-logstash-credentials-apply
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local

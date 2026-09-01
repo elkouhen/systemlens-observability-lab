@@ -36,23 +36,26 @@ _credentials_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:1
 # utilisé pour permettre à `source` puis `make deploy` de fonctionner sans
 # recopier le mot de passe dans le shell.
 if [[ -z "${POSTGRESQL_PASSWORD:-}" ]]; then
-  POSTGRESQL_PASSWORD="$(kubectl -n "${_credentials_app_namespace}" get secret postgresql-credentials \
-    -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode)" || {
-      _credentials_fail 'impossible de lire le secret postgresql-credentials.'
-      return 1
-    }
-  [[ -n "${POSTGRESQL_PASSWORD}" ]] || {
-    _credentials_fail 'le secret postgresql-credentials ne contient pas de mot de passe.'
-    return 1
-  }
-  export POSTGRESQL_PASSWORD
+  _postgresql_password_from_secret="$(kubectl -n "${_credentials_app_namespace}" get secret postgresql-credentials \
+    -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode || true)"
+  if [[ -n "${_postgresql_password_from_secret}" ]]; then
+    export POSTGRESQL_PASSWORD="${_postgresql_password_from_secret}"
+  fi
+  unset _postgresql_password_from_secret
+fi
+
+if ! kubectl -n "${_credentials_namespace}" get secret elasticsearch-es-elastic-user >/dev/null 2>&1; then
+  printf 'load-credentials: secrets ELK absents, ils seront créés par make deploy.\n' >&2
+  unset _credentials_namespace _credentials_app_namespace _credentials_resolve
+  return 0
 fi
 
 ELASTICSEARCH_PASSWORD="$(kubectl -n "${_credentials_namespace}" get secret elasticsearch-es-elastic-user \
-  -o jsonpath='{.data.elastic}' | base64 --decode)" || {
-  _credentials_fail 'impossible de lire le secret elasticsearch-es-elastic-user.'
+  -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode || true)"
+if [[ -z "${ELASTICSEARCH_PASSWORD}" ]]; then
+  _credentials_fail 'le secret elasticsearch-es-elastic-user ne contient pas de mot de passe.'
   return 1
-}
+fi
 export ELASTICSEARCH_PASSWORD
 export KIBANA_PASSWORD="${ELASTICSEARCH_PASSWORD}"
 
