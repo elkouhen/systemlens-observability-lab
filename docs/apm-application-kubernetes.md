@@ -1,5 +1,9 @@
 # APM des applications Java sur Kubernetes
 
+Ce guide décrit le chemin APM historique de la v1. Pour la chaîne v2 basée sur
+OpenTelemetry, utiliser le [comparatif v1/v2](architecture-v1-v2-differences.md)
+et le [guide de déploiement](deploiement-et-exploitation.md).
+
 Ce document décrit les impacts de la mise en place d’Elastic APM pour les
 applications Java du POC et fournit une recette de vérification reproductible.
 Il couvre les trois services `order-service`, `inventory-service` et

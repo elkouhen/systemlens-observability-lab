@@ -8,12 +8,14 @@ porter la configuration de la plateforme ELK qui l'observe.
 
 Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis les
 manifests Kubernetes de l'architecture sélectionnée dans `v1/apps/` ou
-`v2/apps/`, et enfin les modules Maven communs.
+`v2/apps/`, et enfin les modules Maven communs. Les manifests v1 et v2
+déploient le même métier avec des raccordements de télémétrie différents.
 
-Pour intégrer une nouvelle application Java dans la chaîne APM, logs ECS et
-Logstash, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
-Pour vérifier l’intégration APM existante de bout en bout, consulter le
-[guide APM applications et Kubernetes](../docs/apm-application-kubernetes.md).
+Pour intégrer une nouvelle application Java dans les chaînes APM/OTel et logs
+ECS, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
+Pour vérifier l’intégration de bout en bout, consulter le
+[comparatif v1/v2](../docs/architecture-v1-v2-differences.md), puis le guide
+APM correspondant à l'architecture choisie.
 
 ## Documentation externe
 

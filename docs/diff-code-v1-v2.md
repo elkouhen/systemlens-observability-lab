@@ -12,6 +12,9 @@ La comparaison porte sur l'état du dépôt au moment de la revue. Les répertoi
 `.vagrant/` et les fichiers générés ne sont pas considérés comme du code
 source.
 
+Les namespaces Kubernetes sont communs aux deux versions ; une seule version
+doit donc être déployée à la fois dans un même cluster.
+
 ## Synthèse
 
 | Domaine | v1 | v2 | Écart nécessaire ? | Recommandation |
@@ -85,10 +88,8 @@ Les différences fonctionnelles sont :
 - v1 installe et configure Filebeat/Metricbeat et leurs unités systemd ;
 - v2 installe `poc-otel-agent`, déploie `otel-agent.yml` et configure une file
   persistante OTel ;
-- v1 conserve des branches historiques `poc_distributed` dans Ansible et des
-  profils applicatifs distribués, alors que la topologie opérationnelle v1 est
-  minimale ;
-- v2 a été simplifiée pour `data-01`, Kafka mono-broker et MongoDB standalone.
+- v1 et v2 utilisent désormais uniquement `data-01`, Kafka mono-broker et
+  MongoDB standalone ; les anciens profils distribués ont été retirés.
 
 **Convergence proposée**
 

@@ -15,8 +15,8 @@ Pour commencer, consulter le [guide de déploiement et d'exploitation](deploieme
   consignes d'instrumentation des clients Kafka et MongoDB et de collecte via
   Actuator et Elastic Agent.
 - [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
-  comparatif des flux d'observabilité, des profils VM et du transport Kafka
-  entre v1 et v2.
+  comparatif de référence des flux d'observabilité, de la topologie VM et du
+  transport entre v1 et v2.
 - [`diff-code-v1-v2.md`](diff-code-v1-v2.md) : revue des différences de
   code, des duplications et des priorités de mutualisation entre les bundles.
 - [`v1-v2-en-bref.md`](v1-v2-en-bref.md) : lecture rapide des différences et
