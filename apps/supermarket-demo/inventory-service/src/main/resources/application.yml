@@ -4,7 +4,7 @@ server:
 spring:
   data:
     mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=poc-rs}
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://192.168.33.10:27017,192.168.33.11:27017,192.168.33.12:27017/observability_test?replicaSet=observability-rs}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://192.168.33.10:5432/observability_test}
     username: ${SPRING_DATASOURCE_USERNAME:observability}

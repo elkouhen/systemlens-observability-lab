@@ -86,7 +86,7 @@ vérifications de disponibilité.
 Les différences fonctionnelles sont :
 
 - v1 installe et configure Filebeat/Metricbeat et leurs unités systemd ;
-- v2 installe `poc-otel-agent`, déploie `otel-agent.yml` et configure une file
+- v2 installe `observability-otel-agent`, déploie `otel-agent.yml` et configure une file
   persistante OTel ;
 - v1 et v2 utilisent désormais uniquement `data-01`, Kafka mono-broker et
   MongoDB standalone ; les anciens profils distribués ont été retirés.
@@ -107,7 +107,7 @@ Fichiers concernés :
 
 - v1 : `ansible/templates/beat.service.j2`,
   `filebeat.yml.j2`, `metricbeat.yml.j2` ;
-- v2 : `ansible/templates/poc-otel-agent.service.j2`,
+- v2 : `ansible/templates/observability-otel-agent.service.j2`,
   `otel-agent.yml.j2` ;
 - les templates communs Kafka, MongoDB et PostgreSQL dans chaque bundle.
 

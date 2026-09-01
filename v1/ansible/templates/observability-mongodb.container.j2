@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Container]
 Image=docker.io/library/mongo:8.0
-ContainerName=poc-mongodb
+ContainerName=observability-mongodb
 PublishPort=27017:27017
 Volume=mongodb-data:/data/db:Z
 Volume=/var/log/mongodb:/var/log/mongodb:Z

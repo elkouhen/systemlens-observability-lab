@@ -17,7 +17,7 @@ make elk-deploy
 
 Traefik reste un prérequis de bootstrap du cluster. La cible
 `elastic-stack-deploy`, appelée par `make elk-deploy`, installe ou met à jour la
-release Helm `es-kb-quickstart` avec Elasticsearch et Kibana `9.4.3`. Ses
+release Helm `elastic-stack` avec Elasticsearch et Kibana `9.4.3`. Ses
 valeurs d'installation sont versionnées dans
 `platform/helm/eck-stack-values.yaml`; Elasticsearch est volontairement exclu
 du bundle Kustomize pour éviter deux contrôleurs de cycle de vie sur la même
@@ -30,15 +30,15 @@ packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
 vers ce registre avant d’exécuter `make elk-deploy`.
 
 Le service `otel-gateway` est exposé par l'hôte TLS
-`otel-gateway-v2.poc.test`. Les applications Kubernetes l'utilisent comme
+`otel-gateway-v2.observability.test`. Les applications Kubernetes l'utilisent comme
 endpoint OTLP. Les VM publient directement leurs signaux dans Kafka avec leur
 EDOT Collector en mode agent ; elles ne passent pas par ce Gateway et ne se
 connectent pas à Fleet pour transporter leur télémétrie.
 
 Les URL fonctionnelles v2 utilisent les mêmes noms que v1 :
-`elasticsearch.poc.test`, `kibana.poc.test` et `fleet.poc.test`. Fleet Server
+`elasticsearch.observability.test`, `kibana.observability.test` et `fleet.observability.test`. Fleet Server
 n'est pas une interface web : la racine `/` peut répondre `404`. Pour vérifier
-son état, utiliser `https://fleet.poc.test/api/status` ; une réponse `200`
+son état, utiliser `https://fleet.observability.test/api/status` ; une réponse `200`
 confirme que le routage et le service sont opérationnels.
 
 Pour un Elasticsearch déjà existant, la configuration de stockage ne doit pas

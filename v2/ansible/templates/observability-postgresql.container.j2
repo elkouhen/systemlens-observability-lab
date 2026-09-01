@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Container]
 Image=docker.io/library/postgres:17
-ContainerName=poc-postgresql
+ContainerName=observability-postgresql
 PublishPort=5432:5432
 Environment=POSTGRES_DB={{ postgresql_database }}
 Environment=POSTGRES_USER={{ postgresql_user }}

@@ -69,7 +69,7 @@ plus les droits détaillés par l'intégration officielle.
 2. Dans Discover, filtrer `data_stream.dataset: mongodb.otel` et vérifier un
    événement récent pour `host.name: data-01`.
 3. En cas d'erreur d'autorisation, corriger le rôle MongoDB utilisé par EDOT.
-4. En cas d'absence de métriques, consulter `journalctl -u poc-otel-agent`.
+4. En cas d'absence de métriques, consulter `journalctl -u observability-otel-agent`.
 
 ## Documentation officielle
 

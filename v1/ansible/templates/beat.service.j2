@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Environment="BEAT_STRICT_PERMS=false"
-ExecStart=/opt/poc-observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}/{{ item }} -e -c /etc/{{ item }}/{{ item }}.yml --path.data /var/lib/{{ item }} --path.logs /var/log/{{ item }}
+ExecStart=/opt/observability/{{ item }}-{{ beats_version }}-linux-{{ beats_arch }}/{{ item }} -e -c /etc/{{ item }}/{{ item }}.yml --path.data /var/lib/{{ item }} --path.logs /var/log/{{ item }}
 Restart=always
 RestartSec=5
 

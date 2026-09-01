@@ -1,6 +1,6 @@
 ---
 - name: Vérifier MongoDB, Kafka et PostgreSQL sur les VM du POC
-  hosts: "{{ 'data-01' if (lookup('env', 'POC_PROFILE') | default('minimal', true)) == 'minimal' else 'poc_data' }}"
+  hosts: "{{ 'data-01' if (lookup('env', 'DEPLOYMENT_PROFILE') | default('minimal', true)) == 'minimal' else 'data_nodes' }}"
   become: true
   gather_facts: false
 
@@ -20,7 +20,7 @@
         argv:
           - podman
           - exec
-          - poc-mongodb
+          - observability-mongodb
           - mongosh
           - --quiet
           - --eval
@@ -43,7 +43,7 @@
           - exec
           - -e
           - KAFKA_OPTS=
-          - poc-kafka
+          - observability-kafka
           - /opt/kafka/bin/kafka-metadata-quorum.sh
           - --bootstrap-server
           - localhost:9092
@@ -64,7 +64,7 @@
           - exec
           - -e
           - KAFKA_OPTS=
-          - poc-kafka
+          - observability-kafka
           - /opt/kafka/bin/kafka-consumer-groups.sh
           - --bootstrap-server
           - localhost:9092
@@ -87,7 +87,7 @@
         argv:
           - podman
           - exec
-          - poc-mongodb
+          - observability-mongodb
           - mongosh
           - --quiet
           - observability_test
@@ -109,7 +109,7 @@
         argv:
           - podman
           - exec
-          - poc-postgresql
+          - observability-postgresql
           - pg_isready
           - -U
           - observability
@@ -126,7 +126,7 @@
         argv:
           - podman
           - exec
-          - poc-postgresql
+          - observability-postgresql
           - psql
           - -U
           - observability

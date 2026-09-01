@@ -3,9 +3,9 @@
 set -euo pipefail
 
 readonly policy_id='data-fleet'
-readonly kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
+readonly kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
 readonly kibana_user="${KIBANA_USERNAME:-elastic}"
-readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.poc.test:443:127.0.0.1}"
+readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:443:127.0.0.1}"
 readonly fleet_vm_nodes="data-01"
 token_name="systemlens-${policy_id}-$(date +%s)"
 

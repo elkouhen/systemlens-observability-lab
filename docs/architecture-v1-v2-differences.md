@@ -16,7 +16,7 @@ La revue de mutualisation du code est détaillée dans
 | Code Java, POM, Dockerfile | Partagé sous `apps/supermarket-demo/` | Partagé sous `apps/supermarket-demo/` | Inchangé |
 | Makefile/Vagrantfile | Bundle `v1/` | Bundle `v2/` | Implémenté |
 | Isolation Kubernetes | Namespace `elastic-stack`, application `h0tl-supermarche-app` | Les mêmes namespaces, selon le bundle actif | Implémenté |
-| Accès local | `elasticsearch.poc.test`, `kibana.poc.test`, `fleet.poc.test` | Les mêmes URL, selon le bundle actif | Implémenté |
+| Accès local | `elasticsearch.observability.test`, `kibana.observability.test`, `fleet.observability.test` | Les mêmes URL, selon le bundle actif | Implémenté |
 | Traces applicatives | Agent Elastic APM → APM Server → Logstash | OpenTelemetry Java Agent → EDOT Gateway → Kafka → EDOT Collector → Elasticsearch | Implémenté |
 | Métriques applicatives/Kubernetes | Métriques APM via APM Server/Logstash ; métriques kubelet et état Kubernetes via Elastic Agent/Logstash | Métriques Java via OTel Agent → collector edge → Kafka `otel-metrics` ; métriques hôte et Kubernetes via EDOT DaemonSet → Kafka `otel-metrics` → collector backend | Implémenté |
 | Métriques Prometheus | Elastic Agent Kubernetes scrape `/actuator/prometheus`, puis Logstash → data stream Prometheus dédié | Endpoint Actuator conservé, mais pas de scraping Prometheus dans le chemin v2 actuel ; les métriques Java exportées par OTel suivent OTLP → Kafka → EDOT Collector | Implémenté |

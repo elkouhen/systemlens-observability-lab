@@ -37,7 +37,7 @@ make deploy
 - [Schémas des flux d’observabilité](docs/observability-flows-v1-v2.md)
 - [Revue des différences de code et de la mutualisation](docs/diff-code-v1-v2.md)
 - [Résumé v1/v2](docs/v1-v2-en-bref.md)
-- [Objectifs et périmètre du POC](docs/prd-poc-observabilite-elk.md)
+- [Objectifs et périmètre du POC](docs/prd-observabilite-elk.md)
 - [APM des applications Java et Kubernetes](docs/apm-application-kubernetes.md)
 - [Métriques Kafka et MongoDB](docs/metrics-clients-kafka-mongodb.md)
 

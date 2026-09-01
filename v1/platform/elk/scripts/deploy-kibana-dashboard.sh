@@ -5,9 +5,9 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elk_dir="$(cd "${script_dir}/.." && pwd)"
 dashboard_file="${1:?Usage : $0 <export.ndjson>}"
-kibana_url="${KIBANA_URL:-https://kibana.poc.test}"
+kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.poc.test:443:127.0.0.1}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:443:127.0.0.1}"
 
 [[ -r "${dashboard_file}" ]] || {
   printf 'Fichier dashboard introuvable ou illisible : %s\n' "${dashboard_file}" >&2

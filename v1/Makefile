@@ -4,7 +4,7 @@ SHELL := /bin/bash
 KUBECTL ?= kubectl
 VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
-POC_PROFILE ?= minimal
+DEPLOYMENT_PROFILE ?= minimal
 ARCH_VERSION := v1
 ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
@@ -16,11 +16,11 @@ ELASTIC_STACK_VERSION ?= 8.11.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
 ECK_STACK_CHART_VERSION ?= 0.20.0
-ELASTICSEARCH_URL ?= https://elasticsearch.poc.test:443
-KIBANA_URL ?= https://kibana.poc.test
-KIBANA_HOST ?= kibana.poc.test
-KIBANA_CURL_RESOLVE ?= kibana.poc.test:443:127.0.0.1
-ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.poc.test:443:127.0.0.1
+ELASTICSEARCH_URL ?= https://elasticsearch.observability.test:443
+KIBANA_URL ?= https://kibana.observability.test
+KIBANA_HOST ?= kibana.observability.test
+KIBANA_CURL_RESOLVE ?= kibana.observability.test:443:127.0.0.1
+ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:443:127.0.0.1
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
@@ -54,7 +54,7 @@ credentials-show: ## Indiquer comment charger les identifiants dans le shell cou
 
 cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
 	@printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\n' \
-		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.poc.test'
+		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.observability.test'
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -63,7 +63,7 @@ kubernetes-status: ## Afficher l’état Elastic, APM Server et applications
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
-	@POC_PROFILE='$(POC_PROFILE)' ../scripts/cluster-status.sh
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ../scripts/cluster-status.sh
 
 ##@ Construction et préparation locale
 
@@ -106,7 +106,7 @@ public-tls-apply: ## Créer le certificat TLS public local du POC si absent
 			-o jsonpath='{.data.tls\.crt}' | base64 --decode > "$$tmp_dir/current.crt"; \
 		if openssl x509 -in "$$tmp_dir/current.crt" -noout -checkend 0 >/dev/null 2>&1 \
 			&& openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'CA:TRUE' \
-			&& openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'DNS:*.poc.test'; then \
+			&& openssl x509 -in "$$tmp_dir/current.crt" -noout -text | grep -Fq 'DNS:*.observability.test'; then \
 			recreate=0; \
 			echo "Secret TLS public elastic-public-tls valide"; \
 		else \
@@ -121,10 +121,10 @@ public-tls-apply: ## Créer le certificat TLS public local du POC si absent
 			'prompt = no' \
 			'' \
 			'[req_distinguished_name]' \
-			'CN = *.poc.test' \
+			'CN = *.observability.test' \
 			'' \
 			'[v3_req]' \
-			'subjectAltName = DNS:*.poc.test,DNS:poc.test' \
+			'subjectAltName = DNS:*.observability.test,DNS:observability.test' \
 			'basicConstraints = critical,CA:TRUE' \
 			'keyUsage = critical,digitalSignature,keyEncipherment' \
 			'extendedKeyUsage = serverAuth' > "$$tmp_dir/openssl.cnf"; \
@@ -144,7 +144,7 @@ elasticsearch-ready: ## Attendre qu'ECK rende Elasticsearch joignable
 
 kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status \
-		deployment/es-kb-quickstart-eck-kibana-kb --timeout=300s
+		deployment/elastic-stack-eck-kibana-kb --timeout=300s
 	@for attempt in $$(seq 1 60); do \
 		status="$$(curl --silent --show-error --insecure \
 			--resolve '$(KIBANA_CURL_RESOLVE)' -o /dev/null -w '%{http_code}' \
@@ -190,11 +190,11 @@ elastic-stack-deploy: ## Déployer Elasticsearch et Kibana de l'architecture sé
 	@helm repo update elastic
 	# ECK devient propriétaire de nodeSets après la première réconciliation :
 	# Helm ne doit plus tenter de les réappliquer sur une release existante.
-	@if helm status es-kb-quickstart --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
+	@if helm status elastic-stack --namespace $(K8S_NAMESPACE) >/dev/null 2>&1; then \
 		$(KUBECTL) -n $(K8S_NAMESPACE) patch elasticsearch elasticsearch --type=merge \
 			-p '{"spec":{"version":"$(ELASTIC_STACK_VERSION)"}}'; \
 	else \
-		helm install es-kb-quickstart elastic/eck-stack \
+		helm install elastic-stack elastic/eck-stack \
 			--namespace $(K8S_NAMESPACE) --create-namespace --version $(ECK_STACK_CHART_VERSION) \
 			--set eck-elasticsearch.version=$(ELASTIC_STACK_VERSION) \
 			--set eck-kibana.version=$(ELASTIC_STACK_VERSION) \
@@ -284,7 +284,7 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic order-service-apm-server-ca --from-file=ca.crt="$$ca_file" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 apps-deploy: apm-token-sync ## Déployer uniquement l'application de démonstration
-	@test '$(POC_PROFILE)' = minimal || { echo "Profil Kubernetes inconnu : $(POC_PROFILE) (seul minimal est supporté)" >&2; exit 1; }
+	@test '$(DEPLOYMENT_PROFILE)' = minimal || { echo "Profil Kubernetes inconnu : $(DEPLOYMENT_PROFILE) (seul minimal est supporté)" >&2; exit 1; }
 	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/v1
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
 		order-service=order-service:$(APP_IMAGE_TAG) apm-truststore=order-service:$(APP_IMAGE_TAG)
@@ -311,7 +311,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
 	$(MAKE) elk-deploy; \
 	source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh; \
-	POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
@@ -328,18 +328,18 @@ ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations 
 ##@ Provisionnement de la VM et des Beats
 
 fleet-sync: ## Synchroniser les pipelines, la policy Fleet et la compatibilité Kafka
-	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' POC_PROFILE='$(POC_PROFILE)' \
+	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' \
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
 kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur data-01
 	@../scripts/check-kafka-jolokia.sh --url http://127.0.0.1:18781/jolokia
 
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
-	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
+	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
 vm-provision: ## Provisionner data-01 et ses Beats
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
-	@POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 
 ##@ Dashboards et consultation
 
@@ -392,7 +392,7 @@ beats-api-key-create: ## Créer une clé API brute id:api_key pour Filebeat/Metr
 ##@ Logs applicatifs
 
 stock-view: ## Afficher le stock courant du catalogue PostgreSQL
-	@$(VAGRANT) ssh data-01 -c 'sudo podman exec poc-postgresql psql -U observability -d observability_test -P pager=off -c "SELECT id, name, stock_quantity AS stock FROM products ORDER BY id;"'
+	@$(VAGRANT) ssh data-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -P pager=off -c "SELECT id, name, stock_quantity AS stock FROM products ORDER BY id;"'
 
 order-service-logs-follow: ## Suivre les logs de order-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/order-service

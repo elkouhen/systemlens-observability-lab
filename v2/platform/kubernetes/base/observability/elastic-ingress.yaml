@@ -15,8 +15,8 @@ metadata:
   namespace: elastic-stack
 spec:
   rootCAsSecrets:
-    - es-kb-quickstart-eck-kibana-kb-http-certs-public
-  serverName: es-kb-quickstart-eck-kibana-kb-http.elastic-stack.svc
+    - elastic-stack-eck-kibana-kb-http-certs-public
+  serverName: elastic-stack-eck-kibana-kb-http.elastic-stack.svc
 ---
 apiVersion: traefik.io/v1alpha1
 kind: ServersTransport
@@ -38,7 +38,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`elasticsearch.poc.test`)
+      match: Host(`elasticsearch.observability.test`)
       services:
         - name: elasticsearch-es-http
           port: 9200
@@ -57,9 +57,9 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`kibana.poc.test`)
+      match: Host(`kibana.observability.test`)
       services:
-        - name: es-kb-quickstart-eck-kibana-kb-http
+        - name: elastic-stack-eck-kibana-kb-http
           port: 5601
           scheme: https
           serversTransport: eck-kibana-https
@@ -76,7 +76,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`fleet.poc.test`)
+      match: Host(`fleet.observability.test`)
       services:
         - name: fleet-server-agent-http
           port: 8220
@@ -95,7 +95,7 @@ spec:
     - websecure
   routes:
     - kind: Rule
-      match: Host(`otel-gateway-v2.poc.test`)
+      match: Host(`otel-gateway-v2.observability.test`)
       services:
         - name: otel-gateway
           port: 4318

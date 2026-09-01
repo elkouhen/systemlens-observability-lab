@@ -3,14 +3,14 @@ set -euo pipefail
 
 : "${ELASTICSEARCH_PASSWORD:?Définir ELASTICSEARCH_PASSWORD hors Git}"
 
-elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test:443}"
-curl_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:127.0.0.1}"
+elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.observability.test:443}"
+curl_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:443:127.0.0.1}"
 k8s_namespace="${K8S_NAMESPACE:-elastic-stack}"
 kubectl_bin="${KUBECTL:-kubectl}"
 kibana_user="${APM_KIBANA_USERNAME:-apm-server-kibana}"
 kibana_secret="apm-server-kibana-credentials"
-kibana_url="https://es-kb-quickstart-eck-kibana-kb-http.${k8s_namespace}.svc:5601"
-kibana_ca_secret="es-kb-quickstart-eck-kibana-kb-http-ca-internal"
+kibana_url="https://elastic-stack-eck-kibana-kb-http.${k8s_namespace}.svc:5601"
+kibana_ca_secret="elastic-stack-eck-kibana-kb-http-ca-internal"
 kibana_password="${APM_KIBANA_PASSWORD:-}"
 
 if [[ -z "${kibana_password}" ]]; then

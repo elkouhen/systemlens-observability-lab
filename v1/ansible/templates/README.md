@@ -7,8 +7,8 @@ systemd, Podman, Filebeat et Metricbeat. PostgreSQL n'est rendu que sur
 
 ## Lire les templates
 
-- `poc-mongodb.container.j2`, `poc-kafka.container.j2` et
-  `poc-postgresql.container.j2` : unités Quadlet
+- `observability-mongodb.container.j2`, `observability-kafka.container.j2` et
+  `observability-postgresql.container.j2` : unités Quadlet
   créant les conteneurs de données.
 - `beat.service.j2` : unité systemd commune aux Beats.
 - `filebeat.yml.j2` et `metricbeat.yml.j2` : collecte de logs et métriques.

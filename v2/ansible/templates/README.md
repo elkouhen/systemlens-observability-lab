@@ -8,8 +8,8 @@ rendue par Ansible.
 
 ## Lire les templates
 
-- `poc-mongodb.container.j2`, `poc-kafka.container.j2` et
-  `poc-postgresql.container.j2` : unités Quadlet
+- `observability-mongodb.container.j2`, `observability-kafka.container.j2` et
+  `observability-postgresql.container.j2` : unités Quadlet
   créant les conteneurs de données.
 - `otel-agent.yml.j2` : collecte des logs et métriques locaux et publication
   dans Kafka via les topics OTLP par signal `otel-logs` et `otel-metrics`.

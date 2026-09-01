@@ -13,7 +13,7 @@ agent Java APM → APM Server 5044 → Logstash → Elasticsearch
 
 La v1 utilise uniquement la VM `data-01`. Les métriques et logs de cette VM
 ne passent pas par Fleet : Filebeat et Metricbeat publient en TLS sur
-`logstash.poc.test:443`. Traefik route ce flux TCP vers l'entrée Beats
+`logstash.observability.test:443`. Traefik route ce flux TCP vers l'entrée Beats
 Logstash `5045`.
 
 ## Prérequis
@@ -23,17 +23,17 @@ Depuis la racine du dépôt, sélectionner la v1 et charger les identifiants :
 ```bash
 make architecture-switch VERSION=v1
 source ./v1/platform/elk/scripts/load-credentials.sh
-export ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-https://elasticsearch.poc.test:443}"
-export ELASTICSEARCH_CURL_RESOLVE="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.poc.test:443:127.0.0.1}"
+export ELASTICSEARCH_URL="${ELASTICSEARCH_URL:-https://elasticsearch.observability.test:443}"
+export ELASTICSEARCH_CURL_RESOLVE="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:443:127.0.0.1}"
 ```
 
 La plateforme, `data-01` et les applications doivent être déployés. L'adresse
-`logstash.poc.test:443` est fixe dans la v1 et est ajoutée dans `/etc/hosts` de
+`logstash.observability.test:443` est fixe dans la v1 et est ajoutée dans `/etc/hosts` de
 `data-01`.
 
 ## Vérifier dans Kibana Discover
 
-Ouvrir `https://kibana.poc.test`, puis **Discover**. Sélectionner un data view
+Ouvrir `https://kibana.observability.test`, puis **Discover**. Sélectionner un data view
 couvrant la famille de signaux à contrôler ; créer au besoin ces data views
 avec `@timestamp` comme champ temporel :
 
@@ -84,7 +84,7 @@ Vérifier ensuite les services Beats sur la VM :
 cd v1 && vagrant ssh data-01 -c \
   'sudo systemctl is-active filebeat metricbeat'
 cd v1 && vagrant ssh data-01 -c \
-  'getent hosts logstash.poc.test && echo | openssl s_client -connect logstash.poc.test:443 -servername logstash.poc.test 2>/dev/null | grep "Verify return code"'
+  'getent hosts logstash.observability.test && echo | openssl s_client -connect logstash.observability.test:443 -servername logstash.observability.test 2>/dev/null | grep "Verify return code"'
 ```
 
 La commande doit retourner deux lignes `active`.
@@ -250,7 +250,7 @@ make -C v1 order-service-command ORDER_PRODUCT_ID=1 ORDER_QUANTITY=1
 | Point contrôlé | Symptôme si le point est en panne | Contrôle suivant |
 | --- | --- | --- |
 | Beat actif sur `data-01` | aucun événement local | `systemctl status`, `journalctl` |
-| Connexion VM → Traefik → Logstash `5045` | erreurs de connexion dans les logs Beat | vérifier `logstash.poc.test` et le certificat |
+| Connexion VM → Traefik → Logstash `5045` | erreurs de connexion dans les logs Beat | vérifier `logstash.observability.test` et le certificat |
 | Pipeline `kubernetes-logs` | événements reçus mais absents d'Elasticsearch | logs du Deployment Logstash |
 | Sortie Elasticsearch Logstash | erreurs `401`, `403` ou mapping | Secret `apm-logstash-elasticsearch`, logs Logstash |
 | Data stream | documents présents dans un dataset inattendu | champs `data_stream.*` et configuration du Beat |

@@ -17,7 +17,7 @@ produits par la collecte v2.
 | Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb-*` | Réplication, connexions, opérations, stockage et latence. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql-*` | Sessions, taille, cache, checkpoints et requêtes. |
 | Services applicatifs | Observability > APM > Services | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques JVM. |
-| Santé de la collecte | Logs du service `poc-otel-agent`, métriques des Collectors et consumer lag Kafka | journaux systemd, métriques Collector et état des groupes Kafka | Agent EDOT actif sur `data-01`, absence d'erreurs de collecte/export, débit des topics et absence de lag durable. |
+| Santé de la collecte | Logs du service `observability-otel-agent`, métriques des Collectors et consumer lag Kafka | journaux systemd, métriques Collector et état des groupes Kafka | Agent EDOT actif sur `data-01`, absence d'erreurs de collecte/export, débit des topics et absence de lag durable. |
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.

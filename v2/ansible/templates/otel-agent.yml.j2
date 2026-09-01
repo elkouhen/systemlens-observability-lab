@@ -1,6 +1,6 @@
 extensions:
   file_storage:
-    directory: /var/lib/poc-otel-agent
+    directory: /var/lib/observability-otel-agent
   health_check:
     endpoint: 127.0.0.1:13133
 
@@ -73,7 +73,7 @@ processors:
         value: v2
         action: upsert
       - key: service.namespace
-        value: poc-vm
+        value: observability-vm
         action: upsert
   resource/kafka:
     attributes:

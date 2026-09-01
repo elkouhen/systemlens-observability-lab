@@ -5,7 +5,7 @@ La v1 crée uniquement `data-01`, avec MongoDB standalone, Kafka mono-broker,
 PostgreSQL, Filebeat et Metricbeat. Les deux Beats envoient leurs événements
 au pipeline Logstash `apm-logstash` sur le port `5045`.
 
-La v1 utilise `POC_PROFILE=minimal`, transmis automatiquement par Vagrant.
+La v1 utilise `DEPLOYMENT_PROFILE=minimal`, transmis automatiquement par Vagrant.
 
 Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
 privé VirtualBox et configure des résolveurs DNS sur l'interface NAT. Cette

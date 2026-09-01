@@ -4,7 +4,7 @@ all:
     ansible_user: vagrant
     ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   children:
-    poc_data:
+    data_nodes:
       hosts:
         data-01:
           ansible_host: 127.0.0.1

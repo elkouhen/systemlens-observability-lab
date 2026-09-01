@@ -60,7 +60,7 @@ plutôt que de montrer trois fois `127.0.0.1:8778`.
 | Topics très nombreux | surveiller le volume du stream `kafka.topic` et ajuster l'intervalle avant d'augmenter la capacité |
 
 Après une modification EDOT, exécuter `make vm-provision` puis vérifier le
-service `poc-otel-agent` sur chaque VM et les data streams dans Discover.
+service `observability-otel-agent` sur chaque VM et les data streams dans Discover.
 
 ## Vérification et dépannage
 
@@ -69,7 +69,7 @@ service `poc-otel-agent` sur chaque VM et les data streams dans Discover.
 2. Dans Discover, filtrer `data_stream.dataset: kafka.otel`.
 3. Vérifier les métriques `kafka.brokers`, `kafka.partition.current_offset`
    et `kafka.consumer_group.lag`.
-4. En cas d'échec EDOT, consulter `journalctl -u poc-otel-agent` et vérifier
+4. En cas d'échec EDOT, consulter `journalctl -u observability-otel-agent` et vérifier
 que le topic `otel-metrics` existe dans Kafka.
 
 Le Deployment `otel-kafka-exporter` consomme le topic OTLP `otel-metrics`

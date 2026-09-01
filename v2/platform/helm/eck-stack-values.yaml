@@ -1,4 +1,4 @@
-# Valeurs déclaratives de la release Helm `es-kb-quickstart`.
+# Valeurs déclaratives de la release Helm `elastic-stack`.
 # Les versions Elasticsearch et Kibana sont pilotées par
 # ELASTIC_STACK_VERSION dans le Makefile.
 eck-elasticsearch:

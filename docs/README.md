@@ -22,7 +22,7 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
   v1 côté applications Java et Kubernetes.
 - [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
   instrumentation des clients Kafka/MongoDB et métriques Actuator.
-- [`prd-poc-observabilite-elk.md`](prd-poc-observabilite-elk.md) : objectifs,
+- [`prd-observabilite-elk.md`](prd-observabilite-elk.md) : objectifs,
   périmètre et critères d'acceptation du POC.
 
 ## Revue du dépôt

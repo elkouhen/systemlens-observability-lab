@@ -19,18 +19,18 @@ for node in "${nodes[@]}"; do
 done
 
 printf '\n== MongoDB standalone ==\n'
-run_on_vm data-01 "timeout 15 sudo podman exec poc-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'" \
+run_on_vm data-01 "timeout 15 sudo podman exec observability-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'" \
   || printf 'MongoDB indisponible\n'
 
 printf '\n== Kafka KRaft quorum ==\n'
 for node in "${nodes[@]}"; do
   printf '\n[%s]\n' "$node"
   run_on_vm "$node" \
-    'timeout 15 sudo podman exec -e KAFKA_OPTS= poc-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status' \
+    'timeout 15 sudo podman exec -e KAFKA_OPTS= observability-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status' \
     || printf 'Kafka indisponible ou quorum non forme\n'
 done
 
 printf '\n== PostgreSQL data-01 ==\n'
 run_on_vm data-01 \
-  'timeout 15 sudo podman exec poc-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) AS kafka_orders FROM stock_movements WHERE channel = '\''kafka'\''"' \
+  'timeout 15 sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) AS kafka_orders FROM stock_movements WHERE channel = '\''kafka'\''"' \
   || printf 'PostgreSQL indisponible ou table stock_movements non créée\n'

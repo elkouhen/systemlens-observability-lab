@@ -9,7 +9,7 @@ spec:
   fleetServerEnabled: true
   policyID: eck-fleet-server
   kibanaRef:
-    name: es-kb-quickstart-eck-kibana
+    name: elastic-stack-eck-kibana
   elasticsearchRefs:
     - name: elasticsearch
   deployment:
