@@ -153,16 +153,23 @@ postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL F
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic postgresql-credentials \
 		--from-literal=password="$$postgresql_password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 
-otel-elasticsearch-credentials-apply: ## Créer la clé API Elasticsearch du Collector OTel si absente
-	@if $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials >/dev/null 2>&1; then \
-		echo "Secret otel-elasticsearch-credentials déjà présent"; \
+otel-elasticsearch-credentials-apply: elasticsearch-ready ## Créer ou réconcilier la clé API Elasticsearch du Collector OTel
+	@current_api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials \
+		-o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
+	if test -n "$$current_api_key" && curl --fail --silent --show-error --insecure \
+		--resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+		-H "Authorization: ApiKey $$current_api_key" \
+		'$(ELASTICSEARCH_URL)/_security/_authenticate' >/dev/null; then \
+		echo "Clé API otel-elasticsearch-credentials valide"; \
 	else \
 		password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
-			| jq -er '.id + ":" + .api_key' | base64 | awk '{printf "%s", $$0}')"; \
-		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic otel-elasticsearch-credentials --from-literal=api-key="$$api_key"; \
+			| jq -er '.encoded')"; \
+		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic otel-elasticsearch-credentials \
+			--from-literal=api-key="$$api_key" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+		echo "Clé API otel-elasticsearch-credentials réconciliée"; \
 	fi
 
 elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply otel-elasticsearch-credentials-apply ## Déployer la plateforme d'observabilité Elastic

@@ -56,13 +56,6 @@ ELASTICSEARCH_PASSWORD="$(kubectl -n "${_credentials_namespace}" get secret elas
 export ELASTICSEARCH_PASSWORD
 export KIBANA_PASSWORD="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
 
-APM_SECRET_TOKEN="$(kubectl -n "${_credentials_namespace}" get secret apm-server-apm-token \
-  -o jsonpath='{.data.secret-token}' | base64 --decode)" || {
-  _credentials_fail 'impossible de lire le secret apm-server-apm-token.'
-  return 1
-}
-export APM_SECRET_TOKEN
-
 # Une clé déjà chargée (par exemple depuis un coffre-fort) n'est jamais
 # remplacée. Sinon une nouvelle clé limitée aux data streams Beats est créée.
 if [[ -z "${ELASTICSEARCH_API_KEY:-}" ]]; then
@@ -79,5 +72,5 @@ if [[ -z "${ELASTICSEARCH_API_KEY:-}" ]]; then
   export ELASTICSEARCH_API_KEY
 fi
 
-printf 'Identifiants chargés : ELASTICSEARCH_PASSWORD, KIBANA_PASSWORD, APM_SECRET_TOKEN, ELASTICSEARCH_API_KEY, POSTGRESQL_PASSWORD.\n'
+printf 'Identifiants chargés : ELASTICSEARCH_PASSWORD, KIBANA_PASSWORD, ELASTICSEARCH_API_KEY, POSTGRESQL_PASSWORD.\n'
 unset _credentials_namespace _credentials_app_namespace _credentials_resolve _credentials_payload

@@ -33,12 +33,14 @@ et métriques Kubernetes, puis les signaux applicatifs et Kubernetes sont
 bufferisés dans Kafka avant leur export OTLP vers Elasticsearch. Les EDOT Agents
 des VM publient quant à eux directement dans les topics OTLP par signal
 (`otel-logs`, `otel-metrics`), consommés par le Collector backend. Les identités Kubernetes sont
-enrichies par `k8sattributes`; les data streams OTel sont contrôlés par
-Elasticsearch.
+enrichies par `k8sattributes`; le Collector backend utilise le mapping ECS
+pour conserver la compatibilité avec les vues APM et les dashboards
+classiques.
 
 Le flux VM utilise EDOT Agent sur chaque VM et les topics OTLP par signal
 `otel-logs` et `otel-metrics`. Le Collector backend les consomme et les exporte
-vers Elasticsearch. Le topic historique `otel-otlp`, créé lors d'une version
+vers Elasticsearch avec le mapping ECS pour alimenter les dashboards
+classiques. Le topic historique `otel-otlp`, créé lors d'une version
 intermédiaire, n'est plus consommé et n'est pas supprimé automatiquement.
 En v1, les deux sorties Elasticsearch activent `data_stream => true`,
 `data_stream_auto_routing => true` et `ecs_compatibility => "v8"` : les champs

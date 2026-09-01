@@ -178,6 +178,23 @@ data:
         check_interval: 1s
         limit_mib: 700
         spike_limit_mib: 150
+      transform/ecs-log-correlation:
+        log_statements:
+          - context: log
+            statements:
+              - set(attributes["trace.id"], attributes["trace_id"]) where attributes["trace_id"] != nil
+              - set(attributes["span.id"], attributes["span_id"]) where attributes["span_id"] != nil
+          - context: scope
+            statements:
+              - set(attributes["elastic.mapping.mode"], "ecs")
+        trace_statements:
+          - context: scope
+            statements:
+              - set(attributes["elastic.mapping.mode"], "ecs")
+        metric_statements:
+          - context: scope
+            statements:
+              - set(attributes["elastic.mapping.mode"], "ecs")
       elasticapm: {}
       batch:
         timeout: 1s
@@ -189,8 +206,6 @@ data:
         endpoints:
           - https://elasticsearch-es-http.elastic-stack-v2.svc:9200
         api_key: ${env:ELASTICSEARCH_API_KEY}
-        mapping:
-          mode: otel
         tls:
           ca_file: /etc/otel/elasticsearch-ca/ca.crt
         sending_queue:
@@ -219,7 +234,7 @@ data:
           exporters: [elasticsearch/otel]
         logs:
           receivers: [kafka/otlp]
-          processors: [memory_limiter, batch]
+          processors: [memory_limiter, transform/ecs-log-correlation, batch]
           exporters: [elasticsearch/otel]
 ---
 apiVersion: apps/v1
@@ -341,7 +356,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: otel-telemetry-topics-v2
+  name: otel-telemetry-topics-v3
   namespace: elastic-stack-v2
 spec:
   backoffLimit: 6
@@ -356,6 +371,13 @@ spec:
             - >-
               for topic in otel-traces otel-metrics otel-logs; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092
-              --create --if-not-exists --topic "$topic" --partitions 3
-              --replication-factor 1 --config min.insync.replicas=1; done
+              192.168.33.10:9092 --create --if-not-exists --topic "$topic"
+              --partitions 3 --replication-factor 1
+              --config min.insync.replicas=1;
+              partitions=$(/opt/kafka/bin/kafka-topics.sh
+              --bootstrap-server 192.168.33.10:9092 --describe --topic "$topic"
+              | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1);
+              if [ "${partitions:-0}" -lt 3 ]; then
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
+              192.168.33.10:9092 --alter --topic "$topic" --partitions 3;
+              fi; done

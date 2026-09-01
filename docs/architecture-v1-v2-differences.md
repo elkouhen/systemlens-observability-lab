@@ -78,7 +78,7 @@ make architecture-switch VERSION=v2
 POC_PROFILE=minimal make kubernetes-validate
 POC_PROFILE=minimal make elk-deploy
 POC_PROFILE=minimal make apps-deploy
-kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics-v2
+kubectl -n elastic-stack-v2 get deploy,daemonset,job otel-gateway otel-kafka-exporter otel-telemetry-topics-v3
 POC_PROFILE=minimal make vm-provision
 kubectl -n elastic-stack-v2 logs deployment/otel-kafka-exporter --tail=50
 ```

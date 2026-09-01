@@ -58,7 +58,7 @@ flowchart LR
     J[Applications Java\nOpenTelemetry Java Agent] -->|OTLP HTTP :4318| G[EDOT Collector Gateway]
     G -->|kafkaexporter · otlp_proto| T[Kafka\notel-traces / otel-metrics]
     T --> X[EDOT backend collector\nkafkareceiver]
-    X -->|data streams OTel\ntraces-* / metrics-*| E[(Elasticsearch)]
+    X -->|data streams ECS\ntraces-* / metrics-*| E[(Elasticsearch)]
     E --> K[Kibana\nAPM Services / traces]
 ```
 
@@ -76,12 +76,14 @@ flowchart LR
     V[VM data-01\nhostmetrics\nKafka · MongoDB · PostgreSQL\nlogs système et services] --> A[EDOT Agent VM]
     A -->|kafkaexporter · otlp_proto| K[Kafka\notel-metrics / otel-logs]
     K --> X[EDOT backend collector\nkafkareceiver]
-    X -->|data streams OTel\nmetrics / logs| E[(Elasticsearch)]
+    X -->|data streams ECS\nmetrics / logs| E[(Elasticsearch)]
     E --> K[Kibana\nSystem / Kafka / MongoDB / PostgreSQL]
 ```
 
 Le chemin VM v2 est volontairement distinct du Gateway : `EDOT Agent VM →
-Kafka → EDOT Kafka exporter → Elasticsearch`.
+Kafka → EDOT Kafka exporter → Elasticsearch`. Le Collector backend exporte en
+mapping ECS afin que les dashboards classiques puissent exploiter les champs
+attendus (`service.name`, `trace.id`, `span.id`, `host.name`, etc.).
 
 Références Elastic : [architecture des hôtes et VM](https://www.elastic.co/docs/reference/opentelemetry/architecture),
 [receiver hostmetrics](https://www.elastic.co/docs/reference/edot-collector/components/hostmetricsreceiver)
@@ -94,14 +96,15 @@ flowchart LR
     P["Pods Java — stdout ECS JSON — trace_id / span_id"] --> D["EDOT Collector DaemonSet — filelog + parser container"]
     D -->|"kafkaexporter — otlp_proto"| L[Kafka\notel-logs]
     L --> X[EDOT backend collector\nkafkareceiver]
-    X -->|logs-generic.otel-*| E[(Elasticsearch)]
+    X -->|logs-generic-* ECS| E[(Elasticsearch)]
     E --> K["Kibana — Discover / Logs"]
     E -.-> AP["APM — trace associée"]
 ```
 
 Les applications Java n'exportent pas les logs via l'agent OpenTelemetry
-(`OTEL_LOGS_EXPORTER=none`) : le DaemonSet lit stdout et conserve le contexte
-de trace dans les événements indexés.
+(`OTEL_LOGS_EXPORTER=none`) : le DaemonSet lit stdout, normalise
+`trace_id`/`span_id` vers `trace.id`/`span.id` et conserve le contexte de trace
+dans les événements ECS indexés.
 
 Références Elastic : [receiver filelog](https://www.elastic.co/docs/reference/edot-collector/components/filelogreceiver),
 [configuration Kubernetes EDOT](https://www.elastic.co/docs/reference/edot-collector/config/default-config-k8s)

@@ -5,10 +5,12 @@ ne stockent aucun mot de passe dans le dépôt.
 
 ## Lire et exécuter
 
-1. `load-credentials.sh` lit les secrets ECK et le Secret
+1. `load-credentials.sh` lit le secret ECK Elasticsearch et le Secret
    `h0tl-supermarche-app-v2/postgresql-credentials`, puis exporte les variables
    utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
-   Il doit être *sourcé* : `source ./platform/elk/scripts/load-credentials.sh`.
+   En v2, aucun Secret APM n'est requis : les applications utilisent
+   OpenTelemetry et le Gateway EDOT. Le script doit être *sourcé* :
+   `source ./platform/elk/scripts/load-credentials.sh`.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et applique les
    correctifs de compatibilité encore nécessaires au POC. Il ne configure pas
    le chemin actif de télémétrie EDOT, qui est déclaré dans Ansible et dans les
