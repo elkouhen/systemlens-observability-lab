@@ -16,12 +16,13 @@
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093,2@192.168.33.11:9093,3@192.168.33.12:9093
     poc_profile: minimal
-    poc_distributed: "{{ poc_profile == 'distributed' }}"
+    poc_distributed: false
     beats_version: 8.11.3
     elastic_agent_version: 8.11.3
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
     elasticsearch_url: https://elasticsearch.poc.test:443
+    logstash_url: apm-logstash.elastic-stack.svc:5045
     fleet_url: https://fleet.poc.test
     fleet_insecure: true
     poc_redeploy_services: false
@@ -620,14 +621,8 @@
         - poc_node_id | int > 1
         - poc_distributed | bool
 
-    - name: Vérifier la clé API Elasticsearch des Beats
-      ansible.builtin.assert:
-        that: elasticsearch_api_key | default('') | length > 0
-        fail_msg: Définir ELASTICSEARCH_API_KEY avant de provisionner les VM.
-      when: inventory_hostname == 'data-03' and poc_distributed | bool
-
-    - name: Installer et configurer Filebeat et Metricbeat sur data-03
-      when: inventory_hostname == 'data-03'
+    - name: Installer et configurer Filebeat et Metricbeat sur data-01
+      when: inventory_hostname == 'data-01'
       block:
         - name: Déterminer l'architecture des Beats
           ansible.builtin.set_fact:
@@ -695,7 +690,7 @@
         state: stopped
       loop: [filebeat, metricbeat]
       when:
-        - inventory_hostname != 'data-03' or not (poc_distributed | bool)
+        - inventory_hostname != 'data-01'
         - (item + '.service') in ansible_facts.services
 
     - name: Retirer le collecteur EDOT de data-01
@@ -721,106 +716,10 @@
           ansible.builtin.systemd_service:
             daemon_reload: true
 
-    # data-01 et data-02 sont gérés par Fleet. data-03 conserve exclusivement
-    # Filebeat et Metricbeat afin d'éviter toute duplication de signaux.
-    - name: Installer Elastic Agent pour Fleet sur data-01 et data-02
-      when:
-        - inventory_hostname in (['data-01', 'data-02'] if poc_distributed | bool else ['data-01'])
-        - fleet_enrollment_token | default('') | length > 0
-      block:
-        - name: Déterminer l'architecture Elastic Agent
-          ansible.builtin.set_fact:
-            elastic_agent_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
-
-        - name: Vérifier le binaire Elastic Agent déjà installé
-          ansible.builtin.stat:
-            path: /opt/Elastic/Agent/elastic-agent
-          register: elastic_agent_binary
-
-        - name: Lire la version de l'Elastic Agent installé
-          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent version
-          register: installed_elastic_agent_version
-          changed_when: false
-          failed_when: false
-          when: elastic_agent_binary.stat.exists
-
-        - name: Identifier un Elastic Agent hors de la version imposée
-          ansible.builtin.set_fact:
-            elastic_agent_reinstall: >-
-              {{ elastic_agent_binary.stat.exists and
-                 elastic_agent_version not in installed_elastic_agent_version.stdout }}
-
-        - name: Retirer l'Elastic Agent hors version avant réinstallation
-          ansible.builtin.command: /opt/Elastic/Agent/elastic-agent uninstall --force
-          when: elastic_agent_reinstall | bool
-          no_log: true
-          changed_when: true
-
-        - name: Attendre la suppression de l'Elastic Agent hors version
-          ansible.builtin.wait_for:
-            path: /opt/Elastic/Agent/elastic-agent
-            state: absent
-            timeout: 60
-          when: elastic_agent_reinstall | bool
-
-        - name: Télécharger Elastic Agent s'il est absent
-          ansible.builtin.get_url:
-            url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
-            dest: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
-            mode: '0644'
-          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
-
-        # `elastic-agent install` déplace son binaire source. L'extraction ne
-        # doit donc jamais réutiliser le répertoire de cache, sinon une
-        # réinstallation ultérieure ne trouve plus l'exécutable.
-        - name: Nettoyer le répertoire temporaire d'installation Elastic Agent
-          ansible.builtin.file:
-            path: "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}"
-            state: absent
-          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
-
-        - name: Extraire Elastic Agent dans un répertoire temporaire
-          ansible.builtin.unarchive:
-            src: "/var/cache/poc-observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
-            dest: /var/tmp
-            remote_src: true
-          when: not elastic_agent_binary.stat.exists or elastic_agent_reinstall | bool
-
-        - name: Installer et enrôler Elastic Agent
-          ansible.builtin.command: >-
-            /var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent
-            install --force --non-interactive --url={{ fleet_url }}
-            --enrollment-token={{ fleet_enrollment_token }}
-            {{ '--insecure' if fleet_insecure | bool else '' }}
-          args:
-            creates: /opt/Elastic/Agent/elastic-agent
-          no_log: true
-
-        # Un Agent déjà présent peut conserver une clé API Fleet révoquée
-        # après la recréation de la policy. Le réenrôler avec le jeton créé
-        # pour ce provisionnement restaure la remontée sans réinstaller le
-        # binaire ni laisser une identité Fleet obsolète.
-        - name: Réenrôler Elastic Agent déjà installé
-          ansible.builtin.command: >-
-            /opt/Elastic/Agent/elastic-agent enroll --force --url={{ fleet_url }}
-            --enrollment-token={{ fleet_enrollment_token }}
-            {{ '--insecure' if fleet_insecure | bool else '' }}
-          when:
-            - elastic_agent_binary.stat.exists
-            - not (elastic_agent_reinstall | bool)
-          no_log: true
-          changed_when: true
-
-        - name: Démarrer Elastic Agent
-          ansible.builtin.systemd_service:
-            name: elastic-agent
-            enabled: true
-            state: started
-
-    - name: Arrêter Elastic Agent hors du profil Fleet
+    - name: Arrêter Elastic Agent sur data-01
       ansible.builtin.systemd_service:
         name: elastic-agent
         enabled: false
         state: stopped
-      when: inventory_hostname == 'data-03'
+      when: inventory_hostname == 'data-01'
       failed_when: false

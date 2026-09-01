@@ -23,15 +23,16 @@ et [sortie APM Server vers Logstash](https://www.elastic.co/docs/solutions/obser
 flowchart LR
     S[VM data-01] --> MB[Metricbeat\nCPU · mémoire · disque · réseau\nKafka · MongoDB]
     S --> FB[Filebeat\nlogs système\nKafka · MongoDB · PostgreSQL]
-    MB -->|metrics-*\nHTTPS direct| E[(Elasticsearch)]
-    FB -->|logs système et services\nHTTPS direct| E
+    MB -->|Beats :5045| L[Logstash\npipeline kubernetes-logs]
+    FB -->|Beats :5045| L
+    L -->|data streams metrics-* / logs-*| E[(Elasticsearch)]
     E --> K[Kibana\nSystem / Kafka / MongoDB / PostgreSQL]
 ```
 
 `Metricbeat` collecte les métriques système, Kafka et MongoDB. `Filebeat`
 collecte les logs système, Kafka, MongoDB et PostgreSQL. Les deux agents
-écrivent directement dans Elasticsearch en v1 ; Kafka est une source observée,
-pas un buffer de télémétrie.
+publient sur Logstash ; Kafka est une source observée, pas un buffer de
+télémétrie.
 
 Références Elastic : [Metricbeat](https://www.elastic.co/docs/reference/beats/metricbeat/),
 [module System](https://www.elastic.co/guide/en/beats/metricbeat/current/metricbeat-module-system.html)

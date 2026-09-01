@@ -6,7 +6,7 @@
 
   vars:
     poc_profile: "{{ lookup('env', 'POC_PROFILE') | default('minimal', true) }}"
-    poc_distributed: "{{ poc_profile == 'distributed' }}"
+    poc_distributed: false
 
   tasks:
     - name: Vérifier les conteneurs POC

@@ -28,7 +28,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status vm-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
-	postgresql-credentials-apply beats-vm-provision fleet-data02-provision kafka-jolokia-verify mongodb-workload \
+	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload \
 	deploy elasticsearch-ready kibana-ready apm-server-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -246,9 +246,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
 	$(MAKE) elk-deploy; \
 	source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh; \
-	$(MAKE) fleet-sync; \
 	POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
-	$(MAKE) fleet-vms-provision; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
@@ -264,7 +262,7 @@ ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 
 ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
-##@ Provisionnement des VM et Fleet
+##@ Provisionnement de la VM et des Beats
 
 fleet-sync: ## Synchroniser les pipelines, la policy Fleet et la compatibilité Kafka
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' POC_PROFILE='$(POC_PROFILE)' \
@@ -276,24 +274,7 @@ kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur dat
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
 	@$(VAGRANT) ssh data-01 -c 'sudo podman exec -i poc-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
-fleet-vms-provision: ## Enrôler puis provisionner data-01 et data-02 avec la policy Fleet déclarée
-	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
-	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	FLEET_VM_NODES='$(if $(filter minimal,$(POC_PROFILE)),data-01,data-01 data-02)' POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
-
-fleet-data02-provision: ## Réenrôler uniquement data-02 avec la policy Fleet déclarée
-	@test '$(POC_PROFILE)' = distributed || { echo "POC_PROFILE=distributed requis pour data-02" >&2; exit 1; }
-	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
-	FLEET_VM_NODES='data-02' KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
-
-beats-vm-provision: ## Provisionner data-03 et appliquer la configuration Beats
-	@test '$(POC_PROFILE)' = distributed || { echo "POC_PROFILE=distributed requis pour data-03" >&2; exit 1; }
-	@POC_PROFILE='$(POC_PROFILE)' $(VAGRANT) provision data-03
-
-vm-provision: ## Provisionner les VM (requiert ELASTICSEARCH_API_KEY)
-	@test -n "$$ELASTICSEARCH_API_KEY" || { echo "Définir ELASTICSEARCH_API_KEY" >&2; exit 1; }
+vm-provision: ## Provisionner data-01 et ses Beats
 	@test -n "$$POSTGRESQL_PASSWORD" || { echo "Définir POSTGRESQL_PASSWORD hors Git" >&2; exit 1; }
 	@POC_PROFILE='$(POC_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) provision
 

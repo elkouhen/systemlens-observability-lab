@@ -18,16 +18,14 @@ Elastic APM et Elastic Agent acheminent les données vers Elasticsearch.
 
 `applications Java → agent APM / Elastic Agent Kubernetes → Logstash → Elasticsearch → Kibana`.
 
-Les Elastic Agents de `data-01` et `data-02` constituent un flux distinct :
-Fleet les pilote, tandis qu'ils envoient leurs données directement vers
-Elasticsearch. `data-03` utilise exclusivement Filebeat et Metricbeat, qui
-envoient également leurs données directement vers Elasticsearch avec une clé
-API dédiée.
+`data-01` utilise exclusivement Filebeat et Metricbeat. Les deux Beats envoient
+les logs et métriques au pipeline `kubernetes-logs` de Logstash sur le port
+`5045`, puis Logstash écrit dans Elasticsearch. La VM doit pouvoir résoudre et
+atteindre l'adresse Logstash configurée par `LOGSTASH_URL` (par défaut
+`apm-logstash.elastic-stack.svc:5045`) depuis le réseau Kubernetes.
 
 Lors d'un déploiement initial, `make deploy` attend d'abord que Kibana soit
-prêt, crée la clé d'API Elasticsearch nécessaire à Filebeat/Metricbeat, puis
-démarre les VM. Il crée ensuite une clé d'enrôlement Fleet via l'API Kibana et
-réenrôle `data-01` (et `data-02` en profil distribué) avec la policy `data-fleet`.
+prêt, puis démarre `data-01` avec Filebeat et Metricbeat.
 
 APM Server est déployé par ECK. Les trois services lui envoient leurs signaux
 avec l'agent Java Elastic APM. APM Server valide le token ECK puis remet
@@ -40,8 +38,8 @@ Observability > APM.
 
 Les règles de routage des applications Kubernetes sont dans
 `../kubernetes/base/observability/apm-logstash.yaml`, et non dans Fleet ni dans
-des pipelines Elasticsearch. Fleet reste réservé aux policies des Elastic
-Agents des VM.
+des pipelines Elasticsearch. Fleet reste réservé aux composants Kubernetes ;
+il n'est pas enrôlé sur `data-01`.
 
 ## Documentation externe
 

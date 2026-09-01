@@ -4,21 +4,19 @@ Ce guide explique la package policy Kafka déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml)
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
 La policy Kafka est déclarée dans `kibana.yaml`; `make fleet-sync` applique les
-pipelines Elasticsearch `@custom`. Chaque hôte de
-données héberge un broker/controller Kafka KRaft dans Podman. Seuls `data-01`
-et `data-02` exécutent un Elastic Agent enrôlé dans Fleet ; `data-03` utilise
-Filebeat et Metricbeat.
+pipelines Elasticsearch `@custom`. `data-01` utilise Filebeat et Metricbeat ;
+aucun Elastic Agent VM n'est enrôlé dans la v1.
 
 ## Deux chemins de collecte complémentaires
 
 ```text
-Elastic Agent de la VM Elastic Agent
+Filebeat/Metricbeat de la VM
   ├─ protocole Kafka : localhost:9092
   │    └─ broker, partition, consumergroup
   └─ HTTP Jolokia : 127.0.0.1:8778/jolokia
        └─ controller, JVM, réseau, topics, Raft, réplication
             ↓
-       metrics-kafka.*-default → pipelines @custom → Elasticsearch
+       Logstash `5045` → metrics-kafka.*-default → Elasticsearch
 ```
 
 Le port Kafka permet de collecter l'état fonctionnel du cluster. Jolokia expose
@@ -27,11 +25,9 @@ les MBeans JMX nécessaires aux métriques JVM et broker détaillées. Le bind s
 
 ## Lire la policy
 
-1. La policy `data-fleet` rattache aussi Kafka à la VM Elastic Agent ; son
-   nom historique ne limite pas son contenu à MongoDB.
-2. Le bloc `logfile` est actif et constitue l'unique source des logs Kafka sur
-   `data-01` et `data-02`. Ne pas y démarrer Filebeat en parallèle ; `data-03`
-   est le profil Beats distinct.
+1. La policy `data-fleet` est conservée comme configuration de référence, mais
+   n'est pas appliquée à une VM en v1.
+2. Filebeat collecte les logs Kafka et Metricbeat collecte ses métriques.
 3. `kafka/metrics` utilise `localhost:9092` toutes les 60 secondes et produit
    `kafka.broker`, `kafka.partition` et `kafka.consumergroup`.
 4. `jolokia/metrics` utilise `http://127.0.0.1:8778/jolokia` et produit les

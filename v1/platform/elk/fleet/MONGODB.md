@@ -2,34 +2,33 @@
 
 Ce guide explique la package policy MongoDB déclarée dans
 [`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
-Elle observe le replica set MongoDB du POC depuis les Elastic Agents Fleet de
-`data-01` et `data-02`. `data-03` utilise le profil Filebeat et Metricbeat.
+Elle décrit l'observation MongoDB historique par Fleet. En v1, `data-01`
+utilise Metricbeat pour les métriques et Filebeat pour les logs.
 La policy MongoDB est déclarée dans `kibana.yaml`; `make fleet-sync` applique
 seulement les pipelines Elasticsearch `@custom` complémentaires.
 
 ## Chemin des données
 
 ```text
-Elastic Agent de la VM Elastic Agent
+Metricbeat de la VM
   └─ MongoDB local : localhost:27017
        ├─ collstats, dbstats, metrics, status
        └─ replstatus
             ↓
-       metrics-mongodb.*-default → Elasticsearch → Kibana
+       Logstash `5045` → metrics-mongodb.*-default → Elasticsearch → Kibana
 ```
 
-Le choix de `localhost:27017` est intentionnel : l'Agent partage l'hôte de
-MongoDB. `host.name` distingue ce membre des autres profils de collecte.
+Le choix de `localhost:27017` est intentionnel : Metricbeat partage l'hôte de
+MongoDB. `host.name` distingue cet hôte dans les données indexées.
 
 ## Lire la policy
 
 1. La policy `data-fleet` est créée par la préconfiguration Kibana dans
    Kubernetes. Un Agent ne reçoit la configuration que s'il est enrôlé avec le
    token de cette policy commune.
-2. L'entrée `logfile` est activée : les logs MongoDB de cet hôte sont collectés
-   par Elastic Agent, sans Filebeat concurrent.
-3. L'entrée `mongodb/metrics` utilise `localhost:27017` et un intervalle de
-   60 secondes pour chaque stream.
+2. Filebeat collecte les logs MongoDB.
+3. Metricbeat utilise `localhost:27017` et un intervalle de 60 secondes pour
+   chaque stream.
 4. `ssl.enabled: false` convient seulement au POC local. Ce réglage doit être
    revu dès que MongoDB expose TLS.
 

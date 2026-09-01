@@ -12,12 +12,10 @@ ne crée les package policies standards MongoDB/Kafka.
   Jolokia.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
 
-Les trois package policies System, MongoDB et Kafka sont associées à l'agent
-policy `data-fleet`, appliquée aux Elastic Agents de `data-01` et
-`data-02`. Chaque VM exécute un seul Agent : `localhost` désigne donc le
-service local de cet hôte, jamais le poste qui exécute `make fleet-sync`.
-PostgreSQL appartient à la VM `data-01`. `data-03` reste hors Fleet et utilise
-exclusivement Filebeat et Metricbeat.
+Les package policies System, MongoDB et Kafka restent déclarées pour référence
+et pour les composants Kubernetes, mais aucun Elastic Agent VM n'est enrôlé en
+v1. `data-01` utilise exclusivement Filebeat et Metricbeat, qui publient vers
+Logstash `5045`.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
 préconfigurer les policies sur un nouveau Kibana. `make fleet-sync` met à jour

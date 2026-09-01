@@ -6,11 +6,10 @@ applications Java instrumentées avec Elastic APM.
 
 ## Profils d'exécution
 
-Le profil est sélectionné par `POC_PROFILE` et vaut `minimal` par défaut. Le
-profil minimal est destiné à un Mac Apple Silicon avec 16 Gio : une VM
-`data-01` de 3 Gio héberge MongoDB standalone, Kafka mono-broker et PostgreSQL.
-Le profil distribué conserve les trois VM, le replica set MongoDB et le quorum
-Kafka KRaft à trois nœuds :
+Le profil est sélectionné par `POC_PROFILE` et vaut `minimal` par défaut. La v1
+utilise une seule VM `data-01`, avec MongoDB standalone, Kafka mono-broker et
+PostgreSQL. La v2 conserve les profils minimal et distribué ; son profil
+minimal est destiné à un Mac Apple Silicon avec 16 Gio.
 
 ```bash
 make deploy
@@ -48,8 +47,7 @@ préparer la montée de version Elastic et ses données.
 | Composant | Implantation | Configuration principale | Données observées |
 | --- | --- | --- | --- |
 | Elasticsearch, Kibana, APM Server et Fleet Server | Kubernetes, namespace `elastic-stack` | Elastic Stack 8.11.3, pilotée par ECK 3.5.0, TLS ECK, accès Traefik | APM, logs et métriques |
-| `data-01` et `data-02` | Vagrant / Rocky Linux 10 | `192.168.33.10` et `.11`, Elastic Agent géré par Fleet ; aucun collecteur EDOT | logs et métriques MongoDB/Kafka, système et PostgreSQL sur `data-01` |
-| `data-03` | Vagrant / Rocky Linux 10 | `192.168.33.12`, Filebeat et Metricbeat ; aucun Elastic Agent ni collecteur EDOT | logs et métriques système, MongoDB et Kafka |
+| `data-01` | Vagrant / Rocky Linux 10 | `192.168.33.10`, Filebeat et Metricbeat → Logstash `5045` | logs et métriques système, MongoDB, Kafka et PostgreSQL |
 | MongoDB | un conteneur Podman par VM | replica set `poc-rs`, port 27017 | logs et métriques MongoDB |
 | PostgreSQL | conteneur Podman sur `data-01` uniquement | base `observability_test`, port 5432 | logs et métriques PostgreSQL |
 | Kafka | un broker/controller KRaft par VM | réplication 3, `min.insync.replicas=2`, port 9092 | logs, métriques broker, partitions, groupes et JMX |
@@ -183,24 +181,20 @@ make deploy
 ```
 
 La cible applique d'abord la plateforme Kubernetes, attend Elasticsearch,
-charge ensuite (ou crée) une clé API Elasticsearch limitée aux Beats, lance
-`vagrant up`, puis construit,
+lance `vagrant up`, puis construit,
 importe dans k3d et déploie les trois applications. Une clé déjà fournie dans
 `ELASTICSEARCH_API_KEY` n'est pas remplacée.
 
 1. Créer les VM et les clusters de données. Vagrant appelle le playbook
    `v1/ansible/site.yml` ou `v2/ansible/site.yml`, idempotent, qui configure le réseau, les unités Quadlet
    MongoDB/Kafka/PostgreSQL, les limites mémoire, Filebeat et Metricbeat sur
-   les VM correspondant au profil Beats. `data-01` et `data-02` reçoivent
-   l'Elastic Agent enrôlé dans Fleet. La clé API
-   Elasticsearch n’est jamais enregistrée dans Git : la fournir seulement dans
-   l’environnement de la commande.
+   la VM correspondant à l'architecture active. En v1, `data-01` reçoit
+   Filebeat et Metricbeat, qui publient sur Logstash `5045`.
+   La clé API Elasticsearch n’est jamais enregistrée dans Git : la fournir
+   seulement dans l’environnement de la commande si elle est nécessaire à un
+   autre composant.
 
    ```bash
-   export ELASTICSEARCH_API_KEY='id:api_key'
-   # Token d'enrôlement unique de la policy Fleet `data-fleet`.
-   # Cette policy est déclarée dans le manifest Kibana Kubernetes.
-   export FLEET_ENROLLMENT_TOKEN='…'
    vagrant up
    ./scripts/cluster-status.sh
    ```
@@ -208,9 +202,8 @@ importe dans k3d et déploie les trois applications. Une clé déjà fournie dan
    Chaque VM installe MongoDB 8.0 et Kafka 3.9.2 sous Podman ; `data-01`
    installe aussi PostgreSQL 17. Les services sont gérés via des unités
    systemd Quadlet. Ansible ouvre uniquement les ports inter-nœuds nécessaires
-   et démarre Filebeat et Metricbeat sur `data-03`. Aucun collecteur EDOT
-   n'est installé. Avec le token Fleet, les intégrations MongoDB/Kafka
-   dédiées aux métriques métier restent actives sur `data-01` et `data-02`.
+   et démarre Filebeat et Metricbeat sur `data-01`. Aucun agent Fleet VM ni
+   collecteur EDOT v1 n'est installé.
 
 Chaque conteneur MongoDB, Kafka et PostgreSQL est plafonné à `512 Mio`. Kafka utilise un
 heap JVM fixe de `256 Mio` et MongoDB limite le cache WiredTiger à `256 Mio`.
@@ -394,15 +387,11 @@ L’inventaire utilise les ports SSH et clés privées générés par Vagrant ; 
 donc valide après un `vagrant up` et doit être exécuté depuis la racine du
 dépôt.
 
-### Policy Fleet sur les VM de données
+### Policy Fleet sur les composants Kubernetes
 
 La policy `data-fleet` et ses intégrations MongoDB/Kafka sont déclarées dans
-`platform/kubernetes/base/observability/kibana.yaml`. Les Agents de `data-01`
-et `data-02` doivent être enrôlés avec le **même** token de cette policy.
-Comme chaque Agent collecte `localhost`, les métriques restent correctement
-attribuées à leur VM avec `host.name` et `service.address`. `data-03` n'est pas
-enrôlée dans Fleet : Filebeat et Metricbeat y envoient les données directement
-vers Elasticsearch avec une clé API dédiée.
+`platform/kubernetes/base/observability/kibana.yaml`. En v1, aucun Agent Fleet
+VM n'est enrôlé : `data-01` utilise Filebeat et Metricbeat via Logstash `5045`.
 
 Pour migrer des Agents déjà inscrits dans des policies historiques vers cette
 policy commune, exécuter :

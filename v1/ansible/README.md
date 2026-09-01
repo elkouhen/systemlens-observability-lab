@@ -1,14 +1,11 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
-Le profil `minimal` crée uniquement `data-01`, avec MongoDB standalone, Kafka
-mono-broker et PostgreSQL. Le profil `distributed` crée les trois VM avec
-replica set MongoDB et quorum Kafka KRaft. Aucun collecteur EDOT n'est
-provisionné ; les profils de collecte reposent sur Beats et Fleet.
+La v1 crée uniquement `data-01`, avec MongoDB standalone, Kafka mono-broker,
+PostgreSQL, Filebeat et Metricbeat. Les deux Beats envoient leurs événements
+au pipeline Logstash `apm-logstash` sur le port `5045`.
 
-Le profil est transmis automatiquement par Vagrant ; pour un changement de
-topologie, utiliser `POC_PROFILE=minimal` ou `POC_PROFILE=distributed` avec la
-cible Make correspondante.
+La v1 utilise `POC_PROFILE=minimal`, transmis automatiquement par Vagrant.
 
 Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
 privé VirtualBox et configure des résolveurs DNS sur l'interface NAT. Cette
@@ -17,15 +14,11 @@ peuvent donner la priorité au réseau privé et empêcher la résolution des
 miroirs de paquets.
 
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
-sur `data-01`, commun aux deux profils.
+sur `data-01`.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| `data-01`, `data-02` | Elastic Agent enrôlé dans Fleet | Elasticsearch, piloté par Fleet |
-| `data-03` | Filebeat et Metricbeat | Elasticsearch avec clé API Beats |
-
-Les profils sont exclusifs afin d'éviter toute duplication de logs ou de
-métriques sur une même VM.
+| `data-01` | Filebeat et Metricbeat | Logstash `5045`, puis Elasticsearch |
 
 ## Ordre de lecture
 

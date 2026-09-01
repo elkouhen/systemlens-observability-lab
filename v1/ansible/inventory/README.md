@@ -1,6 +1,6 @@
 # Inventaire Ansible
 
-`vagrant.yml` décrit le profil distribué (`data-01` à `data-03`). En profil
+`vagrant.yml` décrit l'unique VM v1 (`data-01`). En profil
 minimal, limiter les commandes Ansible à `data-01` ; les cibles Make et le
 script de statut sélectionnent automatiquement le profil actif.
 

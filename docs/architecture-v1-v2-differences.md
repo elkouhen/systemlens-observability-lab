@@ -19,9 +19,9 @@ par défaut dans ce POC. Les flux détaillés sont représentés dans
 | Métriques applicatives/Kubernetes | Métriques APM via APM Server/Logstash ; métriques kubelet et état Kubernetes via Elastic Agent/Logstash | Métriques Java via OTel Agent → collector edge → Kafka `otel-metrics` ; métriques hôte et Kubernetes via EDOT DaemonSet → Kafka `otel-metrics` → collector backend | Implémenté |
 | Métriques Prometheus | Elastic Agent Kubernetes scrape `/actuator/prometheus`, puis Logstash → data stream Prometheus dédié | Endpoint Actuator conservé, mais pas de scraping Prometheus dans le chemin v2 actuel ; les métriques Java exportées par OTel suivent OTLP → Kafka → EDOT Collector | Implémenté |
 | Logs applicatifs/Kubernetes | Elastic Agent → Logstash | EDOT Kubernetes `filelog` → Kafka → EDOT Collector → Elasticsearch | Implémenté |
-| Logs et métriques des VM | Profil minimal : `data-01` via Elastic Agent/Fleet → Elasticsearch ; profil distribué : `data-01`/`data-02` via Fleet et `data-03` via Filebeat/Metricbeat | EDOT Agent sur chaque VM active → Kafka `otel-logs` / `otel-metrics` → collector backend → Elasticsearch | Implémenté |
+| Logs et métriques des VM | `data-01` : Filebeat/Metricbeat → Logstash `5045` → Elasticsearch | EDOT Agent sur chaque VM active → Kafka `otel-logs` / `otel-metrics` → collector backend → Elasticsearch | Implémenté |
 | Topologie VM par défaut | `POC_PROFILE=minimal` : `data-01` seule | `POC_PROFILE=minimal` : `data-01` seule | Implémenté |
-| Topologie VM distribuée | `POC_PROFILE=distributed` : trois VM | `POC_PROFILE=distributed` : trois VM | Disponible |
+| Topologie VM distribuée | Non disponible en v1 ; une seule VM `data-01` | `POC_PROFILE=distributed` : trois VM | v1 simplifiée |
 | Stabilisation Kafka | Kafka transporte les événements métier ; la télémétrie utilise les sorties Elastic directes | Kafka transporte les événements métier et sert aussi de buffer OTLP pour les signaux, avec des topics dédiés et des consumer groups | Implémenté |
 | Versions OTel | Non utilisé pour les signaux du POC | EDOT Collector `9.4.3`, agent Java OTel `2.28.1` | Implémenté |
 | Corrélation logs/traces | Agent Elastic APM enrichit le MDC ; logs ECS avec `trace.id`/`span.id` | Logs ECS stdout parsés par EDOT ; `trace_id`/`span_id` sont conservés pour retrouver la trace | Implémenté |
@@ -57,7 +57,7 @@ documentée par Elastic.
   Elasticsearch.
 - APM Java v2 : OTel Java Agent → collector edge `4317/4318` → Kafka
   `otel-traces` / `otel-metrics` → collector backend → Elasticsearch.
-- VM v1 : Elastic Agent/Fleet ou Beats selon la VM → Elasticsearch.
+- VM v1 : Filebeat/Metricbeat `data-01` → Logstash `5045` → Elasticsearch.
 - VM v2 : EDOT Agent local → Kafka `otel-logs` / `otel-metrics` directement ; les VM ne passent
   pas par le Gateway OTLP Kubernetes.
 - Logs applicatifs v1 : stdout → Elastic Agent Kubernetes → Logstash `5045` →
