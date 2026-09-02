@@ -1,0 +1,617 @@
+---
+- name: Provisionner les nœuds de données du POC
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    mongodb_primary_ip: 192.168.33.10
+    postgresql_host: 192.168.33.10
+    postgresql_database: observability_test
+    postgresql_user: observability
+    # Fourni par Vagrant depuis POSTGRESQL_PASSWORD ; ne jamais versionner la
+    # valeur. Le même secret est injecté dans la policy Fleet par Kubernetes.
+    postgresql_password: ""
+    kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
+    kafka_controller_voters: 1@192.168.33.10:9093
+    deployment_profile: minimal
+    elastic_agent_version: 9.4.3
+    fleet_url: https://fleet.observability.test:443
+    fleet_enrollment_token: ""
+    # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
+    # HTTP interne du service Kubernetes.
+    elasticsearch_url: https://elasticsearch.observability.test:443
+    redeploy_services: false
+    # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
+    # équivalent), fourni par Vagrant via ZSCALER_CA_CERT. Vide par défaut :
+    # aucune confiance supplémentaire n'est installée sur une machine sans
+    # interception TLS. Voir certs/README.md.
+    zscaler_ca_cert_content: ""
+
+  pre_tasks:
+    - name: Vérifier les variables injectées par Vagrant
+      ansible.builtin.assert:
+        that:
+          - node_id is defined
+          - node_ip is defined
+        fail_msg: Vagrant doit fournir node_id et node_ip au playbook.
+
+    - name: Vérifier le mot de passe PostgreSQL sur data-01
+      ansible.builtin.assert:
+        that: postgresql_password | default('') | length > 0
+        fail_msg: Définir POSTGRESQL_PASSWORD hors Git avant de provisionner data-01.
+      when: inventory_hostname == 'data-01'
+
+    # Doit précéder toute installation de paquet (dnf) et tout téléchargement
+    # HTTPS (Jolokia, Elastic Agent) : ces opérations échouent avec une
+    # erreur TLS si le trafic sortant de la VM est intercepté par Zscaler et
+    # que son certificat racine n'est pas encore approuvé par le système.
+    - name: Installer le certificat racine Zscaler si fourni
+      ansible.builtin.copy:
+        content: "{{ zscaler_ca_cert_content }}"
+        dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
+        mode: '0644'
+      register: zscaler_ca
+      when: zscaler_ca_cert_content | length > 0
+
+    - name: Mettre à jour le magasin de confiance système pour Zscaler
+      ansible.builtin.command: update-ca-trust extract
+      when: zscaler_ca.changed | default(false)
+      changed_when: true
+
+    - name: Identifier l'interface du réseau privé VirtualBox
+      ansible.builtin.shell: |
+        ip -o -4 addr show | awk -v ip='{{ node_ip }}' '$4 ~ ("^" ip "/") { print $2; exit }'
+      args:
+        executable: /bin/bash
+      register: private_network_device
+      changed_when: false
+
+    - name: Vérifier l'interface du réseau privé
+      ansible.builtin.assert:
+        that: private_network_device.stdout | length > 0
+        fail_msg: "Interface portant {{ node_ip }} introuvable."
+
+    # Vagrant peut créer le profil de l'interface host-only avec user_tmp_t.
+    # NetworkManager refuse alors de le réécrire, même exécuté par root.
+    - name: Restaurer le contexte SELinux des profils NetworkManager
+      ansible.builtin.command: restorecon -RFv /etc/NetworkManager/system-connections
+      register: networkmanager_restorecon
+      changed_when: networkmanager_restorecon.stdout | length > 0
+
+    - name: Lire le profil NetworkManager du réseau privé
+      ansible.builtin.command: "nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }}"
+      register: private_network_connection
+      changed_when: false
+
+    - name: Empêcher le réseau privé de devenir la route par défaut
+      ansible.builtin.command: "nmcli connection modify {{ private_network_connection.stdout }} ipv4.never-default yes"
+      changed_when: false
+
+    - name: Réactiver le profil du réseau privé
+      ansible.builtin.command: "nmcli connection up {{ private_network_connection.stdout }} ifname {{ private_network_device.stdout }}"
+      changed_when: false
+
+    - name: Identifier l'interface qui porte la route par défaut
+      ansible.builtin.shell: "ip route show default | awk 'NR == 1 { print $5 }'"
+      args:
+        executable: /bin/bash
+      register: default_network_device
+      changed_when: false
+
+    - name: Lire le profil NetworkManager de la route par défaut
+      ansible.builtin.command: "nmcli -g GENERAL.CONNECTION device show {{ default_network_device.stdout }}"
+      register: default_network_connection
+      changed_when: false
+
+    # Certaines images Vagrant reçoivent un serveur DNS DHCP invalide. La VM
+    # doit pouvoir récupérer les images Podman et les artefacts Elastic lors du
+    # premier provisionnement.
+    - name: Configurer des résolveurs DNS fiables sur la route par défaut
+      ansible.builtin.command: >-
+        nmcli connection modify "{{ default_network_connection.stdout }}"
+        ipv4.ignore-auto-dns yes ipv4.dns "1.1.1.1,8.8.8.8"
+      changed_when: false
+
+    - name: Appliquer la configuration DNS de la route par défaut
+      ansible.builtin.command: "nmcli device reapply {{ default_network_device.stdout }}"
+      changed_when: false
+
+    # Cette étape doit rester avant tout téléchargement DNF : sur certaines
+    # images Rocky, le réseau privé reçoit la route par défaut et le DNS DHCP
+    # associé ne permet alors pas de résoudre les miroirs.
+    - name: Inventorier les paquets déjà installés
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Installer les dépendances système absentes
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      loop: [podman, curl, openssl, chrony]
+      when: item not in ansible_facts.packages
+
+    - name: Collecter l'état des services
+      ansible.builtin.service_facts:
+
+    - name: Activer la synchronisation NTP des VM
+      ansible.builtin.systemd_service:
+        name: chronyd
+        enabled: true
+        state: started
+
+    - name: Autoriser Chrony à corriger immédiatement les grands décalages
+      ansible.builtin.lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^makestep\\s+'
+        line: 'makestep 1.0 -1'
+      register: chrony_makestep_config
+
+    - name: Redémarrer Chrony après une modification de sa stratégie de correction
+      ansible.builtin.systemd_service:
+        name: chronyd
+        state: restarted
+      when: chrony_makestep_config.changed
+
+    - name: Corriger immédiatement un éventuel décalage d'horloge
+      ansible.builtin.command: chronyc -a makestep
+      register: chrony_step
+      # chronyc retourne 0 même si aucun ajustement n'est nécessaire. L'agent
+      # se recale seul avec Fleet ; ne pas provoquer de redémarrage à chaque
+      # provisionnement.
+      changed_when: false
+      failed_when: false
+
+    - name: Ouvrir les ports inter-nœuds si firewalld est actif
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        immediate: true
+        state: enabled
+      loop: "{{ [27017, 9092, 9093] + ([5432] if inventory_hostname == 'data-01' else []) }}"
+      when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
+
+    - name: Installer la résolution POC dans /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: '# {mark} POC ELASTIC HOSTS'
+        block: |
+          192.168.33.1 kibana.observability.test elasticsearch.observability.test fleet.observability.test otel-gateway-v3.observability.test apm.observability.test
+
+    - name: Lire le certificat TLS public Elasticsearch du POC
+      ansible.builtin.shell: |
+        openssl s_client -showcerts -connect elasticsearch.observability.test:443 \
+          -servername elasticsearch.observability.test </dev/null 2>/dev/null |
+        awk '/BEGIN CERTIFICATE/{found=1} found {print} /END CERTIFICATE/{exit}'
+      args:
+        executable: /bin/bash
+      register: elasticsearch_public_certificate
+      changed_when: false
+
+    - name: Vérifier le certificat public Elasticsearch
+      ansible.builtin.assert:
+        that: "'BEGIN CERTIFICATE' in elasticsearch_public_certificate.stdout"
+        fail_msg: Le certificat TLS de elasticsearch.observability.test est inaccessible.
+
+    - name: Installer le certificat public dans le magasin de confiance système
+      ansible.builtin.copy:
+        content: "{{ elasticsearch_public_certificate.stdout }}\n"
+        dest: /etc/pki/ca-trust/source/anchors/observability-elasticsearch.crt
+        mode: '0644'
+      register: elasticsearch_ca
+
+    - name: Mettre à jour le magasin de confiance système
+      ansible.builtin.command: update-ca-trust extract
+      when: elasticsearch_ca.changed
+      changed_when: true
+
+  tasks:
+    - name: Créer les répertoires de logs
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: /var/log/mongodb, mode: '0755' }
+        - { path: /var/log/kafka, mode: '0777' }
+        - { path: /var/log/postgresql, mode: '0777' }
+      when: inventory_hostname == 'data-01' or item.path != '/var/log/postgresql'
+
+    - name: Créer le fichier de log MongoDB accessible au conteneur
+      ansible.builtin.file:
+        path: /var/log/mongodb/mongod.log
+        state: touch
+        mode: '0666'
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Créer le répertoire Jolokia
+      ansible.builtin.file:
+        path: /opt/observability
+        state: directory
+        mode: '0755'
+
+    - name: Créer le cache persistant des artefacts du POC
+      ansible.builtin.file:
+        path: /var/cache/observability
+        state: directory
+        mode: '0755'
+
+    - name: Vérifier la présence de l'agent Jolokia
+      ansible.builtin.stat:
+        path: /opt/observability/jolokia-agent.jar
+      register: jolokia_agent
+
+    - name: Télécharger l'agent Jolokia pour Kafka s'il est absent
+      ansible.builtin.get_url:
+        url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
+        dest: /opt/observability/jolokia-agent.jar
+        mode: '0644'
+      when: not jolokia_agent.stat.exists
+
+    - name: Déployer les unités Quadlet MongoDB et Kafka
+      ansible.builtin.template:
+        src: "{{ item }}.container.j2"
+        dest: "/etc/containers/systemd/{{ item }}.container"
+        mode: '0644'
+      loop: [observability-mongodb, observability-kafka]
+      register: quadlet_units
+
+    - name: Déployer l'unité Quadlet PostgreSQL sur data-01
+      ansible.builtin.template:
+        src: observability-postgresql.container.j2
+        dest: /etc/containers/systemd/observability-postgresql.container
+        mode: '0644'
+      register: postgresql_quadlet_unit
+      when: inventory_hostname == 'data-01'
+
+    - name: Recharger systemd après les changements Quadlet
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: quadlet_units.changed or (postgresql_quadlet_unit.changed | default(false))
+
+    - name: Démarrer MongoDB et Kafka
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: true
+        state: started
+      loop: [observability-mongodb, observability-kafka]
+
+    - name: Démarrer PostgreSQL sur data-01
+      ansible.builtin.systemd_service:
+        name: observability-postgresql.service
+        enabled: true
+        state: started
+      when: inventory_hostname == 'data-01'
+
+    - name: Redéployer MongoDB et Kafka après un changement ou sur demande
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        state: restarted
+      loop: [observability-mongodb, observability-kafka]
+      when: quadlet_units.changed or (redeploy_services | bool)
+
+    - name: Redéployer PostgreSQL après un changement ou sur demande
+      ansible.builtin.systemd_service:
+        name: observability-postgresql.service
+        state: restarted
+      when: inventory_hostname == 'data-01' and (postgresql_quadlet_unit.changed | default(false) or (redeploy_services | bool))
+
+    - name: Attendre PostgreSQL sur data-01
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - observability-postgresql
+          - pg_isready
+          - -U
+          - "{{ postgresql_user }}"
+          - -d
+          - "{{ postgresql_database }}"
+      register: postgresql_ready
+      retries: 15
+      delay: 2
+      until: postgresql_ready.rc == 0
+      changed_when: false
+      when: inventory_hostname == 'data-01'
+
+    - name: Synchroniser le mot de passe du rôle PostgreSQL sur data-01
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -i
+          - observability-postgresql
+          - psql
+          - -U
+          - "{{ postgresql_user }}"
+          - -d
+          - postgres
+        stdin: "ALTER ROLE {{ postgresql_user }} WITH LOGIN PASSWORD '{{ postgresql_password | replace(\"'\", \"''\") }}';"
+      no_log: true
+      changed_when: true
+      when: inventory_hostname == 'data-01'
+
+    - name: Attendre que le broker Kafka local accepte les requêtes d'administration
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --list
+      register: kafka_ready
+      retries: 30
+      delay: 2
+      until: kafka_ready.rc == 0
+      changed_when: false
+
+    - name: Attendre le quorum Kafka avant de créer les topics
+      ansible.builtin.command:
+        argv:
+          # Une commande admin peut rester bloquée pendant une élection KRaft.
+          # La borne laisse jouer les retries Ansible sans bloquer Vagrant.
+          - timeout
+          - 10s
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-metadata-quorum.sh
+          - --bootstrap-server
+          - localhost:9092
+          - describe
+          - --status
+      register: kafka_quorum_ready
+      retries: 60
+      delay: 2
+      until: >-
+        kafka_quorum_ready.rc == 0 and
+        (kafka_quorum_ready.stdout | regex_findall('"id"') | length) >= 1
+      changed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Créer le topic de travail de la démonstration Kafka
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - supermarket.order.placed
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '1'
+          - --config
+          - min.insync.replicas=1
+      register: kafka_demo_topic
+      changed_when: "'Created topic' in kafka_demo_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Créer le topic d'épuisement du stock
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - supermarket.stock.depleted
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '1'
+          - --config
+          - min.insync.replicas=1
+      register: kafka_stock_depleted_topic
+      changed_when: "'Created topic' in kafka_stock_depleted_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Créer le topic de demande de réassort
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --create
+          - --if-not-exists
+          - --topic
+          - supermarket.stock.restock-requested
+          - --partitions
+          - '3'
+          - --replication-factor
+          - '1'
+          - --config
+          - min.insync.replicas=1
+      register: kafka_stock_restock_requested_topic
+      changed_when: "'Created topic' in kafka_stock_restock_requested_topic.stdout"
+      run_once: true
+      delegate_to: data-01
+
+    - name: Lire le nombre de partitions du topic de démonstration
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --describe
+          - --topic
+          - supermarket.order.placed
+      register: kafka_demo_topic_description
+      changed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Lire le nombre de partitions des topics de réassort
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - -e
+          - KAFKA_OPTS=
+          - observability-kafka
+          - /opt/kafka/bin/kafka-topics.sh
+          - --bootstrap-server
+          - localhost:9092
+          - --describe
+          - --topic
+          - "{{ item }}"
+      loop:
+        - supermarket.stock.depleted
+        - supermarket.stock.restock-requested
+      register: kafka_restock_topics_description
+      changed_when: false
+      run_once: true
+      delegate_to: data-01
+
+    - name: Attendre MongoDB local
+      # `retries` ne protège pas contre un mongosh bloqué : borner chaque
+      # tentative permet à Ansible de continuer les contrôles et d'échouer
+      # explicitement après le délai global plutôt que de rester suspendu.
+      ansible.builtin.command: >-
+        timeout 15 podman exec observability-mongodb mongosh --quiet
+        'mongodb://127.0.0.1:27017/?directConnection=true'
+        --eval 'db.adminCommand({ping: 1}).ok'
+      register: mongodb_ping
+      retries: 30
+      delay: 2
+      until: mongodb_ping.stdout | trim == '1'
+      changed_when: false
+
+    - name: Créer le répertoire de téléchargement de l'Elastic Agent
+      ansible.builtin.file:
+        path: /var/cache/observability
+        state: directory
+        owner: root
+        mode: '0750'
+
+    - name: Arrêter les anciens collecteurs
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: false
+        state: stopped
+      loop: [observability-otel-agent, observability-otel-collector, filebeat, metricbeat]
+      failed_when: false
+
+    - name: Retirer les fichiers de configuration EDOT de la v2
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/observability/otel-agent.yml
+        - /etc/systemd/system/observability-otel-agent.service
+        - /var/lib/observability-otel-agent
+
+    - name: Recharger systemd après le retrait de l'unité EDOT
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Déterminer l'architecture Elastic Agent
+      ansible.builtin.set_fact:
+        elastic_agent_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+    - name: Télécharger Elastic Agent s'il est absent
+      ansible.builtin.get_url:
+        url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+        dest: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+        mode: '0644'
+      register: elastic_agent_archive
+      when: fleet_enrollment_token | length > 0
+
+    - name: Vérifier si Elastic Agent est déjà enrôlé
+      ansible.builtin.stat:
+        path: /opt/Elastic/Agent/elastic-agent
+      register: enrolled_agent
+
+    - name: Extraire Elastic Agent
+      ansible.builtin.unarchive:
+        src: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+        dest: /var/tmp
+        remote_src: true
+      when:
+        - fleet_enrollment_token | length > 0
+        - (elastic_agent_archive.changed | default(false)) or not enrolled_agent.stat.exists
+
+    - name: Nettoyer une installation Fleet partielle
+      ansible.builtin.file:
+        path: /opt/Elastic/Agent
+        state: absent
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+
+    - name: Installer le package complet Elastic Agent
+      ansible.builtin.copy:
+        src: "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/"
+        dest: /opt/observability/elastic-agent-package/
+        mode: '0755'
+        remote_src: true
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+
+    - name: Ajouter le lanceur attendu à la racine du package Elastic Agent
+      ansible.builtin.copy:
+        src: /opt/observability/elastic-agent-package/data/elastic-agent-1bfb56/elastic-agent
+        dest: /opt/observability/elastic-agent-package/elastic-agent
+        mode: '0755'
+        remote_src: true
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+
+    - name: Ajouter la version attendue à la racine du package Elastic Agent
+      ansible.builtin.copy:
+        src: /opt/observability/elastic-agent-package/data/elastic-agent-1bfb56/package.version
+        dest: /opt/observability/elastic-agent-package/package.version
+        mode: '0644'
+        remote_src: true
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+
+    - name: Enrôler Elastic Agent dans Fleet
+      ansible.builtin.shell: >-
+        /opt/observability/elastic-agent-package/elastic-agent
+        install --non-interactive --force --url={{ fleet_url }}
+        --enrollment-token="$FLEET_ENROLLMENT_TOKEN" --insecure
+      args:
+        executable: /bin/bash
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+      register: fleet_enrollment
+      environment:
+        FLEET_ENROLLMENT_TOKEN: "{{ fleet_enrollment_token }}"

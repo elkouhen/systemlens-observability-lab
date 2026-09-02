@@ -13,6 +13,8 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
   version.
 - [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
   source de vérité pour les différences fonctionnelles et les flux.
+- [`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md) : architecture v3
+  hybride avec Fleet pour les VM.
 - [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md) : schémas
   détaillés des flux APM, VM, Kubernetes et logs.
 

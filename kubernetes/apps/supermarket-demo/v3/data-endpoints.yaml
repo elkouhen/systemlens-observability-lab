@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: h0tl-supermarche-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: order-service
+          env:
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: 192.168.5.2:19092
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: h0tl-supermarche-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: inventory-service
+          env:
+            - name: SPRING_DATA_MONGODB_URI
+              value: mongodb://192.168.33.10:27017/observability_test
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: 192.168.5.2:19092
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restock-service
+  namespace: h0tl-supermarche-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: restock-service
+          env:
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: 192.168.5.2:19092

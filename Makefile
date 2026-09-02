@@ -7,8 +7,8 @@ ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architectu
 
 help: ## Afficher les tâches de l'architecture sélectionnée
 	@printf 'Architecture active : %s\n' '$(ARCH_VERSION)'
-	@printf 'Usage : make <cible> [VERSION=v1|v2]\n'
-	@printf '  architecture-switch  Sélectionner v1 ou v2\n'
+	@printf 'Usage : make <cible> [VERSION=v1|v2|v3]\n'
+	@printf '  architecture-switch  Sélectionner v1, v2 ou v3\n'
 	@printf '  architecture-status  Afficher la version active\n'
 	@printf '  apm-install          Installer le contexte APM déclaré dans apm.yml\n'
 	@printf '  apm-audit            Auditer le contexte APM du projet\n'
@@ -29,11 +29,11 @@ apm-audit: ## Auditer le contexte APM du projet
 ci: ## Exécuter les validations de l'architecture sélectionnée
 	@$(MAKE) -C $(ARCH_VERSION) ci
 
-architecture-switch: ## Sélectionner une architecture persistante (VERSION=v1|v2)
-	@test '$(VERSION)' = v1 -o '$(VERSION)' = v2 || { echo 'VERSION doit valoir v1 ou v2' >&2; exit 1; }
+architecture-switch: ## Sélectionner une architecture persistante (VERSION=v1|v2|v3)
+	@test '$(VERSION)' = v1 -o '$(VERSION)' = v2 -o '$(VERSION)' = v3 || { echo 'VERSION doit valoir v1, v2 ou v3' >&2; exit 1; }
 	@printf '%s\n' '$(VERSION)' > .architecture-version
 	@echo "Architecture sélectionnée : $(VERSION)"
 
 %:
-	@case '$(ARCH_VERSION)' in v1|v2) ;; *) echo 'ARCH_VERSION doit valoir v1 ou v2' >&2; exit 1;; esac
+	@case '$(ARCH_VERSION)' in v1|v2|v3) ;; *) echo 'ARCH_VERSION doit valoir v1, v2 ou v3' >&2; exit 1;; esac
 	@$(MAKE) -C $(ARCH_VERSION) '$@'

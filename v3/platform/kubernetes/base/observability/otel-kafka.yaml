@@ -1,0 +1,386 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: elastic-stack
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-collector
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: elastic-stack
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-kafka-config
+  namespace: elastic-stack
+data:
+  collector.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 400
+        spike_limit_mib: 100
+      batch:
+        timeout: 1s
+        send_batch_size: 512
+
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+          grpc:
+            endpoint: 0.0.0.0:4317
+
+    exporters:
+      kafka/otlp:
+        brokers: ["192.168.5.2:19092"]
+        traces:
+          topic: otel-traces
+          encoding: otlp_proto
+        metrics:
+          topic: otel-metrics
+          encoding: otlp_proto
+        logs:
+          topic: otel-logs
+          encoding: otlp_proto
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [kafka/otlp]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [kafka/otlp]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [kafka/otlp]
+
+  daemonset.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    receivers:
+      filelog/kubernetes:
+        include: [/var/log/pods/*/*/*.log]
+        start_at: end
+        include_file_path: true
+        operators:
+          - type: container
+          # Les applications Java écrivent un événement ECS JSON sur stdout.
+          # On le décode ici afin que message, service et contexte de trace
+          # soient indexés comme champs de log, au lieu de rester dans body.text.
+          - type: json_parser
+            parse_from: body
+            parse_to: attributes
+            if: 'body matches "^\\s*\\{"'
+            body: attributes.message
+            trace:
+              trace_id:
+                parse_from: attributes.trace_id
+              span_id:
+                parse_from: attributes.span_id
+              trace_flags:
+                parse_from: attributes.trace_flags
+      hostmetrics:
+        root_path: /hostfs
+        collection_interval: 30s
+        scrapers:
+          cpu: {}
+          disk: {}
+          filesystem: {}
+          load: {}
+          memory: {}
+          network: {}
+          paging: {}
+          processes: {}
+    processors:
+      k8sattributes:
+        auth_type: serviceAccount
+        passthrough: false
+        extract:
+          metadata: [k8s.namespace.name, k8s.pod.name, k8s.container.name]
+      batch:
+        timeout: 1s
+        send_batch_size: 512
+    exporters:
+      kafka/otlp:
+        brokers: ["192.168.5.2:19092"]
+        traces:
+          topic: otel-traces
+          encoding: otlp_proto
+        metrics:
+          topic: otel-metrics
+          encoding: otlp_proto
+        logs:
+          topic: otel-logs
+          encoding: otlp_proto
+    service:
+      extensions: [health_check]
+      pipelines:
+        logs:
+          receivers: [filelog/kubernetes]
+          processors: [k8sattributes, batch]
+          exporters: [kafka/otlp]
+        metrics:
+          receivers: [hostmetrics]
+          processors: [batch]
+          exporters: [kafka/otlp]
+
+  exporter.yaml: |
+    receivers:
+      kafka/otlp:
+        brokers: ["192.168.5.2:19092"]
+        protocol_version: 3.9.0
+        group_id: otel-backend
+        traces:
+          topics: [otel-traces]
+          encoding: otlp_proto
+        metrics:
+          topics: [otel-metrics]
+          encoding: otlp_proto
+        logs:
+          topics: [otel-logs]
+          encoding: otlp_proto
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 700
+        spike_limit_mib: 150
+      transform/ecs-log-correlation:
+        log_statements:
+          - context: log
+            statements:
+              - set(attributes["trace.id"], attributes["trace_id"]) where attributes["trace_id"] != nil
+              - set(attributes["span.id"], attributes["span_id"]) where attributes["span_id"] != nil
+          - context: scope
+            statements:
+              - set(attributes["elastic.mapping.mode"], "ecs")
+        trace_statements:
+          - context: scope
+            statements:
+              - set(attributes["elastic.mapping.mode"], "ecs")
+        metric_statements:
+          - context: scope
+            statements:
+              - set(attributes["elastic.mapping.mode"], "ecs")
+      elasticapm: {}
+      batch:
+        timeout: 1s
+        send_batch_size: 512
+    connectors:
+      elasticapm: {}
+    exporters:
+      elasticsearch/otel:
+        endpoints:
+          - https://elasticsearch-es-http.elastic-stack.svc:9200
+        api_key: ${env:ELASTICSEARCH_API_KEY}
+        tls:
+          ca_file: /etc/otel/elasticsearch-ca/ca.crt
+        sending_queue:
+          enabled: true
+          queue_size: 1000
+          storage: file_storage
+    extensions:
+      file_storage:
+        directory: /var/lib/otel
+      health_check:
+        endpoint: 0.0.0.0:13133
+    service:
+      extensions: [health_check, file_storage]
+      pipelines:
+        traces:
+          receivers: [kafka/otlp]
+          processors: [memory_limiter, elasticapm, batch]
+          exporters: [elasticapm, elasticsearch/otel]
+        metrics/aggregated-apm:
+          receivers: [elasticapm]
+          processors: [batch]
+          exporters: [elasticsearch/otel]
+        metrics:
+          receivers: [kafka/otlp]
+          processors: [memory_limiter, batch]
+          exporters: [elasticsearch/otel]
+        logs:
+          receivers: [kafka/otlp]
+          processors: [memory_limiter, transform/ecs-log-correlation, batch]
+          exporters: [elasticsearch/otel]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-gateway
+  namespace: elastic-stack
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: otel-gateway}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: otel-gateway}
+    spec:
+      serviceAccountName: otel-collector
+      containers:
+        - name: collector
+          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+          args: ["--config=/etc/otel/collector.yaml"]
+          ports:
+            - {name: otlp-grpc, containerPort: 4317}
+            - {name: otlp-http, containerPort: 4318}
+            - {name: health, containerPort: 13133}
+          volumeMounts:
+            - {name: config, mountPath: /etc/otel/collector.yaml, subPath: collector.yaml, readOnly: true}
+          readinessProbe: {httpGet: {path: /, port: health}}
+      volumes:
+        - name: config
+          configMap: {name: otel-kafka-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-gateway
+  namespace: elastic-stack
+spec:
+  selector: {app.kubernetes.io/name: otel-gateway}
+  ports:
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+    - {name: otlp-http, port: 4318, targetPort: otlp-http}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-kubernetes
+  namespace: elastic-stack
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: otel-kubernetes}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: otel-kubernetes}
+    spec:
+      serviceAccountName: otel-collector
+      containers:
+        - name: collector
+          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+          securityContext: {runAsUser: 0}
+          args: ["--config=/etc/otel/daemonset.yaml"]
+          ports: [{name: health, containerPort: 13133}]
+          volumeMounts:
+            - {name: config, mountPath: /etc/otel/daemonset.yaml, subPath: daemonset.yaml, readOnly: true}
+            - {name: varlogpods, mountPath: /var/log/pods, readOnly: true}
+            - {name: hostfs, mountPath: /hostfs, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: otel-kafka-config}
+        - name: varlogpods
+          hostPath: {path: /var/log/pods}
+        - name: hostfs
+          hostPath: {path: /}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-kafka-exporter
+  namespace: elastic-stack
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: otel-kafka-exporter}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: otel-kafka-exporter}
+      annotations:
+    spec:
+      initContainers:
+        - name: wait-for-kafka-topics
+          image: apache/kafka:3.9.0
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              deadline=$(($(date +%s) + 180));
+              for topic in otel-traces otel-metrics otel-logs; do
+              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server
+              192.168.5.2:19092 --describe --topic "$topic" >/dev/null 2>&1; do
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "Kafka inaccessible ou topic absent après 180s: $topic" >&2; exit 1; fi;
+              sleep 2; done; done
+      containers:
+        - name: collector
+          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+          args: ["--config=/etc/otel/exporter.yaml"]
+          env:
+            - name: ELASTICSEARCH_API_KEY
+              valueFrom:
+                secretKeyRef: {name: otel-elasticsearch-credentials, key: api-key}
+          ports: [{name: health, containerPort: 13133}]
+          volumeMounts:
+            - {name: config, mountPath: /etc/otel/exporter.yaml, subPath: exporter.yaml, readOnly: true}
+            - {name: ca, mountPath: /etc/otel/elasticsearch-ca, readOnly: true}
+            - {name: queue, mountPath: /var/lib/otel}
+      volumes:
+        - name: config
+          configMap: {name: otel-kafka-config}
+        - name: ca
+          secret: {secretName: elasticsearch-es-http-certs-public}
+        - name: queue
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: otel-telemetry-topics-v3
+  namespace: elastic-stack
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-topics
+          image: apache/kafka:3.9.0
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              for topic in otel-traces otel-metrics otel-logs; do
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
+              192.168.5.2:19092 --create --if-not-exists --topic "$topic"
+              --partitions 3 --replication-factor 1
+              --config min.insync.replicas=1;
+              partitions=$(/opt/kafka/bin/kafka-topics.sh
+              --bootstrap-server 192.168.5.2:19092 --describe --topic "$topic"
+              | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1);
+              if [ "${partitions:-0}" -lt 3 ]; then
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
+              192.168.5.2:19092 --alter --topic "$topic" --partitions 3;
+              fi; done
