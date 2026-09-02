@@ -52,6 +52,11 @@ automatiquement par `make elk-deploy`). Il apparaît dans Kibana sous
 compteur cumulatif dans chaque intervalle ; le filtre temporel Kibana doit donc
 être positionné sur une période où les métriques sont présentes.
 
+Le dashboard contient deux histogrammes temporels Kibana natifs : commandes
+finalisées par heure et réassorts demandés/terminés par heure. L'axe horizontal
+est l'heure et l'axe vertical le nombre cumulé ; le dashboard ne dépend pas
+d'un panneau de logs ou d'une table de recherche.
+
 ## Documentation externe
 
 - [Importer et exporter des objets sauvegardés Kibana](https://www.elastic.co/docs/explore-analyze/visualize/kibana/management)
