@@ -97,6 +97,7 @@ public class InventoryApplicationService implements InventoryUseCase {
         Product product = products.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
         product.restock(Quantity.of(quantity));
         products.save(product);
+        meterRegistry.counter("business.stock.restock.completed").increment();
         LOGGER.info("Reassort effectue: productId={}, quantity={}, stockQuantity={}", productId, quantity, product.stockQuantity());
     }
 }

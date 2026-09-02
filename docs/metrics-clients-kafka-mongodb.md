@@ -95,6 +95,12 @@ Le cas d'usage de réservation expose également la métrique métier
 PostgreSQL réussies, avec le tag de faible cardinalité `channel` (`rest` ou
 `kafka`). En v3, le Gateway scrappe cette métrique via `/actuator/prometheus`.
 
+Le flux de réassort expose deux compteurs complémentaires :
+`business.stock.restock.requested` pour les demandes émises par
+`restock-service`, et `business.stock.restock.completed` pour les demandes
+appliquées avec succès par `inventory-service`. Ils permettent de comparer les
+réassorts demandés et effectivement réalisés.
+
 L'application doit exposer uniquement les endpoints utiles :
 
 ```yaml
@@ -146,6 +152,14 @@ utiliser le filtre :
 data_stream.dataset: "prometheusreceiver.otel"
 and resource.attributes.service.name: "supermarket-applications"
 and metrics.business_orders_completed_total: *
+```
+
+Pour visualiser les réassorts appliqués par `inventory-service` :
+
+```kql
+data_stream.dataset: "prometheusreceiver.otel"
+and resource.attributes.server.address: "inventory-service.h0tl-supermarche-app.svc.cluster.local"
+and metrics.business_stock_restock_completed_total: *
 ```
 
 La valeur est un compteur cumulatif par instance. Pour une série temporelle,

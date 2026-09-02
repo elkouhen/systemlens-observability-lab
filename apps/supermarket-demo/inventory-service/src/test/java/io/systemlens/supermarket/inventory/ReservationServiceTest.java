@@ -62,6 +62,16 @@ class ReservationServiceTest {
     }
 
     @Test
+    void incrementsCompletedRestockMetricAfterSuccessfulRestock() {
+        Product product = new Product("PASTA-500G", "Pâtes penne 500g", 3);
+        when(productRepository.findById("PASTA-500G")).thenReturn(Optional.of(product));
+
+        reservationService.restock("PASTA-500G", 500);
+
+        assertEquals(1.0, meterRegistry.get("business.stock.restock.completed").counter().count());
+    }
+
+    @Test
     void doesNotIncrementCompletedOrdersMetricWhenPersistenceFails() {
         Product product = new Product("PASTA-500G", "Pâtes penne 500g", 3);
         when(productRepository.findById("PASTA-500G")).thenReturn(Optional.of(product));
