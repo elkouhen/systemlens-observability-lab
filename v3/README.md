@@ -1,4 +1,4 @@
-# Architecture v3
+# v3 — Hybride Fleet
 
 Variante hybride de référence avec Elastic Stack `9.4.3`. Les applications et
 Kubernetes conservent le chemin OpenTelemetry/EDOT de la v2 avec Kafka comme

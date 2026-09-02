@@ -28,6 +28,9 @@ flowchart LR
 | Gestion des VM | Ansible + Beats | Ansible + EDOT standalone | Ansible + enrôlement Fleet |
 | Rôle de Kafka | Source observée | Buffer de télémétrie | Buffer applicatif/Kubernetes uniquement |
 
+Les noms courts utilisés dans les commandes sont donc : **v1 — Elastic
+classique**, **v2 — OpenTelemetry + Kafka** et **v3 — Hybride Fleet**.
+
 ## Déploiement et vérification
 
 Prérequis : cluster k3d, ECK, Vagrant, Ansible, accès HTTPS au registre Elastic

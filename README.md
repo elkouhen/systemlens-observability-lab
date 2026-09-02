@@ -10,14 +10,14 @@ Les trois versions utilisent la même topologie minimale :
 ```text
 data-01 : Kafka mono-broker · MongoDB standalone · PostgreSQL
     │
-    ├─ v1 : Filebeat/Metricbeat → Logstash → Elasticsearch
-    ├─ v2 : EDOT Agent → Kafka OTLP → EDOT Collector → Elasticsearch
-    └─ v3 : Elastic Agent Fleet → Elasticsearch pour les VM
+    ├─ v1 — Elastic classique : Filebeat/Metricbeat → Logstash → Elasticsearch
+    ├─ v2 — OpenTelemetry + Kafka : EDOT Agent → Kafka OTLP → EDOT Collector → Elasticsearch
+    └─ v3 — Hybride Fleet : Elastic Agent Fleet → Elasticsearch pour les VM
 
 Applications Java sur Kubernetes
-    ├─ v1 : Agent Elastic APM → APM Server → Logstash
-    ├─ v2 : Agent OpenTelemetry → Gateway EDOT → Kafka → Elasticsearch
-    └─ v3 : même flux applicatif/Kubernetes ; Fleet → Elasticsearch pour les VM
+    ├─ v1 — Elastic classique : Agent Elastic APM → APM Server → Logstash
+    ├─ v2 — OpenTelemetry + Kafka : Agent OpenTelemetry → Gateway EDOT → Kafka → Elasticsearch
+    └─ v3 — Hybride Fleet : même flux applicatif/Kubernetes ; Fleet → Elasticsearch pour les VM
 ```
 
 Le code Java, Maven et Docker est partagé. Les versions utilisent les mêmes
@@ -27,6 +27,7 @@ namespaces Kubernetes et ne doivent pas être déployées simultanément.
 
 ```bash
 make architecture-switch VERSION=v3  # ou VERSION=v1 ou VERSION=v2
+make architecture-list
 make kubernetes-validate
 export POSTGRESQL_PASSWORD='...'
 make deploy

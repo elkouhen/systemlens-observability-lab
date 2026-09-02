@@ -6,6 +6,7 @@ VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
 DEPLOYMENT_PROFILE ?= minimal
 ARCH_VERSION := v1
+ARCH_NAME := Elastic classique
 ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
@@ -42,7 +43,7 @@ help: ## Afficher les tâches disponibles
 		/^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-32s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 architecture-status: ## Afficher l'architecture sélectionnée
-	@printf 'ARCH_VERSION=%s\nELASTIC_STACK_VERSION=%s\nARCH_ROOT=%s\n' '$(ARCH_VERSION)' '$(ELASTIC_STACK_VERSION)' '$(ARCH_ROOT)'
+	@printf 'ARCH_VERSION=%s\nARCH_NAME=%s\nELASTIC_STACK_VERSION=%s\nARCH_ROOT=%s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)' '$(ELASTIC_STACK_VERSION)' '$(ARCH_ROOT)'
 
 architecture-switch: ## Sélectionner une architecture persistante (VERSION=v1|v2)
 	@test '$(VERSION)' = v1 -o '$(VERSION)' = v2 || { echo 'VERSION doit valoir v1 ou v2' >&2; exit 1; }

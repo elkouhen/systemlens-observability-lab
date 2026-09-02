@@ -2,13 +2,15 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architecture-version || echo v1)
+ARCH_NAME := $(if $(filter v1,$(ARCH_VERSION)),Elastic classique,$(if $(filter v2,$(ARCH_VERSION)),OpenTelemetry + Kafka,$(if $(filter v3,$(ARCH_VERSION)),Hybride Fleet,inconnue)))
 
-.PHONY: help architecture-switch architecture-status apm-install apm-audit ci
+.PHONY: help architecture-list architecture-switch architecture-status apm-install apm-audit ci
 
 help: ## Afficher les tâches de l'architecture sélectionnée
-	@printf 'Architecture active : %s\n' '$(ARCH_VERSION)'
+	@printf 'Architecture active : %s — %s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)'
 	@printf 'Usage : make <cible> [VERSION=v1|v2|v3]\n'
 	@printf '  architecture-switch  Sélectionner v1, v2 ou v3\n'
+	@printf '  architecture-list    Lister les architectures disponibles\n'
 	@printf '  architecture-status  Afficher la version active\n'
 	@printf '  apm-install          Installer le contexte APM déclaré dans apm.yml\n'
 	@printf '  apm-audit            Auditer le contexte APM du projet\n'
@@ -17,6 +19,14 @@ help: ## Afficher les tâches de l'architecture sélectionnée
 
 architecture-status: ## Afficher la version active
 	@$(MAKE) -C $(ARCH_VERSION) architecture-status
+
+architecture-list: ## Lister les architectures disponibles
+	@active='$(ARCH_VERSION)'; \
+	for entry in 'v1|Elastic classique' 'v2|OpenTelemetry + Kafka' 'v3|Hybride Fleet'; do \
+	  version="$${entry%%|*}"; name="$${entry#*|}"; marker=' '; \
+	  test "$$version" = "$$active" && marker='*'; \
+	  printf '%s %s — %s\n' "$$marker" "$$version" "$$name"; \
+	done
 
 apm-install: ## Installer le contexte APM déclaré dans apm.yml
 	@command -v apm >/dev/null 2>&1 || { echo "APM CLI absent : voir docs/agent-package-manager.md" >&2; exit 1; }

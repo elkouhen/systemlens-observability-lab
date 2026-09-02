@@ -1,4 +1,4 @@
-# Architecture v1
+# v1 — Elastic classique
 
 Bundle historique du POC avec Elastic Stack `8.11.3`. La collecte repose sur
 Elastic APM, Elastic Agent/Beats et Logstash. Le code Java et les images restent

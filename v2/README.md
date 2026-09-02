@@ -1,4 +1,4 @@
-# Architecture v2
+# v2 — OpenTelemetry + Kafka
 
 Variante OpenTelemetry/EDOT avec Elastic Stack `9.4.3`. La collecte de
 `data-01` et des workloads Kubernetes publie les logs et métriques dans Kafka

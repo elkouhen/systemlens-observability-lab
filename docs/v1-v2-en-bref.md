@@ -5,11 +5,11 @@ comparaisons détaillées sont maintenues dans les documents liés ci-dessous.
 
 ## Choisir une version
 
-- **v1** : Elastic APM, Filebeat/Metricbeat et Logstash ; adaptée à la
+- **v1 — Elastic classique** : Elastic APM, Filebeat/Metricbeat et Logstash ; adaptée à la
   reproduction du chemin historique du POC.
-- **v2** : OpenTelemetry/EDOT et Kafka comme tampon de télémétrie ; adaptée au
+- **v2 — OpenTelemetry + Kafka** : OpenTelemetry/EDOT et Kafka comme tampon de télémétrie ; adaptée au
   test du nouveau chemin OTLP.
-- **v3** : structure v2 pour les applications et Kubernetes, avec Elastic Agent
+- **v3 — Hybride Fleet** : structure v2 pour les applications et Kubernetes, avec Elastic Agent
   Fleet et sortie directe Elasticsearch pour les VM ; adaptée à l'architecture
   de référence hybride.
 
