@@ -17,6 +17,7 @@ produits par la collecte v3.
 | Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb-*` | Réplication, connexions, opérations, stockage et latence. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql-*` | Sessions, taille, cache, checkpoints et requêtes. |
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
+| Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agent Fleet healthy sur `data-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
@@ -31,6 +32,7 @@ Déployer la configuration déclarative des intégrations Fleet :
 ```bash
 make kubernetes-validate
 make kibana-fleet-config-deploy
+make business-dashboard-deploy
 ```
 
 Vérifier ensuite que les sources de tous les dashboards ont publié des
@@ -43,6 +45,12 @@ make dashboards-verify
 La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
 les métriques clés ci-dessus. Elle permet de distinguer un dashboard vide
 d'un problème de collecte.
+
+Le dashboard versionné est importé par `make business-dashboard-deploy` (ou
+automatiquement par `make elk-deploy`). Il apparaît dans Kibana sous
+**Métriques métier — Supermarket Demo**. Les panneaux utilisent le maximum du
+compteur cumulatif dans chaque intervalle ; le filtre temporel Kibana doit donc
+être positionné sur une période où les métriques sont présentes.
 
 ## Documentation externe
 
