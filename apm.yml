@@ -6,7 +6,9 @@ license: MIT
 targets:
   - codex
 dependencies:
-  apm: []
+  apm:
+    - elkouhen/systemlens-skill/skills/systemlens
+    - github/awesome-copilot/skills/documentation-writer
   mcp: []
 includes: auto
 scripts:

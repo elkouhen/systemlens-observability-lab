@@ -31,11 +31,11 @@ make apm-audit
 la structure du manifest, les dépendances et les éventuelles dérives du contexte
 généré. Le cache `apm_modules/` n'est pas versionné.
 
-Le manifest ne contient actuellement aucune dépendance APM ou MCP. Pour ajouter
-une dépendance, utiliser `apm install <source>`, vérifier le diff produit, puis
-committer `apm.yml` et `apm.lock.yaml` si APM génère ce lockfile. Ne jamais
-ajouter un serveur MCP sans valider sa source, ses permissions et son besoin
-pour le projet.
+Le manifest déclare les skills `systemlens` et `documentation-writer`. Pour
+ajouter une dépendance, utiliser `apm install <source>`, vérifier le diff
+produit, puis committer `apm.yml` et `apm.lock.yaml` si APM génère ce lockfile.
+Ne jamais ajouter un serveur MCP sans valider sa source, ses permissions et
+son besoin pour le projet.
 
 ## Contrôle en CI
 
