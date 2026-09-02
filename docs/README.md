@@ -17,6 +17,8 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
   hybride avec Fleet pour les VM.
 - [`gestion-du-debit-observabilite.md`](gestion-du-debit-observabilite.md) :
   rate limiting, sampling, backpressure et quotas par type de flux.
+- [`briques-remontee-telemetrie.md`](briques-remontee-telemetrie.md) : briques,
+  entrées, sorties et gestion de la pression pour les logs, traces et métriques.
 - [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md) : schémas
   historiques détaillés des flux v1/v2.
 
