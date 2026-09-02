@@ -32,6 +32,36 @@ versionnée, reproductible et aussi petite que possible pour le besoin couvert.
 - Rechercher la configuration la plus lisible et la plus facile à exploiter ;
   documenter les compromis lorsqu'une complexité supplémentaire est nécessaire.
 
+## Bonnes pratiques d'utilisation de l'IA
+
+- Garder une conversation pour un objectif cohérent. Ouvrir une nouvelle
+  conversation lorsqu'un sujet est terminé ou lorsqu'une nouvelle évolution
+  n'a plus besoin de l'historique précédent.
+- Demander une compaction dès que le contexte devient long, avant de changer
+  de sujet ou avant une reprise après interruption. La synthèse doit conserver
+  l'objectif courant, les décisions prises, les fichiers modifiés, les
+  validations réalisées, les erreurs restantes et la prochaine action.
+- Lors d'une reprise, fournir le contexte minimal vérifiable : branche,
+  commit courant, commande exécutée, sortie d'erreur complète et résultat
+  attendu. Joindre les lignes de fichier concernées plutôt qu'une capture
+  tronquée lorsque c'est possible.
+- Décrire explicitement le périmètre de l'action : diagnostic seulement,
+  correction, déploiement, commit ou push. Ne pas supposer qu'un diagnostic
+  autorise une modification ou une publication distante.
+- Ne jamais copier de secret dans une conversation, une issue, un log ou une
+  capture. Masquer les tokens et mots de passe, puis utiliser les secrets
+  locaux prévus par le dépôt.
+- Pour une demande complexe, faire valider les hypothèses et le plan avant les
+  changements à fort impact ; pour une correction ciblée, indiquer directement
+  le fichier, la cause supposée et le contrôle qui permettra de conclure.
+- Demander une preuve observable après l'action : test, rendu Kustomize,
+  syntaxe Ansible, état Kubernetes, requête Elasticsearch, import Kibana ou
+  vérification fonctionnelle adaptée.
+- Créer des commits intermédiaires lorsque l'évolution est longue ou comporte
+  plusieurs étapes, avec un message décrivant l'intention plutôt que les
+  détails d'implémentation. Ne pousser qu'après revue du diff et accord
+  explicite.
+
 ## Portée du dépôt
 
 Ce dépôt contient un POC d'observabilité Elastic : une plateforme Kubernetes,
