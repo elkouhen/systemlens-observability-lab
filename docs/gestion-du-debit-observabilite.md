@@ -156,8 +156,11 @@ OTel Java Agent / EDOT DaemonSet → Kafka otel-metrics → EDOT backend → Ela
 
 ### v3 — Hybride Fleet
 
-Les métriques applicatives et Kubernetes v3 suivent le même chemin que v2. Les
-métriques VM utilisent les intervalles et la policy Fleet décrits ci-dessous.
+Les métriques applicatives v3 sont scrappées toutes les 15 secondes par le
+receiver Prometheus du Gateway sur les endpoints `/actuator/prometheus`, puis
+suivent Kafka et le Collector backend. Les métriques Kubernetes suivent le
+chemin EDOT DaemonSet de v2. Les métriques VM utilisent les intervalles et la
+policy Fleet décrits ci-dessous.
 
 ## Logs et métriques des VM
 

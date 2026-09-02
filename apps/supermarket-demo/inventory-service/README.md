@@ -26,6 +26,13 @@ Avec `ELASTIC_APM_ENABLE_LOG_CORRELATION=true`, ces événements contiennent les
 identifiants de trace injectés par l'agent et sont donc accessibles depuis la
 vue Logs des transactions APM.
 
+Le service expose aussi le compteur métier Micrometer
+`business.orders.completed`, incrémenté après la réussite des écritures
+MongoDB et PostgreSQL. Le tag `channel` distingue les commandes `rest` et
+`kafka`. En architecture v3, la métrique est scrappée par le Gateway sur
+`/actuator/prometheus` et stockée dans le data stream
+`metrics-prometheusreceiver.otel-*`.
+
 ## Architecture hexagonale
 
 Le module sépare le métier des frameworks et des systèmes externes :

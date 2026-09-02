@@ -9,6 +9,8 @@ import io.systemlens.supermarket.inventory.domain.Product;
 import io.systemlens.supermarket.inventory.domain.ProductNotFoundException;
 import io.systemlens.supermarket.inventory.domain.Quantity;
 import io.systemlens.supermarket.inventory.domain.StockReservation;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,21 +28,30 @@ public class InventoryApplicationService implements InventoryUseCase {
     private final StockMovementPort movements;
     private final StockDepletedPort stockDepleted;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     @Autowired
     public InventoryApplicationService(ProductPort products, OrderFulfillmentPort fulfillments,
-                                       StockMovementPort movements, StockDepletedPort stockDepleted) {
-        this(products, fulfillments, movements, stockDepleted, Clock.systemUTC());
+                                       StockMovementPort movements, StockDepletedPort stockDepleted,
+                                       MeterRegistry meterRegistry) {
+        this(products, fulfillments, movements, stockDepleted, Clock.systemUTC(), meterRegistry);
     }
 
     public InventoryApplicationService(ProductPort products, OrderFulfillmentPort fulfillments,
                                        StockMovementPort movements, StockDepletedPort stockDepleted,
                                        Clock clock) {
+        this(products, fulfillments, movements, stockDepleted, clock, new SimpleMeterRegistry());
+    }
+
+    public InventoryApplicationService(ProductPort products, OrderFulfillmentPort fulfillments,
+                                       StockMovementPort movements, StockDepletedPort stockDepleted,
+                                       Clock clock, MeterRegistry meterRegistry) {
         this.products = products;
         this.fulfillments = fulfillments;
         this.movements = movements;
         this.stockDepleted = stockDepleted;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -69,6 +80,7 @@ public class InventoryApplicationService implements InventoryUseCase {
             fulfillments.deleteById(orderId);
             throw exception;
         }
+        meterRegistry.counter("business.orders.completed", "channel", channel).increment();
         LOGGER.info("Reservation effectuee: orderId={}, productId={}, quantity={}, remainingStock={}, channel={}", orderId, productId, quantity, remainingStock, channel);
         if (remainingStock == 0) {
             stockDepleted.publish(productId, createdAt);

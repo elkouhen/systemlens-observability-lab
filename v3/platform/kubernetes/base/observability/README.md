@@ -15,7 +15,8 @@ pour installer ou mettre à jour l'opérateur ECK 3.5.0 avant leur application.
 4. `elastic-ingress.yaml` : exposition TLS v3 via Traefik.
 
 En v3, les applications utilisent l'agent Java OpenTelemetry injecté par leur
-manifest Kubernetes. Les traces et métriques vont au Collector EDOT Gateway.
+manifest Kubernetes pour les traces. Le Collector EDOT Gateway scrape leurs
+métriques Actuator/Prometheus sur le port des Services applicatifs.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
 consommés par le Collector EDOT Elasticsearch. Les VM ne passent pas par ce
@@ -50,10 +51,12 @@ kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
 Le résultat attendu est un Deployment EDOT Elasticsearch `1/1`, sans erreur de
 consommation Kafka ni d'indexation.
 
-Les traces conservent l'environnement défini par les variables `ELASTIC_APM_*`.
-Les métriques applicatives exposées par `/actuator/prometheus`, notamment les
-métriques Kafka client, passent par l'agent Java OpenTelemetry vers le gateway
-OTLP, puis Kafka et le Collector OTel Elasticsearch.
+Les traces conservent l'environnement défini par les variables `OTEL_*`. Les
+métriques applicatives exposées par `/actuator/prometheus`, notamment les
+métriques Kafka client, sont scrappées toutes les 15 secondes par le receiver
+Prometheus du Gateway. Elles suivent ensuite Kafka et le Collector OTel
+Elasticsearch. L'export métrique de l'agent Java est désactivé en v3 pour
+éviter un double envoi.
 Ce data stream est séparé des métriques APM natives pour éviter un conflit de
 mapping entre les événements Prometheus et les événements APM ECS. Les logs
 stdout et les métriques Kubernetes suivent leurs propres data streams.

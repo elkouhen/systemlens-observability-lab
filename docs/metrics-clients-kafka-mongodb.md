@@ -90,6 +90,11 @@ Documentation :
 
 ## Exposition Actuator
 
+Le cas d'usage de réservation expose également la métrique métier
+`business.orders.completed`. Elle est incrémentée après les écritures MongoDB et
+PostgreSQL réussies, avec le tag de faible cardinalité `channel` (`rest` ou
+`kafka`). En v3, le Gateway scrappe cette métrique via `/actuator/prometheus`.
+
 L'application doit exposer uniquement les endpoints utiles :
 
 ```yaml
@@ -128,9 +133,24 @@ and data_stream.dataset: "app.prometheus.*"
 and service.name: "inventory-service"
 ```
 
-Les métriques sont stockées sous `prometheus.metrics.*`. Elles sont
-consultables dans Discover et dans les dashboards métriques, pas uniquement
-dans l'interface APM.
+Les métriques sont stockées sous `prometheus.metrics.*` pour la collecte Elastic
+Agent. Pour la collecte Prometheus du Gateway v3, elles sont disponibles dans
+le data stream `metrics-prometheusreceiver.otel-*`, sous `metrics.*`.
+Elles sont consultables dans Discover et dans les dashboards métriques, pas
+uniquement dans l'interface APM.
+
+Dans Kibana Discover, sélectionner `metrics-prometheusreceiver.otel-*` et
+utiliser le filtre :
+
+```kql
+data_stream.dataset: "prometheusreceiver.otel"
+and resource.attributes.service.name: "supermarket-applications"
+and metrics.business_orders_completed_total: *
+```
+
+La valeur est un compteur cumulatif par instance. Pour une série temporelle,
+utiliser `metrics.business_orders_completed_total` avec `attributes.channel`
+comme dimension et calculer un taux ou une variation selon le besoin.
 
 ## Cardinalité et sécurité
 

@@ -35,7 +35,7 @@ ou rejeter, puis augmenter la capacité après mesure.
 | --- | --- | --- | --- |
 | Traces applicatives | Agent Elastic APM → APM Server → Logstash `5044` → Elasticsearch | Agent OTel → EDOT Gateway → Kafka `otel-traces` → EDOT backend → Elasticsearch | Même chemin que v2 |
 | Logs applicatifs/Kubernetes | stdout → Elastic Agent Kubernetes → Logstash `5045` → Elasticsearch | stdout → EDOT DaemonSet → Kafka `otel-logs` → EDOT backend → Elasticsearch | Même chemin que v2 |
-| Métriques applicatives | Agent/collecte Elastic → Logstash → Elasticsearch | Agent OTel → EDOT Gateway → Kafka `otel-metrics` → EDOT backend → Elasticsearch | Même chemin que v2 |
+| Métriques applicatives | Agent/collecte Elastic → Logstash → Elasticsearch | Agent OTel → EDOT Gateway → Kafka `otel-metrics` → EDOT backend → Elasticsearch | `/actuator/prometheus` → EDOT Gateway Prometheus → Kafka `otel-metrics` → EDOT backend → Elasticsearch |
 | Métriques Kubernetes | Elastic Agent/kube-state-metrics → Logstash → Elasticsearch | EDOT DaemonSet → Kafka `otel-metrics` → EDOT backend → Elasticsearch | Même chemin que v2 |
 | Logs VM | Filebeat → Logstash → Elasticsearch | EDOT Agent VM → Kafka `otel-logs` → EDOT backend → Elasticsearch | Elastic Agent Fleet → Elasticsearch |
 | Métriques VM | Metricbeat → Logstash → Elasticsearch | EDOT Agent VM → Kafka `otel-metrics` → EDOT backend → Elasticsearch | Elastic Agent Fleet → Elasticsearch |
@@ -72,9 +72,10 @@ et [`application.yml`](../apps/supermarket-demo/order-service/src/main/resources
 **Entrées.** Transactions HTTP, appels sortants, Kafka, bases, métriques et
 `traceparent`.
 
-**Sorties.** v1 : APM vers APM Server. v2/v3 : traces et métriques OTLP vers le
-Gateway (`4317` gRPC ou `4318` HTTP). L'export de logs par l'agent est désactivé
-en v2/v3 ; les logs restent sur stdout.
+**Sorties.** v1 : APM vers APM Server. v2 : traces et métriques OTLP vers le
+Gateway (`4317` gRPC ou `4318` HTTP). v3 : traces OTLP vers le Gateway ; les
+métriques sont exposées par Actuator et scrappées par le Gateway. L'export de
+logs par l'agent est désactivé en v2/v3 ; les logs restent sur stdout.
 
 **Pression.** Utiliser le sampling pour les traces, le filtrage pour les
 métriques cardinales et le niveau de logs pour les logs. Aucun sampling
@@ -166,14 +167,18 @@ Source : policy `data-fleet` dans [`kibana.yaml`](../v3/platform/kubernetes/base
 **Rôle.** Recevoir les signaux OTLP applicatifs, traiter les traces APM et
 publier dans Kafka.
 
-**Entrées.** OTLP gRPC `4317` et HTTP `4318` depuis les applications Java.
+**Entrées.** v2 : OTLP gRPC `4317` et HTTP `4318` depuis les applications Java.
+v3 : OTLP pour les traces et receiver Prometheus pour les endpoints
+`/actuator/prometheus` des trois Services applicatifs, toutes les 15 secondes.
 
 **Sorties.** `otel-traces`, `otel-metrics` et `otel-logs` en OTLP protobuf.
 Le connector `elasticapm` produit les métriques APM agrégées à partir des traces.
+Les métriques Prometheus scrappées sont envoyées sur `otel-metrics`.
 
 **Pression.** `memory_limiter` à 400 MiB avec pic de 100 MiB, puis batch de 512/1
-s. Réduire ou filtrer en amont si la mémoire est sous pression ; ne pas retirer
-le limiteur.
+s. Le scrape v3 est limité par `scrape_interval: 15s` ; réduire la fréquence ou
+filtrer les métriques avant d'augmenter les ressources. Réduire ou filtrer en
+amont si la mémoire est sous pression ; ne pas retirer le limiteur.
 
 Source : [`otel-kafka.yaml`](../v3/platform/kubernetes/base/observability/otel-kafka.yaml).
 

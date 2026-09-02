@@ -166,7 +166,7 @@ logs VM n'empruntent toutefois pas ce topic.
 
 ```mermaid
 flowchart LR
-    A[Applications Java\nOTel + Actuator] --> G[EDOT Gateway]
+    A[Applications Java\nActuator /prometheus] -->|scrape :15s| G[EDOT Gateway\nreceiver Prometheus]
     K[Kubernetes\nEDOT DaemonSet] --> G
     G -->|OTLP protobuf| M[Kafka\notel-metrics]
     M --> X[EDOT backend collector]
@@ -174,8 +174,10 @@ flowchart LR
     E --> KB[Kibana\nAPM / Infrastructure]
 ```
 
-Les métriques applicatives et Kubernetes v3 conservent le pipeline v2 et ses
-topics OTLP. Kafka reste utilisé pour ces flux.
+Les métriques applicatives v3 sont scrappées sur `/actuator/prometheus` par le
+receiver Prometheus du Gateway, puis publiées sur `otel-metrics`. Les métriques
+Kubernetes continuent de venir du DaemonSet. L'export métrique de l'agent Java
+est désactivé en v3 afin d'éviter les doublons.
 
 ### Logs et métriques des VM
 
@@ -197,7 +199,7 @@ Les intégrations System, Kafka, MongoDB et PostgreSQL envoient directement les
 | --- | --- | --- | --- |
 | Traces applicatives | APM Agent → APM Server → Logstash | OTel → EDOT → Kafka → EDOT | OTel → EDOT → Kafka → EDOT |
 | Logs applicatifs/Kubernetes | Elastic Agent → Logstash | EDOT DaemonSet → Kafka → EDOT | EDOT DaemonSet → Kafka → EDOT |
-| Métriques applicatives/Kubernetes | Elastic Agent → Logstash | OTel/EDOT → Kafka → EDOT | OTel/EDOT → Kafka → EDOT |
+| Métriques applicatives/Kubernetes | Elastic Agent → Logstash | OTel/EDOT → Kafka → EDOT | Prometheus scrape/EDOT → Kafka → EDOT |
 | Logs et métriques VM | Filebeat/Metricbeat → Logstash | EDOT Agent → Kafka → EDOT | Elastic Agent Fleet → Elasticsearch |
 | Gestion VM | Ansible + Beats | Ansible + EDOT standalone | Ansible + enrôlement Fleet |
 | Rôle de Kafka | Source observée | Buffer de télémétrie | Buffer applicatif/Kubernetes uniquement |
