@@ -15,6 +15,8 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
   comparaison historique des différences v1/v2.
 - [`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md) : architecture v3
   hybride avec Fleet pour les VM.
+- [`gestion-du-debit-observabilite.md`](gestion-du-debit-observabilite.md) :
+  rate limiting, sampling, backpressure et quotas par type de flux.
 - [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md) : schémas
   historiques détaillés des flux v1/v2.
 
