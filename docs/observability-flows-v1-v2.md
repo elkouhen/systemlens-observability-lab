@@ -1,8 +1,10 @@
-# Schémas de remontée de l'observabilité v1/v2
+# Schémas historiques de remontée de l'observabilité v1/v2
 
-Ces schémas décrivent les flux déclarés dans le dépôt avec l'unique VM
+Ces schémas décrivent les flux historiques v1 et v2 déclarés dans le dépôt avec l'unique VM
 `data-01`. Les flèches indiquent le transport et les data streams
 indiquent la destination logique dans Elasticsearch.
+
+Pour la version actuelle v3, consulter le [schéma de référence v1/v2/v3](architecture-v1-v2-v3.md).
 
 ## v1 — métriques et traces APM Java
 

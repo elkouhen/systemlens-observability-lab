@@ -4,7 +4,7 @@ Ce guide décrit le raccordement à la chaîne d'observabilité v1 (Elastic APM,
 Elastic Agent et Logstash). Pour la v2, conserver le socle applicatif commun
 et ajouter le patch d'instrumentation OTel décrit dans
 `kubernetes/apps/supermarket-demo/v2/otel-instrumentation.yaml` ; consulter le
-[comparatif v1/v2](../docs/architecture-v1-v2-differences.md) avant toute
+[comparatif des architectures](../docs/architecture-v1-v2-v3.md) avant toute
 extension.
 
 Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne

@@ -1,7 +1,7 @@
 # APM des applications Java sur Kubernetes
 
 Ce guide décrit le chemin APM historique de la v1. Pour la chaîne v2 basée sur
-OpenTelemetry, utiliser le [comparatif v1/v2](architecture-v1-v2-differences.md)
+OpenTelemetry, utiliser le [comparatif v1/v2/v3](architecture-v1-v2-v3.md)
 et le [guide de déploiement](deploiement-et-exploitation.md).
 
 Les commandes de ce document sont à exécuter depuis la racine du dépôt, après

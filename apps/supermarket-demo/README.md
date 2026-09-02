@@ -30,7 +30,7 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 1. `pom.xml` : agrégateur Maven et versions communes.
 2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic APM pour les
    trois services.
-3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patches v1/v2
+3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patches v1/v2/v3
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même

@@ -2,7 +2,8 @@
 
 Cette plateforme reçoit les traces, métriques et logs du POC. ECK gère
 Elasticsearch et Kibana ; les Collectors OpenTelemetry acheminent les signaux
-applicatifs, Kubernetes et VM vers Kafka, puis vers Elasticsearch via OTLP.
+applicatifs et Kubernetes vers Kafka, puis vers Elasticsearch via OTLP. Les VM
+utilisent Fleet et exportent directement vers Elasticsearch.
 Fleet Server gère les Elastic Agents des VM, qui exportent directement vers
 Elasticsearch.
 

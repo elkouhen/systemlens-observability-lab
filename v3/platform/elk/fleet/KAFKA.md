@@ -34,7 +34,7 @@ pas requis par le chemin v3.
    elles ne sont pas promises par le receiver Kafka natif.
 
 La configuration Kafka doit simplement rendre le broker joignable sur
-`localhost:9092` depuis EDOT Agent.
+`localhost:9092` depuis l'Elastic Agent.
 
 ## Pipelines personnalisés
 

@@ -1,4 +1,8 @@
-# Revue des différences de code v1/v2
+# Revue historique des différences de code v1/v2
+
+Ce document conserve l'analyse de mutualisation réalisée avant l'ajout de la
+v3. Pour les décisions actuelles, consulter
+[`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md).
 
 ## Objet de la revue
 

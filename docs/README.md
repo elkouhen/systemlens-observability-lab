@@ -12,11 +12,11 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
 - [`v1-v2-en-bref.md`](v1-v2-en-bref.md) : orientation rapide et choix d'une
   version.
 - [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
-  source de vérité pour les différences fonctionnelles et les flux.
+  comparaison historique des différences v1/v2.
 - [`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md) : architecture v3
   hybride avec Fleet pour les VM.
 - [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md) : schémas
-  détaillés des flux APM, VM, Kubernetes et logs.
+  historiques détaillés des flux v1/v2.
 
 ## Référence spécialisée
 
@@ -37,6 +37,11 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
 
 Les procédures propres à un composant restent dans son README local ; elles
 ne sont pas recopiées ici.
+
+Pour la v3, la procédure de référence est : `make elk-deploy`, puis
+`make fleet-vms-provision`, puis `make apps-deploy`. Le flux VM est visible dans
+Fleet et dans les data streams Elasticsearch ; les flux applicatifs et
+Kubernetes restent vérifiables via les topics OTLP et `otel-kafka-exporter`.
 
 ## Vérification reproductible
 

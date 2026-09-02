@@ -30,7 +30,7 @@ même chemin Kafka que les autres métriques.
 Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
 envoient traces et métriques en OTLP au Gateway. Le DaemonSet EDOT lit les logs
 et métriques Kubernetes, puis les signaux applicatifs et Kubernetes sont
-bufferisés dans Kafka avant leur export OTLP vers Elasticsearch. Les EDOT Agents
+bufferisés dans Kafka avant leur export OTLP vers Elasticsearch. Les Elastic Agents
 des VM publient quant à eux directement dans Elasticsearch via Fleet. Les identités Kubernetes sont
 enrichies par `k8sattributes`; le Collector backend utilise le mapping ECS
 pour conserver la compatibilité avec les vues APM et les dashboards

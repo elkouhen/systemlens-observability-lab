@@ -1,10 +1,11 @@
-# Différences entre les architectures v1 et v2
+# Différences historiques entre les architectures v1 et v2
 
-Ce document est la référence de comparaison entre les implémentations des deux
-bundles d'architecture. Les deux bundles utilisent une topologie minimale avec
+Ce document conserve la comparaison historique entre les deux premiers bundles
+d'architecture. La référence actuelle incluant v3 est
+[`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md). Les deux bundles utilisent une topologie minimale avec
 l'unique VM `data-01`. Les flux détaillés sont représentés dans
 [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md).
-La revue de mutualisation du code est détaillée dans
+La revue historique de mutualisation du code est détaillée dans
 [`diff-code-v1-v2.md`](diff-code-v1-v2.md).
 
 ## Vue d'ensemble
@@ -74,6 +75,11 @@ servent au bootstrap et à la gestion de la plateforme, pas au transport de ces
 signaux.
 
 ## Vérification et changement de version
+
+La v3 reprend la structure v2 pour les applications et Kubernetes, mais remplace
+la collecte VM EDOT → Kafka par un Elastic Agent enrôlé dans Fleet →
+Elasticsearch. Voir la [référence v1/v2/v3](architecture-v1-v2-v3.md) pour le
+flux complet.
 
 Les commandes de validation, de déploiement, de bascule et de diagnostic sont
 centralisées dans le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
