@@ -1,7 +1,7 @@
 {
   "id": "business-metrics-dashboard",
   "title": "Métriques métier — Supermarket Demo",
-  "description": "Volumes métier calculés à partir des deltas des compteurs Prometheus sur la période sélectionnée.",
+  "description": "Parcours : Métier → Traffic / Latency / Errors → Stock → Saturation. Les volumes métier sont calculés à partir des deltas des compteurs Prometheus sur la période sélectionnée.",
   "time_range": {
     "from": "now-24h",
     "to": "now"
@@ -76,7 +76,7 @@
       "id": "business-orders-over-time",
       "grid": { "x": 0, "y": 5, "w": 24, "h": 10 },
       "config": {
-        "title": "Commandes finalisées par période",
+        "title": "Métier — commandes finalisées par période",
         "type": "xy",
         "axis": {
           "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
@@ -101,7 +101,7 @@
       "id": "business-restock-over-time",
       "grid": { "x": 24, "y": 5, "w": 24, "h": 10 },
       "config": {
-        "title": "Flux de réassort par période",
+        "title": "Métier — flux de réassort par période",
         "type": "xy",
         "axis": {
           "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
@@ -129,7 +129,7 @@
       "id": "business-orders-by-channel-over-time",
       "grid": { "x": 0, "y": 15, "w": 48, "h": 10 },
       "config": {
-        "title": "Commandes finalisées par canal",
+        "title": "Métier — commandes finalisées par canal",
         "type": "xy",
         "axis": {
           "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
