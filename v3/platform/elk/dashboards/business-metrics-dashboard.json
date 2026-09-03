@@ -161,7 +161,7 @@
     {
       "type": "vis",
       "id": "service-availability",
-      "grid": { "x": 0, "y": 25, "w": 12, "h": 5 },
+      "grid": { "x": 0, "y": 35, "w": 12, "h": 5 },
       "config": {
         "title": "Disponibilité des services",
         "type": "metric",
@@ -172,7 +172,7 @@
     {
       "type": "vis",
       "id": "service-cpu-usage",
-      "grid": { "x": 12, "y": 25, "w": 12, "h": 5 },
+      "grid": { "x": 12, "y": 35, "w": 12, "h": 5 },
       "config": {
         "title": "CPU applicatif",
         "type": "metric",
@@ -183,7 +183,7 @@
     {
       "type": "vis",
       "id": "jvm-memory-usage",
-      "grid": { "x": 24, "y": 25, "w": 12, "h": 5 },
+      "grid": { "x": 24, "y": 35, "w": 12, "h": 5 },
       "config": {
         "title": "Mémoire JVM",
         "type": "metric",
@@ -194,7 +194,7 @@
     {
       "type": "vis",
       "id": "jvm-live-threads",
-      "grid": { "x": 36, "y": 25, "w": 12, "h": 5 },
+      "grid": { "x": 36, "y": 35, "w": 12, "h": 5 },
       "config": {
         "title": "Threads JVM actifs",
         "type": "metric",
@@ -205,7 +205,7 @@
     {
       "type": "vis",
       "id": "service-cpu-over-time",
-      "grid": { "x": 0, "y": 30, "w": 24, "h": 10 },
+      "grid": { "x": 0, "y": 40, "w": 24, "h": 10 },
       "config": {
         "title": "CPU applicatif dans le temps",
         "type": "xy",
@@ -217,7 +217,7 @@
     {
       "type": "vis",
       "id": "jvm-memory-over-time",
-      "grid": { "x": 24, "y": 30, "w": 24, "h": 10 },
+      "grid": { "x": 24, "y": 40, "w": 24, "h": 10 },
       "config": {
         "title": "Ratio mémoire JVM dans le temps",
         "type": "xy",
@@ -229,7 +229,7 @@
     {
       "type": "vis",
       "id": "stock-by-product",
-      "grid": { "x": 0, "y": 40, "w": 48, "h": 10 },
+      "grid": { "x": 0, "y": 25, "w": 48, "h": 10 },
       "config": {
         "title": "État du stock par produit",
         "type": "data_table",
