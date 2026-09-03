@@ -161,7 +161,7 @@
     {
       "type": "vis",
       "id": "service-availability",
-      "grid": { "x": 0, "y": 35, "w": 12, "h": 5 },
+      "grid": { "x": 0, "y": 40, "w": 12, "h": 5 },
       "config": {
         "title": "Errors — disponibilité des services",
         "type": "metric",
@@ -172,7 +172,7 @@
     {
       "type": "vis",
       "id": "service-cpu-usage",
-      "grid": { "x": 12, "y": 35, "w": 12, "h": 5 },
+      "grid": { "x": 12, "y": 40, "w": 12, "h": 5 },
       "config": {
         "title": "Saturation — CPU applicatif",
         "type": "metric",
@@ -183,7 +183,7 @@
     {
       "type": "vis",
       "id": "jvm-memory-usage",
-      "grid": { "x": 24, "y": 35, "w": 12, "h": 5 },
+      "grid": { "x": 24, "y": 40, "w": 12, "h": 5 },
       "config": {
         "title": "Saturation — mémoire JVM",
         "type": "metric",
@@ -194,7 +194,7 @@
     {
       "type": "vis",
       "id": "jvm-live-threads",
-      "grid": { "x": 36, "y": 35, "w": 12, "h": 5 },
+      "grid": { "x": 36, "y": 40, "w": 12, "h": 5 },
       "config": {
         "title": "Saturation — threads JVM actifs",
         "type": "metric",
@@ -205,7 +205,7 @@
     {
       "type": "vis",
       "id": "service-cpu-over-time",
-      "grid": { "x": 0, "y": 40, "w": 24, "h": 10 },
+      "grid": { "x": 0, "y": 45, "w": 24, "h": 10 },
       "config": {
         "title": "Saturation — CPU dans le temps",
         "type": "xy",
@@ -217,7 +217,7 @@
     {
       "type": "vis",
       "id": "jvm-memory-over-time",
-      "grid": { "x": 24, "y": 40, "w": 24, "h": 10 },
+      "grid": { "x": 24, "y": 45, "w": 24, "h": 10 },
       "config": {
         "title": "Saturation — mémoire JVM dans le temps",
         "type": "xy",
@@ -274,7 +274,7 @@
     {
       "type": "vis",
       "id": "jvm-gc-overhead-over-time",
-      "grid": { "x": 0, "y": 50, "w": 48, "h": 10 },
+      "grid": { "x": 0, "y": 55, "w": 48, "h": 10 },
       "config": {
         "title": "Saturation — surcharge GC JVM dans le temps",
         "type": "xy",
