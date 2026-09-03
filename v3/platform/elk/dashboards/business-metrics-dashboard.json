@@ -1,0 +1,159 @@
+{
+  "id": "business-metrics-dashboard",
+  "title": "Métriques métier — Supermarket Demo",
+  "description": "Volumes métier calculés à partir des deltas des compteurs Prometheus sur la période sélectionnée.",
+  "time_range": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "vis",
+      "id": "business-orders-total",
+      "grid": { "x": 0, "y": 0, "w": 12, "h": 5 },
+      "config": {
+        "title": "",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY channel = attributes.channel | EVAL channel_total = end - start | STATS total_orders = SUM(channel_total)"
+        },
+        "metrics": [
+          { "type": "primary", "column": "total_orders", "label": "Commandes finalisées", "format": { "type": "number", "decimals": 0 } }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "business-restock-requested-total",
+      "grid": { "x": 12, "y": 0, "w": 12, "h": 5 },
+      "config": {
+        "title": "",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_restock_requested_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_stock_restock_requested_total) | STATS start = MIN(counter), end = MAX(counter) | EVAL total_requested = end - start"
+        },
+        "metrics": [
+          { "type": "primary", "column": "total_requested", "label": "Réassorts demandés", "format": { "type": "number", "decimals": 0 } }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "business-restock-completed-total",
+      "grid": { "x": 24, "y": 0, "w": 12, "h": 5 },
+      "config": {
+        "title": "",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_restock_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS start = MIN(counter), end = MAX(counter) | EVAL total_completed = end - start"
+        },
+        "metrics": [
+          { "type": "primary", "column": "total_completed", "label": "Réassorts terminés", "format": { "type": "number", "decimals": 0 } }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "business-restock-backlog-total",
+      "grid": { "x": 36, "y": 0, "w": 12, "h": 5 },
+      "config": {
+        "title": "",
+        "type": "metric",
+        "data_source": {
+          "type": "esql",
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | EVAL requested_counter = TO_DOUBLE(metrics.business_stock_restock_requested_total), completed_counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS requested_start = MIN(requested_counter), requested_end = MAX(requested_counter), completed_start = MIN(completed_counter), completed_end = MAX(completed_counter) | EVAL restock_gap = (requested_end - requested_start) - (completed_end - completed_start)"
+        },
+        "metrics": [
+          { "type": "primary", "column": "restock_gap", "label": "Écart réassorts sur la période", "format": { "type": "number", "decimals": 0 } }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "business-orders-over-time",
+      "grid": { "x": 0, "y": 5, "w": 24, "h": 10 },
+      "config": {
+        "title": "Commandes finalisées par période",
+        "type": "xy",
+        "axis": {
+          "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
+          "y": { "title": { "visible": false } }
+        },
+        "layers": [
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend), channel = attributes.channel | EVAL channel_total = end - start | STATS total_orders = SUM(channel_total) BY bucket"
+            },
+            "x": { "column": "bucket", "label": "Période" },
+            "y": [{ "column": "total_orders", "format": { "type": "number", "decimals": 0 } }]
+          }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "business-restock-over-time",
+      "grid": { "x": 24, "y": 5, "w": 24, "h": 10 },
+      "config": {
+        "title": "Flux de réassort par période",
+        "type": "xy",
+        "axis": {
+          "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
+          "y": { "title": { "visible": false } }
+        },
+        "layers": [
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | EVAL requested_counter = TO_DOUBLE(metrics.business_stock_restock_requested_total), completed_counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS requested_start = MIN(requested_counter), requested_end = MAX(requested_counter), completed_start = MIN(completed_counter), completed_end = MAX(completed_counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL requested = requested_end - requested_start, completed = completed_end - completed_start"
+            },
+            "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
+            "y": [
+              { "column": "requested", "format": { "type": "number", "decimals": 0 } },
+              { "column": "completed", "format": { "type": "number", "decimals": 0 } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "business-orders-by-channel-over-time",
+      "grid": { "x": 0, "y": 15, "w": 48, "h": 10 },
+      "config": {
+        "title": "Commandes finalisées par canal",
+        "type": "xy",
+        "axis": {
+          "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
+          "y": { "title": { "visible": false } }
+        },
+        "layers": [
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"rest\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_orders = end - start"
+            },
+            "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
+            "y": [{ "column": "total_orders", "format": { "type": "number", "decimals": 0 } }]
+          },
+          {
+            "type": "line",
+            "data_source": {
+              "type": "esql",
+              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"kafka\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_orders = end - start"
+            },
+            "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
+            "y": [{ "column": "total_orders", "format": { "type": "number", "decimals": 0 } }]
+          }
+        ]
+      }
+    }
+  ]
+}

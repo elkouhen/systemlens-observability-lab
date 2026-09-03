@@ -1,7 +1,8 @@
 # Dashboards Kibana
 
-Les fichiers `.ndjson` sont des exports d'objets sauvegardés Kibana. La
-collecte v3 des VM est assurée par Elastic Agent Fleet et envoyée directement à
+Les fichiers `.ndjson` sont des exports d'objets sauvegardés Kibana. Le fichier
+`business-metrics-dashboard.json` est une définition inline de l'API Dashboard
+Kibana, avec des visualisations ES|QL. La collecte v3 des VM est assurée par Elastic Agent Fleet et envoyée directement à
 Elasticsearch. Les packages Fleet de plateforme déclarés dans
 [`platform/kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
 Les dashboards Fleet classiques peuvent donc exploiter les champs ECS
@@ -46,16 +47,40 @@ La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
 les métriques clés ci-dessus. Elle permet de distinguer un dashboard vide
 d'un problème de collecte.
 
-Le dashboard versionné est importé par `make business-dashboard-deploy` (ou
+Le dashboard versionné est réconcilié par `make business-dashboard-deploy` (ou
 automatiquement par `make elk-deploy`). Il apparaît dans Kibana sous
 **Métriques métier — Supermarket Demo**. Les panneaux utilisent le maximum du
 compteur cumulatif dans chaque intervalle ; le filtre temporel Kibana doit donc
 être positionné sur une période où les métriques sont présentes.
 
-Le dashboard contient deux histogrammes temporels Kibana natifs : commandes
-finalisées par heure et réassorts demandés/terminés par heure. L'axe horizontal
-est l'heure et l'axe vertical le nombre cumulé ; le dashboard ne dépend pas
-d'un panneau de logs ou d'une table de recherche.
+Le dashboard contient quatre indicateurs synthétiques et trois graphiques ES|QL
+inline : commandes finalisées, réassorts demandés, réassorts terminés, écart de
+réassort, évolution des commandes et des réassorts, puis ventilation des
+commandes par canal (`REST` et `Kafka`). Les valeurs sont les deltas des
+compteurs sur chaque bucket ; elles représentent donc un volume de période et
+non la valeur cumulée brute du compteur.
+
+Les filtres KQL doivent conserver une expression entre parenthèses. Une
+expression générée avec un groupe vide (`and ()metrics...`) est invalide ; la
+forme équivalente correcte est par exemple :
+`data_stream.dataset:"prometheusreceiver.otel" and (metrics.business_orders_completed_total:* or metrics.business_stock_restock_requested_total:* or metrics.business_stock_restock_completed_total:*)`.
+Le dashboard API ci-dessus n'embarque pas ce filtre global et évite ainsi la
+réutilisation d'un filtre KQL vide provenant d'un ancien export.
+
+Le panneau **Commandes finalisées — REST / Kafka · cliquer sur une barre pour le
+diagnostic** constitue le
+premier niveau de drill-down métier : les séries sont calculées à partir de
+`attributes.channel`, puis un clic sur une série ouvre le dashboard
+**Diagnostic technique — commandes** en conservant le filtre REST ou Kafka et
+la période sélectionnée. Ce dashboard cible affiche l'évolution temporelle
+des commandes filtrées. Les vues techniques complémentaires sont APM
+> Services/Transactions pour le chemin HTTP REST, et les dashboards Kafka pour
+les producteurs, consommateurs et le lag du chemin Kafka.
+
+Le drill-down se déclenche sur une barre du graphique en mode consultation.
+Cliquer sur la légende ne fait qu'afficher ou masquer une série ; le menu
+**Options du panneau > Créer un drilldown** permet de contrôler la configuration
+en mode édition.
 
 ## Documentation externe
 

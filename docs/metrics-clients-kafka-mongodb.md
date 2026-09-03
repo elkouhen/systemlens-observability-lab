@@ -151,7 +151,7 @@ utiliser le filtre :
 ```kql
 data_stream.dataset: "prometheusreceiver.otel"
 and resource.attributes.service.name: "supermarket-applications"
-and metrics.business_orders_completed_total: *
+and metrics.business_orders_completed_total:*
 ```
 
 Pour visualiser les réassorts appliqués par `inventory-service` :
@@ -159,7 +159,7 @@ Pour visualiser les réassorts appliqués par `inventory-service` :
 ```kql
 data_stream.dataset: "prometheusreceiver.otel"
 and resource.attributes.server.address: "inventory-service.h0tl-supermarche-app.svc.cluster.local"
-and metrics.business_stock_restock_completed_total: *
+and metrics.business_stock_restock_completed_total:*
 ```
 
 La valeur est un compteur cumulatif par instance. Pour une série temporelle,

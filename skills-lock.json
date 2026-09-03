@@ -7,6 +7,12 @@
       "skillPath": "skills/documentation-writer/SKILL.md",
       "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
     },
+    "kibana-dashboards": {
+      "source": "elastic/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/kibana/kibana-dashboards/SKILL.md",
+      "computedHash": "4db05c50f0645180719ca3e90fb19af8ace2221f28e579fa9b08754f2dfc2097"
+    },
     "systemlens": {
       "source": "elkouhen/systemlens-skill",
       "sourceType": "github",

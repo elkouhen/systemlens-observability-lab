@@ -28,3 +28,6 @@ target/
 # Voir certs/README.md : jamais versionné, propre à chaque machine.
 certs/*.crt
 certs/*.pem
+
+# APM dependencies
+apm_modules/

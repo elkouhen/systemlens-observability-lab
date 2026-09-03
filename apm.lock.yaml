@@ -1,0 +1,352 @@
+lockfile_version: '1'
+generated_at: '2026-09-03T05:58:56.654196+00:00'
+apm_version: 0.29.0
+dependencies:
+- repo_url: elastic/agent-skills
+  name: kibana-dashboards
+  host: github.com
+  resolved_commit: f6af31d90cd272a8221efc5e1a418cb80ed5a03c
+  version: unknown
+  virtual_path: skills/kibana/kibana-dashboards
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/kibana-dashboards
+  - .agents/skills/kibana-dashboards/SKILL.md
+  - .agents/skills/kibana-dashboards/assets/bar-chart-esql.json
+  - .agents/skills/kibana-dashboards/assets/dashboard-basic.json
+  - .agents/skills/kibana-dashboards/assets/dashboard-with-visualizations.json
+  - .agents/skills/kibana-dashboards/assets/datatable.json
+  - .agents/skills/kibana-dashboards/assets/demo-dashboard.json
+  - .agents/skills/kibana-dashboards/assets/ecommerce-analytics-dashboard.json
+  - .agents/skills/kibana-dashboards/assets/line-chart-timeseries.json
+  - .agents/skills/kibana-dashboards/assets/metric-esql.json
+  - .agents/skills/kibana-dashboards/package.json
+  - .agents/skills/kibana-dashboards/references/chart-types-reference.md
+  - .agents/skills/kibana-dashboards/references/dashboard-api-reference.md
+  - .agents/skills/kibana-dashboards/references/visualizations-api-reference.md
+  - .agents/skills/kibana-dashboards/scripts/kibana-dashboards.js
+  deployed_file_hashes:
+    .agents/skills/kibana-dashboards/SKILL.md: sha256:5cadbad60065d46c8e037ea690bb792ff6e94c67359433df6523a0662236a6ef
+    .agents/skills/kibana-dashboards/assets/bar-chart-esql.json: sha256:2b7a7d5c25ac0c59ed680c0e6b333ed8c622d84f146d94b1229b22fbafae2c2a
+    .agents/skills/kibana-dashboards/assets/dashboard-basic.json: sha256:5f534feac28ef649ef315027077c0e2b672bcdf5621a7aa5b961a92c0ba8e24c
+    .agents/skills/kibana-dashboards/assets/dashboard-with-visualizations.json: sha256:6f9c765f94f4c957e92e33b8be8e28ca10159667edd3bc798eeaa8e92ec4d560
+    .agents/skills/kibana-dashboards/assets/datatable.json: sha256:9adff24d6964aca94179f3de432c0e43ac11ad61cf7c5d97afa284859a1f915f
+    .agents/skills/kibana-dashboards/assets/demo-dashboard.json: sha256:7ffdbc2aec688e2f7b58f326b996832674ec3c4996543218116446bbbc2d21f5
+    .agents/skills/kibana-dashboards/assets/ecommerce-analytics-dashboard.json: sha256:bb533e4ecb5895f586a250ae6e3da0f293d5b815d5a33d803adaa5be381b0974
+    .agents/skills/kibana-dashboards/assets/line-chart-timeseries.json: sha256:5ed86131a8f4edd5bc76200f68632306c7a84fcd8ffaa990893c2225fd49962d
+    .agents/skills/kibana-dashboards/assets/metric-esql.json: sha256:d641bc0356f6efe09877e083931b43c12e75135999f4cbd7cf8b02266797b5aa
+    .agents/skills/kibana-dashboards/package.json: sha256:e710d8b28d2e806d401a4cc27974c4d6a4dcb55e1c37f67cddac4e4b35cb7c10
+    .agents/skills/kibana-dashboards/references/chart-types-reference.md: sha256:ce0f861f126b426fbc05af9c6f8415bf6e2b6caf13a6bac57e6701e8113ef686
+    .agents/skills/kibana-dashboards/references/dashboard-api-reference.md: sha256:0a8ae08d457977d3d6e3a1c756a6cfa68bf09c7c17ad9903f5deeacebf45780a
+    .agents/skills/kibana-dashboards/references/visualizations-api-reference.md: sha256:1662bdee2f36d0673bd8ca7eafea12f8b8643590edb2ea764b5a5eb80f915d93
+    .agents/skills/kibana-dashboards/scripts/kibana-dashboards.js: sha256:8aad18fe926cad3c20a76326315b0d99fa547045843541c9fa2488cb10ea31e0
+  content_hash: sha256:44c98c15297592fdbddb877f82a12d0fcea798ce7d399283a183398d2ccdecae
+- repo_url: elkouhen/systemlens-skill
+  name: systemlens
+  host: github.com
+  resolved_commit: fc8842a1d3004d0174444b78331121415e6f7e27
+  version: unknown
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/systemlens-skill
+  - .agents/skills/systemlens-skill/.gitignore
+  - .agents/skills/systemlens-skill/LICENSE
+  - .agents/skills/systemlens-skill/PRD.md
+  - .agents/skills/systemlens-skill/README.md
+  - .agents/skills/systemlens-skill/SKILL.md
+  - .agents/skills/systemlens-skill/agents/openai.yaml
+  - .agents/skills/systemlens-skill/references/ai-graph.md
+  - .agents/skills/systemlens-skill/references/analysis-rules.md
+  - .agents/skills/systemlens-skill/references/management.md
+  - .agents/skills/systemlens-skill/references/pass-profiles.md
+  - .agents/skills/systemlens-skill/references/settings.md
+  deployed_file_hashes:
+    .agents/skills/systemlens-skill/.gitignore: sha256:1d15bdb66e2d42cd0ecddeb6926d7a97dbf7a82a055067b7b9afc05112ee0437
+    .agents/skills/systemlens-skill/LICENSE: sha256:d643af9b80c6741f3d308ea358d678a71c3f3651836a5f73dfe981260956c523
+    .agents/skills/systemlens-skill/PRD.md: sha256:1aaece4b4fdaa446910d5c95af7038f27aff3043e86758604e1412e167df3762
+    .agents/skills/systemlens-skill/README.md: sha256:0bf862d9f6219cd662a9153622225427db467897b39e92381a3261ec9f6a5fd4
+    .agents/skills/systemlens-skill/SKILL.md: sha256:7a331beba467cb0f5aaee2dae0a6b00f0042015c4e46b0adad543df02d1f6ae8
+    .agents/skills/systemlens-skill/agents/openai.yaml: sha256:462f0d7097598e1299d305e8a2f1bcd50f34f32497d21f5c695470a367bdc355
+    .agents/skills/systemlens-skill/references/ai-graph.md: sha256:8226da4f3fabc88c5b46235af8370b61a753383900391524efe13b89acd6f60d
+    .agents/skills/systemlens-skill/references/analysis-rules.md: sha256:4af66d2c1d1a2faffc0553c19c92bfea866d74658ed5f9893fe4e7cbea45bae7
+    .agents/skills/systemlens-skill/references/management.md: sha256:3c13b00c27cd9c8d7f232f5d53fe286704e7877a4200e12a9857e126836cdbf0
+    .agents/skills/systemlens-skill/references/pass-profiles.md: sha256:f76cf7067f1d3781b9900d8c38c74c019a7022555e644f24e8c76606199893b6
+    .agents/skills/systemlens-skill/references/settings.md: sha256:3093c4cda8f33920143c73bd0c73c587a8a8fab746a05d811664941e9b82ecdb
+  content_hash: sha256:46ee25307b7e327540d192d803b47824f83964104943c104978531526608f869
+- repo_url: github/awesome-copilot
+  name: documentation-writer
+  host: github.com
+  resolved_commit: 17cd9ee68d49eb4547c45831cf3eea08f2c12916
+  version: unknown
+  virtual_path: skills/documentation-writer
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/documentation-writer
+  - .agents/skills/documentation-writer/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/documentation-writer/SKILL.md: sha256:7e8244988c9f4eb63bf8c0edf160578544621eb96e5e51e2d848f1401c5de8f1
+  content_hash: sha256:ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35
+deployments:
+- kind: project-relative
+  target: codex
+  value: .agents/skills/documentation-writer
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/skills/documentation-writer
+  active_owner: github/awesome-copilot/skills/documentation-writer
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/documentation-writer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/skills/documentation-writer
+  active_owner: github/awesome-copilot/skills/documentation-writer
+  content_hash: sha256:7e8244988c9f4eb63bf8c0edf160578544621eb96e5e51e2d848f1401c5de8f1
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:5cadbad60065d46c8e037ea690bb792ff6e94c67359433df6523a0662236a6ef
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/bar-chart-esql.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:2b7a7d5c25ac0c59ed680c0e6b333ed8c622d84f146d94b1229b22fbafae2c2a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/dashboard-basic.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:5f534feac28ef649ef315027077c0e2b672bcdf5621a7aa5b961a92c0ba8e24c
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/dashboard-with-visualizations.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:6f9c765f94f4c957e92e33b8be8e28ca10159667edd3bc798eeaa8e92ec4d560
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/datatable.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:9adff24d6964aca94179f3de432c0e43ac11ad61cf7c5d97afa284859a1f915f
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/demo-dashboard.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:7ffdbc2aec688e2f7b58f326b996832674ec3c4996543218116446bbbc2d21f5
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/ecommerce-analytics-dashboard.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:bb533e4ecb5895f586a250ae6e3da0f293d5b815d5a33d803adaa5be381b0974
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/line-chart-timeseries.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:5ed86131a8f4edd5bc76200f68632306c7a84fcd8ffaa990893c2225fd49962d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/assets/metric-esql.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:d641bc0356f6efe09877e083931b43c12e75135999f4cbd7cf8b02266797b5aa
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/package.json
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:e710d8b28d2e806d401a4cc27974c4d6a4dcb55e1c37f67cddac4e4b35cb7c10
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/references/chart-types-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:ce0f861f126b426fbc05af9c6f8415bf6e2b6caf13a6bac57e6701e8113ef686
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/references/dashboard-api-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:0a8ae08d457977d3d6e3a1c756a6cfa68bf09c7c17ad9903f5deeacebf45780a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/references/visualizations-api-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:1662bdee2f36d0673bd8ca7eafea12f8b8643590edb2ea764b5a5eb80f915d93
+- kind: project-relative
+  target: codex
+  value: .agents/skills/kibana-dashboards/scripts/kibana-dashboards.js
+  runtime: null
+  scope: project
+  owners:
+  - elastic/agent-skills/skills/kibana/kibana-dashboards
+  active_owner: elastic/agent-skills/skills/kibana/kibana-dashboards
+  content_hash: sha256:8aad18fe926cad3c20a76326315b0d99fa547045843541c9fa2488cb10ea31e0
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/.gitignore
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:1d15bdb66e2d42cd0ecddeb6926d7a97dbf7a82a055067b7b9afc05112ee0437
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:d643af9b80c6741f3d308ea358d678a71c3f3651836a5f73dfe981260956c523
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/PRD.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:1aaece4b4fdaa446910d5c95af7038f27aff3043e86758604e1412e167df3762
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/README.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:0bf862d9f6219cd662a9153622225427db467897b39e92381a3261ec9f6a5fd4
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:7a331beba467cb0f5aaee2dae0a6b00f0042015c4e46b0adad543df02d1f6ae8
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/agents/openai.yaml
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:462f0d7097598e1299d305e8a2f1bcd50f34f32497d21f5c695470a367bdc355
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/references/ai-graph.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:8226da4f3fabc88c5b46235af8370b61a753383900391524efe13b89acd6f60d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/references/analysis-rules.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:4af66d2c1d1a2faffc0553c19c92bfea866d74658ed5f9893fe4e7cbea45bae7
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/references/management.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:3c13b00c27cd9c8d7f232f5d53fe286704e7877a4200e12a9857e126836cdbf0
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/references/pass-profiles.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:f76cf7067f1d3781b9900d8c38c74c019a7022555e644f24e8c76606199893b6
+- kind: project-relative
+  target: codex
+  value: .agents/skills/systemlens-skill/references/settings.md
+  runtime: null
+  scope: project
+  owners:
+  - elkouhen/systemlens-skill
+  active_owner: elkouhen/systemlens-skill
+  content_hash: sha256:3093c4cda8f33920143c73bd0c73c587a8a8fab746a05d811664941e9b82ecdb
