@@ -86,6 +86,7 @@
         "layers": [
           {
             "type": "line",
+            "label": "REST",
             "data_source": {
               "type": "esql",
               "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend), channel = attributes.channel | EVAL channel_total = end - start | STATS total_orders = SUM(channel_total) BY bucket"
@@ -111,6 +112,7 @@
         "layers": [
           {
             "type": "line",
+            "label": "Kafka",
             "data_source": {
               "type": "esql",
               "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | EVAL requested_counter = TO_DOUBLE(metrics.business_stock_restock_requested_total), completed_counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS requested_start = MIN(requested_counter), requested_end = MAX(requested_counter), completed_start = MIN(completed_counter), completed_end = MAX(completed_counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL requested = requested_end - requested_start, completed = completed_end - completed_start"
@@ -141,19 +143,19 @@
             "type": "line",
             "data_source": {
               "type": "esql",
-              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"rest\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_orders = end - start"
+              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"rest\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_rest = end - start"
             },
             "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
-            "y": [{ "column": "total_orders", "label": "REST", "format": { "type": "number", "decimals": 0 } }]
+            "y": [{ "column": "total_rest", "label": "REST", "format": { "type": "number", "decimals": 0 } }]
           },
           {
             "type": "line",
             "data_source": {
               "type": "esql",
-              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"kafka\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_orders = end - start"
+              "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"kafka\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_kafka = end - start"
             },
             "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
-            "y": [{ "column": "total_orders", "label": "Kafka", "format": { "type": "number", "decimals": 0 } }]
+            "y": [{ "column": "total_kafka", "label": "Kafka", "format": { "type": "number", "decimals": 0 } }]
           }
         ]
       }
