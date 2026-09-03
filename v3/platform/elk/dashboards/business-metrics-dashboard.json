@@ -245,17 +245,17 @@
       "config": {
         "title": "Temps HTTP par endpoint",
         "type": "data_table",
-        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | EVAL request_sum = TO_DOUBLE(metrics.http_server_requests_seconds.sum), request_count = TO_DOUBLE(metrics.http_server_requests_seconds.value_count), max_duration = TO_DOUBLE(metrics.http_server_requests_seconds_max) | STATS total_requests = SUM(request_count), total_seconds = SUM(request_sum), max_seconds = MAX(max_duration) BY service = resource.attributes.server.address, method = attributes.method, endpoint = attributes.uri, status = attributes.status | EVAL avg_ms = 1000 * total_seconds / total_requests, max_ms = 1000 * max_seconds | SORT avg_ms DESC" },
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | EVAL request_sum = TO_DOUBLE(metrics.http_server_requests_seconds.sum), request_count = TO_DOUBLE(metrics.http_server_requests_seconds.value_count), max_duration = TO_DOUBLE(metrics.http_server_requests_seconds_max), error_count = CASE(attributes.outcome == \"SERVER_ERROR\", TO_DOUBLE(metrics.http_server_requests_seconds.value_count), 0) | STATS total_requests = SUM(request_count), total_seconds = SUM(request_sum), max_seconds = MAX(max_duration), total_errors = SUM(error_count) BY service = resource.attributes.server.address, method = attributes.method, endpoint = attributes.uri | EVAL avg_ms = 1000 * total_seconds / total_requests, max_ms = 1000 * max_seconds, error_rate = 100 * total_errors / total_requests | SORT avg_ms DESC" },
         "metrics": [
           { "column": "total_requests", "label": "Requêtes" },
           { "column": "avg_ms", "label": "Moyenne (ms)" },
-          { "column": "max_ms", "label": "Maximum (ms)" }
+          { "column": "max_ms", "label": "Maximum (ms)" },
+          { "column": "error_rate", "label": "Erreurs (%)" }
         ],
         "rows": [
           { "column": "service", "label": "Service" },
           { "column": "method", "label": "Méthode" },
-          { "column": "endpoint", "label": "Endpoint" },
-          { "column": "status", "label": "Statut" }
+          { "column": "endpoint", "label": "Endpoint" }
         ]
       }
     }
