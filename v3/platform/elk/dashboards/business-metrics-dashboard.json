@@ -286,8 +286,27 @@
     {
       "type": "markdown",
       "id": "apm-navigation-links",
-      "grid": { "x": 0, "y": 70, "w": 48, "h": 4 },
+      "grid": { "x": 0, "y": 87, "w": 48, "h": 4 },
       "config": { "content": "### Explorer les signaux\n\n[APM — Monitoring Overview](/app/apm) · [Services APM](/app/apm/services) · [Transactions APM](/app/apm/services) · [Kubernetes — Services](/app/dashboards#/view/kubernetes-ff1b3850-bcb1-11ec-b64f-7dd6e8e82013)" }
+    },
+    {
+      "type": "vis",
+      "id": "kafka-endpoint-statistics",
+      "grid": { "x": 0, "y": 70, "w": 48, "h": 16 },
+      "config": {
+        "title": "Kafka — topics, partitions et lag",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.kafka_consumer_fetch_manager_records_lag_max IS NOT NULL | EVAL lag = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_records_lag_max), consumed = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_records_consumed_rate) | STATS lag_max = MAX(lag), lag_average = AVG(lag), records_consumed_rate = AVG(consumed) BY topic = attributes.topic, partition = attributes.partition | SORT lag_max DESC" },
+        "metrics": [
+          { "column": "lag_max", "label": "Lag max" },
+          { "column": "lag_average", "label": "Lag moyen" },
+          { "column": "records_consumed_rate", "label": "Débit consommé" }
+        ],
+        "rows": [
+          { "column": "topic", "label": "Topic" },
+          { "column": "partition", "label": "Partition" }
+        ]
+      }
     }
   ]
 }
