@@ -157,6 +157,74 @@
           }
         ]
       }
+    },
+    {
+      "type": "vis",
+      "id": "service-availability",
+      "grid": { "x": 0, "y": 25, "w": 12, "h": 5 },
+      "config": {
+        "title": "Disponibilité des services",
+        "type": "metric",
+        "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.up IS NOT NULL | EVAL up_value = TO_DOUBLE(metrics.up) | STATS availability = AVG(up_value)" },
+        "metrics": [{ "type": "primary", "column": "availability", "label": "Disponibilité moyenne", "format": { "type": "number", "decimals": 2 } }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "service-cpu-usage",
+      "grid": { "x": 12, "y": 25, "w": 12, "h": 5 },
+      "config": {
+        "title": "CPU applicatif",
+        "type": "metric",
+        "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu = TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu)" },
+        "metrics": [{ "type": "primary", "column": "cpu_average", "label": "CPU moyen", "format": { "type": "number", "decimals": 3 } }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "jvm-memory-usage",
+      "grid": { "x": 24, "y": 25, "w": 12, "h": 5 },
+      "config": {
+        "title": "Mémoire JVM",
+        "type": "metric",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory)" },
+        "metrics": [{ "type": "primary", "column": "memory_ratio", "label": "Ratio mémoire utilisée", "format": { "type": "number", "decimals": 3 } }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "jvm-live-threads",
+      "grid": { "x": 36, "y": 25, "w": 12, "h": 5 },
+      "config": {
+        "title": "Threads JVM actifs",
+        "type": "metric",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_threads_live_threads IS NOT NULL | EVAL threads = TO_DOUBLE(metrics.jvm_threads_live_threads) | STATS live_threads = MAX(threads)" },
+        "metrics": [{ "type": "primary", "column": "live_threads", "label": "Threads actifs (max)", "format": { "type": "number", "decimals": 0 } }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "service-cpu-over-time",
+      "grid": { "x": 0, "y": 30, "w": 24, "h": 10 },
+      "config": {
+        "title": "CPU applicatif dans le temps",
+        "type": "xy",
+        "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
+        "legend": { "position": "right", "placement": "outside" },
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu = TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "cpu_average", "label": "CPU moyen", "format": { "type": "number", "decimals": 3 } }] }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "jvm-memory-over-time",
+      "grid": { "x": 24, "y": 30, "w": 24, "h": 10 },
+      "config": {
+        "title": "Ratio mémoire JVM dans le temps",
+        "type": "xy",
+        "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
+        "legend": { "position": "right", "placement": "outside" },
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "memory_ratio", "label": "Ratio mémoire", "format": { "type": "number", "decimals": 3 } }] }]
+      }
     }
   ]
 }

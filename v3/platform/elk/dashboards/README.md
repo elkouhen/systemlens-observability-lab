@@ -60,6 +60,11 @@ commandes par canal (`REST` et `Kafka`). Les valeurs sont les deltas des
 compteurs sur chaque bucket ; elles représentent donc un volume de période et
 non la valeur cumulée brute du compteur.
 
+La vue inclut également six panneaux de santé applicative : disponibilité
+(`metrics.up`), CPU, ratio de mémoire JVM et threads actifs, avec les tendances
+CPU et mémoire. Ces indicateurs sont calculés sur la période sélectionnée et
+peuvent être vides si le flux de métriques applicatives n'est pas alimenté.
+
 Les filtres KQL doivent conserver une expression entre parenthèses. Une
 expression générée avec un groupe vide (`and ()metrics...`) est invalide ; la
 forme équivalente correcte est par exemple :
