@@ -270,6 +270,12 @@
     {
       "type": "vis", "id": "http-errors-kpi", "grid": { "x": 32, "y": 25, "w": 16, "h": 5 },
       "config": { "title": "Errors HTTP", "type": "metric", "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | EVAL error = CASE(attributes.outcome == \"SERVER_ERROR\", 1, 0) | STATS total = COUNT(*), total_errors = SUM(error) | EVAL error_rate = 100 * total_errors / total" }, "metrics": [{ "type": "primary", "column": "error_rate", "label": "Taux d’erreur (%)", "format": { "type": "number", "decimals": 2 } }] }
+    },
+    {
+      "type": "markdown",
+      "id": "apm-navigation-links",
+      "grid": { "x": 0, "y": 67, "w": 48, "h": 4 },
+      "config": { "content": "### Explorer les signaux\n\n[APM — Monitoring Overview](/app/apm) · [Services APM](/app/apm/services) · [Transactions APM](/app/apm/services) · [Kubernetes — Services](/app/dashboards#/view/kubernetes-ff1b3850-bcb1-11ec-b64f-7dd6e8e82013)" }
     }
   ]
 }
