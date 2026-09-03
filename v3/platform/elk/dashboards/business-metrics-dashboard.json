@@ -229,7 +229,7 @@
     {
       "type": "vis",
       "id": "stock-by-product",
-      "grid": { "x": 0, "y": 60, "w": 48, "h": 10 },
+      "grid": { "x": 0, "y": 86, "w": 48, "h": 10 },
       "config": {
         "title": "Stock — état par produit",
         "type": "data_table",
@@ -286,7 +286,7 @@
     {
       "type": "markdown",
       "id": "apm-navigation-links",
-      "grid": { "x": 0, "y": 87, "w": 48, "h": 4 },
+      "grid": { "x": 0, "y": 96, "w": 48, "h": 4 },
       "config": { "content": "### Explorer les signaux\n\n[APM — Monitoring Overview](/app/apm) · [Services APM](/app/apm/services) · [Transactions APM](/app/apm/services) · [Kubernetes — Services](/app/dashboards#/view/kubernetes-ff1b3850-bcb1-11ec-b64f-7dd6e8e82013)" }
     },
     {
