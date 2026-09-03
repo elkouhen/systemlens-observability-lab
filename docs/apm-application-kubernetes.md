@@ -334,18 +334,18 @@ Dans APM, contrôler :
 Dans Discover, utiliser les filtres suivants :
 
 ```kql
-data_stream.dataset : "apm-0tl"
-and data_stream.namespace : "homologation"
-and service.name : ("order-service" or "inventory-service" or "restock-service")
+data_stream.dataset:"apm-0tl"
+and data_stream.namespace:"homologation"
+and service.name:("order-service" or "inventory-service" or "restock-service")
 ```
 
 Pour les logs applicatifs :
 
 ```kql
-data_stream.dataset : "kube-0tl"
-and service.environment : "homologation"
-and labels.ptf : "0tl"
-and labels.namespace : "supermarche-app"
+data_stream.dataset:"kube-0tl"
+and service.environment:"homologation"
+and labels.ptf:"0tl"
+and labels.namespace:"supermarche-app"
 ```
 
 Sur un log produit pendant une transaction, vérifier la présence de `trace.id`
@@ -365,10 +365,10 @@ kubectl -n h0tl-supermarche-app run metrics-check --rm --attach --stdin \
 Puis rechercher dans Discover :
 
 ```kql
-data_stream.dataset : "app.prometheus.0tl"
-and data_stream.namespace : "homologation"
-and service.name : "order-service"
-and prometheus.metrics.kafka_producer_linger_milliseconds : *
+data_stream.dataset:"app.prometheus.0tl"
+and data_stream.namespace:"homologation"
+and service.name:"order-service"
+and prometheus.metrics.kafka_producer_linger_milliseconds:*
 ```
 
 Les champs à rechercher sont notamment :

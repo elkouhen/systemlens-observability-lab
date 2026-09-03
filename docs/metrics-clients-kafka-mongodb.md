@@ -134,9 +134,9 @@ L'Elastic Agent utilise l'intégration Prometheus pour appeler
 Dans Kibana Discover, filtrer par exemple :
 
 ```kql
-data_stream.type: metrics
-and data_stream.dataset: "app.prometheus.*"
-and service.name: "inventory-service"
+data_stream.type:metrics
+and data_stream.dataset:"app.prometheus.*"
+and service.name:"inventory-service"
 ```
 
 Les métriques sont stockées sous `prometheus.metrics.*` pour la collecte Elastic
@@ -149,16 +149,16 @@ Dans Kibana Discover, sélectionner `metrics-prometheusreceiver.otel-*` et
 utiliser le filtre :
 
 ```kql
-data_stream.dataset: "prometheusreceiver.otel"
-and resource.attributes.service.name: "supermarket-applications"
+data_stream.dataset:"prometheusreceiver.otel"
+and resource.attributes.service.name:"supermarket-applications"
 and metrics.business_orders_completed_total:*
 ```
 
 Pour visualiser les réassorts appliqués par `inventory-service` :
 
 ```kql
-data_stream.dataset: "prometheusreceiver.otel"
-and resource.attributes.server.address: "inventory-service.h0tl-supermarche-app.svc.cluster.local"
+data_stream.dataset:"prometheusreceiver.otel"
+and resource.attributes.server.address:"inventory-service.h0tl-supermarche-app.svc.cluster.local"
 and metrics.business_stock_restock_completed_total:*
 ```
 

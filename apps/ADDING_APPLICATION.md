@@ -127,17 +127,17 @@ Discover avec les filtres suivants :
 
 ```kql
 # Métriques Java en homologation
-data_stream.dataset : "apm.app.0tl"
-and data_stream.namespace : "homologation"
-and agent.name : "java"
+data_stream.dataset:"apm.app.0tl"
+and data_stream.namespace:"homologation"
+and agent.name:"java"
 ```
 
 ```kql
 # Logs applicatifs normalisés
-data_stream.dataset : "kube-0tl"
-and service.environment : "homologation"
-and labels.ptf : "0tl"
-and labels.namespace : "supermarche-app"
+data_stream.dataset:"kube-0tl"
+and service.environment:"homologation"
+and labels.ptf:"0tl"
+and labels.namespace:"supermarche-app"
 ```
 
 Le contrôle attendu est la présence de la même identité de service dans les
