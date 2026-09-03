@@ -163,7 +163,7 @@
       "id": "service-availability",
       "grid": { "x": 0, "y": 35, "w": 12, "h": 5 },
       "config": {
-        "title": "Disponibilité des services",
+        "title": "Errors — disponibilité des services",
         "type": "metric",
         "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.up IS NOT NULL | EVAL up_value = TO_DOUBLE(metrics.up) | STATS availability = AVG(up_value)" },
         "metrics": [{ "type": "primary", "column": "availability", "label": "Disponibilité moyenne", "format": { "type": "number", "decimals": 2 } }]
@@ -174,7 +174,7 @@
       "id": "service-cpu-usage",
       "grid": { "x": 12, "y": 35, "w": 12, "h": 5 },
       "config": {
-        "title": "CPU applicatif",
+        "title": "Saturation — CPU applicatif",
         "type": "metric",
         "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu = TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu)" },
         "metrics": [{ "type": "primary", "column": "cpu_average", "label": "CPU moyen", "format": { "type": "number", "decimals": 3 } }]
@@ -185,7 +185,7 @@
       "id": "jvm-memory-usage",
       "grid": { "x": 24, "y": 35, "w": 12, "h": 5 },
       "config": {
-        "title": "Mémoire JVM",
+        "title": "Saturation — mémoire JVM",
         "type": "metric",
         "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory)" },
         "metrics": [{ "type": "primary", "column": "memory_ratio", "label": "Ratio mémoire utilisée", "format": { "type": "number", "decimals": 3 } }]
@@ -196,7 +196,7 @@
       "id": "jvm-live-threads",
       "grid": { "x": 36, "y": 35, "w": 12, "h": 5 },
       "config": {
-        "title": "Threads JVM actifs",
+        "title": "Saturation — threads JVM actifs",
         "type": "metric",
         "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_threads_live_threads IS NOT NULL | EVAL threads = TO_DOUBLE(metrics.jvm_threads_live_threads) | STATS live_threads = MAX(threads)" },
         "metrics": [{ "type": "primary", "column": "live_threads", "label": "Threads actifs (max)", "format": { "type": "number", "decimals": 0 } }]
@@ -207,7 +207,7 @@
       "id": "service-cpu-over-time",
       "grid": { "x": 0, "y": 40, "w": 24, "h": 10 },
       "config": {
-        "title": "CPU applicatif dans le temps",
+        "title": "Saturation — CPU dans le temps",
         "type": "xy",
         "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
         "legend": { "position": "right", "placement": "outside" },
@@ -219,7 +219,7 @@
       "id": "jvm-memory-over-time",
       "grid": { "x": 24, "y": 40, "w": 24, "h": 10 },
       "config": {
-        "title": "Ratio mémoire JVM dans le temps",
+        "title": "Saturation — mémoire JVM dans le temps",
         "type": "xy",
         "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
         "legend": { "position": "right", "placement": "outside" },
@@ -229,9 +229,9 @@
     {
       "type": "vis",
       "id": "stock-by-product",
-      "grid": { "x": 0, "y": 25, "w": 48, "h": 10 },
+      "grid": { "x": 0, "y": 50, "w": 48, "h": 10 },
       "config": {
-        "title": "État du stock par produit",
+        "title": "Stock — état par produit",
         "type": "data_table",
         "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_quantity IS NOT NULL | EVAL stock = TO_DOUBLE(metrics.business_stock_quantity) | STATS stock = MAX(stock) BY product_id = attributes.product_id, product_name = attributes.product_name | SORT stock ASC" },
         "metrics": [{ "column": "stock", "label": "Stock disponible" }],
@@ -241,9 +241,9 @@
     {
       "type": "vis",
       "id": "http-endpoint-latency",
-      "grid": { "x": 0, "y": 50, "w": 48, "h": 12 },
+      "grid": { "x": 0, "y": 25, "w": 48, "h": 10 },
       "config": {
-        "title": "Temps HTTP par endpoint",
+        "title": "Traffic / Latency / Errors — statistiques HTTP par endpoint",
         "type": "data_table",
         "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | EVAL request_sum = TO_DOUBLE(metrics.http_server_requests_seconds.sum), request_count = TO_DOUBLE(metrics.http_server_requests_seconds.value_count), max_duration = TO_DOUBLE(metrics.http_server_requests_seconds_max), error_count = CASE(attributes.outcome == \"SERVER_ERROR\", TO_DOUBLE(metrics.http_server_requests_seconds.value_count), 0) | STATS total_requests = SUM(request_count), total_seconds = SUM(request_sum), max_seconds = MAX(max_duration), total_errors = SUM(error_count) BY service = resource.attributes.server.address, method = attributes.method, endpoint = attributes.uri | EVAL avg_ms = 1000 * total_seconds / total_requests, max_ms = 1000 * max_seconds, error_rate = 100 * total_errors / total_requests | SORT avg_ms DESC" },
         "metrics": [
