@@ -82,6 +82,7 @@
           "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
           "y": { "title": { "visible": false } }
         },
+        "legend": { "position": "right", "placement": "outside" },
         "layers": [
           {
             "type": "line",
@@ -90,7 +91,7 @@
               "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend), channel = attributes.channel | EVAL channel_total = end - start | STATS total_orders = SUM(channel_total) BY bucket"
             },
             "x": { "column": "bucket", "label": "Période" },
-            "y": [{ "column": "total_orders", "format": { "type": "number", "decimals": 0 } }]
+            "y": [{ "column": "total_orders", "label": "Commandes finalisées", "format": { "type": "number", "decimals": 0 } }]
           }
         ]
       }
@@ -106,6 +107,7 @@
           "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
           "y": { "title": { "visible": false } }
         },
+        "legend": { "position": "right", "placement": "outside" },
         "layers": [
           {
             "type": "line",
@@ -115,8 +117,8 @@
             },
             "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
             "y": [
-              { "column": "requested", "format": { "type": "number", "decimals": 0 } },
-              { "column": "completed", "format": { "type": "number", "decimals": 0 } }
+              { "column": "requested", "label": "Réassorts demandés", "format": { "type": "number", "decimals": 0 } },
+              { "column": "completed", "label": "Réassorts terminés", "format": { "type": "number", "decimals": 0 } }
             ]
           }
         ]
@@ -133,6 +135,7 @@
           "x": { "title": { "visible": false }, "scale": "temporal", "domain": { "type": "fit", "rounding": false } },
           "y": { "title": { "visible": false } }
         },
+        "legend": { "position": "right", "placement": "outside" },
         "layers": [
           {
             "type": "line",
@@ -141,7 +144,7 @@
               "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"rest\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_orders = end - start"
             },
             "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
-            "y": [{ "column": "total_orders", "format": { "type": "number", "decimals": 0 } }]
+            "y": [{ "column": "total_orders", "label": "REST", "format": { "type": "number", "decimals": 0 } }]
           },
           {
             "type": "line",
@@ -150,7 +153,7 @@
               "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND attributes.channel == \"kafka\" AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY BUCKET(@timestamp, 75, ?_tstart, ?_tend) | EVAL total_orders = end - start"
             },
             "x": { "column": "BUCKET(@timestamp, 75, ?_tstart, ?_tend)", "label": "Période" },
-            "y": [{ "column": "total_orders", "format": { "type": "number", "decimals": 0 } }]
+            "y": [{ "column": "total_orders", "label": "Kafka", "format": { "type": "number", "decimals": 0 } }]
           }
         ]
       }
