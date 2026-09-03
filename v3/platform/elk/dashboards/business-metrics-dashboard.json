@@ -237,6 +237,27 @@
         "metrics": [{ "column": "stock", "label": "Stock disponible" }],
         "rows": [{ "column": "product_id", "label": "Produit" }, { "column": "product_name", "label": "Nom" }]
       }
+    },
+    {
+      "type": "vis",
+      "id": "http-endpoint-latency",
+      "grid": { "x": 0, "y": 50, "w": 48, "h": 12 },
+      "config": {
+        "title": "Temps HTTP par endpoint",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | EVAL request_sum = TO_DOUBLE(metrics.http_server_requests_seconds.sum), request_count = TO_DOUBLE(metrics.http_server_requests_seconds.value_count), max_duration = TO_DOUBLE(metrics.http_server_requests_seconds_max) | STATS total_requests = SUM(request_count), total_seconds = SUM(request_sum), max_seconds = MAX(max_duration) BY service = resource.attributes.server.address, method = attributes.method, endpoint = attributes.uri, status = attributes.status | EVAL avg_ms = 1000 * total_seconds / total_requests, max_ms = 1000 * max_seconds | SORT avg_ms DESC" },
+        "metrics": [
+          { "column": "total_requests", "label": "Requêtes" },
+          { "column": "avg_ms", "label": "Moyenne (ms)" },
+          { "column": "max_ms", "label": "Maximum (ms)" }
+        ],
+        "rows": [
+          { "column": "service", "label": "Service" },
+          { "column": "method", "label": "Méthode" },
+          { "column": "endpoint", "label": "Endpoint" },
+          { "column": "status", "label": "Statut" }
+        ]
+      }
     }
   ]
 }
