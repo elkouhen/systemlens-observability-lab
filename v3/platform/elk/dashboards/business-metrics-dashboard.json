@@ -225,6 +225,18 @@
         "legend": { "position": "right", "placement": "outside" },
         "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "memory_ratio", "label": "Ratio mémoire", "format": { "type": "number", "decimals": 3 } }] }]
       }
+    },
+    {
+      "type": "vis",
+      "id": "stock-by-product",
+      "grid": { "x": 0, "y": 40, "w": 48, "h": 10 },
+      "config": {
+        "title": "État du stock par produit",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_quantity IS NOT NULL | EVAL stock = TO_DOUBLE(metrics.business_stock_quantity) | STATS stock = MAX(stock) BY product_id = attributes.product_id, product_name = attributes.product_name | SORT stock ASC" },
+        "metrics": [{ "column": "stock", "label": "Stock disponible" }],
+        "rows": [{ "column": "product_id", "label": "Produit" }, { "column": "product_name", "label": "Nom" }]
+      }
     }
   ]
 }

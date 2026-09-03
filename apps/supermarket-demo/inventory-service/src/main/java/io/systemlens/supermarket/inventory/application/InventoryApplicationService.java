@@ -10,6 +10,7 @@ import io.systemlens.supermarket.inventory.domain.ProductNotFoundException;
 import io.systemlens.supermarket.inventory.domain.Quantity;
 import io.systemlens.supermarket.inventory.domain.StockReservation;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.Clock;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class InventoryApplicationService implements InventoryUseCase {
@@ -29,6 +32,7 @@ public class InventoryApplicationService implements InventoryUseCase {
     private final StockDepletedPort stockDepleted;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
+    private final ConcurrentHashMap<String, AtomicInteger> stockGauges = new ConcurrentHashMap<>();
 
     @Autowired
     public InventoryApplicationService(ProductPort products, OrderFulfillmentPort fulfillments,
@@ -72,6 +76,7 @@ public class InventoryApplicationService implements InventoryUseCase {
         StockReservation reservation = product.reserve(requestedQuantity);
         products.save(product);
         int remainingStock = reservation.remainingStock();
+        updateStockGauge(product, remainingStock);
         Instant createdAt = clock.instant();
         fulfillments.save(orderId, productId, reservation.productName(), reservation.quantity().value(), remainingStock, channel, requestedAt, createdAt);
         try {
@@ -97,7 +102,16 @@ public class InventoryApplicationService implements InventoryUseCase {
         Product product = products.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
         product.restock(Quantity.of(quantity));
         products.save(product);
+        updateStockGauge(product, product.stockQuantity());
         meterRegistry.counter("business.stock.restock.completed").increment();
         LOGGER.info("Reassort effectue: productId={}, quantity={}, stockQuantity={}", productId, quantity, product.stockQuantity());
+    }
+
+    private void updateStockGauge(Product product, int stockQuantity) {
+        AtomicInteger value = stockGauges.computeIfAbsent(product.id(), id ->
+                meterRegistry.gauge("business.stock.quantity",
+                        Tags.of("product_id", product.id(), "product_name", product.name()),
+                        new AtomicInteger(stockQuantity)));
+        value.set(stockQuantity);
     }
 }
