@@ -21,6 +21,8 @@ produits par la collecte v3.
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agent Fleet healthy sur `data-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
 
+Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
+
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.
 Pour ce POC, PostgreSQL est attendu uniquement sur `data-01`; le dashboard ne
@@ -47,8 +49,10 @@ La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
 les métriques clés ci-dessus. Elle permet de distinguer un dashboard vide
 d'un problème de collecte.
 
-Le dashboard versionné est réconcilié par `make business-dashboard-deploy` (ou
-automatiquement par `make elk-deploy`). Il apparaît dans Kibana sous
+Le dashboard versionné est supprimé puis réimporté par `make business-dashboard-deploy`
+(ou automatiquement par `make elk-deploy`). Le script
+`platform/elk/scripts/replace-kibana-dashboard.sh` automatise cette séquence ;
+`make business-dashboard-replace` fournit un alias explicite. Il apparaît dans Kibana sous
 **Métriques métier — Supermarket Demo**. Les panneaux utilisent le maximum du
 compteur cumulatif dans chaque intervalle ; le filtre temporel Kibana doit donc
 être positionné sur une période où les métriques sont présentes.

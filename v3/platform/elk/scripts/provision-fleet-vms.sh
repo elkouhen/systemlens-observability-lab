@@ -12,6 +12,7 @@ token_name="systemlens-${policy_id}-$(date +%s)"
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de provisionner les VM Fleet}"
 
 response="$(curl --fail --silent --show-error --insecure \
+  --retry 5 --retry-delay 3 --retry-all-errors \
   --resolve "${kibana_resolve}" \
   -u "${kibana_user}:${KIBANA_PASSWORD}" \
   -H 'kbn-xsrf: systemlens-fleet-vm-provision' \

@@ -60,13 +60,25 @@ data:
       prometheus:
         config:
           scrape_configs:
-            - job_name: supermarket-applications
+            - job_name: order-service
               scrape_interval: 15s
               metrics_path: /actuator/prometheus
               static_configs:
                 - targets:
                     - order-service.h0tl-supermarche-app.svc.cluster.local:3000
+
+            - job_name: inventory-service
+              scrape_interval: 15s
+              metrics_path: /actuator/prometheus
+              static_configs:
+                - targets:
                     - inventory-service.h0tl-supermarche-app.svc.cluster.local:3001
+
+            - job_name: restock-service
+              scrape_interval: 15s
+              metrics_path: /actuator/prometheus
+              static_configs:
+                - targets:
                     - restock-service.h0tl-supermarche-app.svc.cluster.local:3002
 
     exporters:

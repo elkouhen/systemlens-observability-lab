@@ -39,8 +39,10 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        business.kafka.message.processing: true
       percentiles:
         http.server.requests: 0.5,0.95,0.99
+        business.kafka.message.processing: 0.5,0.95,0.99
   export:
     prometheus:
       enabled: true

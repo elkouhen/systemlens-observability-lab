@@ -1,7 +1,7 @@
 {
   "id": "business-metrics-dashboard",
   "title": "Métriques métier — Supermarket Demo",
-  "description": "Parcours : Métier → Traffic / Latency / Errors → Stock → Saturation. Les volumes métier sont calculés à partir des deltas des compteurs Prometheus sur la période sélectionnée.",
+  "description": "Parcours golden signals : Métier (commandes, réassort, stock) → Traffic → Latency → Errors → Saturation. Les métriques techniques des microservices sont représentées par des courbes temporelles, avec une série et une légende par microservice lorsque la dimension est disponible.",
   "time_range": {
     "from": "now-24h",
     "to": "now"
@@ -16,7 +16,7 @@
         "type": "metric",
         "data_source": {
           "type": "esql",
-          "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY channel = attributes.channel | EVAL channel_total = end - start | STATS total_orders = SUM(channel_total)"
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_orders_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_orders_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY instance = resource.attributes.service.instance.id, channel = attributes.channel | EVAL channel_total = end - start | STATS total_orders = SUM(channel_total)"
         },
         "metrics": [
           { "type": "primary", "column": "total_orders", "label": "Commandes finalisées", "format": { "type": "number", "decimals": 0 } }
@@ -32,7 +32,7 @@
         "type": "metric",
         "data_source": {
           "type": "esql",
-          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_restock_requested_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_stock_restock_requested_total) | STATS start = MIN(counter), end = MAX(counter) | EVAL total_requested = end - start"
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_restock_requested_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_stock_restock_requested_total) | STATS start = MIN(counter), end = MAX(counter) BY instance = resource.attributes.service.instance.id | EVAL total_requested = end - start | STATS total_requested = SUM(total_requested)"
         },
         "metrics": [
           { "type": "primary", "column": "total_requested", "label": "Réassorts demandés", "format": { "type": "number", "decimals": 0 } }
@@ -48,7 +48,7 @@
         "type": "metric",
         "data_source": {
           "type": "esql",
-          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_restock_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS start = MIN(counter), end = MAX(counter) | EVAL total_completed = end - start"
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_stock_restock_completed_total IS NOT NULL | EVAL counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS start = MIN(counter), end = MAX(counter) BY instance = resource.attributes.service.instance.id | EVAL total_completed = end - start | STATS total_completed = SUM(total_completed)"
         },
         "metrics": [
           { "type": "primary", "column": "total_completed", "label": "Réassorts terminés", "format": { "type": "number", "decimals": 0 } }
@@ -64,7 +64,7 @@
         "type": "metric",
         "data_source": {
           "type": "esql",
-          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | EVAL requested_counter = TO_DOUBLE(metrics.business_stock_restock_requested_total), completed_counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS requested_start = MIN(requested_counter), requested_end = MAX(requested_counter), completed_start = MIN(completed_counter), completed_end = MAX(completed_counter) | EVAL restock_gap = (requested_end - requested_start) - (completed_end - completed_start)"
+          "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart | EVAL requested_counter = TO_DOUBLE(metrics.business_stock_restock_requested_total), completed_counter = TO_DOUBLE(metrics.business_stock_restock_completed_total) | STATS requested_start = MIN(requested_counter), requested_end = MAX(requested_counter), completed_start = MIN(completed_counter), completed_end = MAX(completed_counter) BY instance = resource.attributes.service.instance.id | EVAL restock_gap = (requested_end - requested_start) - (completed_end - completed_start) | STATS restock_gap = SUM(restock_gap)"
         },
         "metrics": [
           { "type": "primary", "column": "restock_gap", "label": "Écart réassorts sur la période", "format": { "type": "number", "decimals": 0 } }
@@ -161,7 +161,7 @@
     {
       "type": "vis",
       "id": "service-availability",
-      "grid": { "x": 0, "y": 50, "w": 12, "h": 5 },
+      "grid": { "x": 0, "y": 70, "w": 12, "h": 5 },
       "config": {
         "title": "Errors — disponibilité des services",
         "type": "metric",
@@ -172,29 +172,31 @@
     {
       "type": "vis",
       "id": "service-cpu-usage",
-      "grid": { "x": 12, "y": 50, "w": 12, "h": 5 },
+      "grid": { "x": 12, "y": 70, "w": 12, "h": 5 },
       "config": {
         "title": "Saturation — CPU applicatif",
-        "type": "metric",
-        "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu = TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu)" },
-        "metrics": [{ "type": "primary", "column": "cpu_average", "label": "CPU moyen", "format": { "type": "number", "decimals": 3 } }]
+        "type": "xy",
+        "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
+        "legend": { "position": "right", "placement": "outside" },
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu_percent = 100 * TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu_percent) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "cpu_average", "label": "CPU (%)" }], "breakdown_by": { "column": "service" } }]
       }
     },
     {
       "type": "vis",
       "id": "jvm-memory-usage",
-      "grid": { "x": 24, "y": 50, "w": 12, "h": 5 },
+      "grid": { "x": 24, "y": 70, "w": 12, "h": 5 },
       "config": {
         "title": "Saturation — mémoire JVM",
-        "type": "metric",
-        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory)" },
-        "metrics": [{ "type": "primary", "column": "memory_ratio", "label": "Ratio mémoire utilisée", "format": { "type": "number", "decimals": 3 } }]
+        "type": "xy",
+        "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
+        "legend": { "position": "right", "placement": "outside" },
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(100 * used / max_memory) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "memory_ratio", "label": "Mémoire (%)" }], "breakdown_by": { "column": "service" } }]
       }
     },
     {
       "type": "vis",
       "id": "jvm-live-threads",
-      "grid": { "x": 36, "y": 50, "w": 12, "h": 5 },
+      "grid": { "x": 36, "y": 70, "w": 12, "h": 5 },
       "config": {
         "title": "Saturation — threads JVM actifs",
         "type": "metric",
@@ -205,31 +207,31 @@
     {
       "type": "vis",
       "id": "service-cpu-over-time",
-      "grid": { "x": 0, "y": 55, "w": 24, "h": 10 },
+      "grid": { "x": 0, "y": 75, "w": 24, "h": 10 },
       "config": {
         "title": "Saturation — CPU dans le temps",
         "type": "xy",
         "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
         "legend": { "position": "right", "placement": "outside" },
-        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu = TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "cpu_average", "label": "CPU moyen", "format": { "type": "number", "decimals": 3 } }] }]
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu = TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "cpu_average", "label": "CPU moyen", "format": { "type": "number", "decimals": 3 } }], "breakdown_by": { "column": "service" } }]
       }
     },
     {
       "type": "vis",
       "id": "jvm-memory-over-time",
-      "grid": { "x": 24, "y": 55, "w": 24, "h": 10 },
+      "grid": { "x": 24, "y": 75, "w": 24, "h": 10 },
       "config": {
         "title": "Saturation — mémoire JVM dans le temps",
         "type": "xy",
         "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
         "legend": { "position": "right", "placement": "outside" },
-        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "memory_ratio", "label": "Ratio mémoire", "format": { "type": "number", "decimals": 3 } }] }]
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(used / max_memory) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "memory_ratio", "label": "Ratio mémoire", "format": { "type": "number", "decimals": 3 } }], "breakdown_by": { "column": "service" } }]
       }
     },
     {
       "type": "vis",
       "id": "stock-by-product",
-      "grid": { "x": 0, "y": 86, "w": 48, "h": 10 },
+      "grid": { "x": 0, "y": 25, "w": 48, "h": 10 },
       "config": {
         "title": "Stock — état par produit",
         "type": "data_table",
@@ -241,7 +243,7 @@
     {
       "type": "vis",
       "id": "http-endpoint-latency",
-      "grid": { "x": 0, "y": 30, "w": 24, "h": 16 },
+      "grid": { "x": 0, "y": 40, "w": 24, "h": 16 },
       "config": {
         "title": "Traffic / Latency / Errors — statistiques HTTP par endpoint",
         "type": "data_table",
@@ -260,51 +262,132 @@
       }
     },
     {
-      "type": "vis", "id": "http-traffic-kpi", "grid": { "x": 0, "y": 25, "w": 16, "h": 5 },
+      "type": "vis", "id": "http-traffic-kpi", "grid": { "x": 0, "y": 35, "w": 16, "h": 5 },
       "config": { "title": "Traffic HTTP", "type": "metric", "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | STATS total_requests = COUNT(*)" }, "metrics": [{ "type": "primary", "column": "total_requests", "label": "Séries de requêtes", "format": { "type": "number", "decimals": 0 } }] }
     },
     {
-      "type": "vis", "id": "http-latency-kpi", "grid": { "x": 16, "y": 25, "w": 16, "h": 5 },
+      "type": "vis", "id": "http-latency-kpi", "grid": { "x": 16, "y": 35, "w": 16, "h": 5 },
       "config": { "title": "Latency HTTP", "type": "metric", "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds_max IS NOT NULL | EVAL max_ms = 1000 * TO_DOUBLE(metrics.http_server_requests_seconds_max) | STATS average_max_ms = AVG(max_ms)" }, "metrics": [{ "type": "primary", "column": "average_max_ms", "label": "Moyenne des maxima (ms)", "format": { "type": "number", "decimals": 2 } }] }
     },
     {
-      "type": "vis", "id": "http-errors-kpi", "grid": { "x": 32, "y": 25, "w": 16, "h": 5 },
+      "type": "vis", "id": "http-errors-kpi", "grid": { "x": 32, "y": 35, "w": 16, "h": 5 },
       "config": { "title": "Errors HTTP", "type": "metric", "data_source": { "type": "esql", "query": "FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_server_requests_seconds IS NOT NULL | EVAL error = CASE(attributes.outcome == \"SERVER_ERROR\", 1, 0) | STATS total = COUNT(*), total_errors = SUM(error) | EVAL error_rate = 100 * total_errors / total" }, "metrics": [{ "type": "primary", "column": "error_rate", "label": "Taux d’erreur (%)", "format": { "type": "number", "decimals": 2 } }] }
     },
     {
       "type": "vis",
       "id": "jvm-gc-overhead-over-time",
-      "grid": { "x": 0, "y": 65, "w": 48, "h": 10 },
+      "grid": { "x": 0, "y": 85, "w": 48, "h": 10 },
       "config": {
         "title": "Saturation — surcharge GC JVM dans le temps",
         "type": "xy",
         "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
         "legend": { "position": "right", "placement": "outside" },
-        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_gc_overhead IS NOT NULL | EVAL overhead = TO_DOUBLE(metrics.jvm_gc_overhead) | STATS gc_overhead = AVG(overhead) BY bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "gc_overhead", "label": "Surcharge GC", "format": { "type": "number", "decimals": 3 } }] }]
+        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_gc_overhead IS NOT NULL | EVAL overhead = TO_DOUBLE(metrics.jvm_gc_overhead) | STATS gc_overhead = AVG(overhead) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "gc_overhead", "label": "Surcharge GC", "format": { "type": "number", "decimals": 3 } }], "breakdown_by": { "column": "service" } }]
       }
     },
     {
       "type": "markdown",
       "id": "apm-navigation-links",
-      "grid": { "x": 0, "y": 96, "w": 48, "h": 4 },
+      "grid": { "x": 0, "y": 95, "w": 48, "h": 4 },
       "config": { "content": "### Explorer les signaux\n\n[APM — Monitoring Overview](/app/apm) · [Services APM](/app/apm/services) · [Transactions APM](/app/apm/services) · [Kubernetes — Services](/app/dashboards#/view/kubernetes-ff1b3850-bcb1-11ec-b64f-7dd6e8e82013)" }
     },
     {
       "type": "vis",
       "id": "kafka-endpoint-statistics",
-      "grid": { "x": 24, "y": 30, "w": 24, "h": 16 },
+      "grid": { "x": 24, "y": 40, "w": 24, "h": 16 },
       "config": {
-        "title": "Kafka — topics, partitions et lag",
+        "title": "Traffic / Latency — statistiques clients Kafka",
         "type": "data_table",
-        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.kafka_consumer_fetch_manager_records_lag_max IS NOT NULL | EVAL lag = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_records_lag_max), consumed = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_records_consumed_rate) | STATS lag_max = MAX(lag), lag_average = AVG(lag), records_consumed_rate = AVG(consumed) BY topic = attributes.topic, partition = attributes.partition | SORT lag_max DESC" },
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND (metrics.kafka_consumer_fetch_manager_fetch_latency_avg IS NOT NULL OR metrics.kafka_producer_request_latency_avg IS NOT NULL) | EVAL fetch_avg_ms = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_fetch_latency_avg), fetch_max_ms = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_fetch_latency_max), producer_request_avg_ms = TO_DOUBLE(metrics.kafka_producer_request_latency_avg), producer_request_max_ms = TO_DOUBLE(metrics.kafka_producer_request_latency_max), consumed_rate = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_records_consumed_rate), lag = TO_DOUBLE(metrics.kafka_consumer_fetch_manager_records_lag_max) | STATS fetch_avg_ms = AVG(fetch_avg_ms), fetch_max_ms = MAX(fetch_max_ms), producer_request_avg_ms = AVG(producer_request_avg_ms), producer_request_max_ms = MAX(producer_request_max_ms), records_consumed_rate = AVG(consumed_rate), lag_max = MAX(lag) BY client = attributes.client_name, topic = attributes.topic, partition = attributes.partition | SORT fetch_max_ms DESC" },
         "metrics": [
-          { "column": "lag_max", "label": "Lag max" },
-          { "column": "lag_average", "label": "Lag moyen" },
-          { "column": "records_consumed_rate", "label": "Débit consommé" }
+          { "column": "fetch_avg_ms", "label": "Fetch moyen (ms)" },
+          { "column": "fetch_max_ms", "label": "Fetch max (ms)" },
+          { "column": "producer_request_avg_ms", "label": "Publication moyenne (ms)" },
+          { "column": "producer_request_max_ms", "label": "Publication max (ms)" },
+          { "column": "records_consumed_rate", "label": "Débit consommé" },
+          { "column": "lag_max", "label": "Lag max" }
         ],
         "rows": [
+          { "column": "client", "label": "Client" },
           { "column": "topic", "label": "Topic" },
           { "column": "partition", "label": "Partition" }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "kafka-message-processing-statistics",
+      "grid": { "x": 0, "y": 56, "w": 24, "h": 14 },
+      "config": {
+        "title": "Latency — temps de traitement des messages Kafka",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.business_kafka_message_processing_seconds_max IS NOT NULL | EVAL duration_ms = 1000 * TO_DOUBLE(metrics.business_kafka_message_processing_seconds_max) | STATS p50_ms = PERCENTILE(duration_ms, 50), p95_ms = PERCENTILE(duration_ms, 95), p99_ms = PERCENTILE(duration_ms, 99), max_ms = MAX(duration_ms), messages = COUNT(*) BY service = resource.attributes.service.name, consumer = attributes.consumer, topic = attributes.topic | SORT p99_ms DESC" },
+        "metrics": [
+          { "column": "messages", "label": "Mesures" },
+          { "column": "p50_ms", "label": "P50 (ms)" },
+          { "column": "p95_ms", "label": "P95 (ms)" },
+          { "column": "p99_ms", "label": "P99 (ms)" },
+          { "column": "max_ms", "label": "Maximum (ms)" }
+        ],
+        "rows": [
+          { "column": "service", "label": "Service" },
+          { "column": "consumer", "label": "Consumer" },
+          { "column": "topic", "label": "Topic" }
+        ]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "java-runtime-statistics",
+      "grid": { "x": 0, "y": 99, "w": 24, "h": 14 },
+      "config": {
+        "title": "Saturation — runtime JVM par service",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL | EVAL heap_used_mb = TO_DOUBLE(metrics.jvm_memory_used_bytes) / 1048576, heap_max_mb = TO_DOUBLE(metrics.jvm_memory_max_bytes) / 1048576, cpu_percent = 100 * TO_DOUBLE(metrics.process_cpu_usage), live_threads = TO_DOUBLE(metrics.jvm_threads_live_threads), uptime_hours = TO_DOUBLE(metrics.process_uptime_seconds) / 3600 | STATS heap_used_mb = MAX(heap_used_mb), heap_max_mb = MAX(heap_max_mb), cpu_percent = AVG(cpu_percent), live_threads = MAX(live_threads), uptime_hours = MAX(uptime_hours) BY service = resource.attributes.service.name | SORT cpu_percent DESC" },
+        "metrics": [
+          { "column": "heap_used_mb", "label": "Heap utilisée (Mo)" },
+          { "column": "heap_max_mb", "label": "Heap max (Mo)" },
+          { "column": "cpu_percent", "label": "CPU (%)" },
+          { "column": "live_threads", "label": "Threads actifs" },
+          { "column": "uptime_hours", "label": "Uptime (h)" }
+        ],
+        "rows": [{ "column": "service", "label": "Service" }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "java-executor-statistics",
+      "grid": { "x": 24, "y": 99, "w": 24, "h": 14 },
+      "config": {
+        "title": "Saturation — pools d’exécution Java",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.executor_pool_size_threads IS NOT NULL | EVAL pool_size = TO_DOUBLE(metrics.executor_pool_size_threads), active = TO_DOUBLE(metrics.executor_active_threads), queued = TO_DOUBLE(metrics.executor_queued_tasks), completed = TO_DOUBLE(metrics.executor_completed_tasks_total) | STATS pool_size = MAX(pool_size), active = MAX(active), queued = MAX(queued), completed = MAX(completed) BY service = resource.attributes.service.name | SORT queued DESC" },
+        "metrics": [
+          { "column": "pool_size", "label": "Taille du pool" },
+          { "column": "active", "label": "Threads actifs" },
+          { "column": "queued", "label": "Tâches en attente" },
+          { "column": "completed", "label": "Tâches terminées" }
+        ],
+        "rows": [{ "column": "service", "label": "Service" }]
+      }
+    },
+    {
+      "type": "vis",
+      "id": "java-http-client-statistics",
+      "grid": { "x": 24, "y": 56, "w": 24, "h": 14 },
+      "config": {
+        "title": "Traffic / Latency — appels HTTP sortants par service",
+        "type": "data_table",
+        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.http_client_requests_seconds_max IS NOT NULL | EVAL max_ms = 1000 * TO_DOUBLE(metrics.http_client_requests_seconds_max) | STATS requests = COUNT(*), average_max_ms = AVG(max_ms), max_ms = MAX(max_ms) BY service = resource.attributes.service.name, method = attributes.method, host = attributes.uri | SORT requests DESC" },
+        "metrics": [
+          { "column": "requests", "label": "Séries" },
+          { "column": "average_max_ms", "label": "Moyenne max (ms)" },
+          { "column": "max_ms", "label": "Maximum (ms)" }
+        ],
+        "rows": [
+          { "column": "service", "label": "Service" },
+          { "column": "method", "label": "Méthode" },
+          { "column": "host", "label": "Cible" }
         ]
       }
     }

@@ -3,6 +3,7 @@ package io.systemlens.supermarket.restock;
 import io.systemlens.supermarket.contract.StockDepleted;
 import io.systemlens.supermarket.contract.StockRestockRequested;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
@@ -35,11 +36,16 @@ public class StockDepletedConsumer {
 
     @KafkaListener(topics = "supermarket.stock.depleted", groupId = "restock-service")
     public void requestRestock(StockDepleted event) {
-        StockRestockRequested request = new StockRestockRequested(
-                event.productId(), RESTOCK_QUANTITY, Instant.now()
-        );
-        kafkaTemplate.send("supermarket.stock.restock-requested", request.productId(), request);
-        meterRegistry.counter("business.stock.restock.requested").increment();
-        LOGGER.info("Reassort demande: productId={}, quantity={}", request.productId(), request.quantity());
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            StockRestockRequested request = new StockRestockRequested(
+                    event.productId(), RESTOCK_QUANTITY, Instant.now()
+            );
+            kafkaTemplate.send("supermarket.stock.restock-requested", request.productId(), request);
+            meterRegistry.counter("business.stock.restock.requested").increment();
+            LOGGER.info("Reassort demande: productId={}, quantity={}", request.productId(), request.quantity());
+        } finally {
+            sample.stop(meterRegistry.timer("business.kafka.message.processing", "consumer", "stock-depleted", "topic", "supermarket.stock.depleted"));
+        }
     }
 }

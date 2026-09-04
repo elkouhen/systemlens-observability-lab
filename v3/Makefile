@@ -28,7 +28,7 @@ ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
-	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
+	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload \
 	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
@@ -206,7 +206,9 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 business-dashboard-deploy: ## Importer le dashboard des métriques métier
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/deploy-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/business-metrics-dashboard.json
+		./$(ARCH_ROOT)/platform/elk/scripts/replace-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/business-metrics-dashboard.json
+
+business-dashboard-replace: business-dashboard-deploy ## Supprimer puis réimporter le dashboard métier
 
 apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en lecture
 	@elasticsearch_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode )"; \
