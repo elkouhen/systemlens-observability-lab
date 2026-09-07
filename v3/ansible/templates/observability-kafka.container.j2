@@ -31,6 +31,7 @@ Environment=KAFKA_DEFAULT_REPLICATION_FACTOR=1
 Environment=KAFKA_MIN_INSYNC_REPLICAS=1
 Environment=KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
 Environment=KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+Environment=KAFKA_LOG_DIRS=/tmp/kraft-combined-logs
 Environment=KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
 Environment="KAFKA_OPTS=-javaagent:/opt/jolokia/jolokia-agent.jar=port=8778,host=0.0.0.0 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
 

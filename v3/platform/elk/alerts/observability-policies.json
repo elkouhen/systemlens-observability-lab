@@ -1,0 +1,94 @@
+{
+  "slos": [
+    {
+      "id": "supermarket-app-availability",
+      "name": "Disponibilité des services Supermarket",
+      "description": "99,5 % des scrapes Actuator doivent réussir sur une fenêtre glissante de 30 jours.",
+      "indicator": {
+        "type": "sli.kql.custom",
+        "params": {
+          "index": "metrics-prometheusreceiver.otel-*",
+          "filter": "",
+          "good": "metrics.up : 1",
+          "total": "metrics.up : *",
+          "timestampField": "@timestamp"
+        }
+      },
+      "groupBy": "resource.attributes.service.name",
+      "objective": {"target": 0.995},
+      "timeWindow": {"duration": "30d", "type": "rolling"},
+      "budgetingMethod": "occurrences",
+      "settings": {"frequency": "5m", "syncDelay": "5m", "preventInitialBackfill": true},
+      "tags": ["systemlens", "v3", "availability"],
+      "artifacts": {"dashboards": [{"id": "business-metrics-dashboard"}]}
+    }
+  ],
+  "rules": [
+    {
+      "id": "otel-collector-export-failures",
+      "body": {
+        "name": "V3 — échecs d'export OTel",
+        "tags": ["systemlens", "v3", "collector", "critical"],
+        "rule_type_id": ".es-query",
+        "consumer": "stackAlerts",
+        "schedule": {"interval": "1m"},
+        "actions": [],
+        "params": {
+          "index": ["metrics-prometheusreceiver.otel-*"],
+          "timeField": "@timestamp",
+          "searchType": "esQuery",
+          "esQuery": "{\"query\":{\"bool\":{\"should\":[{\"range\":{\"metrics.otelcol_exporter_send_failed_spans\":{\"gt\":0}}},{\"range\":{\"metrics.otelcol_exporter_send_failed_metric_points\":{\"gt\":0}}},{\"range\":{\"metrics.otelcol_exporter_send_failed_log_records\":{\"gt\":0}}}],\"minimum_should_match\":1}}}",
+          "size": 100,
+          "threshold": [0],
+          "thresholdComparator": ">",
+          "timeWindowSize": 5,
+          "timeWindowUnit": "m"
+        }
+      }
+    },
+    {
+      "id": "otel-collector-queue-saturation",
+      "body": {
+        "name": "V3 — queue OTel presque saturée",
+        "tags": ["systemlens", "v3", "collector", "warning"],
+        "rule_type_id": ".es-query",
+        "consumer": "stackAlerts",
+        "schedule": {"interval": "1m"},
+        "actions": [],
+        "params": {
+          "index": ["metrics-prometheusreceiver.otel-*"],
+          "timeField": "@timestamp",
+          "searchType": "esQuery",
+          "esQuery": "{\"query\":{\"range\":{\"metrics.otelcol_exporter_queue_size\":{\"gte\":800}}}}",
+          "size": 100,
+          "threshold": [0],
+          "thresholdComparator": ">",
+          "timeWindowSize": 5,
+          "timeWindowUnit": "m"
+        }
+      }
+    },
+    {
+      "id": "supermarket-actuator-scrape-failure",
+      "body": {
+        "name": "V3 — scrape Actuator indisponible",
+        "tags": ["systemlens", "v3", "application", "critical"],
+        "rule_type_id": ".es-query",
+        "consumer": "stackAlerts",
+        "schedule": {"interval": "1m"},
+        "actions": [],
+        "params": {
+          "index": ["metrics-prometheusreceiver.otel-*"],
+          "timeField": "@timestamp",
+          "searchType": "esQuery",
+          "esQuery": "{\"query\":{\"term\":{\"metrics.up\":0}}}",
+          "size": 100,
+          "threshold": [0],
+          "thresholdComparator": ">",
+          "timeWindowSize": 5,
+          "timeWindowUnit": "m"
+        }
+      }
+    }
+  ]
+}

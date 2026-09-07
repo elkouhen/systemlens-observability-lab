@@ -16,6 +16,10 @@ miroirs de paquets.
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `data-01`.
 
+La cible `make deploy` reprovisionne les VM existantes avant de déployer la
+plateforme. Les données Kafka sont conservées dans le volume Podman
+`kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
+
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
 | `data-01` | Elastic Agent Fleet | Elasticsearch direct |

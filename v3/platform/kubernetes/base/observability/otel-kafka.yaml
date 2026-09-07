@@ -81,6 +81,18 @@ data:
                 - targets:
                     - restock-service.h0tl-supermarche-app.svc.cluster.local:3002
 
+            # Les Collectors sont des dépendances de production : leurs propres
+            # métriques détectent les refus, erreurs d'export et queues pleines.
+            - job_name: otel-gateway
+              scrape_interval: 15s
+              static_configs:
+                - targets: [otel-gateway.elastic-stack.svc.cluster.local:8888]
+
+            - job_name: otel-kafka-exporter
+              scrape_interval: 15s
+              static_configs:
+                - targets: [otel-kafka-exporter.elastic-stack.svc.cluster.local:8888]
+
     exporters:
       kafka/otlp:
         brokers: ["192.168.5.2:19092"]
@@ -96,6 +108,18 @@ data:
 
     service:
       extensions: [health_check]
+      telemetry:
+        resource:
+          service.name: otel-gateway
+          deployment.environment.name: homologation
+        metrics:
+          level: detailed
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888
       pipelines:
         traces:
           receivers: [otlp]
@@ -152,7 +176,18 @@ data:
           network: {}
           paging: {}
           processes: {}
+      prometheus/internal:
+        config:
+          scrape_configs:
+            - job_name: otel-kubernetes
+              scrape_interval: 15s
+              static_configs:
+                - targets: [127.0.0.1:8888]
     processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 400
+        spike_limit_mib: 100
       k8sattributes:
         auth_type: serviceAccount
         passthrough: false
@@ -175,14 +210,26 @@ data:
           encoding: otlp_proto
     service:
       extensions: [health_check]
+      telemetry:
+        resource:
+          service.name: otel-kubernetes
+          deployment.environment.name: homologation
+        metrics:
+          level: detailed
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888
       pipelines:
         logs:
           receivers: [filelog/kubernetes]
-          processors: [k8sattributes, batch]
+          processors: [memory_limiter, k8sattributes, batch]
           exporters: [kafka/otlp]
         metrics:
-          receivers: [hostmetrics]
-          processors: [batch]
+          receivers: [hostmetrics, prometheus/internal]
+          processors: [memory_limiter, batch]
           exporters: [kafka/otlp]
 
   exporter.yaml: |
@@ -246,6 +293,18 @@ data:
         endpoint: 0.0.0.0:13133
     service:
       extensions: [health_check, file_storage]
+      telemetry:
+        resource:
+          service.name: otel-kafka-exporter
+          deployment.environment.name: homologation
+        metrics:
+          level: detailed
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888
       pipelines:
         traces:
           receivers: [kafka/otlp]
@@ -286,9 +345,14 @@ spec:
             - {name: otlp-grpc, containerPort: 4317}
             - {name: otlp-http, containerPort: 4318}
             - {name: health, containerPort: 13133}
+            - {name: metrics, containerPort: 8888}
           volumeMounts:
             - {name: config, mountPath: /etc/otel/collector.yaml, subPath: collector.yaml, readOnly: true}
           readinessProbe: {httpGet: {path: /, port: health}}
+          livenessProbe: {httpGet: {path: /, port: health}}
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {cpu: 1, memory: 768Mi}
       volumes:
         - name: config
           configMap: {name: otel-kafka-config}
@@ -303,6 +367,7 @@ spec:
   ports:
     - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
     - {name: otlp-http, port: 4318, targetPort: otlp-http}
+    - {name: metrics, port: 8888, targetPort: metrics}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -322,11 +387,18 @@ spec:
           image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
           securityContext: {runAsUser: 0}
           args: ["--config=/etc/otel/daemonset.yaml"]
-          ports: [{name: health, containerPort: 13133}]
+          ports:
+            - {name: health, containerPort: 13133}
+            - {name: metrics, containerPort: 8888}
           volumeMounts:
             - {name: config, mountPath: /etc/otel/daemonset.yaml, subPath: daemonset.yaml, readOnly: true}
             - {name: varlogpods, mountPath: /var/log/pods, readOnly: true}
             - {name: hostfs, mountPath: /hostfs, readOnly: true}
+          readinessProbe: {httpGet: {path: /, port: health}}
+          livenessProbe: {httpGet: {path: /, port: health}}
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {cpu: 1, memory: 768Mi}
       volumes:
         - name: config
           configMap: {name: otel-kafka-config}
@@ -370,11 +442,18 @@ spec:
             - name: ELASTICSEARCH_API_KEY
               valueFrom:
                 secretKeyRef: {name: otel-elasticsearch-credentials, key: api-key}
-          ports: [{name: health, containerPort: 13133}]
+          ports:
+            - {name: health, containerPort: 13133}
+            - {name: metrics, containerPort: 8888}
           volumeMounts:
             - {name: config, mountPath: /etc/otel/exporter.yaml, subPath: exporter.yaml, readOnly: true}
             - {name: ca, mountPath: /etc/otel/elasticsearch-ca, readOnly: true}
             - {name: queue, mountPath: /var/lib/otel}
+          readinessProbe: {httpGet: {path: /, port: health}}
+          livenessProbe: {httpGet: {path: /, port: health}}
+          resources:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: 2, memory: 1536Mi}
       volumes:
         - name: config
           configMap: {name: otel-kafka-config}
@@ -382,6 +461,16 @@ spec:
           secret: {secretName: elasticsearch-es-http-certs-public}
         - name: queue
           emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-kafka-exporter
+  namespace: elastic-stack
+spec:
+  selector: {app.kubernetes.io/name: otel-kafka-exporter}
+  ports:
+    - {name: metrics, port: 8888, targetPort: metrics}
 ---
 apiVersion: batch/v1
 kind: Job

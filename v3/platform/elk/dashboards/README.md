@@ -20,6 +20,7 @@ produits par la collecte v3.
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agent Fleet healthy sur `data-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
+| Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-prometheusreceiver.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
 
 Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
 
@@ -36,6 +37,7 @@ Déployer la configuration déclarative des intégrations Fleet :
 make kubernetes-validate
 make kibana-fleet-config-deploy
 make business-dashboard-deploy
+make observability-policies-deploy
 ```
 
 Vérifier ensuite que les sources de tous les dashboards ont publié des
@@ -64,10 +66,10 @@ commandes par canal (`REST` et `Kafka`). Les valeurs sont les deltas des
 compteurs sur chaque bucket ; elles représentent donc un volume de période et
 non la valeur cumulée brute du compteur.
 
-La vue inclut également six panneaux de santé applicative : disponibilité
-(`metrics.up`), CPU, ratio de mémoire JVM et threads actifs, avec les tendances
-CPU et mémoire. Ces indicateurs sont calculés sur la période sélectionnée et
-peuvent être vides si le flux de métriques applicatives n'est pas alimenté.
+La vue inclut également quatre panneaux de santé applicative : disponibilité
+(`metrics.up`), tendances CPU et mémoire JVM, puis surcharge GC. Ces indicateurs
+sont calculés sur la période sélectionnée et peuvent être vides si le flux de
+métriques applicatives n'est pas alimenté.
 
 Les filtres KQL doivent conserver une expression entre parenthèses. Une
 expression générée avec un groupe vide (`and ()metrics...`) est invalide ; la
@@ -90,6 +92,25 @@ Le drill-down se déclenche sur une barre du graphique en mode consultation.
 Cliquer sur la légende ne fait qu'afficher ou masquer une série ; le menu
 **Options du panneau > Créer un drilldown** permet de contrôler la configuration
 en mode édition.
+
+## SLO et alertes versionnés
+
+[`../alerts/observability-policies.json`](../alerts/observability-policies.json)
+est la source de vérité versionnée pour la disponibilité Actuator et les alertes
+de collecte. `make observability-policies-deploy` crée ou met à jour :
+
+- un SLO de disponibilité à 99,5 % par microservice sur 30 jours ;
+- une alerte sur les échecs d'export OTel ;
+- une alerte sur une queue d'export OTel supérieure ou égale à 800 lots ;
+- une alerte lorsqu'un scrape Actuator retourne `up=0`.
+
+L'API SLO nécessite une licence Elastic Platinum ou supérieure. Avec la licence
+Basic du POC, la cible signale que le SLO est ignoré et poursuit la
+réconciliation des alertes compatibles.
+
+Les règles créent des alertes dans Kibana mais n'envoient pas de notification
+externe par défaut. Associer ensuite un connecteur versionné ou administré par
+le coffre opérationnel, sans stocker de secret dans ce dépôt.
 
 ## Documentation externe
 

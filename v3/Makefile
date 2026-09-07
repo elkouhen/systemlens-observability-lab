@@ -29,6 +29,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
+	observability-policies-validate observability-policies-deploy \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload \
 	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
@@ -197,6 +198,7 @@ elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply public-
 	@$(MAKE) kibana-ready
 	@$(MAKE) apm-data-view-deploy
 	@$(MAKE) business-dashboard-deploy
+	@$(MAKE) observability-policies-deploy
 
 apm-data-view-deploy: ## Importer le data view APM versionné
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
@@ -209,6 +211,15 @@ business-dashboard-deploy: ## Importer le dashboard des métriques métier
 		./$(ARCH_ROOT)/platform/elk/scripts/replace-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/business-metrics-dashboard.json
 
 business-dashboard-replace: business-dashboard-deploy ## Supprimer puis réimporter le dashboard métier
+
+observability-policies-validate: ## Vérifier le manifeste versionné des SLO et alertes
+	@jq -e '(.slos | type == "array" and length > 0) and (.rules | type == "array" and length > 0) and ([.slos[].id, .rules[].id] | all(type == "string" and length > 0)) and ([.rules[].body | select(.rule_type_id == ".es-query") | .params.esQuery | fromjson] | all(type == "object"))' $(ARCH_ROOT)/platform/elk/alerts/observability-policies.json >/dev/null
+	@bash -n $(ARCH_ROOT)/platform/elk/scripts/sync-observability-policies.sh
+
+observability-policies-deploy: observability-policies-validate ## Réconcilier les SLO et alertes v3 dans Kibana
+	@kibana_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/sync-observability-policies.sh $(ARCH_ROOT)/platform/elk/alerts/observability-policies.json
 
 apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en lecture
 	@elasticsearch_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode )"; \
@@ -261,7 +272,7 @@ order-service-command: ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUA
 
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up --provision; \
 	$(MAKE) elk-deploy; \
 	$(MAKE) fleet-vms-provision; \
 	$(MAKE) apps-build; \

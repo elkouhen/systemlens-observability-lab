@@ -171,41 +171,6 @@
     },
     {
       "type": "vis",
-      "id": "service-cpu-usage",
-      "grid": { "x": 12, "y": 70, "w": 12, "h": 5 },
-      "config": {
-        "title": "Saturation — CPU applicatif",
-        "type": "xy",
-        "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
-        "legend": { "position": "right", "placement": "outside" },
-        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.process_cpu_usage IS NOT NULL | EVAL cpu_percent = 100 * TO_DOUBLE(metrics.process_cpu_usage) | STATS cpu_average = AVG(cpu_percent) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "cpu_average", "label": "CPU (%)" }], "breakdown_by": { "column": "service" } }]
-      }
-    },
-    {
-      "type": "vis",
-      "id": "jvm-memory-usage",
-      "grid": { "x": 24, "y": 70, "w": 12, "h": 5 },
-      "config": {
-        "title": "Saturation — mémoire JVM",
-        "type": "xy",
-        "axis": { "x": { "title": { "visible": false }, "scale": "temporal" }, "y": { "title": { "visible": false } } },
-        "legend": { "position": "right", "placement": "outside" },
-        "layers": [{ "type": "line", "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL AND metrics.jvm_memory_max_bytes > 0 | EVAL used = TO_DOUBLE(metrics.jvm_memory_used_bytes), max_memory = TO_DOUBLE(metrics.jvm_memory_max_bytes) | STATS memory_ratio = AVG(100 * used / max_memory) BY service = resource.attributes.service.name, bucket = BUCKET(@timestamp, 75, ?_tstart, ?_tend)" }, "x": { "column": "bucket", "label": "Période" }, "y": [{ "column": "memory_ratio", "label": "Mémoire (%)" }], "breakdown_by": { "column": "service" } }]
-      }
-    },
-    {
-      "type": "vis",
-      "id": "jvm-live-threads",
-      "grid": { "x": 36, "y": 70, "w": 12, "h": 5 },
-      "config": {
-        "title": "Saturation — threads JVM actifs",
-        "type": "metric",
-        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_threads_live_threads IS NOT NULL | EVAL threads = TO_DOUBLE(metrics.jvm_threads_live_threads) | STATS live_threads = MAX(threads)" },
-        "metrics": [{ "type": "primary", "column": "live_threads", "label": "Threads actifs (max)", "format": { "type": "number", "decimals": 0 } }]
-      }
-    },
-    {
-      "type": "vis",
       "id": "service-cpu-over-time",
       "grid": { "x": 0, "y": 75, "w": 24, "h": 10 },
       "config": {
@@ -334,41 +299,6 @@
           { "column": "consumer", "label": "Consumer" },
           { "column": "topic", "label": "Topic" }
         ]
-      }
-    },
-    {
-      "type": "vis",
-      "id": "java-runtime-statistics",
-      "grid": { "x": 0, "y": 99, "w": 24, "h": 14 },
-      "config": {
-        "title": "Saturation — runtime JVM par service",
-        "type": "data_table",
-        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.jvm_memory_used_bytes IS NOT NULL | EVAL heap_used_mb = TO_DOUBLE(metrics.jvm_memory_used_bytes) / 1048576, heap_max_mb = TO_DOUBLE(metrics.jvm_memory_max_bytes) / 1048576, cpu_percent = 100 * TO_DOUBLE(metrics.process_cpu_usage), live_threads = TO_DOUBLE(metrics.jvm_threads_live_threads), uptime_hours = TO_DOUBLE(metrics.process_uptime_seconds) / 3600 | STATS heap_used_mb = MAX(heap_used_mb), heap_max_mb = MAX(heap_max_mb), cpu_percent = AVG(cpu_percent), live_threads = MAX(live_threads), uptime_hours = MAX(uptime_hours) BY service = resource.attributes.service.name | SORT cpu_percent DESC" },
-        "metrics": [
-          { "column": "heap_used_mb", "label": "Heap utilisée (Mo)" },
-          { "column": "heap_max_mb", "label": "Heap max (Mo)" },
-          { "column": "cpu_percent", "label": "CPU (%)" },
-          { "column": "live_threads", "label": "Threads actifs" },
-          { "column": "uptime_hours", "label": "Uptime (h)" }
-        ],
-        "rows": [{ "column": "service", "label": "Service" }]
-      }
-    },
-    {
-      "type": "vis",
-      "id": "java-executor-statistics",
-      "grid": { "x": 24, "y": 99, "w": 24, "h": 14 },
-      "config": {
-        "title": "Saturation — pools d’exécution Java",
-        "type": "data_table",
-        "data_source": { "type": "esql", "query": "SET unmapped_fields=\"NULLIFY\"; FROM metrics-prometheusreceiver.otel-* | WHERE @timestamp <= ?_tend AND @timestamp > ?_tstart AND metrics.executor_pool_size_threads IS NOT NULL | EVAL pool_size = TO_DOUBLE(metrics.executor_pool_size_threads), active = TO_DOUBLE(metrics.executor_active_threads), queued = TO_DOUBLE(metrics.executor_queued_tasks), completed = TO_DOUBLE(metrics.executor_completed_tasks_total) | STATS pool_size = MAX(pool_size), active = MAX(active), queued = MAX(queued), completed = MAX(completed) BY service = resource.attributes.service.name | SORT queued DESC" },
-        "metrics": [
-          { "column": "pool_size", "label": "Taille du pool" },
-          { "column": "active", "label": "Threads actifs" },
-          { "column": "queued", "label": "Tâches en attente" },
-          { "column": "completed", "label": "Tâches terminées" }
-        ],
-        "rows": [{ "column": "service", "label": "Service" }]
       }
     },
     {
