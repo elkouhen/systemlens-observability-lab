@@ -9,7 +9,6 @@ dependencies:
   apm:
     - elkouhen/systemlens-skill
     - github/awesome-copilot/skills/documentation-writer
-    - elastic/agent-skills/skills/kibana/kibana-dashboards
   mcp: []
 includes: auto
 scripts:
