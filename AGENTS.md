@@ -62,6 +62,36 @@ versionnée, reproductible et aussi petite que possible pour le besoin couvert.
   détails d'implémentation. Ne pousser qu'après revue du diff et accord
   explicite.
 
+### Stratégie d'économie de tokens
+
+- Au début d'une tâche, déterminer l'architecture active à partir de
+  `.architecture-version` ou de `make architecture-status`. Par défaut, limiter
+  les lectures et recherches au répertoire de cette version et aux composants
+  partagés qu'il référence.
+- Exclure les autres répertoires de version (`v1/`, `v2/` ou `v3/`) des
+  recherches. Ne les consulter que pour une comparaison, une migration ou une
+  demande explicite ; signaler alors cet élargissement du périmètre.
+- Commencer par le périmètre minimal : objectif, sous-système, fichiers
+  probables et résultat vérifiable. Élargir la recherche seulement si les
+  premiers éléments ne permettent pas de conclure.
+- Limiter les lectures et sorties aux chemins, occurrences et plages utiles.
+  Résumer les résultats volumineux, tout en conservant intégralement l'erreur
+  qui bloque le diagnostic.
+- Pour une modification ciblée, exécuter d'abord le contrôle le plus proche du
+  changement. Ne lancer une validation plus large que si les règles du dépôt
+  l'imposent ou si le risque de régression le justifie. Ne pas répéter un
+  contrôle réussi sans nouveau changement.
+- Ne pas utiliser de sous-agents par défaut. Les réserver à une demande
+  explicite et à des travaux réellement indépendants dont le parallélisme
+  compense la duplication de contexte.
+- Répondre avec le résultat, les validations réellement exécutées et les
+  éventuels points restants. Éviter de recopier le plan, les fichiers ou les
+  sorties déjà visibles lorsqu'ils n'ajoutent aucune information.
+- Avant une compaction, produire une synthèse courte contenant uniquement :
+  objectif, décisions, fichiers modifiés, validations, erreur restante et
+  prochaine action. Repartir de cette synthèse dans une nouvelle conversation
+  lorsque l'objectif précédent est terminé.
+
 ## Portée du dépôt
 
 Ce dépôt contient un POC d'observabilité Elastic : une plateforme Kubernetes,
