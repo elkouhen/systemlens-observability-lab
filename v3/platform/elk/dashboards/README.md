@@ -71,6 +71,10 @@ La vue inclut également quatre panneaux de santé applicative : disponibilité
 sont calculés sur la période sélectionnée et peuvent être vides si le flux de
 métriques applicatives n'est pas alimenté.
 
+L'ordre visuel regroupe les panneaux par parcours de lecture : indicateurs et
+graphiques métier, stock, trafic HTTP entrant et sortant, traitements Kafka,
+puis disponibilité et saturation JVM. Les liens vers APM terminent le dashboard.
+
 Les filtres KQL doivent conserver une expression entre parenthèses. Une
 expression générée avec un groupe vide (`and ()metrics...`) est invalide ; la
 forme équivalente correcte est par exemple :
