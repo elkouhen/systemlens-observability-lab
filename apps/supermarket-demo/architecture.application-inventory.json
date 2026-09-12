@@ -1,0 +1,55 @@
+{
+  "format": "systemlens-application-inventory-v2",
+  "project": "supermarket-demo",
+  "source_revision": "9008a36ae6de5a6fb327831b739e310381012edf",
+  "analysis_method": "Parcours directionnel SystemLens : modules, endpoints par module, modules entre eux, modules vers endpoints, endpoints vers modules, topics Kafka et collections MongoDB.",
+  "module_boundaries": [
+    {"module": "order-service", "kind": "deployable-service", "path": "order-service", "evidence": [{"path": "order-service/pom.xml", "start_line": 13, "end_line": 13}]},
+    {"module": "inventory-service", "kind": "deployable-service", "path": "inventory-service", "evidence": [{"path": "inventory-service/pom.xml", "start_line": 13, "end_line": 13}]},
+    {"module": "restock-service", "kind": "deployable-service", "path": "restock-service", "evidence": [{"path": "restock-service/pom.xml", "start_line": 13, "end_line": 13}]},
+    {"module": "supermarket-contracts", "kind": "shared-library", "path": "supermarket-contracts", "contracts": ["OrderPlaced", "StockDepleted", "StockRestockRequested"], "evidence": [{"path": "supermarket-contracts/pom.xml", "start_line": 13, "end_line": 13}]}
+  ],
+  "module_to_endpoints": [
+    {
+      "module": "order-service",
+      "provided": [
+        {"endpoint": "GET /api/health", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 37, "end_line": 40}]},
+        {"endpoint": "POST /api/orders", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 42, "end_line": 52}]},
+        {"endpoint": "GET /api/error", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 54, "end_line": 67}]}
+      ],
+      "consumed": [
+        {"endpoint": "POST /api/reservations", "target_module": "inventory-service", "evidence": [{"path": "order-service/src/main/resources/application.yml", "start_line": 4, "end_line": 6}, {"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 42, "end_line": 48}], "confidence": "high"}
+      ]
+    },
+    {
+      "module": "inventory-service",
+      "provided": [
+        {"endpoint": "GET /api/health", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 16}]},
+        {"endpoint": "POST /api/reservations", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 18}]}
+      ],
+      "consumed": []
+    },
+    {"module": "restock-service", "provided": [], "consumed": []}
+  ],
+  "endpoint_to_modules": [
+    {"endpoint": "GET /api/error", "providers": ["order-service"], "consumers": [], "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 54, "end_line": 67}]},
+    {"endpoint": "GET /api/health", "providers": ["order-service", "inventory-service"], "consumers": [], "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 37, "end_line": 40}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 16}]},
+    {"endpoint": "POST /api/orders", "providers": ["order-service"], "consumers": [], "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 42, "end_line": 52}]},
+    {"endpoint": "POST /api/reservations", "providers": ["inventory-service"], "consumers": ["order-service"], "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 18}, {"path": "order-service/src/main/resources/application.yml", "start_line": 4, "end_line": 6}, {"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 42, "end_line": 48}]}
+  ],
+  "module_to_module": [
+    {"source": "order-service", "target": "inventory-service", "type": "HTTP", "endpoint": "POST /api/reservations", "confidence": "high", "evidence": [{"path": "order-service/src/main/resources/application.yml", "start_line": 4, "end_line": 6}, {"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 42, "end_line": 48}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 18}]},
+    {"source": "order-service", "target": "inventory-service", "type": "Kafka", "topic": "supermarket.order.placed", "message_type": "OrderPlaced", "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/ScheduledOrderPublisher.java", "start_line": 33, "end_line": 40}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaOrderConsumer.java", "start_line": 18, "end_line": 25}]},
+    {"source": "inventory-service", "target": "restock-service", "type": "Kafka", "topic": "supermarket.stock.depleted", "message_type": "StockDepleted", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/messaging/KafkaStockDepletedAdapter.java", "start_line": 9, "end_line": 13}, {"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 37, "end_line": 45}]},
+    {"source": "restock-service", "target": "inventory-service", "type": "Kafka", "topic": "supermarket.stock.restock-requested", "message_type": "StockRestockRequested", "confidence": "high", "evidence": [{"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 37, "end_line": 45}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaStockRestockConsumer.java", "start_line": 18, "end_line": 25}]}
+  ],
+  "module_to_topic_to_module": [
+    {"producer_module": "order-service", "topic": "supermarket.order.placed", "message_type": "OrderPlaced", "consumer_modules": ["inventory-service"], "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/ScheduledOrderPublisher.java", "start_line": 33, "end_line": 40}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaOrderConsumer.java", "start_line": 18, "end_line": 25}]},
+    {"producer_module": "inventory-service", "topic": "supermarket.stock.depleted", "message_type": "StockDepleted", "consumer_modules": ["restock-service"], "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/messaging/KafkaStockDepletedAdapter.java", "start_line": 9, "end_line": 13}, {"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 37, "end_line": 45}]},
+    {"producer_module": "restock-service", "topic": "supermarket.stock.restock-requested", "message_type": "StockRestockRequested", "consumer_modules": ["inventory-service"], "confidence": "high", "evidence": [{"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 37, "end_line": 45}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaStockRestockConsumer.java", "start_line": 18, "end_line": 25}]}
+  ],
+  "module_to_mongodb_collections": [
+    {"module": "inventory-service", "collection": "order_fulfillments", "operations": ["write", "delete-compensation"], "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/persistence/mongodb/OrderFulfillmentDocument.java", "start_line": 3, "end_line": 9}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/persistence/mongodb/OrderFulfillmentPersistenceAdapter.java", "start_line": 7, "end_line": 14}]}
+  ],
+  "unresolved": []
+}

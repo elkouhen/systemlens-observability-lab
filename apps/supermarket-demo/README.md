@@ -78,15 +78,19 @@ met explicitement à jour l'image des Deployments et attend leur rollout.
 
 ## Graphe d'architecture Java
 
-Le manifeste courant `architecture.ai-java.pass-003.json` enregistre les faits relus
-directement dans les sources Java avec le format `systemlens-ai-graph-v1`.
-Il complète l'index AST de SystemLens avec les tables PostgreSQL, les canaux
-Kafka et les relations qui ne sont pas résolues automatiquement. Les
-métadonnées `flow_refs` relient ces relations au rapport ordonné
-`architecture.supermarket.flows.json`, produit après le profil `flows` par
-traversée des appels directs et des ports à implémentation unique. Le document
-`architecture.java-flows.md` en donne une lecture humaine. Les étapes du
-rapport ne sont volontairement pas importées comme des arêtes de topologie.
+Le manifeste courant `architecture.ai-java.pass-004.json` enregistre les faits
+relus directement dans les sources Java avec le format
+`systemlens-ai-graph-v1`. Il complète l'index AST de SystemLens avec les
+modules déployables, les API REST, les canaux Kafka, la collection MongoDB et
+les dépendances inter-modules qui ne sont pas résolues automatiquement. Le
+rapport `architecture.application-inventory.json` fournit les matrices
+directionnelles `module → endpoint`, `endpoint → module`, `module → module`,
+`module → topic → module` et `module → collection MongoDB`, chacune avec ses
+preuves de source et son niveau de confiance. Le document
+`architecture.systemlens-flows.json` conserve les flux potentiels produits par
+l'extracteur. Les arêtes enrichies du manifeste référencent ces flows par
+`flow_refs`, tandis que les étapes ordonnées restent dans le rapport : elles ne
+sont volontairement pas importées comme des arêtes de topologie.
 
 Prérequis : disposer d'une version de `systemlens` qui fournit les commandes
 `import-facts` et `export microservices --html`. Depuis la racine du dépôt :
@@ -95,12 +99,12 @@ Prérequis : disposer d'une version de `systemlens` qui fournit les commandes
 make apps-architecture-graph
 ```
 
-La cible diagnostique et actualise l'index local, vérifie le rapport détaillé,
-exporte les flux conservateurs dans `architecture.systemlens-flows.json`,
-réconcilie le namespace
-`ai-java-architecture`, puis génère
+La cible diagnostique et actualise l'index local, vérifie les deux documents
+JSON, exporte les flux conservateurs dans `architecture.systemlens-flows.json`,
+réconcilie le namespace `ai-java-architecture`, puis génère
 `apps/supermarket-demo/architecture.java.html`. Le résumé d'import doit
-indiquer 20 faits et l'export doit annoncer 3 services et 14 arêtes. Ouvrir le
+indiquer 12 faits et l'export doit annoncer 3 services et 8 arêtes. Ouvrir le
 fichier HTML et vérifier la présence des trois services, des trois topics
-Kafka, des tables `products` et `stock_movements`, de la collection
-`order_fulfillments` et de l'appel proposé `POST /api/reservations`.
+Kafka, de la collection `order_fulfillments` associée à `inventory-service` et
+de l'appel REST `POST /api/reservations` entre `order-service` et
+`inventory-service`.

@@ -4,13 +4,14 @@
   "generated_by": {
     "agent": "Codex",
     "model": "GPT-5",
-    "source_revision": "d3c15deef70536b06677528ee6475811bce64f89-dirty",
-    "analysis_method": "Index SystemLens, puis traversée des sources Java de production à travers les appels directs et les ports à implémentation unique"
+    "source_revision": "9008a36ae6de5a6fb327831b739e310381012edf",
+    "analysis_method": "Index SystemLens, détection des flows natifs, puis traversée des sources Java de production à travers les appels directs et les ports à implémentation unique"
   },
   "scope": "order-service, inventory-service et restock-service ; tests exclus",
   "flows": [
     {
       "id": "java.checkout-reservation",
+      "systemlens_flow_refs": ["e9ea4940d67a092f"],
       "status": "proposed",
       "confidence": "medium",
       "reason": "La valeur runtime de order-service.inventory-service-url n'est pas prouvée par le code Java ; la route cible et l'implémentation aval sont, elles, confirmées.",
@@ -32,6 +33,7 @@
     },
     {
       "id": "java.online-order-fulfillment",
+      "systemlens_flow_refs": [],
       "status": "potential",
       "confidence": "medium",
       "reason": "Les deux extrémités Kafka et l'implémentation appelée sont présentes dans le code ; la livraison, les retries et l'exécution planifiée sont des faits runtime.",
@@ -53,6 +55,7 @@
     },
     {
       "id": "java.stock-restock-cycle",
+      "systemlens_flow_refs": ["432c14ecee0d2898"],
       "status": "potential",
       "confidence": "medium",
       "reason": "Le cycle débute uniquement lorsque le stock atteint zéro et traverse deux livraisons Kafka qui ne sont pas prouvées à l'exécution.",
@@ -69,6 +72,7 @@
     },
     {
       "id": "java.controlled-error",
+      "systemlens_flow_refs": ["2f3538eca0f04901"],
       "status": "proposed",
       "confidence": "medium",
       "reason": "Le service distant est résolu par configuration ; les transformations d'exception de chaque côté sont confirmées dans les sources.",

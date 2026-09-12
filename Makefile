@@ -35,12 +35,13 @@ apps-architecture-graph: ## Indexer les sources Java et générer le graphe Syst
 	@cd apps/supermarket-demo && \
 	  '$(SYSTEMLENS)' doctor && \
 	  '$(SYSTEMLENS)' index && \
+	  jq empty architecture.application-inventory.json && \
 	  jq empty architecture.supermarket.flows.json && \
 	  flows_file=$$(mktemp architecture.systemlens-flows.json.XXXXXX) && \
 	  trap 'rm -f "$$flows_file"' EXIT && \
 	  '$(SYSTEMLENS)' flows --json > "$$flows_file" && \
 	  mv "$$flows_file" architecture.systemlens-flows.json && \
-	  '$(SYSTEMLENS)' import-facts architecture.ai-java.pass-003.json --namespace ai-java-architecture --complete && \
+	  '$(SYSTEMLENS)' import-facts architecture.ai-java.pass-004.json --namespace ai-java-architecture --complete && \
 	  '$(SYSTEMLENS)' export microservices --html architecture.java.html --root-path .
 
 apm-install: ## Installer le contexte APM déclaré dans apm.yml
