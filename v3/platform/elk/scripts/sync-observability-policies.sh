@@ -42,7 +42,10 @@ while IFS= read -r slo; do
   if [[ "${exists}" == 404 ]]; then
     request POST '/api/observability/slos' "${slo}"
   elif [[ "${exists}" =~ ^2[0-9][0-9]$ ]]; then
-    request PUT "/api/observability/slos/${id}" "${slo}"
+    # L'identifiant est accepté à la création, mais il est porté par le chemin
+    # et refusé comme clé supplémentaire par le schéma de mise à jour Kibana.
+    update_slo="$(jq -c 'del(.id)' <<<"${slo}")"
+    request PUT "/api/observability/slos/${id}" "${update_slo}"
   else
     printf 'Impossible de lire le SLO %s (HTTP %s).\n' "${id}" "${exists}" >&2
     exit 1
@@ -59,7 +62,10 @@ while IFS= read -r rule; do
   if [[ "${exists}" == 404 ]]; then
     request POST "/api/alerting/rule/${id}" "${body}"
   elif [[ "${exists}" =~ ^2[0-9][0-9]$ ]]; then
-    request PUT "/api/alerting/rule/${id}" "${body}"
+    # Le type et le consumer sont requis à la création, mais immuables et
+    # refusés par le schéma de mise à jour Kibana.
+    update_body="$(jq -c 'del(.rule_type_id, .consumer)' <<<"${body}")"
+    request PUT "/api/alerting/rule/${id}" "${update_body}"
   else
     printf 'Impossible de lire la règle %s (HTTP %s).\n' "${id}" "${exists}" >&2
     exit 1

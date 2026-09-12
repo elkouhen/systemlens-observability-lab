@@ -1,11 +1,11 @@
 lockfile_version: '1'
-generated_at: '2026-09-03T05:58:56.654196+00:00'
+generated_at: '2026-09-12T06:09:11.791447+00:00'
 apm_version: 0.29.0
 dependencies:
 - repo_url: elkouhen/systemlens-skill
   name: systemlens
   host: github.com
-  resolved_commit: fc8842a1d3004d0174444b78331121415e6f7e27
+  resolved_commit: e8133406a3bc8c49928610971e55bc1b8359a6d1
   version: unknown
   package_type: claude_skill
   deployed_files:
@@ -24,20 +24,20 @@ dependencies:
   deployed_file_hashes:
     .agents/skills/systemlens-skill/.gitignore: sha256:1d15bdb66e2d42cd0ecddeb6926d7a97dbf7a82a055067b7b9afc05112ee0437
     .agents/skills/systemlens-skill/LICENSE: sha256:d643af9b80c6741f3d308ea358d678a71c3f3651836a5f73dfe981260956c523
-    .agents/skills/systemlens-skill/PRD.md: sha256:1aaece4b4fdaa446910d5c95af7038f27aff3043e86758604e1412e167df3762
+    .agents/skills/systemlens-skill/PRD.md: sha256:e938a10f88921072e2da4caee53a3b2039218baeea7ec4857eb8100636d16e6d
     .agents/skills/systemlens-skill/README.md: sha256:0bf862d9f6219cd662a9153622225427db467897b39e92381a3261ec9f6a5fd4
-    .agents/skills/systemlens-skill/SKILL.md: sha256:7a331beba467cb0f5aaee2dae0a6b00f0042015c4e46b0adad543df02d1f6ae8
+    .agents/skills/systemlens-skill/SKILL.md: sha256:913a58d81f36fc4f312687d09676ab2d77ea93134a5b0ea889a747cce4de697b
     .agents/skills/systemlens-skill/agents/openai.yaml: sha256:462f0d7097598e1299d305e8a2f1bcd50f34f32497d21f5c695470a367bdc355
     .agents/skills/systemlens-skill/references/ai-graph.md: sha256:8226da4f3fabc88c5b46235af8370b61a753383900391524efe13b89acd6f60d
-    .agents/skills/systemlens-skill/references/analysis-rules.md: sha256:4af66d2c1d1a2faffc0553c19c92bfea866d74658ed5f9893fe4e7cbea45bae7
-    .agents/skills/systemlens-skill/references/management.md: sha256:3c13b00c27cd9c8d7f232f5d53fe286704e7877a4200e12a9857e126836cdbf0
-    .agents/skills/systemlens-skill/references/pass-profiles.md: sha256:f76cf7067f1d3781b9900d8c38c74c019a7022555e644f24e8c76606199893b6
+    .agents/skills/systemlens-skill/references/analysis-rules.md: sha256:8a151d76ef29c8c937f33ac94e6c7081e69c0c83c063773ebe7592f044badd24
+    .agents/skills/systemlens-skill/references/management.md: sha256:883f661b89fb6e86148b9d71d154c79d8b80a4be1b7901449c7f71ae0910b3ca
+    .agents/skills/systemlens-skill/references/pass-profiles.md: sha256:095964570cbdb2f8a39f1fd169856a62777b941785f031d077af61c44604f492
     .agents/skills/systemlens-skill/references/settings.md: sha256:3093c4cda8f33920143c73bd0c73c587a8a8fab746a05d811664941e9b82ecdb
-  content_hash: sha256:46ee25307b7e327540d192d803b47824f83964104943c104978531526608f869
+  content_hash: sha256:acb4a669f737f4e550ae375bf2d12fb4e18e0a4658547a1f8fda20e584787715
 - repo_url: github/awesome-copilot
   name: documentation-writer
   host: github.com
-  resolved_commit: 17cd9ee68d49eb4547c45831cf3eea08f2c12916
+  resolved_commit: 7568a482ce2df38f8965ab5336a3220db796a4ba
   version: unknown
   virtual_path: skills/documentation-writer
   is_virtual: true
@@ -102,7 +102,7 @@ deployments:
   owners:
   - elkouhen/systemlens-skill
   active_owner: elkouhen/systemlens-skill
-  content_hash: sha256:1aaece4b4fdaa446910d5c95af7038f27aff3043e86758604e1412e167df3762
+  content_hash: sha256:e938a10f88921072e2da4caee53a3b2039218baeea7ec4857eb8100636d16e6d
 - kind: project-relative
   target: codex
   value: .agents/skills/systemlens-skill/README.md
@@ -120,7 +120,7 @@ deployments:
   owners:
   - elkouhen/systemlens-skill
   active_owner: elkouhen/systemlens-skill
-  content_hash: sha256:7a331beba467cb0f5aaee2dae0a6b00f0042015c4e46b0adad543df02d1f6ae8
+  content_hash: sha256:913a58d81f36fc4f312687d09676ab2d77ea93134a5b0ea889a747cce4de697b
 - kind: project-relative
   target: codex
   value: .agents/skills/systemlens-skill/agents/openai.yaml
@@ -147,7 +147,7 @@ deployments:
   owners:
   - elkouhen/systemlens-skill
   active_owner: elkouhen/systemlens-skill
-  content_hash: sha256:4af66d2c1d1a2faffc0553c19c92bfea866d74658ed5f9893fe4e7cbea45bae7
+  content_hash: sha256:8a151d76ef29c8c937f33ac94e6c7081e69c0c83c063773ebe7592f044badd24
 - kind: project-relative
   target: codex
   value: .agents/skills/systemlens-skill/references/management.md
@@ -156,7 +156,7 @@ deployments:
   owners:
   - elkouhen/systemlens-skill
   active_owner: elkouhen/systemlens-skill
-  content_hash: sha256:3c13b00c27cd9c8d7f232f5d53fe286704e7877a4200e12a9857e126836cdbf0
+  content_hash: sha256:883f661b89fb6e86148b9d71d154c79d8b80a4be1b7901449c7f71ae0910b3ca
 - kind: project-relative
   target: codex
   value: .agents/skills/systemlens-skill/references/pass-profiles.md
@@ -165,7 +165,7 @@ deployments:
   owners:
   - elkouhen/systemlens-skill
   active_owner: elkouhen/systemlens-skill
-  content_hash: sha256:f76cf7067f1d3781b9900d8c38c74c019a7022555e644f24e8c76606199893b6
+  content_hash: sha256:095964570cbdb2f8a39f1fd169856a62777b941785f031d077af61c44604f492
 - kind: project-relative
   target: codex
   value: .agents/skills/systemlens-skill/references/settings.md

@@ -10,7 +10,10 @@ ARCH_NAME := Hybride Fleet
 ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
-APP_IMAGE_TAG ?= 1.1.1
+ECK_OPERATOR_NAMESPACE ?= elastic-system
+ECK_LICENSE_SECRET ?= eck-license
+ECK_LICENSE_FILE ?=
+APP_IMAGE_TAG ?= 1.1.2
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
 ELASTIC_STACK_VERSION ?= 9.4.3
@@ -27,7 +30,7 @@ ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:443:127.0.0.1
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
-.PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status eck-license-apply eck-license-status eck-trial-validate eck-trial-start apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	observability-policies-validate observability-policies-deploy \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload \
@@ -63,6 +66,29 @@ platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 kubernetes-status: ## Afficher l’état Elastic et applications
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get elasticsearch,kibana,agent
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
+
+eck-license-status: ## Afficher le niveau de licence Elasticsearch sans exposer de secret
+	@elasticsearch_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+		-u "elastic:$$elasticsearch_password" '$(ELASTICSEARCH_URL)/_license' | \
+		jq '{status: .license.status, type: .license.type, expiry_date: .license.expiry_date, issued_to: .license.issued_to}'
+
+eck-license-apply: ## Installer une licence Orchestration ECK locale (requiert ECK_LICENSE_FILE)
+	@test -n '$(ECK_LICENSE_FILE)' || { echo 'Définir ECK_LICENSE_FILE=/chemin/vers/licence.json' >&2; exit 1; }
+	@test -r '$(ECK_LICENSE_FILE)' || { echo 'Fichier de licence absent ou illisible : $(ECK_LICENSE_FILE)' >&2; exit 1; }
+	@jq -e 'type == "object"' '$(ECK_LICENSE_FILE)' >/dev/null || { echo 'Le fichier de licence doit contenir un objet JSON valide.' >&2; exit 1; }
+	@$(KUBECTL) -n $(ECK_OPERATOR_NAMESPACE) create secret generic $(ECK_LICENSE_SECRET) \
+		--from-file=license='$(ECK_LICENSE_FILE)' --dry-run=client -o json | \
+		jq '.metadata.labels = {"license.k8s.elastic.co/scope": "operator"}' | \
+		$(KUBECTL) apply -f -
+	@echo 'Licence ECK appliquée ; attendre la réconciliation de l’opérateur puis exécuter make eck-license-status.'
+
+eck-trial-validate: ## Valider le Secret d’essai ECK sans l’appliquer
+	@yq -e 'select(.apiVersion == "v1" and .kind == "Secret" and .metadata.name == "eck-trial-license" and .metadata.namespace == "elastic-system" and .metadata.labels["license.k8s.elastic.co/type"] == "enterprise_trial" and .metadata.annotations["elastic.co/eula"] == "accepted")' $(ARCH_ROOT)/platform/kubernetes/eck-trial-license.yaml >/dev/null
+
+eck-trial-start: eck-trial-validate ## Démarrer l’essai ECK Enterprise de 30 jours (accepte l’EULA Elastic)
+	@$(KUBECTL) apply -f $(ARCH_ROOT)/platform/kubernetes/eck-trial-license.yaml
+	@echo 'Essai ECK demandé ; attendre la réconciliation de l’opérateur puis exécuter make eck-license-status.'
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ../scripts/cluster-status.sh
@@ -213,7 +239,7 @@ business-dashboard-deploy: ## Importer le dashboard des métriques métier
 business-dashboard-replace: business-dashboard-deploy ## Supprimer puis réimporter le dashboard métier
 
 observability-policies-validate: ## Vérifier le manifeste versionné des SLO et alertes
-	@jq -e '(.slos | type == "array" and length > 0) and (.rules | type == "array" and length > 0) and ([.slos[].id, .rules[].id] | all(type == "string" and length > 0)) and ([.rules[].body | select(.rule_type_id == ".es-query") | .params.esQuery | fromjson] | all(type == "object"))' $(ARCH_ROOT)/platform/elk/alerts/observability-policies.json >/dev/null
+	@jq -e '(.slos | type == "array" and length > 0) and (.rules | type == "array" and length > 0) and ([.slos[].id, .rules[].id] | all(type == "string" and length > 0)) and ([.slos[] | select(.indicator.type == "sli.metric.timeslice") | ((.budgetingMethod == "timeslices") and (.objective.target > 0 and .objective.target < 1) and (.objective.timesliceTarget > 0 and .objective.timesliceTarget < 1) and (.objective.timesliceWindow | type == "string" and length > 0) and (.indicator.params.metric.metrics | type == "array" and length > 0))] | all) and ([.rules[].body | select(.rule_type_id == ".es-query" and .params.searchType == "esQuery") | .params.esQuery | fromjson] | all(type == "object")) and ([.rules[].body | select(.rule_type_id == ".es-query" and .params.searchType == "esqlQuery") | .params.esqlQuery.esql] | all(type == "string" and length > 0))' $(ARCH_ROOT)/platform/elk/alerts/observability-policies.json >/dev/null
 	@bash -n $(ARCH_ROOT)/platform/elk/scripts/sync-observability-policies.sh
 
 observability-policies-deploy: observability-policies-validate ## Réconcilier les SLO et alertes v3 dans Kibana
@@ -279,7 +305,7 @@ deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy
 
-kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
+kubernetes-validate: eck-trial-validate ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize ../kubernetes/apps/supermarket-demo/v3 >/dev/null
 

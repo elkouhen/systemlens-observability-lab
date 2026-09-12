@@ -65,13 +65,42 @@ Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
 d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
 
-Le tag des images Docker (`order-service:1.1.1` / `inventory-service:1.1.1` /
-`restock-service:1.1.1`,
+Le tag des images Docker (`order-service:1.1.2` / `inventory-service:1.1.2` /
+`restock-service:1.1.2`,
 fixé dans `Makefile` et les manifests Kubernetes de `v1/` ou `v2/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag
 Docker est immuable : choisir un nouveau `APP_IMAGE_TAG` à chaque image. Par
-exemple, `make apps-build APP_IMAGE_TAG=1.1.1`, puis
-`make images-import apps-deploy APP_IMAGE_TAG=1.1.1`. La cible de déploiement
+exemple, `make apps-build APP_IMAGE_TAG=1.1.2`, puis
+`make images-import apps-deploy APP_IMAGE_TAG=1.1.2`. La cible de déploiement
 met explicitement à jour l'image des Deployments et attend leur rollout.
+
+## Graphe d'architecture Java
+
+Le manifeste courant `architecture.ai-java.pass-003.json` enregistre les faits relus
+directement dans les sources Java avec le format `systemlens-ai-graph-v1`.
+Il complète l'index AST de SystemLens avec les tables PostgreSQL, les canaux
+Kafka et les relations qui ne sont pas résolues automatiquement. Les
+métadonnées `flow_refs` relient ces relations au rapport ordonné
+`architecture.supermarket.flows.json`, produit après le profil `flows` par
+traversée des appels directs et des ports à implémentation unique. Le document
+`architecture.java-flows.md` en donne une lecture humaine. Les étapes du
+rapport ne sont volontairement pas importées comme des arêtes de topologie.
+
+Prérequis : disposer d'une version de `systemlens` qui fournit les commandes
+`import-facts` et `export microservices --html`. Depuis la racine du dépôt :
+
+```bash
+make apps-architecture-graph
+```
+
+La cible diagnostique et actualise l'index local, vérifie le rapport détaillé,
+exporte les flux conservateurs dans `architecture.systemlens-flows.json`,
+réconcilie le namespace
+`ai-java-architecture`, puis génère
+`apps/supermarket-demo/architecture.java.html`. Le résumé d'import doit
+indiquer 20 faits et l'export doit annoncer 3 services et 14 arêtes. Ouvrir le
+fichier HTML et vérifier la présence des trois services, des trois topics
+Kafka, des tables `products` et `stock_movements`, de la collection
+`order_fulfillments` et de l'appel proposé `POST /api/reservations`.

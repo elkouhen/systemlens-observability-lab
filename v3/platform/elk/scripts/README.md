@@ -25,8 +25,10 @@ ne stockent aucun mot de passe dans le dépôt.
    lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
    identifiants et le certificat CA restent hors Git.
 5. `sync-observability-policies.sh` réconcilie les SLO et règles d'alerte
-   versionnés. Utiliser `make observability-policies-deploy` : la cible lit le
-   secret ECK sans l'afficher.
+   versionnés. Il retire `id` du corps lors de la mise à jour d'un SLO. Pour les
+   règles, il conserve `rule_type_id` et `consumer` à la création et les retire
+   du corps des mises à jour, conformément aux schémas Kibana. Utiliser `make
+   observability-policies-deploy` : la cible lit le secret ECK sans l'afficher.
 
 Les valeurs `KIBANA_URL`, `ELASTICSEARCH_URL` et les options `--resolve` sont
 paramétrables par variables d'environnement pour adapter l'accès au cluster.

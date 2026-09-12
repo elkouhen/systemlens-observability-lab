@@ -21,6 +21,37 @@
       "settings": {"frequency": "5m", "syncDelay": "5m", "preventInitialBackfill": true},
       "tags": ["systemlens", "v3", "availability"],
       "artifacts": {"dashboards": [{"id": "business-metrics-dashboard"}]}
+    },
+    {
+      "id": "supermarket-bread-sales-slo",
+      "name": "Pains achetés — minimum 10 par jour",
+      "description": "99 % des périodes de 24 heures doivent comptabiliser au moins 10 pains BREAD-WHOLE achetés par les clients, sur 30 jours glissants.",
+      "indicator": {
+        "type": "sli.metric.timeslice",
+        "params": {
+          "index": "logs-*",
+          "filter": "event.action : \"product_sale_completed\" and product.id : \"BREAD-WHOLE\"",
+          "timestampField": "@timestamp",
+          "metric": {
+            "metrics": [
+              {
+                "name": "A",
+                "aggregation": "sum",
+                "field": "business.units_sold"
+              }
+            ],
+            "equation": "A",
+            "comparator": "GTE",
+            "threshold": 10
+          }
+        }
+      },
+      "objective": {"target": 0.99, "timesliceTarget": 0.99, "timesliceWindow": "24h"},
+      "timeWindow": {"duration": "30d", "type": "rolling"},
+      "budgetingMethod": "timeslices",
+      "settings": {"frequency": "5m", "syncDelay": "5m", "preventInitialBackfill": false},
+      "tags": ["systemlens", "v3", "business", "bread"],
+      "artifacts": {"dashboards": [{"id": "business-metrics-dashboard"}]}
     }
   ],
   "rules": [
@@ -87,6 +118,29 @@
           "thresholdComparator": ">",
           "timeWindowSize": 5,
           "timeWindowUnit": "m"
+        }
+      }
+    },
+    {
+      "id": "supermarket-bread-sales-daily-objective",
+      "body": {
+        "name": "V3 — objectif quotidien de ventes de pain non atteint",
+        "tags": ["systemlens", "v3", "business", "sla", "bread"],
+        "rule_type_id": ".es-query",
+        "consumer": "stackAlerts",
+        "schedule": {"interval": "1h"},
+        "actions": [],
+        "params": {
+          "searchType": "esqlQuery",
+          "esqlQuery": {
+            "esql": "SET unmapped_fields=\"NULLIFY\"; FROM logs-* | WHERE event.action == \"product_sale_completed\" AND product.id == \"BREAD-WHOLE\" | EVAL units = TO_LONG(business.units_sold) | STATS bread_units_sold = SUM(units) | EVAL bread_units_sold = COALESCE(bread_units_sold, 0) | WHERE bread_units_sold < 10"
+          },
+          "timeField": "@timestamp",
+          "size": 0,
+          "threshold": [0],
+          "thresholdComparator": ">",
+          "timeWindowSize": 1,
+          "timeWindowUnit": "d"
         }
       }
     }

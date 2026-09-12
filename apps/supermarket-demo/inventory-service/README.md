@@ -33,6 +33,12 @@ MongoDB et PostgreSQL. Le tag `channel` distingue les commandes `rest` et
 `/actuator/prometheus` et stockée dans le data stream
 `metrics-prometheusreceiver.otel-*`.
 
+La même réussite produit l'événement structuré
+`event.action=product_sale_completed`. Les champs `product.id`, `product.name`,
+`business.units_sold` et `sales.channel` permettent de mesurer les unités
+vendues sans assimiler une commande à une unité. Cet événement n'est pas émis
+si une écriture de persistance échoue.
+
 ## Architecture hexagonale
 
 Le module sépare le métier des frameworks et des systèmes externes :

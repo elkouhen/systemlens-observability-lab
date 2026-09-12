@@ -86,7 +86,15 @@ public class InventoryApplicationService implements InventoryUseCase {
             throw exception;
         }
         meterRegistry.counter("business.orders.completed", "channel", channel).increment();
-        LOGGER.info("Reservation effectuee: orderId={}, productId={}, quantity={}, remainingStock={}, channel={}", orderId, productId, quantity, remainingStock, channel);
+        LOGGER.atInfo()
+                .addKeyValue("event.action", "product_sale_completed")
+                .addKeyValue("order.id", orderId)
+                .addKeyValue("product.id", reservation.productId())
+                .addKeyValue("product.name", reservation.productName())
+                .addKeyValue("business.units_sold", reservation.quantity().value())
+                .addKeyValue("sales.channel", channel)
+                .log("Reservation effectuee: orderId={}, productId={}, quantity={}, remainingStock={}, channel={}",
+                        orderId, productId, quantity, remainingStock, channel);
         if (remainingStock == 0) {
             stockDepleted.publish(productId, createdAt);
             LOGGER.info("Stock epuise: productId={}", productId);

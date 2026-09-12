@@ -4,6 +4,30 @@
 
 Le dashboard `Métriques métier — Supermarket Demo` doit permettre à un opérateur de parcourir les signaux dans l’ordre suivant : métier, stock, Traffic, Latency, Errors, puis Saturation. Les visualisations doivent respecter la période sélectionnée et rendre visibles les différences entre microservices.
 
+## SLA métier — pains achetés
+
+- **Engagement** : les clients doivent acheter au moins 10 pains du produit
+  `BREAD-WHOLE` sur toute période de 24 heures.
+- **Indicateur (SLI)** : somme de `business.units_sold` pour les logs dont
+  `event.action=product_sale_completed` et `product.id=BREAD-WHOLE`.
+- **Conformité** : la fenêtre est conforme lorsque le SLI est supérieur ou égal
+  à 10 ; une quantité nulle ou inférieure à 9 constitue un manquement.
+- **SLO** : `supermarket-bread-sales-slo` exige 99 % de périodes conformes de
+  24 heures sur une fenêtre glissante de 30 jours. Il est consultable dans
+  **Observability > SLOs** et référence le dashboard métier comme artefact lié.
+- **Contrôle** : la règle Kibana
+  `supermarket-bread-sales-daily-objective` recalcule le SLI chaque heure sur
+  les dernières 24 heures. Sans connecteur configuré dans ce POC, le
+  manquement est visible dans **Stack Management > Alerts and Insights >
+  Rules**.
+- **Source de vérité observable** : l'événement est émis par
+  `inventory-service` après la réussite des écritures MongoDB et PostgreSQL.
+  Une commande refusée ou compensée n'est donc pas comptée.
+- **Complémentarité** : le SLO mesure la conformité durable et la consommation
+  du budget d'erreur ; l'alerte fournit le signal opérationnel sur la fenêtre
+  courante. Les tranches SLO sont des périodes de 24 heures et non des journées
+  civiles alignées sur le fuseau Europe/Paris.
+
 ## Ordre de lecture et correspondance Kibana
 
 L’ordre ci-dessous est la référence commune avec la grille du dashboard :

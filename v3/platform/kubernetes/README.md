@@ -25,6 +25,19 @@ ressource. Les secrets ne sont pas stockés ici : ils doivent
 être fournis par un gestionnaire de secrets (SOPS ou External Secrets) avant un
 déploiement GitOps autonome.
 
+Le manifeste `eck-trial-license.yaml` est volontairement exclu des overlays :
+il démarre un essai Enterprise de 30 jours et matérialise l'acceptation de
+l'EULA Elastic. Son application doit rester une action explicite :
+
+```bash
+make eck-trial-start
+make eck-license-status
+```
+
+La première cible applique le Secret dans le namespace `elastic-system`. La
+seconde doit afficher une licence `active` de type `enterprise` ou `trial`
+après la réconciliation de l'opérateur ECK.
+
 Kibana utilise le registre public Elastic (`https://epr.elastic.co`) pour les
 packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
 vers ce registre avant d’exécuter `make elk-deploy`.

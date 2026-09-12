@@ -19,6 +19,7 @@ produits par la collecte v3.
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql-*` | Sessions, taille, cache, checkpoints et requêtes. |
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
+| SLA pains achetés | **Observability > SLOs** et **Alerts and Insights > Rules** | `logs-*` | SLO à 99 % de périodes de 24 heures conformes sur 30 jours, avec au moins 10 pains `BREAD-WHOLE` achetés par période ; alerte sur les dernières 24 heures. |
 | Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agent Fleet healthy sur `data-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
 | Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-prometheusreceiver.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
 
@@ -104,13 +105,18 @@ est la source de vérité versionnée pour la disponibilité Actuator et les ale
 de collecte. `make observability-policies-deploy` crée ou met à jour :
 
 - un SLO de disponibilité à 99,5 % par microservice sur 30 jours ;
+- un SLO métier à 99 % de tranches quotidiennes conformes sur 30 jours, une
+  tranche étant conforme à partir de 10 unités `BREAD-WHOLE` vendues ;
 - une alerte sur les échecs d'export OTel ;
 - une alerte sur une queue d'export OTel supérieure ou égale à 800 lots ;
-- une alerte lorsqu'un scrape Actuator retourne `up=0`.
+- une alerte lorsqu'un scrape Actuator retourne `up=0` ;
+- une alerte horaire lorsque les ventes de pain restent sous 10 unités sur les
+  dernières 24 heures.
 
-L'API SLO nécessite une licence Elastic Platinum ou supérieure. Avec la licence
-Basic du POC, la cible signale que le SLO est ignoré et poursuit la
-réconciliation des alertes compatibles.
+L'API SLO nécessite une licence Elastic compatible, par exemple la licence
+Trial déclarée par `make eck-trial-start`. Avec une licence Basic, la cible
+signale que le SLO est ignoré et poursuit la réconciliation des alertes
+compatibles.
 
 Les règles créent des alertes dans Kibana mais n'envoient pas de notification
 externe par défaut. Associer ensuite un connecteur versionné ou administré par

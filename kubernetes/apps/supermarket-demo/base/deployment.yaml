@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: order-service:1.1.1
+          image: order-service:1.1.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -97,7 +97,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: order-service:1.1.1
+          image: order-service:1.1.2
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -169,7 +169,7 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: inventory-service:1.1.1
+          image: inventory-service:1.1.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -250,7 +250,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: inventory-service:1.1.1
+          image: inventory-service:1.1.2
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -304,7 +304,7 @@ spec:
     spec:
       containers:
         - name: restock-service
-          image: restock-service:1.1.1
+          image: restock-service:1.1.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -374,7 +374,7 @@ spec:
               readOnly: true
       initContainers:
         - name: apm-truststore
-          image: restock-service:1.1.1
+          image: restock-service:1.1.2
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -397,4 +397,3 @@ spec:
             secretName: order-service-apm-server-ca
         - name: apm-truststore
           emptyDir: {}
-
