@@ -1,0 +1,91 @@
+{
+  "format": "systemlens-flow-report-v1",
+  "project": "supermarket-demo",
+  "generated_by": {
+    "agent": "Codex",
+    "model": "GPT-5",
+    "source_revision": "d3c15deef70536b06677528ee6475811bce64f89-dirty",
+    "analysis_method": "Index SystemLens, puis traversée des sources Java de production à travers les appels directs et les ports à implémentation unique"
+  },
+  "scope": "order-service, inventory-service et restock-service ; tests exclus",
+  "flows": [
+    {
+      "id": "java.checkout-reservation",
+      "status": "proposed",
+      "confidence": "medium",
+      "reason": "La valeur runtime de order-service.inventory-service-url n'est pas prouvée par le code Java ; la route cible et l'implémentation aval sont, elles, confirmées.",
+      "entry": {"kind": "http_entry", "name": "POST /api/orders", "service": "order-service"},
+      "steps": [
+        {"order": 1, "kind": "http_entry", "name": "OrderController.placeOrder", "status": "confirmed", "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 42, "end_line": 50}]},
+        {"order": 2, "kind": "http_call", "name": "POST /api/reservations", "status": "proposed", "confidence": "medium", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 29, "end_line": 48}]},
+        {"order": 3, "kind": "http_entry", "name": "InventoryController.reserve", "status": "proposed", "confidence": "medium", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 17}]},
+        {"order": 4, "kind": "application_call", "name": "InventoryApplicationService.reserve", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 13, "end_line": 17}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 26, "end_line": 27}]},
+        {"order": 5, "kind": "transaction_begin", "name": "Transaction de réservation", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 60, "end_line": 63}]},
+        {"order": 6, "kind": "data_read", "name": "products", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 70, "end_line": 75}]},
+        {"order": 7, "kind": "data_write", "name": "products", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 76, "end_line": 79}]},
+        {"order": 8, "kind": "data_write", "name": "order_fulfillments", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 80, "end_line": 81}]},
+        {"order": 9, "kind": "data_write", "name": "stock_movements", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 82, "end_line": 86}]},
+        {"order": 10, "kind": "compensation", "name": "Suppression de order_fulfillments si l'écriture du mouvement échoue", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 82, "end_line": 86}]},
+        {"order": 11, "kind": "conditional", "name": "remainingStock == 0", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 98, "end_line": 101}]},
+        {"order": 12, "kind": "message_publish", "name": "supermarket.stock.depleted", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/messaging/KafkaStockDepletedAdapter.java", "start_line": 11, "end_line": 14}]}
+      ]
+    },
+    {
+      "id": "java.online-order-fulfillment",
+      "status": "potential",
+      "confidence": "medium",
+      "reason": "Les deux extrémités Kafka et l'implémentation appelée sont présentes dans le code ; la livraison, les retries et l'exécution planifiée sont des faits runtime.",
+      "entry": {"kind": "scheduled_entry", "name": "ScheduledOrderPublisher.publishOnlineOrder", "service": "order-service"},
+      "steps": [
+        {"order": 1, "kind": "scheduled_entry", "name": "ScheduledOrderPublisher.publishOnlineOrder", "status": "confirmed", "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/ScheduledOrderPublisher.java", "start_line": 33, "end_line": 40}]},
+        {"order": 2, "kind": "message_publish", "name": "supermarket.order.placed", "status": "confirmed", "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/ScheduledOrderPublisher.java", "start_line": 34, "end_line": 39}]},
+        {"order": 3, "kind": "message_consume", "name": "KafkaOrderConsumer.consume", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaOrderConsumer.java", "start_line": 18, "end_line": 24}]},
+        {"order": 4, "kind": "application_call", "name": "InventoryApplicationService.reserve", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaOrderConsumer.java", "start_line": 20, "end_line": 24}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 26, "end_line": 27}]},
+        {"order": 5, "kind": "transaction_begin", "name": "Transaction de réservation", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 60, "end_line": 63}]},
+        {"order": 6, "kind": "data_read", "name": "products", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 70, "end_line": 75}]},
+        {"order": 7, "kind": "data_write", "name": "products", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 76, "end_line": 79}]},
+        {"order": 8, "kind": "data_write", "name": "order_fulfillments", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 80, "end_line": 81}]},
+        {"order": 9, "kind": "data_write", "name": "stock_movements", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 82, "end_line": 86}]},
+        {"order": 10, "kind": "compensation", "name": "Suppression de order_fulfillments si l'écriture du mouvement échoue", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 82, "end_line": 86}]},
+        {"order": 11, "kind": "conditional", "name": "remainingStock == 0", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 98, "end_line": 101}]},
+        {"order": 12, "kind": "message_publish", "name": "supermarket.stock.depleted", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/messaging/KafkaStockDepletedAdapter.java", "start_line": 11, "end_line": 14}]}
+      ]
+    },
+    {
+      "id": "java.stock-restock-cycle",
+      "status": "potential",
+      "confidence": "medium",
+      "reason": "Le cycle débute uniquement lorsque le stock atteint zéro et traverse deux livraisons Kafka qui ne sont pas prouvées à l'exécution.",
+      "entry": {"kind": "message_entry", "name": "supermarket.stock.depleted", "service": "restock-service"},
+      "steps": [
+        {"order": 1, "kind": "message_consume", "name": "StockDepletedConsumer.requestRestock", "status": "confirmed", "confidence": "high", "evidence": [{"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 37, "end_line": 48}]},
+        {"order": 2, "kind": "message_publish", "name": "supermarket.stock.restock-requested", "status": "confirmed", "confidence": "high", "evidence": [{"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 41, "end_line": 45}]},
+        {"order": 3, "kind": "message_consume", "name": "KafkaStockRestockConsumer.consume", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaStockRestockConsumer.java", "start_line": 18, "end_line": 24}]},
+        {"order": 4, "kind": "application_call", "name": "InventoryApplicationService.restock", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaStockRestockConsumer.java", "start_line": 20, "end_line": 24}, {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 26, "end_line": 27}]},
+        {"order": 5, "kind": "transaction_begin", "name": "Transaction de réassort", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 106, "end_line": 109}]},
+        {"order": 6, "kind": "data_read", "name": "products", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 109, "end_line": 111}]},
+        {"order": 7, "kind": "data_write", "name": "products", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 111, "end_line": 115}]}
+      ]
+    },
+    {
+      "id": "java.controlled-error",
+      "status": "proposed",
+      "confidence": "medium",
+      "reason": "Le service distant est résolu par configuration ; les transformations d'exception de chaque côté sont confirmées dans les sources.",
+      "entry": {"kind": "http_entry", "name": "GET /api/error", "service": "order-service"},
+      "steps": [
+        {"order": 1, "kind": "http_entry", "name": "OrderController.error", "status": "confirmed", "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 54, "end_line": 67}]},
+        {"order": 2, "kind": "http_call", "name": "POST /api/reservations", "status": "proposed", "confidence": "medium", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 58, "end_line": 65}]},
+        {"order": 3, "kind": "application_call", "name": "Product.reserve", "status": "proposed", "confidence": "medium", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 70, "end_line": 77}]},
+        {"order": 4, "kind": "conditional", "name": "Stock insuffisant", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/domain/Product.java", "start_line": 18, "end_line": 23}]},
+        {"order": 5, "kind": "exception_translation", "name": "OutOfStockException vers HTTP 409", "status": "confirmed", "confidence": "high", "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 19, "end_line": 20}]},
+        {"order": 6, "kind": "exception_translation", "name": "Erreur HTTP aval vers HTTP 500", "status": "confirmed", "confidence": "high", "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 61, "end_line": 71}]}
+      ]
+    }
+  ],
+  "unresolved": [
+    "La résolution runtime de order-service.inventory-service-url.",
+    "La livraison Kafka, les retries, les dead-letter topics et l'idempotence des consommateurs.",
+    "Le gestionnaire transactionnel effectif et les frontières entre PostgreSQL et MongoDB."
+  ]
+}

@@ -1,0 +1,239 @@
+{
+  "format": "systemlens-ai-graph-v1",
+  "project": "supermarket-demo",
+  "generated_by": {
+    "agent": "Codex",
+    "model": "GPT-5",
+    "source_revision": "d3c15deef70536b06677528ee6475811bce64f89-dirty",
+    "pass": "java-deep-code-flows-004",
+    "namespace": "ai-java-architecture",
+    "analysis_method": "Index SystemLens, puis traversée des sources Java de production à travers les appels directs et les ports à implémentation unique"
+  },
+  "mode": "complete",
+  "nodes": [
+    {
+      "id": "service-order",
+      "kind": "service",
+      "name": "order-service",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"module": "order-service", "runtime": "java-21"},
+      "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 22, "end_line": 25}]
+    },
+    {
+      "id": "service-inventory",
+      "kind": "service",
+      "name": "inventory-service",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"module": "inventory-service", "runtime": "java-21"},
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 26, "end_line": 27}]
+    },
+    {
+      "id": "service-restock",
+      "kind": "service",
+      "name": "restock-service",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"module": "restock-service", "runtime": "java-21"},
+      "evidence": [{"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 17, "end_line": 18}]
+    },
+    {
+      "id": "topic-order-placed",
+      "kind": "topic",
+      "name": "supermarket.order.placed",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"message_type": "OrderPlaced"},
+      "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/ScheduledOrderPublisher.java", "start_line": 33, "end_line": 40}]
+    },
+    {
+      "id": "topic-stock-depleted",
+      "kind": "topic",
+      "name": "supermarket.stock.depleted",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"message_type": "StockDepleted"},
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 98, "end_line": 100}]
+    },
+    {
+      "id": "topic-stock-restock-requested",
+      "kind": "topic",
+      "name": "supermarket.stock.restock-requested",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"message_type": "StockRestockRequested"},
+      "evidence": [{"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 41, "end_line": 45}]
+    },
+    {
+      "id": "collection-products",
+      "kind": "collection",
+      "name": "products",
+      "owner": "inventory-service",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"storage": "postgresql", "mapping": "jpa"},
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/persistence/jpa/ProductPersistenceAdapter.java", "start_line": 11, "end_line": 19}]
+    },
+    {
+      "id": "collection-stock-movements",
+      "kind": "collection",
+      "name": "stock_movements",
+      "owner": "inventory-service",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"storage": "postgresql", "mapping": "jpa"},
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/persistence/jpa/StockMovementPersistenceAdapter.java", "start_line": 8, "end_line": 11}]
+    },
+    {
+      "id": "collection-order-fulfillments",
+      "kind": "collection",
+      "name": "order_fulfillments",
+      "owner": "inventory-service",
+      "status": "confirmed",
+      "confidence": "high",
+      "metadata": {"storage": "mongodb", "mapping": "spring-data-mongodb"},
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/persistence/mongodb/OrderFulfillmentPersistenceAdapter.java", "start_line": 8, "end_line": 14}]
+    }
+  ],
+  "edges": [
+    {
+      "id": "order-checkout-calls-inventory",
+      "source": "service-order",
+      "target": "service-inventory",
+      "kind": "http",
+      "channel": "POST /api/reservations",
+      "status": "proposed",
+      "confidence": "medium",
+      "reason": "The Java property names inventory-service and the target route matches the inventory controller, but runtime URL resolution is outside the Java source proof.",
+      "flow_refs": ["e9ea4940d67a092f", "java.checkout-reservation"],
+      "evidence": [
+        {"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 29, "end_line": 48},
+        {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/web/InventoryController.java", "start_line": 11, "end_line": 17}
+      ]
+    },
+    {
+      "id": "order-error-calls-inventory",
+      "source": "service-order",
+      "target": "service-inventory",
+      "kind": "http",
+      "channel": "POST /api/reservations",
+      "status": "proposed",
+      "confidence": "medium",
+      "reason": "The controlled error endpoint issues the same configured REST call and translates inventory-service HTTP errors into an order-service error response.",
+      "flow_refs": ["2f3538eca0f04901", "java.controlled-error"],
+      "evidence": [{"path": "order-service/src/main/java/io/systemlens/supermarket/order/OrderController.java", "start_line": 54, "end_line": 65}]
+    },
+    {
+      "id": "order-publishes-order-placed",
+      "source": "service-order",
+      "target": "service-inventory",
+      "kind": "event",
+      "channel": "supermarket.order.placed",
+      "status": "confirmed",
+      "confidence": "high",
+      "message_type": "OrderPlaced",
+      "flow_refs": ["java.online-order-fulfillment"],
+      "evidence": [
+        {"path": "order-service/src/main/java/io/systemlens/supermarket/order/ScheduledOrderPublisher.java", "start_line": 33, "end_line": 40},
+        {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaOrderConsumer.java", "start_line": 18, "end_line": 24}
+      ]
+    },
+    {
+      "id": "inventory-publishes-stock-depleted",
+      "source": "service-inventory",
+      "target": "service-restock",
+      "kind": "event",
+      "channel": "supermarket.stock.depleted",
+      "status": "confirmed",
+      "confidence": "high",
+      "message_type": "StockDepleted",
+      "flow_refs": ["432c14ecee0d2898", "java.checkout-reservation", "java.online-order-fulfillment", "java.stock-restock-cycle"],
+      "evidence": [
+        {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 98, "end_line": 100},
+        {"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 37, "end_line": 44}
+      ]
+    },
+    {
+      "id": "restock-publishes-restock-requested",
+      "source": "service-restock",
+      "target": "service-inventory",
+      "kind": "event",
+      "channel": "supermarket.stock.restock-requested",
+      "status": "confirmed",
+      "confidence": "high",
+      "message_type": "StockRestockRequested",
+      "flow_refs": ["432c14ecee0d2898", "java.stock-restock-cycle"],
+      "evidence": [
+        {"path": "restock-service/src/main/java/io/systemlens/supermarket/restock/StockDepletedConsumer.java", "start_line": 41, "end_line": 45},
+        {"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/in/messaging/KafkaStockRestockConsumer.java", "start_line": 18, "end_line": 24}
+      ]
+    },
+    {
+      "id": "inventory-reads-products",
+      "source": "service-inventory",
+      "target": "collection-products",
+      "kind": "data",
+      "channel": "read",
+      "status": "confirmed",
+      "confidence": "high",
+      "flow_refs": ["java.checkout-reservation", "java.online-order-fulfillment", "java.stock-restock-cycle"],
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 72, "end_line": 72}]
+    },
+    {
+      "id": "inventory-writes-products",
+      "source": "service-inventory",
+      "target": "collection-products",
+      "kind": "data",
+      "channel": "write",
+      "status": "confirmed",
+      "confidence": "high",
+      "flow_refs": ["java.checkout-reservation", "java.online-order-fulfillment"],
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 76, "end_line": 77}]
+    },
+    {
+      "id": "inventory-restocks-products",
+      "source": "service-inventory",
+      "target": "collection-products",
+      "kind": "data",
+      "channel": "restock-write",
+      "status": "confirmed",
+      "confidence": "high",
+      "flow_refs": ["java.stock-restock-cycle"],
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 107, "end_line": 113}]
+    },
+    {
+      "id": "inventory-writes-stock-movements",
+      "source": "service-inventory",
+      "target": "collection-stock-movements",
+      "kind": "data",
+      "channel": "write",
+      "status": "confirmed",
+      "confidence": "high",
+      "flow_refs": ["java.checkout-reservation", "java.online-order-fulfillment"],
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 82, "end_line": 86}]
+    },
+    {
+      "id": "inventory-writes-order-fulfillments",
+      "source": "service-inventory",
+      "target": "collection-order-fulfillments",
+      "kind": "data",
+      "channel": "write",
+      "status": "confirmed",
+      "confidence": "high",
+      "flow_refs": ["java.checkout-reservation", "java.online-order-fulfillment"],
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 80, "end_line": 81}]
+    },
+    {
+      "id": "inventory-compensates-order-fulfillment",
+      "source": "service-inventory",
+      "target": "collection-order-fulfillments",
+      "kind": "data",
+      "channel": "delete-on-stock-movement-failure",
+      "status": "confirmed",
+      "confidence": "high",
+      "flow_refs": ["java.checkout-reservation", "java.online-order-fulfillment"],
+      "evidence": [{"path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java", "start_line": 82, "end_line": 86}]
+    }
+  ]
+}
