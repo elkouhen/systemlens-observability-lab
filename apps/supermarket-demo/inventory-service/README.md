@@ -75,6 +75,15 @@ avec :
 mvn -pl inventory-service -am verify
 ```
 
+## API OpenAPI
+
+Le contrat API First est versionné dans `src/main/resources/static/openapi.yaml`.
+Maven le valide avant la compilation ; toute évolution d'endpoint ou de payload
+commence donc par ce fichier. Avec le service démarré localement, le contrat est
+servi sur `http://localhost:3001/openapi.yaml` et consultable avec Swagger UI
+sur `http://localhost:3001/swagger-ui.html`. Vérifier que l'interface liste
+`POST /api/reservations` et ses réponses `400`, `404` et `409`.
+
 ## Documentation externe
 
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)

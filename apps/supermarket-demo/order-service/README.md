@@ -13,6 +13,15 @@ envoyées directement à APM Server ; elles ne nécessitent aucun SDK dans ce
 module. L'agent est configuré dans le Deployment Kubernetes, qui lui fournit
 l'identité du service, le token APM et le certificat de l'APM Server.
 
+## API OpenAPI
+
+Le contrat API First est versionné dans `src/main/resources/static/openapi.yaml`.
+Maven le valide avant la compilation ; toute évolution d'endpoint ou de payload
+commence donc par ce fichier. Avec le service démarré localement, le contrat est
+servi sur `http://localhost:3000/openapi.yaml` et consultable avec Swagger UI
+sur `http://localhost:3000/swagger-ui.html`. Vérifier que l'interface liste les
+opérations `POST /api/orders`, `GET /api/error` et `GET /api/health`.
+
 ## Documentation externe
 
 - [Spring Boot externalized configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html)

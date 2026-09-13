@@ -15,6 +15,12 @@ spring:
         linger.ms: 5
         batch.size: 16384
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    url: /openapi.yaml
+
 management:
   endpoints:
     web:
