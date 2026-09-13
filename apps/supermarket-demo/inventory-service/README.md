@@ -84,6 +84,19 @@ servi sur `http://localhost:3001/openapi.yaml` et consultable avec Swagger UI
 sur `http://localhost:3001/swagger-ui.html`. Vérifier que l'interface liste
 `POST /api/reservations` et ses réponses `400`, `404` et `409`.
 
+## API AsyncAPI
+
+Le contrat API First Kafka est versionné dans
+`src/main/resources/static/asyncapi.yaml`. Il définit la consommation de
+`OrderPlaced`, la publication de `StockDepleted` et la consommation de
+`StockRestockRequested`, avec les groupes Kafka effectivement configurés. Le
+fichier est servi sur `http://localhost:3001/asyncapi.yaml`. Pour le valider
+localement, avec Node.js 16 ou supérieur, exécuter :
+
+```bash
+npx --yes @asyncapi/cli@5.0.7 validate src/main/resources/static/asyncapi.yaml
+```
+
 ## Documentation externe
 
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)
