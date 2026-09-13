@@ -5,7 +5,7 @@ ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architectu
 ARCH_NAME := $(if $(filter v1,$(ARCH_VERSION)),Elastic classique,$(if $(filter v2,$(ARCH_VERSION)),OpenTelemetry + Kafka,$(if $(filter v3,$(ARCH_VERSION)),Hybride Fleet,inconnue)))
 SYSTEMLENS ?= systemlens
 
-.PHONY: help architecture-list architecture-switch architecture-status apps-architecture-graph apm-install apm-audit ci
+.PHONY: help architecture-list architecture-switch architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit ci
 
 help: ## Afficher les tâches de l'architecture sélectionnée
 	@printf 'Architecture active : %s — %s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)'
@@ -14,6 +14,7 @@ help: ## Afficher les tâches de l'architecture sélectionnée
 	@printf '  architecture-list    Lister les architectures disponibles\n'
 	@printf '  architecture-status  Afficher la version active\n'
 	@printf '  apps-architecture-graph  Indexer les sources Java et générer le graphe SystemLens\n'
+	@printf '  apps-codeql-module-graph Analyser les dépendances de modules Java et actualiser le graphe\n'
 	@printf '  apm-install          Installer le contexte APM déclaré dans apm.yml\n'
 	@printf '  apm-audit            Auditer le contexte APM du projet\n'
 	@printf "  ci                   Exécuter les validations de l'architecture sélectionnée\n"
@@ -43,6 +44,10 @@ apps-architecture-graph: ## Indexer les sources Java et générer le graphe Syst
 	  mv "$$flows_file" architecture.systemlens-flows.json && \
 	  '$(SYSTEMLENS)' import-facts architecture.ai-java.pass-004.json --namespace ai-java-architecture --complete && \
 	  '$(SYSTEMLENS)' export microservices --html architecture.java.html --root-path .
+
+apps-codeql-module-graph: ## Analyser les dépendances de modules Java avec CodeQL
+	@command -v codeql >/dev/null 2>&1 || { echo 'CodeQL absent : installez la CLI et le pack codeql/java-all.' >&2; exit 1; }
+	@cd apps/supermarket-demo && ./codeql/export-module-dependencies.sh
 
 apm-install: ## Installer le contexte APM déclaré dans apm.yml
 	@command -v apm >/dev/null 2>&1 || { echo "APM CLI absent : voir docs/agent-package-manager.md" >&2; exit 1; }

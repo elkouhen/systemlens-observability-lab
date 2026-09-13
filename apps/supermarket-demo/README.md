@@ -85,8 +85,11 @@ modules déployables, les API REST, les canaux Kafka, la collection MongoDB et
 les dépendances inter-modules qui ne sont pas résolues automatiquement. Le
 rapport `architecture.application-inventory.json` fournit les matrices
 directionnelles `module → endpoint`, `endpoint → module`, `module → module`,
-`module → topic → module` et `module → collection MongoDB`, chacune avec ses
-preuves de source et son niveau de confiance. Le document
+`module → module (compilation)`, `module → topic → module` et `module →
+collection MongoDB`, chacune avec ses preuves de source et son niveau de
+confiance. Le fichier `architecture.codeql-module-dependencies.json` est le
+graphe CodeQL des imports Java vers `supermarket-contracts` ; il distingue les
+dépendances de compilation des flux REST et Kafka. Le document
 `architecture.systemlens-flows.json` conserve les flux potentiels produits par
 l'extracteur. Les arêtes enrichies du manifeste référencent ces flows par
 `flow_refs`, tandis que les étapes ordonnées restent dans le rapport : elles ne
@@ -97,6 +100,7 @@ Prérequis : disposer d'une version de `systemlens` qui fournit les commandes
 
 ```bash
 make apps-architecture-graph
+make apps-codeql-module-graph
 ```
 
 La cible diagnostique et actualise l'index local, vérifie les deux documents
@@ -108,3 +112,9 @@ fichier HTML et vérifier la présence des trois services, des trois topics
 Kafka, de la collection `order_fulfillments` associée à `inventory-service` et
 de l'appel REST `POST /api/reservations` entre `order-service` et
 `inventory-service`.
+
+La cible CodeQL crée une base temporaire, exécute la requête
+`codeql/ModuleDependencies.ql`, puis actualise le graphe de modules et la
+matrice `module_to_module_compile_time`. Le résultat attendu contient trois
+arêtes confirmées vers `supermarket-contracts` : une depuis chacun des services
+applicatifs.
