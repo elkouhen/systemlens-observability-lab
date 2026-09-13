@@ -1,13 +1,12 @@
 package io.systemlens.supermarket.order;
 
-import io.systemlens.supermarket.contract.OrderPlaced;
+import io.systemlens.supermarket.order.generated.api.CommandesApi;
+import io.systemlens.supermarket.order.generated.model.HealthStatus;
+import io.systemlens.supermarket.order.generated.model.OrderRequest;
+import io.systemlens.supermarket.order.generated.model.ReservationResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
@@ -15,14 +14,13 @@ import org.springframework.web.client.RestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
 /** Commandes passées en caisse : réservation de stock synchrone auprès d'inventory-service. */
 @RestController
-@RequestMapping("/api")
-public class OrderController {
+public class OrderController implements CommandesApi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
 
@@ -34,34 +32,38 @@ public class OrderController {
         this.restTemplate = restTemplate;
     }
 
-    @GetMapping("/health")
-    public Map<String, String> health() {
-        return Map.of("status", "ok");
+    @Override
+    public HealthStatus health() {
+        return new HealthStatus("ok");
     }
 
-    @PostMapping("/orders")
-    public ReservationResult placeOrder(@RequestBody OrderRequest request) {
-        OrderPlaced order = new OrderPlaced(UUID.randomUUID().toString(), request.productId(), request.quantity(), Instant.now());
+    @Override
+    public ReservationResult placeOrder(OrderRequest request) {
+        io.systemlens.supermarket.order.generated.event.OrderPlaced order =
+            new io.systemlens.supermarket.order.generated.event.OrderPlaced(
+                UUID.randomUUID().toString(), request.getProductId(), request.getQuantity(), OffsetDateTime.now());
         LOGGER.info("Commande recue: orderId={}, productId={}, quantity={}",
-            order.orderId(), order.productId(), order.quantity());
+            order.getOrderId(), order.getProductId(), order.getQuantity());
         ReservationResult reservation = restTemplate.postForObject(
             inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
         LOGGER.info("Commande reservee: orderId={}, productId={}, quantity={}, remainingStock={}",
-            order.orderId(), order.productId(), order.quantity(), reservation.remainingStock());
+            order.getOrderId(), order.getProductId(), order.getQuantity(), reservation.getRemainingStock());
         return reservation;
     }
 
-    @GetMapping("/error")
-    public void error() {
+    @Override
+    public void triggerOutOfStock() {
         // Quantité garantie supérieure au stock initial : démontre la
         // propagation d'une rupture de stock d'inventory-service vers
         // order-service (scénario d'erreur contrôlé pour l'observabilité).
-        OrderPlaced order = new OrderPlaced(UUID.randomUUID().toString(), "PASTA-500G", 999_999, Instant.now());
+        io.systemlens.supermarket.order.generated.event.OrderPlaced order =
+            new io.systemlens.supermarket.order.generated.event.OrderPlaced(
+                UUID.randomUUID().toString(), "PASTA-500G", 999_999, OffsetDateTime.now());
         try {
             restTemplate.postForObject(inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
         } catch (HttpClientErrorException exception) {
             LOGGER.warn("Rupture de stock: orderId={}, productId={}, quantity={}",
-                order.orderId(), order.productId(), order.quantity());
+                order.getOrderId(), order.getProductId(), order.getQuantity());
             throw new OutOfStockException("Rupture de stock signalée par inventory-service : " + exception.getMessage());
         }
     }
@@ -70,13 +72,6 @@ public class OrderController {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     Map<String, String> handleOutOfStock(OutOfStockException exception) {
         return Map.of("error", exception.getMessage());
-    }
-
-    record OrderRequest(String productId, int quantity) {
-    }
-
-    record ReservationResult(String orderId, String productId, String productName, int quantity,
-                              int remainingStock, String channel, long durationMs) {
     }
 
     static class OutOfStockException extends RuntimeException {

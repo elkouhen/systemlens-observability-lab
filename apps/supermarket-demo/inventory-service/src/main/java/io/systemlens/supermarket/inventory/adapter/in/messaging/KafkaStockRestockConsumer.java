@@ -1,7 +1,7 @@
 package io.systemlens.supermarket.inventory.adapter.in.messaging;
 
-import io.systemlens.supermarket.contract.StockRestockRequested;
 import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
+import io.systemlens.supermarket.inventory.generated.event.StockRestockRequested;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +19,7 @@ public class KafkaStockRestockConsumer {
     public void consume(StockRestockRequested request) {
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            inventory.restock(request.productId(), request.quantity());
+            inventory.restock(request.getProductId(), request.getQuantity());
         } finally {
             sample.stop(meterRegistry.timer("business.kafka.message.processing", "consumer", "restock", "topic", "supermarket.stock.restock-requested"));
         }

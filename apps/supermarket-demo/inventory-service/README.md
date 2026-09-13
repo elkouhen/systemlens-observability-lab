@@ -84,18 +84,21 @@ servi sur `http://localhost:3001/openapi.yaml` et consultable avec Swagger UI
 sur `http://localhost:3001/swagger-ui.html`. Vérifier que l'interface liste
 `POST /api/reservations` et ses réponses `400`, `404` et `409`.
 
+À la phase Maven `generate-sources`, OpenAPI Generator produit l'interface
+Spring et les DTO sous `target/generated-sources/openapi`. `InventoryController`
+implémente cette interface ; ne jamais modifier ni versionner les sources
+générées.
+
 ## API AsyncAPI
 
 Le contrat API First Kafka est versionné dans
 `src/main/resources/static/asyncapi.yaml`. Il définit la consommation de
 `OrderPlaced`, la publication de `StockDepleted` et la consommation de
 `StockRestockRequested`, avec les groupes Kafka effectivement configurés. Le
-fichier est servi sur `http://localhost:3001/asyncapi.yaml`. Pour le valider
-localement, avec Node.js 16 ou supérieur, exécuter :
-
-```bash
-npx --yes @asyncapi/cli@5.0.7 validate src/main/resources/static/asyncapi.yaml
-```
+fichier est servi sur `http://localhost:3001/asyncapi.yaml`. Le plugin Maven
+AsyncAPI génère les modèles Java sous `target/generated-sources/asyncapi`,
+employés par les adaptateurs Kafka. La validation et la génération s'exécutent
+avec `mvn verify`; ne jamais modifier ni versionner les sources générées.
 
 ## Documentation externe
 

@@ -35,6 +35,7 @@ operations:
 components:
   messages:
     OrderPlaced:
+      name: OrderPlaced
       title: Commande passée
       summary: Commande créée par order-service.
       payload:

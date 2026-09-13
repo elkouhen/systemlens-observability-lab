@@ -83,6 +83,7 @@ operations:
 components:
   messages:
     OrderPlaced:
+      name: OrderPlaced
       title: Commande passée
       payload:
         $ref: '#/components/schemas/OrderPlaced'
@@ -93,6 +94,7 @@ components:
             description: Identifiant de la commande, utilisé comme clé Kafka.
           bindingVersion: '0.5.0'
     StockDepleted:
+      name: StockDepleted
       title: Stock épuisé
       payload:
         $ref: '#/components/schemas/StockDepleted'
@@ -103,6 +105,7 @@ components:
             description: Identifiant du produit, utilisé comme clé Kafka.
           bindingVersion: '0.5.0'
     StockRestockRequested:
+      name: StockRestockRequested
       title: Réassort demandé
       payload:
         $ref: '#/components/schemas/StockRestockRequested'

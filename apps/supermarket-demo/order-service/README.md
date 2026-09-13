@@ -22,17 +22,20 @@ servi sur `http://localhost:3000/openapi.yaml` et consultable avec Swagger UI
 sur `http://localhost:3000/swagger-ui.html`. Vérifier que l'interface liste les
 opérations `POST /api/orders`, `GET /api/error` et `GET /api/health`.
 
+À la phase Maven `generate-sources`, OpenAPI Generator produit l'interface
+Spring et les DTO sous `target/generated-sources/openapi`. `OrderController`
+implémente cette interface ; ne jamais modifier ni versionner les sources
+générées.
+
 ## API AsyncAPI
 
 Le contrat API First Kafka est versionné dans
 `src/main/resources/static/asyncapi.yaml`. Il définit la publication de
 `OrderPlaced` sur `supermarket.order.placed`, avec `orderId` comme clé Kafka.
-Le fichier est servi sur `http://localhost:3000/asyncapi.yaml`. Pour le
-valider localement, avec Node.js 16 ou supérieur, exécuter :
-
-```bash
-npx --yes @asyncapi/cli@5.0.7 validate src/main/resources/static/asyncapi.yaml
-```
+Le fichier est servi sur `http://localhost:3000/asyncapi.yaml`. Le plugin Maven
+AsyncAPI génère son modèle Java sous `target/generated-sources/asyncapi`, employé
+par le producteur Kafka. La validation et la génération s'exécutent avec
+`mvn verify`; ne jamais modifier ni versionner les sources générées.
 
 ## Documentation externe
 
