@@ -43,6 +43,11 @@ Vagrant.configure("2") do |config|
       # la passerelle Docker 192.168.5.2 ; une écoute limitée à 127.0.0.1 resterait
       # inaccessible depuis le réseau Docker.
       node.vm.network "forwarded_port", guest: 19092, host: 19092, host_ip: "0.0.0.0", auto_correct: false
+      # MongoDB et PostgreSQL sont consommés par inventory-service depuis
+      # K3d. Ils suivent donc la même règle que Kafka : les publier sur l'hôte
+      # afin que les pods les joignent via la passerelle Docker 192.168.5.2.
+      node.vm.network "forwarded_port", guest: 27017, host: 27017, host_ip: "0.0.0.0", auto_correct: false
+      node.vm.network "forwarded_port", guest: 5432, host: 5432, host_ip: "0.0.0.0", auto_correct: false
 
       node.vm.provider "virtualbox" do |vb|
         # Rocky Linux 10 needs an Intel NIC for the host-only interface.
