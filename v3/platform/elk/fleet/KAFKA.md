@@ -71,8 +71,9 @@ Après une modification de policy, exécuter `make fleet-sync` puis vérifier
 4. En cas d'échec Fleet, consulter `journalctl -u elastic-agent` et vérifier
 que l'agent apparaît comme healthy dans Fleet.
 
-Le Deployment `otel-kafka-exporter` consomme le topic OTLP `otel-metrics`
-pour les applications et Kubernetes uniquement.
+Le service `observability-otel-kafka-exporter` sur `data-01` consomme les
+topics OTLP `otel-traces`, `otel-metrics` et `otel-logs` pour les applications
+et Kubernetes uniquement.
 
 ## Documentation officielle
 

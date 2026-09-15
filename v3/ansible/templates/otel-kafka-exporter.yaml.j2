@@ -1,0 +1,93 @@
+extensions:
+  file_storage:
+    directory: /var/lib/otel
+  health_check:
+    endpoint: 0.0.0.0:13134
+
+receivers:
+  kafka/otlp:
+    brokers: ["127.0.0.1:9092"]
+    protocol_version: 3.9.0
+    group_id: otel-backend
+    traces:
+      topics: [otel-traces]
+      encoding: otlp_proto
+    metrics:
+      topics: [otel-metrics]
+      encoding: otlp_proto
+    logs:
+      topics: [otel-logs]
+      encoding: otlp_proto
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 700
+    spike_limit_mib: 150
+  transform/ecs-log-correlation:
+    log_statements:
+      - context: log
+        statements:
+          - set(attributes["trace.id"], attributes["trace_id"]) where attributes["trace_id"] != nil
+          - set(attributes["span.id"], attributes["span_id"]) where attributes["span_id"] != nil
+      - context: scope
+        statements:
+          - set(attributes["elastic.mapping.mode"], "ecs")
+    trace_statements:
+      - context: scope
+        statements:
+          - set(attributes["elastic.mapping.mode"], "ecs")
+    metric_statements:
+      - context: scope
+        statements:
+          - set(attributes["elastic.mapping.mode"], "ecs")
+  elasticapm: {}
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+
+connectors:
+  elasticapm: {}
+
+exporters:
+  elasticsearch/otel:
+    endpoints: ["{{ elasticsearch_url }}"]
+    api_key: ${env:ELASTICSEARCH_API_KEY}
+    tls:
+      ca_file: /etc/otel/elasticsearch-ca.crt
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+      storage: file_storage
+
+service:
+  extensions: [health_check, file_storage]
+  telemetry:
+    resource:
+      service.name: otel-kafka-exporter
+      deployment.environment.name: homologation
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8889
+  pipelines:
+    traces:
+      receivers: [kafka/otlp]
+      processors: [memory_limiter, elasticapm, batch]
+      exporters: [elasticapm, elasticsearch/otel]
+    metrics/aggregated-apm:
+      receivers: [elasticapm]
+      processors: [batch]
+      exporters: [elasticsearch/otel]
+    metrics:
+      receivers: [kafka/otlp]
+      processors: [memory_limiter, batch]
+      exporters: [elasticsearch/otel]
+    logs:
+      receivers: [kafka/otlp]
+      processors: [memory_limiter, transform/ecs-log-correlation, batch]
+      exporters: [elasticsearch/otel]

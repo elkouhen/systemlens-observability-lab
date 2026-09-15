@@ -22,6 +22,9 @@
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
     elasticsearch_url: https://elasticsearch.observability.test:443
+    # Injectée au provisionnement depuis le Secret Kubernetes existant ; ne
+    # jamais versionner cette clé API.
+    otel_elasticsearch_api_key: ""
     redeploy_services: false
     # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
     # équivalent), fourni par Vagrant via ZSCALER_CA_CERT. Vide par défaut :
@@ -263,6 +266,16 @@
         state: directory
         mode: '0755'
 
+    - name: Créer le répertoire persistant de l'exporteur Kafka OTel
+      ansible.builtin.file:
+        path: /var/lib/observability/otel-kafka-exporter
+        state: directory
+        # L'image EDOT s'exécute avec l'utilisateur elastic-agent (1000).
+        owner: '1000'
+        group: '1000'
+        mode: '0750'
+      when: inventory_hostname == 'data-01'
+
     - name: Créer le cache persistant des artefacts du POC
       ansible.builtin.file:
         path: /var/cache/observability
@@ -289,6 +302,31 @@
       register: otel_gateway_config
       when: inventory_hostname == 'data-01'
 
+    - name: Vérifier la clé API de l'exporteur Kafka OTel
+      ansible.builtin.assert:
+        that: otel_elasticsearch_api_key | length > 0
+        fail_msg: OTEL_ELASTICSEARCH_API_KEY doit être injectée au provisionnement de data-01.
+      when: inventory_hostname == 'data-01'
+
+    - name: Déployer la configuration de l'exporteur Kafka OTel sur data-01
+      ansible.builtin.template:
+        src: otel-kafka-exporter.yaml.j2
+        dest: /etc/observability/otel-kafka-exporter.yaml
+        mode: '0644'
+      register: otel_kafka_exporter_config
+      when: inventory_hostname == 'data-01'
+
+    - name: Injecter la clé API de l'exporteur Kafka OTel
+      ansible.builtin.copy:
+        content: "ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}\n"
+        dest: /etc/observability/otel-kafka-exporter.env
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+      register: otel_kafka_exporter_credentials
+      when: inventory_hostname == 'data-01'
+
     - name: Déployer la configuration HAProxy du Gateway OTLP
       ansible.builtin.template:
         src: haproxy-otel-gateway.cfg.j2
@@ -313,12 +351,12 @@
       register: haproxy_systemd_override
       when: inventory_hostname == 'data-01'
 
-    - name: Déployer les unités Quadlet MongoDB, Kafka et Gateway OTLP
+    - name: Déployer les unités Quadlet MongoDB, Kafka, Gateway et exporteur OTel
       ansible.builtin.template:
         src: "{{ item }}.container.j2"
         dest: "/etc/containers/systemd/{{ item }}.container"
         mode: '0644'
-      loop: [observability-mongodb, observability-kafka, observability-otel-gateway]
+      loop: [observability-mongodb, observability-kafka, observability-otel-gateway, observability-otel-kafka-exporter]
       register: quadlet_units
 
     - name: Déployer l'unité Quadlet PostgreSQL sur data-01
@@ -375,12 +413,12 @@
       loop: "{{ podman_incomplete_pulls.files | default([]) }}"
       when: inventory_hostname == 'data-01'
 
-    - name: Démarrer MongoDB, Kafka et le Gateway OTLP
+    - name: Démarrer MongoDB, Kafka, le Gateway et l'exporteur OTel
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         enabled: true
         state: started
-      loop: [observability-mongodb, observability-kafka, observability-otel-gateway]
+      loop: [observability-mongodb, observability-kafka, observability-otel-gateway, observability-otel-kafka-exporter]
 
     - name: Démarrer PostgreSQL sur data-01
       ansible.builtin.systemd_service:
@@ -389,11 +427,11 @@
         state: started
       when: inventory_hostname == 'data-01'
 
-    - name: Redéployer MongoDB, Kafka et le Gateway OTLP après un changement ou sur demande
+    - name: Redéployer MongoDB, Kafka, le Gateway et l'exporteur OTel après un changement ou sur demande
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         state: restarted
-      loop: [observability-mongodb, observability-kafka, observability-otel-gateway]
+      loop: [observability-mongodb, observability-kafka, observability-otel-gateway, observability-otel-kafka-exporter]
       when: quadlet_units.changed or (redeploy_services | bool)
 
     - name: Redémarrer le Gateway OTLP après une modification de sa configuration
@@ -401,6 +439,15 @@
         name: observability-otel-gateway.service
         state: restarted
       when: inventory_hostname == 'data-01' and otel_gateway_config.changed and not quadlet_units.changed
+
+    - name: Redémarrer l'exporteur Kafka OTel après une modification de sa configuration
+      ansible.builtin.systemd_service:
+        name: observability-otel-kafka-exporter.service
+        state: restarted
+      when: >-
+        inventory_hostname == 'data-01' and
+        not quadlet_units.changed and
+        (otel_kafka_exporter_config.changed or otel_kafka_exporter_credentials.changed)
 
     - name: Démarrer HAProxy devant le Gateway OTLP
       ansible.builtin.systemd_service:
@@ -476,6 +523,17 @@
       retries: 15
       delay: 2
       until: otel_gateway_health.status == 200
+      changed_when: false
+      when: inventory_hostname == 'data-01'
+
+    - name: Vérifier le endpoint de santé de l'exporteur Kafka OTel
+      ansible.builtin.uri:
+        url: http://127.0.0.1:13134/
+        status_code: 200
+      register: otel_kafka_exporter_health
+      retries: 15
+      delay: 2
+      until: otel_kafka_exporter_health.status == 200
       changed_when: false
       when: inventory_hostname == 'data-01'
 

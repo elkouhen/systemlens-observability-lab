@@ -10,7 +10,7 @@ dans Discover.
 Les parcours validés en architecture v3 sont :
 
 - `gateway-directe-ssh` : playbook SSH sur `data-01` → Gateway EDOT
-  `127.0.0.1:4319` → Kafka `otel-logs` → `otel-kafka-exporter` → data stream
+  `127.0.0.1:4319` → Kafka `otel-logs` → exporteur OTel `data-01` → data stream
   `logs-*` → Kibana ;
 - `haproxy-ip-port-direct` : contrôleur Ansible → HAProxy
   `192.168.33.10:4318` → Gateway EDOT `127.0.0.1:4319` → même chaîne Elastic.
@@ -48,6 +48,26 @@ Depuis la racine du dépôt :
 
 ```bash
 make otel-validation
+```
+
+Le playbook porte les tags suivants. Sans tag, les deux parcours sont exigés.
+
+| Tag | Parcours validé | Commande |
+| --- | --- | --- |
+| `host` | Depuis `data-01`, directement vers le Gateway local | `make otel-validation VALIDATION_TAGS=host` |
+| `direct` | Depuis le contrôleur Ansible, directement vers HAProxy sur la VM | `make otel-validation VALIDATION_TAGS=direct` |
+| `host,direct` | Les deux parcours explicitement | `make otel-validation VALIDATION_TAGS=host,direct` |
+
+Les tags sont transmis à Ansible avec `--tags`. Utiliser uniquement les tags
+ci-dessus : une valeur inconnue ne sélectionne aucun play et ne constitue pas
+une validation.
+
+Depuis ce répertoire, Ansible utilise directement `ansible.cfg` et son
+inventaire par défaut :
+
+```bash
+source ../../v3/platform/elk/scripts/load-credentials.sh
+ansible-playbook playbook.yml
 ```
 
 Pour un inventaire distinct :

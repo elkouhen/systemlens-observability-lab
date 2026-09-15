@@ -46,8 +46,9 @@ Le Gateway OTLP est exécuté sur la VM `data-01`, derrière HAProxy publié aux
 conteneurs k3d via `192.168.5.2:4317` et `192.168.5.2:4318`. Les applications
 Kubernetes l'utilisent comme endpoint OTLP. Le Deployment `otel-prometheus-scraper`
 conserve le scrape des métriques Actuator dans le cluster. Les logs et les
-métriques Kubernetes suivent le chemin EDOT vers Kafka. Les VM utilisent
-l'Elastic Agent enrôlé dans Fleet et publient directement vers Elasticsearch.
+métriques Kubernetes suivent le chemin EDOT vers Kafka, puis l'exporteur EDOT
+sur `data-01` les écrit dans Elasticsearch. Les VM utilisent l'Elastic Agent
+enrôlé dans Fleet et publient directement vers Elasticsearch.
 
 Les URL fonctionnelles v3 utilisent les mêmes noms que v1 et v2 :
 `elasticsearch.observability.test`, `kibana.observability.test` et `fleet.observability.test`. Fleet Server

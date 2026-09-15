@@ -1,0 +1,22 @@
+[Unit]
+Description=Exporteur Elastic OpenTelemetry depuis Kafka du POC
+After=network-online.target observability-kafka.service
+Wants=network-online.target
+Requires=observability-kafka.service
+
+[Container]
+Image=docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+ContainerName=observability-otel-kafka-exporter
+Network=host
+EnvironmentFile=/etc/observability/otel-kafka-exporter.env
+Volume=/etc/observability/otel-kafka-exporter.yaml:/etc/otel/collector.yaml:ro,Z
+Volume=/etc/pki/ca-trust/source/anchors/observability-elasticsearch.crt:/etc/otel/elasticsearch-ca.crt:ro,Z
+Volume=/var/lib/observability/otel-kafka-exporter:/var/lib/otel:Z
+Memory=1536m
+Exec=--config=/etc/otel/collector.yaml
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
 La v3 crée uniquement `data-01`, avec MongoDB standalone, Kafka mono-broker,
-PostgreSQL, un Gateway EDOT et HAProxy en frontal. La VM reçoit un Elastic Agent enrôlé dans Fleet. Sa policy collecte
+PostgreSQL, un Gateway EDOT, l'exporteur Kafka EDOT et HAProxy en frontal. La VM reçoit un Elastic Agent enrôlé dans Fleet. Sa policy collecte
 les logs, métriques système et intégrations Kafka, MongoDB et PostgreSQL, puis
 envoie directement les événements vers Elasticsearch. Kafka reste une source
 observée et n’est plus un buffer de télémétrie VM.
@@ -22,7 +22,7 @@ plateforme. Les données Kafka sont conservées dans le volume Podman
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| `data-01` | Elastic Agent Fleet ; HAProxy → Gateway EDOT | Fleet → Elasticsearch ; OTLP applicatif → Kafka |
+| `data-01` | Elastic Agent Fleet ; HAProxy → Gateway EDOT ; exporteur Kafka EDOT | Fleet → Elasticsearch ; OTLP applicatif → Kafka → Elasticsearch |
 
 ## Ordre de lecture
 

@@ -26,14 +26,9 @@
     status_code: 200
   no_log: true
 
-- name: Envoyer un log de validation au receiver OTLP HTTP
-  ansible.builtin.uri:
-    url: "{{ otel_endpoint | regex_replace('/$', '') }}/v1/logs"
-    method: POST
-    body_format: json
-    headers:
-      Content-Type: application/json
-    body:
+- name: Construire le corps OTLP de validation
+  ansible.builtin.set_fact:
+    otlp_request_body:
       resourceLogs:
         - resource:
             attributes:
@@ -54,6 +49,19 @@
                     - key: validation.marker
                       value:
                         stringValue: "{{ validation_marker }}"
+
+- name: Afficher le corps OTLP envoyé
+  ansible.builtin.debug:
+    var: otlp_request_body
+
+- name: Envoyer un log de validation au receiver OTLP HTTP
+  ansible.builtin.uri:
+    url: "{{ otel_endpoint | regex_replace('/$', '') }}/v1/logs"
+    method: POST
+    body_format: json
+    headers:
+      Content-Type: application/json
+    body: "{{ otlp_request_body }}"
     status_code: [200, 202]
 
 - name: Attendre l'indexation du message dans Elasticsearch exploité par Kibana

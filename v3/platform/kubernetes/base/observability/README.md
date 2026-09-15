@@ -20,8 +20,9 @@ EDOT exécuté sur `data-01`. Le Deployment EDOT `otel-prometheus-scraper` scrap
 métriques Actuator/Prometheus sur le port des Services applicatifs.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
-consommés par le Collector EDOT Elasticsearch. Les VM ne passent pas par ce
-chemin : leur Elastic Agent Fleet exporte directement vers Elasticsearch.
+consommés par l'exporteur EDOT exécuté sur `data-01`. Les VM ne passent pas par
+ce chemin pour leur télémétrie système : leur Elastic Agent Fleet exporte
+directement vers Elasticsearch.
 
 Le pipeline de traces du Gateway applique aussi le processeur et le connector
 `elasticapm` avant Kafka. Ils enrichissent les traces OTLP et produisent les
@@ -46,11 +47,11 @@ Après le déploiement, vérifier les composants et les relais :
 
 ```bash
 vagrant ssh data-01 -c 'sudo systemctl is-active observability-otel-gateway'
-kubectl -n elastic-stack get deployment otel-prometheus-scraper otel-kafka-exporter
-kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
+kubectl -n elastic-stack get deployment otel-prometheus-scraper
+make otel-kafka-exporter-vm-status
 ```
 
-Le résultat attendu est un Deployment EDOT Elasticsearch `1/1`, sans erreur de
+Le résultat attendu est un exporteur EDOT actif sur `data-01`, sans erreur de
 consommation Kafka ni d'indexation.
 
 Les traces conservent l'environnement défini par les variables `OTEL_*`. Les

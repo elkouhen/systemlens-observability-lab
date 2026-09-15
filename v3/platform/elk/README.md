@@ -19,14 +19,14 @@ Elasticsearch.
 
 ## Modèle mental
 
-`applications Java → Gateway OTel data-01 → Kafka → Collector OTel Kubernetes → Elasticsearch → Kibana`.
+`applications Java → Gateway OTel data-01 → Kafka → exporteur OTel data-01 → Elasticsearch → Kibana`.
 
 Les trois services reçoivent l'agent Java OpenTelemetry par init container et
 exportent leurs traces en OTLP/HTTP vers le Gateway EDOT de `data-01`. Le
 Deployment `otel-prometheus-scraper` collecte leurs métriques Actuator. Le
 Collector DaemonSet lit les logs stdout et les métriques hôte, puis tous les signaux sont envoyés dans
-les topics Kafka OTLP par signal (`otel-traces`, `otel-metrics`, `otel-logs`). Le Collector de
-sortie consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
+les topics Kafka OTLP par signal (`otel-traces`, `otel-metrics`, `otel-logs`). L'exporteur de
+sortie sur `data-01` consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
 
 Chaque VM active exécute l’Elastic Agent provisionné et enrôlé dans Fleet par
 Ansible. Il lit les logs locaux et les métriques système/Kafka/MongoDB/PostgreSQL,
@@ -46,8 +46,10 @@ mélangés dans un même topic ; les séparer évite les erreurs de décodage et
 conserve le même flux edge → Kafka → backend → Elasticsearch.
 
 Les règles de collecte Kubernetes et de buffer Kafka sont dans
-`../kubernetes/base/observability/otel-kafka.yaml`. Le Gateway OTLP VM et
-l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
+`../kubernetes/base/observability/otel-kafka.yaml`. Le Gateway OTLP VM,
+l'exporteur Kafka et l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
+Pour migrer l'exporteur depuis Kubernetes, exécuter
+`make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
 
 ## Documentation externe
 
