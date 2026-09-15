@@ -280,7 +280,8 @@ Après modification d'un manifest ou d'une policy :
 ```bash
 make kubernetes-validate
 make vm-status
-kubectl -n elastic-stack get deployment otel-gateway otel-kafka-exporter
+make otel-gateway-vm-status
+kubectl -n elastic-stack get deployment otel-prometheus-scraper otel-kafka-exporter
 kubectl -n elastic-stack logs deployment/otel-kafka-exporter --tail=50
 ```
 

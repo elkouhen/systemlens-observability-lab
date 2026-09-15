@@ -33,7 +33,8 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status eck-license-apply eck-license-status eck-trial-validate eck-trial-start apps-build apps-test images-import kubernetes-validate ansible-validate eck-deploy elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	observability-policies-validate observability-policies-deploy \
-	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload \
+	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate \
+	otel-validation \
 	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -219,7 +220,7 @@ elk-deploy: eck-deploy elastic-stack-deploy postgresql-credentials-apply public-
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics-v3 --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics-v3 --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway deployment/otel-kafka-exporter
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-prometheus-scraper deployment/otel-kafka-exporter
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
 	@$(MAKE) kibana-ready
 	@$(MAKE) apm-data-view-deploy
@@ -312,6 +313,11 @@ kubernetes-validate: eck-trial-validate ## Générer les manifests Kustomize san
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 
+otel-validation: ## Envoyer un log OTLP et vérifier son indexation consultable dans Kibana (INVENTORY=validation/otel/inventory/hosts.yml)
+	@inventory="$${INVENTORY:-validation/otel/inventory/hosts.yml}"; \
+	case "$$inventory" in /*|../*) ;; *) inventory="../$$inventory";; esac; \
+	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i "$$inventory" ../validation/otel/playbook.yml
+
 ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations reproductibles du dépôt
 
 ##@ Provisionnement des VM et Fleet
@@ -332,6 +338,25 @@ fleet-vms-provision: ## Enrôler les VM dans Fleet et appliquer leur policy
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
 
 vm-provision: fleet-vms-provision ## Provisionner les VM avec Elastic Agent Fleet
+
+otel-gateway-vm-provision: ## Provisionner le Gateway OTLP sur data-01 (réutilise POSTGRESQL_PASSWORD ou le Secret Kubernetes)
+	@$(VAGRANT) up data-01 --no-provision
+	@postgresql_password="$${POSTGRESQL_PASSWORD:-$$( $(KUBECTL) -n $(APP_NAMESPACE) get secret postgresql-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode )}"; \
+	test -n "$$postgresql_password" || { echo 'POSTGRESQL_PASSWORD absent : exécuter d’abord make postgresql-credentials-apply.' >&2; exit 1; }; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" $(VAGRANT) provision data-01
+
+otel-gateway-vm-status: ## Vérifier HAProxy et le Gateway OTLP exécutés sur data-01
+	@$(VAGRANT) ssh data-01 -c 'sudo systemctl is-active haproxy observability-otel-gateway && sudo test -S /run/haproxy/admin.sock && curl --fail --silent http://127.0.0.1:13133/'
+
+otel-gateway-kubernetes-bascule: ## Appliquer la bascule Kubernetes après validation du Gateway VM
+	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service,ingressroute otel-gateway --ignore-not-found
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-prometheus-scraper --timeout=180s
+	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/v3
+	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
+	@$(MAKE) otel-gateway-vm-status
+
+otel-gateway-relocate: otel-gateway-vm-provision otel-gateway-kubernetes-bascule ## Basculer le Gateway OTLP de Kubernetes vers data-01
 
 ##@ Dashboards et consultation
 

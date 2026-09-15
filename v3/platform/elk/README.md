@@ -19,11 +19,12 @@ Elasticsearch.
 
 ## Modèle mental
 
-`applications Java / Collector Kubernetes → Collector OTel → Kafka → Collector OTel → Elasticsearch → Kibana`.
+`applications Java → Gateway OTel data-01 → Kafka → Collector OTel Kubernetes → Elasticsearch → Kibana`.
 
 Les trois services reçoivent l'agent Java OpenTelemetry par init container et
-exportent leurs traces et métriques en OTLP/HTTP. Le Collector DaemonSet lit
-les logs stdout et les métriques hôte, puis tous les signaux sont envoyés dans
+exportent leurs traces en OTLP/HTTP vers le Gateway EDOT de `data-01`. Le
+Deployment `otel-prometheus-scraper` collecte leurs métriques Actuator. Le
+Collector DaemonSet lit les logs stdout et les métriques hôte, puis tous les signaux sont envoyés dans
 les topics Kafka OTLP par signal (`otel-traces`, `otel-metrics`, `otel-logs`). Le Collector de
 sortie consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
 
@@ -44,9 +45,9 @@ un pattern d'architecture, mais le receiver Kafka embarqué dans EDOT Collector
 mélangés dans un même topic ; les séparer évite les erreurs de décodage et
 conserve le même flux edge → Kafka → backend → Elasticsearch.
 
-Les règles de collecte, de buffer Kafka et de routage OTLP applicatif/Kubernetes
-sont dans `../kubernetes/base/observability/otel-kafka.yaml`. Le provisioning
-VM et l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
+Les règles de collecte Kubernetes et de buffer Kafka sont dans
+`../kubernetes/base/observability/otel-kafka.yaml`. Le Gateway OTLP VM et
+l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
 
 ## Documentation externe
 

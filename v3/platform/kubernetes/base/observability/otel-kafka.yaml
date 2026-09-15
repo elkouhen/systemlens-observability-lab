@@ -36,7 +36,7 @@ metadata:
   name: otel-kafka-config
   namespace: elastic-stack
 data:
-  collector.yaml: |
+  prometheus.yaml: |
     extensions:
       health_check:
         endpoint: 0.0.0.0:13133
@@ -51,12 +51,6 @@ data:
         send_batch_size: 512
 
     receivers:
-      otlp:
-        protocols:
-          http:
-            endpoint: 0.0.0.0:4318
-          grpc:
-            endpoint: 0.0.0.0:4317
       prometheus:
         config:
           scrape_configs:
@@ -81,13 +75,6 @@ data:
                 - targets:
                     - restock-service.h0tl-supermarche-app.svc.cluster.local:3002
 
-            # Les Collectors sont des dépendances de production : leurs propres
-            # métriques détectent les refus, erreurs d'export et queues pleines.
-            - job_name: otel-gateway
-              scrape_interval: 15s
-              static_configs:
-                - targets: [otel-gateway.elastic-stack.svc.cluster.local:8888]
-
             - job_name: otel-kafka-exporter
               scrape_interval: 15s
               static_configs:
@@ -96,21 +83,15 @@ data:
     exporters:
       kafka/otlp:
         brokers: ["192.168.5.2:19092"]
-        traces:
-          topic: otel-traces
-          encoding: otlp_proto
         metrics:
           topic: otel-metrics
-          encoding: otlp_proto
-        logs:
-          topic: otel-logs
           encoding: otlp_proto
 
     service:
       extensions: [health_check]
       telemetry:
         resource:
-          service.name: otel-gateway
+          service.name: otel-prometheus-scraper
           deployment.environment.name: homologation
         metrics:
           level: detailed
@@ -121,20 +102,8 @@ data:
                     host: 0.0.0.0
                     port: 8888
       pipelines:
-        traces:
-          receivers: [otlp]
-          processors: [memory_limiter, batch]
-          exporters: [kafka/otlp]
-        metrics:
-          receivers: [otlp]
-          processors: [memory_limiter, batch]
-          exporters: [kafka/otlp]
         metrics/prometheus:
           receivers: [prometheus]
-          processors: [memory_limiter, batch]
-          exporters: [kafka/otlp]
-        logs:
-          receivers: [otlp]
           processors: [memory_limiter, batch]
           exporters: [kafka/otlp]
 
@@ -326,15 +295,15 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: otel-gateway
+  name: otel-prometheus-scraper
   namespace: elastic-stack
 spec:
   replicas: 1
   selector:
-    matchLabels: {app.kubernetes.io/name: otel-gateway}
+    matchLabels: {app.kubernetes.io/name: otel-prometheus-scraper}
   template:
     metadata:
-      labels: {app.kubernetes.io/name: otel-gateway}
+      labels: {app.kubernetes.io/name: otel-prometheus-scraper}
     spec:
       serviceAccountName: otel-collector
       containers:
@@ -342,32 +311,18 @@ spec:
           image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
           args: ["--config=/etc/otel/collector.yaml"]
           ports:
-            - {name: otlp-grpc, containerPort: 4317}
-            - {name: otlp-http, containerPort: 4318}
             - {name: health, containerPort: 13133}
             - {name: metrics, containerPort: 8888}
           volumeMounts:
-            - {name: config, mountPath: /etc/otel/collector.yaml, subPath: collector.yaml, readOnly: true}
+            - {name: config, mountPath: /etc/otel/collector.yaml, subPath: prometheus.yaml, readOnly: true}
           readinessProbe: {httpGet: {path: /, port: health}}
           livenessProbe: {httpGet: {path: /, port: health}}
           resources:
-            requests: {cpu: 100m, memory: 512Mi}
-            limits: {cpu: 1, memory: 768Mi}
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
       volumes:
         - name: config
           configMap: {name: otel-kafka-config}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: otel-gateway
-  namespace: elastic-stack
-spec:
-  selector: {app.kubernetes.io/name: otel-gateway}
-  ports:
-    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
-    - {name: otlp-http, port: 4318, targetPort: otlp-http}
-    - {name: metrics, port: 8888, targetPort: metrics}
 ---
 apiVersion: apps/v1
 kind: DaemonSet

@@ -1,0 +1,61 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4319
+      grpc:
+        endpoint: 127.0.0.1:4320
+
+exporters:
+  kafka/otlp:
+    brokers: ["{{ otel_gateway_kafka_broker }}"]
+    traces:
+      topic: otel-traces
+      encoding: otlp_proto
+    metrics:
+      topic: otel-metrics
+      encoding: otlp_proto
+    logs:
+      topic: otel-logs
+      encoding: otlp_proto
+
+service:
+  extensions: [health_check]
+  telemetry:
+    resource:
+      service.name: otel-gateway
+      deployment.environment.name: homologation
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/otlp]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/otlp]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/otlp]

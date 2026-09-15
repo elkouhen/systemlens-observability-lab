@@ -1,0 +1,21 @@
+---
+- name: Valider le receiver OTLP de la Gateway en SSH sur la VM
+  hosts: otel_validation_gateway
+  gather_facts: true
+  vars:
+    validation_path_name: gateway-directe-ssh
+    otel_endpoint: "{{ otel_gateway_direct_endpoint }}"
+  tasks:
+    - name: Exécuter la validation du parcours Gateway direct
+      ansible.builtin.import_tasks: tasks/validate-path.yml
+
+- name: Valider HAProxy par appel direct depuis le contrôleur Ansible
+  hosts: otel_validation_haproxy
+  connection: local
+  gather_facts: true
+  vars:
+    validation_path_name: haproxy-ip-port-direct
+    otel_endpoint: "{{ otel_haproxy_direct_endpoint }}"
+  tasks:
+    - name: Exécuter la validation du parcours HAProxy direct
+      ansible.builtin.import_tasks: tasks/validate-path.yml

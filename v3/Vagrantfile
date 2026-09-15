@@ -48,6 +48,10 @@ Vagrant.configure("2") do |config|
       # afin que les pods les joignent via la passerelle Docker 192.168.5.2.
       node.vm.network "forwarded_port", guest: 27017, host: 27017, host_ip: "0.0.0.0", auto_correct: false
       node.vm.network "forwarded_port", guest: 5432, host: 5432, host_ip: "0.0.0.0", auto_correct: false
+      # Le Gateway OTLP est exécuté sur data-01. Les pods k3d l'atteignent via
+      # la passerelle Docker 192.168.5.2, comme les services de données.
+      node.vm.network "forwarded_port", guest: 4317, host: 4317, host_ip: "0.0.0.0", auto_correct: false
+      node.vm.network "forwarded_port", guest: 4318, host: 4318, host_ip: "0.0.0.0", auto_correct: false
 
       node.vm.provider "virtualbox" do |vb|
         # Rocky Linux 10 needs an Intel NIC for the host-only interface.

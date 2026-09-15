@@ -14,6 +14,7 @@
     postgresql_password: ""
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093
+    otel_gateway_kafka_broker: 192.168.33.10:9092
     deployment_profile: minimal
     elastic_agent_version: 9.4.3
     fleet_url: https://fleet.observability.test:443
@@ -128,11 +129,36 @@
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: present
-      loop: [podman, curl, openssl, chrony]
+      loop: [podman, curl, openssl, chrony, haproxy, policycoreutils-python-utils]
       when: item not in ansible_facts.packages
 
     - name: Collecter l'état des services
       ansible.builtin.service_facts:
+
+    - name: Lire les ports SELinux autorisés pour HAProxy
+      ansible.builtin.command:
+        argv: [semanage, port, -l]
+      register: haproxy_selinux_port_list
+      changed_when: false
+
+    - name: Autoriser HAProxy à écouter et joindre les ports OTLP avec SELinux
+      ansible.builtin.command:
+        argv:
+          - semanage
+          - port
+          - -a
+          - -t
+          - http_port_t
+          - -p
+          - tcp
+          - "{{ item }}"
+      loop: [4317, 4318, 4319, 4320]
+      register: haproxy_selinux_ports
+      changed_when: haproxy_selinux_ports.rc == 0
+      failed_when: >-
+        haproxy_selinux_ports.rc != 0 and
+        'already defined' not in (haproxy_selinux_ports.stderr | lower)
+      when: item | string not in haproxy_selinux_port_list.stdout
 
     - name: Activer la synchronisation NTP des VM
       ansible.builtin.systemd_service:
@@ -168,7 +194,7 @@
         permanent: true
         immediate: true
         state: enabled
-      loop: "{{ [27017, 9092, 9093] + ([5432] if inventory_hostname == 'data-01' else []) }}"
+      loop: "{{ [27017, 9092, 9093, 4317, 4318] + ([5432] if inventory_hostname == 'data-01' else []) }}"
       when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
     - name: Installer la résolution POC dans /etc/hosts
@@ -176,7 +202,7 @@
         path: /etc/hosts
         marker: '# {mark} POC ELASTIC HOSTS'
         block: |
-          192.168.33.1 kibana.observability.test elasticsearch.observability.test fleet.observability.test otel-gateway-v3.observability.test apm.observability.test
+          192.168.33.1 kibana.observability.test elasticsearch.observability.test fleet.observability.test apm.observability.test
 
     - name: Lire le certificat TLS public Elasticsearch du POC
       ansible.builtin.shell: |
@@ -231,6 +257,12 @@
         state: directory
         mode: '0755'
 
+    - name: Créer le répertoire de configuration OpenTelemetry
+      ansible.builtin.file:
+        path: /etc/observability
+        state: directory
+        mode: '0755'
+
     - name: Créer le cache persistant des artefacts du POC
       ansible.builtin.file:
         path: /var/cache/observability
@@ -249,12 +281,44 @@
         mode: '0644'
       when: not jolokia_agent.stat.exists
 
-    - name: Déployer les unités Quadlet MongoDB et Kafka
+    - name: Déployer la configuration du Gateway OTLP sur data-01
+      ansible.builtin.template:
+        src: otel-gateway.yaml.j2
+        dest: /etc/observability/otel-gateway.yaml
+        mode: '0644'
+      register: otel_gateway_config
+      when: inventory_hostname == 'data-01'
+
+    - name: Déployer la configuration HAProxy du Gateway OTLP
+      ansible.builtin.template:
+        src: haproxy-otel-gateway.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: '0644'
+        validate: haproxy -c -f %s
+      register: haproxy_otel_gateway_config
+      when: inventory_hostname == 'data-01'
+
+    - name: Créer le répertoire des overrides systemd HAProxy
+      ansible.builtin.file:
+        path: /etc/systemd/system/haproxy.service.d
+        state: directory
+        mode: '0755'
+      when: inventory_hostname == 'data-01'
+
+    - name: Déployer le répertoire runtime du socket HAProxy
+      ansible.builtin.template:
+        src: haproxy-runtime-directory.conf.j2
+        dest: /etc/systemd/system/haproxy.service.d/runtime-directory.conf
+        mode: '0644'
+      register: haproxy_systemd_override
+      when: inventory_hostname == 'data-01'
+
+    - name: Déployer les unités Quadlet MongoDB, Kafka et Gateway OTLP
       ansible.builtin.template:
         src: "{{ item }}.container.j2"
         dest: "/etc/containers/systemd/{{ item }}.container"
         mode: '0644'
-      loop: [observability-mongodb, observability-kafka]
+      loop: [observability-mongodb, observability-kafka, observability-otel-gateway]
       register: quadlet_units
 
     - name: Déployer l'unité Quadlet PostgreSQL sur data-01
@@ -268,14 +332,55 @@
     - name: Recharger systemd après les changements Quadlet
       ansible.builtin.systemd_service:
         daemon_reload: true
-      when: quadlet_units.changed or (postgresql_quadlet_unit.changed | default(false))
+      when: >-
+        quadlet_units.changed or
+        (postgresql_quadlet_unit.changed | default(false)) or
+        (haproxy_systemd_override.changed | default(false))
 
-    - name: Démarrer MongoDB et Kafka
+    - name: Vérifier si Elastic Agent est déjà installé
+      ansible.builtin.stat:
+        path: /opt/Elastic/Agent/elastic-agent
+      register: installed_elastic_agent
+      when: inventory_hostname == 'data-01'
+
+    # Les artefacts de bootstrap ne servent plus une fois l'agent installé.
+    # Les retirer préserve l'espace de la VM pour les images de collecte.
+    - name: Retirer les artefacts temporaires Elastic Agent devenus inutiles
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"
+        - /opt/observability/elastic-agent-package
+      when:
+        - inventory_hostname == 'data-01'
+        - installed_elastic_agent.stat.exists
+
+    # Podman laisse des répertoires de staging dans /var/tmp après un pull
+    # interrompu. Les supprimer avant de démarrer le Gateway évite qu'une VM
+    # au disque contraint boucle sur un téléchargement impossible.
+    - name: Identifier les téléchargements Podman incomplets
+      ansible.builtin.find:
+        paths: /var/tmp
+        patterns: container_images_storage*
+        file_type: directory
+        recurse: false
+      register: podman_incomplete_pulls
+      when: inventory_hostname == 'data-01'
+
+    - name: Retirer les téléchargements Podman incomplets
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ podman_incomplete_pulls.files | default([]) }}"
+      when: inventory_hostname == 'data-01'
+
+    - name: Démarrer MongoDB, Kafka et le Gateway OTLP
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         enabled: true
         state: started
-      loop: [observability-mongodb, observability-kafka]
+      loop: [observability-mongodb, observability-kafka, observability-otel-gateway]
 
     - name: Démarrer PostgreSQL sur data-01
       ansible.builtin.systemd_service:
@@ -284,12 +389,25 @@
         state: started
       when: inventory_hostname == 'data-01'
 
-    - name: Redéployer MongoDB et Kafka après un changement ou sur demande
+    - name: Redéployer MongoDB, Kafka et le Gateway OTLP après un changement ou sur demande
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         state: restarted
-      loop: [observability-mongodb, observability-kafka]
+      loop: [observability-mongodb, observability-kafka, observability-otel-gateway]
       when: quadlet_units.changed or (redeploy_services | bool)
+
+    - name: Redémarrer le Gateway OTLP après une modification de sa configuration
+      ansible.builtin.systemd_service:
+        name: observability-otel-gateway.service
+        state: restarted
+      when: inventory_hostname == 'data-01' and otel_gateway_config.changed and not quadlet_units.changed
+
+    - name: Démarrer HAProxy devant le Gateway OTLP
+      ansible.builtin.systemd_service:
+        name: haproxy.service
+        enabled: true
+        state: "{{ 'restarted' if haproxy_otel_gateway_config.changed else 'started' }}"
+      when: inventory_hostname == 'data-01'
 
     - name: Redéployer PostgreSQL après un changement ou sur demande
       ansible.builtin.systemd_service:
@@ -349,6 +467,35 @@
       delay: 2
       until: kafka_ready.rc == 0
       changed_when: false
+
+    - name: Vérifier le endpoint de santé du Gateway OTLP
+      ansible.builtin.uri:
+        url: http://127.0.0.1:13133/
+        status_code: 200
+      register: otel_gateway_health
+      retries: 15
+      delay: 2
+      until: otel_gateway_health.status == 200
+      changed_when: false
+      when: inventory_hostname == 'data-01'
+
+    - name: Vérifier le frontal HAProxy du Gateway OTLP
+      ansible.builtin.command:
+        argv:
+          - haproxy
+          - -c
+          - -f
+          - /etc/haproxy/haproxy.cfg
+      changed_when: false
+      when: inventory_hostname == 'data-01'
+
+    - name: Vérifier le socket d'administration HAProxy
+      ansible.builtin.stat:
+        path: /run/haproxy/admin.sock
+      register: haproxy_admin_socket
+      failed_when: not haproxy_admin_socket.stat.issock
+      changed_when: false
+      when: inventory_hostname == 'data-01'
 
     - name: Attendre le quorum Kafka avant de créer les topics
       ansible.builtin.command:
@@ -540,7 +687,7 @@
 
     - name: Déterminer l'architecture Elastic Agent
       ansible.builtin.set_fact:
-        elastic_agent_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+        elastic_agent_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"
 
     - name: Télécharger Elastic Agent s'il est absent
       ansible.builtin.get_url:

@@ -45,7 +45,7 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homologation,k8s.namespace.name=h0tl-supermarche-app
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-gateway.elastic-stack.svc:4318
+              value: http://192.168.5.2:4318
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: http/protobuf
             - name: OTEL_TRACES_EXPORTER
@@ -120,7 +120,7 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homologation,k8s.namespace.name=h0tl-supermarche-app
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-gateway.elastic-stack.svc:4318
+              value: http://192.168.5.2:4318
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: http/protobuf
             - name: OTEL_TRACES_EXPORTER
@@ -195,7 +195,7 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homologation,k8s.namespace.name=h0tl-supermarche-app
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-gateway.elastic-stack.svc:4318
+              value: http://192.168.5.2:4318
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: http/protobuf
             - name: OTEL_TRACES_EXPORTER
