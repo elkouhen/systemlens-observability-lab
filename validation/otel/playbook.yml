@@ -4,7 +4,6 @@
   gather_facts: true
   tags: [host]
   vars:
-    otel_endpoint: http://127.0.0.1:4319
     otel_service_name: otel-validation
     otel_deployment_environment: homologation
     kibana_url: https://kibana.observability.test
@@ -12,7 +11,7 @@
     elasticsearch_username: elastic
     elasticsearch_password: "{{ lookup('ansible.builtin.env', 'ELASTICSEARCH_PASSWORD') }}"
     elasticsearch_validate_certs: false
-    validation_index_pattern: traces-*
+    validation_index_pattern: metrics-*
     validation_timeout_seconds: 90
     validation_poll_delay_seconds: 3
   tasks:
@@ -20,17 +19,12 @@
       ansible.builtin.set_fact:
         validation_marker: "otel-validation-{{ inventory_hostname }}-{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
 
-    - name: Construire les identifiants du span
-      ansible.builtin.set_fact:
-        validation_trace_id: "{{ (validation_marker | hash('sha256'))[0:32] }}"
-        validation_span_id: "{{ (validation_marker | hash('sha256'))[0:16] }}"
-
     - name: Vérifier les paramètres indispensables
       ansible.builtin.assert:
         that:
-          - otel_endpoint is defined
-          - elasticsearch_url is defined
+          - otel_gateway_direct_endpoint is defined
           - kibana_url is defined
+          - elasticsearch_url is defined
           - elasticsearch_password | length > 0
         fail_msg: >-
           Renseigner les URL dans le playbook et exporter ELASTICSEARCH_PASSWORD
@@ -48,10 +42,15 @@
         status_code: 200
       no_log: true
 
-    - name: Construire le corps OTLP de validation
-      ansible.builtin.set_fact:
-        otlp_request_body:
-          resourceSpans:
+    - name: Envoyer une métrique de validation au receiver OTLP HTTP
+      ansible.builtin.uri:
+        url: "{{ otel_gateway_direct_endpoint | regex_replace('/$', '') }}/v1/metrics"
+        method: POST
+        body_format: json
+        headers:
+          Content-Type: application/json
+        body:
+          resourceMetrics:
             - resource:
                 attributes:
                   - key: service.name
@@ -60,36 +59,24 @@
                   - key: deployment.environment.name
                     value:
                       stringValue: "{{ otel_deployment_environment }}"
-              scopeSpans:
+              scopeMetrics:
                 - scope:
                     name: validation.ansible
-                  spans:
-                    - traceId: "{{ validation_trace_id }}"
-                      spanId: "{{ validation_span_id }}"
-                      name: "{{ validation_marker }}"
-                      kind: 1
-                      startTimeUnixNano: "{{ (ansible_facts['date_time']['epoch'] | int) * 1000000000 }}"
-                      endTimeUnixNano: "{{ ((ansible_facts['date_time']['epoch'] | int) * 1000000000) + 1000000 }}"
-                      attributes:
-                        - key: validation.marker
-                          value:
-                            stringValue: "{{ validation_marker }}"
-
-    - name: Afficher le corps OTLP envoyé
-      ansible.builtin.debug:
-        var: otlp_request_body
-
-    - name: Envoyer un span de validation au receiver OTLP HTTP
-      ansible.builtin.uri:
-        url: "{{ otel_endpoint | regex_replace('/$', '') }}/v1/traces"
-        method: POST
-        body_format: json
-        headers:
-          Content-Type: application/json
-        body: "{{ otlp_request_body }}"
+                  metrics:
+                    - name: otel.validation
+                      description: Métrique de validation OTLP
+                      unit: "1"
+                      gauge:
+                        dataPoints:
+                          - asDouble: 1
+                            timeUnixNano: "{{ (ansible_facts['date_time']['epoch'] | int) * 1000000000 }}"
+                            attributes:
+                              - key: validation.marker
+                                value:
+                                  stringValue: "{{ validation_marker }}"
         status_code: [200, 202]
 
-    - name: Attendre l'indexation du span dans Elasticsearch exploité par Kibana
+    - name: Attendre l'indexation de la métrique dans Elasticsearch exploité par Kibana
       ansible.builtin.uri:
         url: "{{ elasticsearch_url | regex_replace('/$', '') }}/{{ validation_index_pattern }}/_search"
         method: POST

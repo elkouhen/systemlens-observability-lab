@@ -1,6 +1,6 @@
 # Validation OpenTelemetry
 
-Ce projet Ansible envoie un span OTLP/HTTP avec un marqueur unique, puis
+Ce projet Ansible envoie une métrique OTLP/HTTP avec un marqueur unique, puis
 attend son indexation dans Elasticsearch. Le parcours est exécuté en SSH sur
 la machine du groupe `otel_collectors`. Comme Kibana Discover lit ces index, le playbook vérifie
 également que l'API Kibana est joignable et affiche le marqueur à rechercher
@@ -9,13 +9,13 @@ dans Discover.
 Le parcours validé en architecture v3 est :
 
 - `gateway-directe-ssh` : playbook SSH sur un collecteur → Gateway EDOT
-  `127.0.0.1:4319` → Kafka `otel-traces` → exporteur OTel `data-01` → data stream
-  `traces-*` → Kibana.
+  `127.0.0.1:4319` → Kafka `otel-metrics` → exporteur OTel `data-01` → data stream
+  `metrics-*` → Kibana.
 
 ## Prérequis
 
 - Ansible, Vagrant et la VM `data-01` démarrée ;
-- un compte Elasticsearch ayant le droit de lire `traces-*` ;
+- un compte Elasticsearch ayant le droit de lire `metrics-*` ;
 - le mot de passe fourni uniquement par l'environnement :
 
   ```bash
@@ -24,10 +24,9 @@ Le parcours validé en architecture v3 est :
 
 ## Paramétrage de l'inventaire
 
-L'inventaire fournit uniquement les hôtes et leurs paramètres de connexion
-Ansible. Les endpoints OTLP, les URL Elastic, les paramètres de validation et
-les identifiants sont définis dans `playbook.yml` ; il n'est donc pas
-nécessaire de modifier l'inventaire pour cette recette.
+L'inventaire fournit les hôtes, leurs paramètres de connexion Ansible et
+`otel_gateway_direct_endpoint`. Les URL Elastic, les paramètres de validation
+et les identifiants sont définis dans `playbook.yml`.
 
 Ne pas inscrire `elasticsearch_password` dans l'inventaire : sa valeur est
 lue depuis `ELASTICSEARCH_PASSWORD`.
@@ -64,5 +63,5 @@ make otel-validation INVENTORY=validation/otel/inventory/mon-environnement.yml
 ```
 
 Le playbook réussit uniquement après avoir reçu une réponse OTLP réussie, un
-statut `200` de Kibana et un document correspondant au marqueur dans `traces-*`.
+statut `200` de Kibana et un document correspondant au marqueur dans `metrics-*`.
 Il affiche alors le marqueur exact à coller dans Kibana Discover.
