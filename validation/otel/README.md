@@ -1,43 +1,33 @@
 # Validation OpenTelemetry
 
-Ce projet Ansible envoie deux logs OTLP/HTTP avec des marqueurs uniques, puis
-attend l'indexation de chacun dans Elasticsearch. Le premier parcours est
-exécuté en SSH sur la VM ; le second est appelé directement depuis le poste de
-contrôle Ansible. Comme Kibana Discover lit ces index, le playbook vérifie
+Ce projet Ansible envoie un span OTLP/HTTP avec un marqueur unique, puis
+attend son indexation dans Elasticsearch. Le parcours est exécuté en SSH sur
+la machine du groupe `otel_collectors`. Comme Kibana Discover lit ces index, le playbook vérifie
 également que l'API Kibana est joignable et affiche le marqueur à rechercher
 dans Discover.
 
-Les parcours validés en architecture v3 sont :
+Le parcours validé en architecture v3 est :
 
-- `gateway-directe-ssh` : playbook SSH sur `data-01` → Gateway EDOT
-  `127.0.0.1:4319` → Kafka `otel-logs` → exporteur OTel `data-01` → data stream
-  `logs-*` → Kibana ;
-- `haproxy-ip-port-direct` : contrôleur Ansible → HAProxy
-  `192.168.33.10:4318` → Gateway EDOT `127.0.0.1:4319` → même chaîne Elastic.
+- `gateway-directe-ssh` : playbook SSH sur un collecteur → Gateway EDOT
+  `127.0.0.1:4319` → Kafka `otel-traces` → exporteur OTel `data-01` → data stream
+  `traces-*` → Kibana.
 
 ## Prérequis
 
 - Ansible, Vagrant et la VM `data-01` démarrée ;
-- un compte Elasticsearch ayant le droit de lire `logs-*` ;
+- un compte Elasticsearch ayant le droit de lire `traces-*` ;
 - le mot de passe fourni uniquement par l'environnement :
 
   ```bash
   source ./v3/platform/elk/scripts/load-credentials.sh
   ```
 
-L'IP `192.168.33.10` est l'interface privée de la VM, joignable depuis le
-poste de contrôle. Elle permet de vérifier HAProxy par son IP et son port,
-sans passer par SSH. L'adresse `192.168.5.2:4318`, destinée aux pods
-Kubernetes, reste un endpoint distinct de cette recette.
-
 ## Paramétrage de l'inventaire
 
-Copier ou adapter `inventory/hosts.yml`. Les paramètres sont portés par
-l'inventaire pour permettre de cibler une autre instance :
-`otel_gateway_direct_endpoint`, `otel_haproxy_direct_endpoint`, `kibana_url`,
-`elasticsearch_url`, `elasticsearch_username`,
-`elasticsearch_validate_certs`, `validation_index_pattern`,
-`validation_timeout_seconds` et `validation_poll_delay_seconds`.
+L'inventaire fournit uniquement les hôtes et leurs paramètres de connexion
+Ansible. Les endpoints OTLP, les URL Elastic, les paramètres de validation et
+les identifiants sont définis dans `playbook.yml` ; il n'est donc pas
+nécessaire de modifier l'inventaire pour cette recette.
 
 Ne pas inscrire `elasticsearch_password` dans l'inventaire : sa valeur est
 lue depuis `ELASTICSEARCH_PASSWORD`.
@@ -50,17 +40,14 @@ Depuis la racine du dépôt :
 make otel-validation
 ```
 
-Le playbook porte les tags suivants. Sans tag, les deux parcours sont exigés.
+Le playbook porte le tag `host`. Sans tag, le parcours SSH est exécuté.
 
 | Tag | Parcours validé | Commande |
 | --- | --- | --- |
-| `host` | Depuis `data-01`, directement vers le Gateway local | `make otel-validation VALIDATION_TAGS=host` |
-| `direct` | Depuis le contrôleur Ansible, directement vers HAProxy sur la VM | `make otel-validation VALIDATION_TAGS=direct` |
-| `host,direct` | Les deux parcours explicitement | `make otel-validation VALIDATION_TAGS=host,direct` |
+| `host` | Depuis le collecteur, directement vers le Gateway local | `make otel-validation VALIDATION_TAGS=host` |
 
-Les tags sont transmis à Ansible avec `--tags`. Utiliser uniquement les tags
-ci-dessus : une valeur inconnue ne sélectionne aucun play et ne constitue pas
-une validation.
+Les tags sont transmis à Ansible avec `--tags`. Une valeur inconnue ne
+sélectionne aucun play et ne constitue pas une validation.
 
 Depuis ce répertoire, Ansible utilise directement `ansible.cfg` et son
 inventaire par défaut :
@@ -76,7 +63,6 @@ Pour un inventaire distinct :
 make otel-validation INVENTORY=validation/otel/inventory/mon-environnement.yml
 ```
 
-Le playbook réussit uniquement après avoir reçu une réponse OTLP réussie pour
-chacun des deux parcours, un statut `200` de Kibana et un document correspondant
-à chacun des marqueurs dans `logs-*`. Il affiche alors les marqueurs exacts à
-coller dans Kibana Discover.
+Le playbook réussit uniquement après avoir reçu une réponse OTLP réussie, un
+statut `200` de Kibana et un document correspondant au marqueur dans `traces-*`.
+Il affiche alors le marqueur exact à coller dans Kibana Discover.
