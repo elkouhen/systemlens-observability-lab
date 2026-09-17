@@ -1,8 +1,7 @@
 [Unit]
 Description=Exporteur Elastic OpenTelemetry depuis Kafka du POC
-After=network-online.target observability-kafka.service
+After=network-online.target
 Wants=network-online.target
-Requires=observability-kafka.service
 
 [Container]
 Image=docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3

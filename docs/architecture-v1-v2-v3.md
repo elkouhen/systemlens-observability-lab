@@ -224,7 +224,7 @@ credentials avec `source ./v3/platform/elk/scripts/load-credentials.sh`.
 Contrôles v3 :
 
 ```bash
-vagrant ssh data-01 -c 'sudo systemctl is-active observability-otel-gateway elastic-agent'
+vagrant ssh otel-01 -c 'sudo systemctl is-active observability-otel-gateway elastic-agent'
 kubectl -n elastic-stack get deployment otel-prometheus-scraper otel-kafka-exporter
 make otel-validation
 make dashboards-verify

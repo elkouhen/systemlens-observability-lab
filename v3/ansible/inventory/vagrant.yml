@@ -10,3 +10,9 @@ all:
           ansible_host: 127.0.0.1
           ansible_port: 2222
           ansible_ssh_private_key_file: .vagrant/machines/data-01/virtualbox/private_key
+    otel_nodes:
+      hosts:
+        otel-01:
+          ansible_host: 192.168.33.20
+          ansible_port: 22
+          ansible_ssh_private_key_file: .vagrant/machines/otel-01/virtualbox/private_key

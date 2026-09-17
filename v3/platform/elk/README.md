@@ -1,7 +1,7 @@
 # Plateforme ELK
 
-Cette plateforme reçoit les traces, métriques et logs du POC. ECK gère
-Elasticsearch et Kibana ; les Collectors OpenTelemetry acheminent les signaux
+Cette plateforme reçoit les traces, métriques et logs du POC. Elasticsearch,
+Kibana et Fleet Server sont déployés sur `otel-01` par Quadlet ; les Collectors OpenTelemetry acheminent les signaux
 applicatifs et Kubernetes vers Kafka, puis vers Elasticsearch via OTLP. Les VM
 utilisent Fleet et exportent directement vers Elasticsearch.
 Fleet Server gère les Elastic Agents des VM, qui exportent directement vers
@@ -19,21 +19,22 @@ Elasticsearch.
 
 ## Modèle mental
 
-`applications Java → Gateway OTel data-01 → Kafka → exporteur OTel data-01 → Elasticsearch → Kibana`.
+`applications Java → Gateway OTel otel-01 → Kafka data-01 → exporteur OTel otel-01 → Elasticsearch → Kibana`.
 
 Les trois services reçoivent l'agent Java OpenTelemetry par init container et
-exportent leurs traces en OTLP/HTTP vers le Gateway EDOT de `data-01`. Le
+exportent leurs traces en OTLP/HTTP vers le Gateway EDOT de `otel-01`. Le
 Deployment `otel-prometheus-scraper` collecte leurs métriques Actuator. Le
 Collector DaemonSet lit les logs stdout et les métriques hôte, puis tous les signaux sont envoyés dans
 les topics Kafka OTLP par signal (`otel-traces`, `otel-metrics`, `otel-logs`). L'exporteur de
-sortie sur `data-01` consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
+sortie sur `otel-01` consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
 
 Chaque VM active exécute l’Elastic Agent provisionné et enrôlé dans Fleet par
 Ansible. Il lit les logs locaux et les métriques système/Kafka/MongoDB/PostgreSQL,
 puis publie directement vers Elasticsearch. Les VM ne passent pas par le
 Gateway OTLP Kubernetes ni par Kafka pour leur télémétrie.
 
-Lors d'un déploiement initial, `make elk-deploy` crée ou réconcilie la clé
+Lors d'un déploiement initial, `make elk-deploy` provisionne le stack Quadlet,
+applique le routage Traefik et crée ou réconcilie la clé
 d'API Elasticsearch du Collector backend avant de démarrer les workloads.
 Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
 d'enrôlement Fleet. Les VM v3 utilisent exclusivement l'Elastic Agent Fleet
@@ -50,6 +51,12 @@ Les règles de collecte Kubernetes et de buffer Kafka sont dans
 l'exporteur Kafka et l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
 Pour migrer l'exporteur depuis Kubernetes, exécuter
 `make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
+
+`make kibana-fleet-config-deploy` réconcilie la policy `data-fleet` et les
+package policies des intégrations système, MongoDB, Kafka et PostgreSQL.
+Les données Elasticsearch ne sont pas copiées par Ansible : restaurer un
+snapshot ou réindexer les données sur la nouvelle VM avant de considérer la
+migration terminée.
 
 ## Documentation externe
 

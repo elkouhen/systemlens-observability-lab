@@ -130,6 +130,7 @@ spec:
                 enabled: true
           - id: mongodb-data-01-02
             name: mongodb-data-01-02
+            condition: host.name == 'data-01'
             package:
               name: mongodb
             inputs:
@@ -142,6 +143,7 @@ spec:
                       - mongodb://127.0.0.1:27017
           - id: kafka-data-01-02
             name: kafka-data-01-02
+            condition: host.name == 'data-01'
             package:
               name: kafka
             inputs:
@@ -152,16 +154,10 @@ spec:
                     type: text
                     value:
                       - 127.0.0.1:9092
-              - type: jolokia/metrics
-                enabled: true
-                vars:
-                  - name: hosts
-                    type: text
-                    value:
-                      - http://127.0.0.1:8778
           # PostgreSQL est installé sur l'unique VM data-01.
           - id: postgresql-data-01
             name: postgresql-data-01
+            condition: host.name == 'data-01'
             package:
               name: postgresql
             inputs:

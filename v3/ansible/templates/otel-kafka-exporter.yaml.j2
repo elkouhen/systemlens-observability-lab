@@ -6,7 +6,7 @@ extensions:
 
 receivers:
   kafka/otlp:
-    brokers: ["127.0.0.1:9092"]
+    brokers: ["{{ otel_kafka_broker }}"]
     protocol_version: 3.9.0
     group_id: otel-backend
     traces:

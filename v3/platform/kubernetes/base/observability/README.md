@@ -1,26 +1,25 @@
 # Observabilité Kubernetes : base
 
 Les manifests de ce dossier constituent la base de la couche d'observabilité Kubernetes.
-Ils utilisent les ressources personnalisées ECK. Exécuter `make eck-deploy`
-pour installer ou mettre à jour l'opérateur ECK 3.5.0 avant leur application.
+Ils routent les URL publiques vers le stack Quadlet de `otel-01` et déploient
+les collecteurs OTel dans Kubernetes.
 
 ## Lire les manifests dans cet ordre
 
-1. `../../helm/eck-stack-values.yaml` : valeurs déclaratives de la release
-   Helm qui crée Elasticsearch et Kibana.
-2. `kibana.yaml`, puis `fleet-server.yaml` : préconfiguration Kibana et
-   composants Elastic conservés pour les intégrations de plateforme.
+1. `../../ansible/templates/` : unités Quadlet Elasticsearch, Kibana et Fleet
+   Server déployées sur `otel-01`.
+2. `elastic-vm-services.yaml` et `elastic-ingress.yaml` : services externes et
+   exposition TLS via Traefik vers la VM.
 3. `otel-kafka.yaml` : collecte OTel, buffer Kafka et export OTLP vers
    Elasticsearch.
-4. `elastic-ingress.yaml` : exposition TLS v3 via Traefik.
 
 En v3, les applications utilisent l'agent Java OpenTelemetry injecté par leur
 manifest Kubernetes pour les traces et les envoient via HAProxy au Gateway
-EDOT exécuté sur `data-01`. Le Deployment EDOT `otel-prometheus-scraper` scrape leurs
+EDOT exécuté sur `otel-01`. Le Deployment EDOT `otel-prometheus-scraper` scrape leurs
 métriques Actuator/Prometheus sur le port des Services applicatifs.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
-consommés par l'exporteur EDOT exécuté sur `data-01`. Les VM ne passent pas par
+consommés par l'exporteur EDOT exécuté sur `otel-01`. Les VM ne passent pas par
 ce chemin pour leur télémétrie système : leur Elastic Agent Fleet exporte
 directement vers Elasticsearch.
 
@@ -46,12 +45,12 @@ VM ni Collector backend intermédiaire.
 Après le déploiement, vérifier les composants et les relais :
 
 ```bash
-vagrant ssh data-01 -c 'sudo systemctl is-active observability-otel-gateway'
+vagrant ssh otel-01 -c 'sudo systemctl is-active observability-otel-gateway'
 kubectl -n elastic-stack get deployment otel-prometheus-scraper
 make otel-kafka-exporter-vm-status
 ```
 
-Le résultat attendu est un exporteur EDOT actif sur `data-01`, sans erreur de
+Le résultat attendu est un exporteur EDOT actif sur `otel-01`, sans erreur de
 consommation Kafka ni d'indexation.
 
 Les traces conservent l'environnement défini par les variables `OTEL_*`. Les

@@ -13,7 +13,7 @@ elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.observability.test
 kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
 fleet_policy_id='data-fleet'
-fleet_nodes=(data-01)
+fleet_nodes=(data-01 otel-01)
 
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.observability.test:443:127.0.0.1

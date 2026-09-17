@@ -13,5 +13,5 @@ flux est dans la [documentation des architectures](../docs/architecture-v1-v2-v3
 Documents propres à la v3 :
 
 - [plateforme Kubernetes et ELK](platform/README.md) ;
-- [provisionnement Fleet de `data-01`](ansible/README.md) ;
+- [provisionnement Fleet de `data-01` et `otel-01`](ansible/README.md) ;
 - [dashboards et vérification](platform/elk/dashboards/README.md).

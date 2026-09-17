@@ -1,34 +1,4 @@
 apiVersion: traefik.io/v1alpha1
-kind: ServersTransport
-metadata:
-  name: eck-elasticsearch-https
-  namespace: elastic-stack
-spec:
-  rootCAsSecrets:
-    - elasticsearch-es-http-certs-public
-  serverName: elasticsearch-es-http.elastic-stack.svc
----
-apiVersion: traefik.io/v1alpha1
-kind: ServersTransport
-metadata:
-  name: eck-kibana-https
-  namespace: elastic-stack
-spec:
-  rootCAsSecrets:
-    - elastic-stack-eck-kibana-kb-http-certs-public
-  serverName: elastic-stack-eck-kibana-kb-http.elastic-stack.svc
----
-apiVersion: traefik.io/v1alpha1
-kind: ServersTransport
-metadata:
-  name: eck-fleet-https
-  namespace: elastic-stack
-spec:
-  rootCAsSecrets:
-    - fleet-server-agent-http-certs-public
-  serverName: fleet-server-agent-http.elastic-stack.svc
----
-apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: elasticsearch
@@ -40,10 +10,9 @@ spec:
     - kind: Rule
       match: Host(`elasticsearch.observability.test`)
       services:
-        - name: elasticsearch-es-http
+        - name: elasticsearch-vm
           port: 9200
-          scheme: https
-          serversTransport: eck-elasticsearch-https
+          scheme: http
   tls:
     secretName: elastic-public-tls
 ---
@@ -59,10 +28,9 @@ spec:
     - kind: Rule
       match: Host(`kibana.observability.test`)
       services:
-        - name: elastic-stack-eck-kibana-kb-http
+        - name: kibana-vm
           port: 5601
-          scheme: https
-          serversTransport: eck-kibana-https
+          scheme: http
   tls:
     secretName: elastic-public-tls
 ---
@@ -78,9 +46,8 @@ spec:
     - kind: Rule
       match: Host(`fleet.observability.test`)
       services:
-        - name: fleet-server-agent-http
+        - name: fleet-server-vm
           port: 8220
-          scheme: https
-          serversTransport: eck-fleet-https
+          scheme: http
   tls:
     secretName: elastic-public-tls

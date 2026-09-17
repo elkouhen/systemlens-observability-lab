@@ -58,6 +58,7 @@ if [[ -z "${ELASTICSEARCH_PASSWORD}" ]]; then
 fi
 export ELASTICSEARCH_PASSWORD
 export KIBANA_PASSWORD="${ELASTICSEARCH_PASSWORD}"
+export ELASTIC_PASSWORD="${ELASTIC_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
 
 # Une clé déjà chargée est vérifiée contre le cluster courant. Après une
 # recréation Elasticsearch, une ancienne clé peut être invalide : elle doit

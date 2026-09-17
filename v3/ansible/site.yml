@@ -15,16 +15,23 @@
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093
     otel_gateway_kafka_broker: 192.168.33.10:9092
+    otel_kafka_broker: 192.168.33.10:9092
     deployment_profile: minimal
     elastic_agent_version: 9.4.3
-    fleet_url: https://fleet.observability.test:443
+    # Les VM s'enrôlent via le réseau privé directement exposé par Fleet
+    # Server ; l'URL publique passe par l'Ingress Kubernetes et n'est pas
+    # joignable depuis le réseau privé des VM.
+    fleet_url: http://192.168.33.20:8220
     fleet_enrollment_token: ""
     # Les VM accèdent à Elasticsearch via l'Ingress Traefik, pas via le port
     # HTTP interne du service Kubernetes.
-    elasticsearch_url: https://elasticsearch.observability.test:443
+    # Le backend OTEL local utilise le listener HTTP du stack Quadlet ; les
+    # agents et les clients externes passent par les URL publiques Traefik.
+    elasticsearch_url: http://127.0.0.1:9200
     # Injectée au provisionnement depuis le Secret Kubernetes existant ; ne
     # jamais versionner cette clé API.
     otel_elasticsearch_api_key: ""
+    elastic_password: ""
     redeploy_services: false
     # Contenu PEM du certificat racine Zscaler (ou proxy TLS d'entreprise
     # équivalent), fourni par Vagrant via ZSCALER_CA_CERT. Vide par défaut :
@@ -44,7 +51,6 @@
       ansible.builtin.assert:
         that: postgresql_password | default('') | length > 0
         fail_msg: Définir POSTGRESQL_PASSWORD hors Git avant de provisionner data-01.
-      when: inventory_hostname == 'data-01'
 
     # Doit précéder toute installation de paquet (dnf) et tout téléchargement
     # HTTPS (Jolokia, Elastic Agent) : ces opérations échouent avec une
@@ -197,7 +203,7 @@
         permanent: true
         immediate: true
         state: enabled
-      loop: "{{ [27017, 9092, 9093, 4317, 4318] + ([5432] if inventory_hostname == 'data-01' else []) }}"
+      loop: "{{ ([27017, 9092, 9093, 5432] if inventory_hostname == 'data-01' else []) + ([4317, 4318, 9200, 5601, 8220] if inventory_hostname == 'otel-01' else []) }}"
       when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
     - name: Installer la résolution POC dans /etc/hosts
@@ -244,7 +250,7 @@
         - { path: /var/log/mongodb, mode: '0755' }
         - { path: /var/log/kafka, mode: '0777' }
         - { path: /var/log/postgresql, mode: '0777' }
-      when: inventory_hostname == 'data-01' or item.path != '/var/log/postgresql'
+      when: inventory_hostname == 'data-01'
 
     - name: Créer le fichier de log MongoDB accessible au conteneur
       ansible.builtin.file:
@@ -253,6 +259,7 @@
         mode: '0666'
         modification_time: preserve
         access_time: preserve
+      when: inventory_hostname == 'data-01'
 
     - name: Créer le répertoire Jolokia
       ansible.builtin.file:
@@ -274,7 +281,132 @@
         owner: '1000'
         group: '1000'
         mode: '0750'
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
+
+    - name: Créer le répertoire persistant d'Elasticsearch sur otel-01
+      ansible.builtin.file:
+        path: /var/lib/observability/elasticsearch
+        state: directory
+        owner: '1000'
+        group: '1000'
+        mode: '0750'
+      when: inventory_hostname == 'otel-01'
+
+    - name: Créer le répertoire d'état Fleet persistant sur otel-01
+      ansible.builtin.file:
+        path: /var/lib/observability/fleet-server
+        state: directory
+        owner: root
+        group: root
+        mode: '0750'
+      when: inventory_hostname == 'otel-01'
+
+    - name: Déployer les identifiants Elasticsearch du stack Quadlet
+      ansible.builtin.copy:
+        content: "ELASTIC_PASSWORD={{ elastic_password }}\n"
+        dest: /etc/observability/elasticsearch.env
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+      when: inventory_hostname == 'otel-01'
+
+    - name: Vérifier la présence du token service Kibana
+      ansible.builtin.stat:
+        path: /etc/observability/kibana-service-token
+      register: kibana_service_token_file
+      when: inventory_hostname == 'otel-01'
+
+    - name: Créer le token service Kibana
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200/_security/service/elastic/kibana/credential/token/kibana
+        method: POST
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: 200
+        return_content: true
+      register: kibana_service_token
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+        - not kibana_service_token_file.stat.exists
+
+    - name: Déployer le token service Kibana
+      ansible.builtin.copy:
+        content: "{{ kibana_service_token.json.token.value }}\n"
+        dest: /etc/observability/kibana-service-token
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+        - not kibana_service_token_file.stat.exists
+
+    - name: Lire le token service Kibana
+      ansible.builtin.slurp:
+        src: /etc/observability/kibana-service-token
+      register: kibana_service_token_content
+      no_log: true
+      when: inventory_hostname == 'otel-01'
+
+    - name: Vérifier la présence des clés de chiffrement Kibana
+      ansible.builtin.stat:
+        path: /etc/observability/kibana-encryption-keys
+      register: kibana_encryption_keys_file
+      when: inventory_hostname == 'otel-01'
+
+    - name: Générer les clés de chiffrement Kibana
+      ansible.builtin.shell: |
+        printf '%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)"
+      args:
+        executable: /bin/bash
+      register: kibana_encryption_keys
+      changed_when: true
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+        - not kibana_encryption_keys_file.stat.exists
+
+    - name: Déployer les clés de chiffrement Kibana
+      ansible.builtin.copy:
+        content: "{{ kibana_encryption_keys.stdout }}\n"
+        dest: /etc/observability/kibana-encryption-keys
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+        - not kibana_encryption_keys_file.stat.exists
+
+    - name: Lire les clés de chiffrement Kibana
+      ansible.builtin.slurp:
+        src: /etc/observability/kibana-encryption-keys
+      register: kibana_encryption_keys_content
+      no_log: true
+      when: inventory_hostname == 'otel-01'
+
+    - name: Déployer les identifiants Kibana du stack Quadlet
+      ansible.builtin.copy:
+        content: "ELASTICSEARCH_SERVICEACCOUNTTOKEN={{ kibana_service_token_content.content | b64decode | trim }}\n"
+        dest: /etc/observability/kibana.env
+        owner: root
+        group: root
+        mode: '0600'
+      register: kibana_credentials
+      no_log: true
+      when: inventory_hostname == 'otel-01'
+
+    - name: Déployer la configuration Kibana/Fleet du stack Quadlet
+      ansible.builtin.template:
+        src: kibana.yml.j2
+        dest: /etc/observability/kibana.yml
+        mode: '0644'
+      register: kibana_config
+      no_log: true
+      when: inventory_hostname == 'otel-01'
 
     - name: Créer le cache persistant des artefacts du POC
       ansible.builtin.file:
@@ -292,29 +424,39 @@
         url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
         dest: /opt/observability/jolokia-agent.jar
         mode: '0644'
-      when: not jolokia_agent.stat.exists
+      when:
+        - inventory_hostname == 'data-01'
+        - not jolokia_agent.stat.exists
 
-    - name: Déployer la configuration du Gateway OTLP sur data-01
+    - name: Déployer la configuration du Gateway OTLP sur otel-01
       ansible.builtin.template:
         src: otel-gateway.yaml.j2
         dest: /etc/observability/otel-gateway.yaml
         mode: '0644'
       register: otel_gateway_config
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Vérifier la clé API de l'exporteur Kafka OTel
       ansible.builtin.assert:
         that: otel_elasticsearch_api_key | length > 0
-        fail_msg: OTEL_ELASTICSEARCH_API_KEY doit être injectée au provisionnement de data-01.
-      when: inventory_hostname == 'data-01'
+        fail_msg: OTEL_ELASTICSEARCH_API_KEY doit être injectée au provisionnement de otel-01.
+      when:
+        - inventory_hostname == 'otel-01'
+        - otel_elasticsearch_api_key | length > 0
 
-    - name: Déployer la configuration de l'exporteur Kafka OTel sur data-01
+    - name: Vérifier le mot de passe Elasticsearch sur otel-01
+      ansible.builtin.assert:
+        that: elastic_password | length > 0
+        fail_msg: ELASTIC_PASSWORD doit être injectée au provisionnement de otel-01.
+      when: inventory_hostname == 'otel-01'
+
+    - name: Déployer la configuration de l'exporteur Kafka OTel sur otel-01
       ansible.builtin.template:
         src: otel-kafka-exporter.yaml.j2
         dest: /etc/observability/otel-kafka-exporter.yaml
         mode: '0644'
       register: otel_kafka_exporter_config
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Injecter la clé API de l'exporteur Kafka OTel
       ansible.builtin.copy:
@@ -325,23 +467,23 @@
         mode: '0600'
       no_log: true
       register: otel_kafka_exporter_credentials
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
-    - name: Déployer la configuration HAProxy du Gateway OTLP
+    - name: Déployer la configuration HAProxy du Gateway OTLP sur otel-01
       ansible.builtin.template:
         src: haproxy-otel-gateway.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
         mode: '0644'
         validate: haproxy -c -f %s
       register: haproxy_otel_gateway_config
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Créer le répertoire des overrides systemd HAProxy
       ansible.builtin.file:
         path: /etc/systemd/system/haproxy.service.d
         state: directory
         mode: '0755'
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Déployer le répertoire runtime du socket HAProxy
       ansible.builtin.template:
@@ -349,15 +491,34 @@
         dest: /etc/systemd/system/haproxy.service.d/runtime-directory.conf
         mode: '0644'
       register: haproxy_systemd_override
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
-    - name: Déployer les unités Quadlet MongoDB, Kafka, Gateway et exporteur OTel
+    - name: Déployer les unités Quadlet MongoDB et Kafka sur data-01
       ansible.builtin.template:
         src: "{{ item }}.container.j2"
         dest: "/etc/containers/systemd/{{ item }}.container"
         mode: '0644'
-      loop: [observability-mongodb, observability-kafka, observability-otel-gateway, observability-otel-kafka-exporter]
-      register: quadlet_units
+      loop: [observability-mongodb, observability-kafka]
+      register: data_quadlet_units
+      when: inventory_hostname == 'data-01'
+
+    - name: Déployer les unités Quadlet des gateways OTEL sur otel-01
+      ansible.builtin.template:
+        src: "{{ item }}.container.j2"
+        dest: "/etc/containers/systemd/{{ item }}.container"
+        mode: '0644'
+      loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+      register: otel_quadlet_units
+      when: inventory_hostname == 'otel-01'
+
+    - name: Déployer les unités Quadlet du stack Elastic sur otel-01
+      ansible.builtin.template:
+        src: "{{ item }}.container.j2"
+        dest: "/etc/containers/systemd/{{ item }}.container"
+        mode: '0644'
+      loop: [observability-elasticsearch, observability-kibana, observability-fleet-server]
+      register: elastic_quadlet_units
+      when: inventory_hostname == 'otel-01'
 
     - name: Déployer l'unité Quadlet PostgreSQL sur data-01
       ansible.builtin.template:
@@ -371,7 +532,10 @@
       ansible.builtin.systemd_service:
         daemon_reload: true
       when: >-
-        quadlet_units.changed or
+        (data_quadlet_units.changed | default(false)) or
+        (otel_quadlet_units.changed | default(false)) or
+        (elastic_quadlet_units.changed | default(false)) or
+        (kibana_config.changed | default(false)) or
         (postgresql_quadlet_unit.changed | default(false)) or
         (haproxy_systemd_override.changed | default(false))
 
@@ -379,7 +543,7 @@
       ansible.builtin.stat:
         path: /opt/Elastic/Agent/elastic-agent
       register: installed_elastic_agent
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname in ['data-01', 'otel-01']
 
     # Les artefacts de bootstrap ne servent plus une fois l'agent installé.
     # Les retirer préserve l'espace de la VM pour les images de collecte.
@@ -404,7 +568,7 @@
         file_type: directory
         recurse: false
       register: podman_incomplete_pulls
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname in ['data-01', 'otel-01']
 
     - name: Retirer les téléchargements Podman incomplets
       ansible.builtin.file:
@@ -413,12 +577,147 @@
       loop: "{{ podman_incomplete_pulls.files | default([]) }}"
       when: inventory_hostname == 'data-01'
 
-    - name: Démarrer MongoDB, Kafka, le Gateway et l'exporteur OTel
+    - name: Retirer les gateways OTEL de data-01
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: false
+        state: stopped
+      loop: [observability-otel-gateway, observability-otel-kafka-exporter, haproxy]
+      failed_when: false
+      when: inventory_hostname == 'data-01'
+
+    - name: Retirer les fichiers OTEL obsolètes de data-01
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/containers/systemd/observability-otel-gateway.container
+        - /etc/containers/systemd/observability-otel-kafka-exporter.container
+        - /etc/observability/otel-gateway.yaml
+        - /etc/observability/otel-kafka-exporter.yaml
+        - /etc/observability/otel-kafka-exporter.env
+        - /etc/haproxy/haproxy.cfg
+      when: inventory_hostname == 'data-01'
+
+    - name: Démarrer MongoDB et Kafka sur data-01
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         enabled: true
         state: started
-      loop: [observability-mongodb, observability-kafka, observability-otel-gateway, observability-otel-kafka-exporter]
+      loop: [observability-mongodb, observability-kafka]
+      when: inventory_hostname == 'data-01'
+
+    - name: Démarrer les gateways OTEL sur otel-01
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: true
+        state: started
+      loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+      when: inventory_hostname == 'otel-01'
+
+    - name: Démarrer Elasticsearch sur otel-01
+      ansible.builtin.systemd_service:
+        name: observability-elasticsearch.service
+        enabled: true
+        state: started
+      when: inventory_hostname == 'otel-01'
+
+    - name: Attendre Elasticsearch local sur otel-01
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: elasticsearch_local_health
+      retries: 30
+      delay: 2
+      until: elasticsearch_local_health.status == 200
+      changed_when: false
+      when: inventory_hostname == 'otel-01'
+
+    - name: Vérifier la présence du token service Fleet Server
+      ansible.builtin.stat:
+        path: /etc/observability/fleet-server.env
+      register: fleet_server_env
+      when: inventory_hostname == 'otel-01'
+
+    - name: Créer le token service Fleet Server
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200/_security/service/elastic/fleet-server/credential/token/fleet-server
+        method: POST
+        url_username: elastic
+        url_password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: 200
+        return_content: true
+      register: fleet_service_token
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+        - not fleet_server_env.stat.exists
+
+    - name: Lire le token service Fleet Server existant
+      ansible.builtin.shell: >-
+        awk -F= '/^FLEET_SERVER_SERVICE_TOKEN=/{print substr($0,index($0,"=")+1)}'
+        /etc/observability/fleet-server.env
+      args:
+        executable: /bin/bash
+      register: fleet_server_existing_token
+      changed_when: false
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+        - fleet_server_env.stat.exists
+
+    - name: Sélectionner le token service Fleet Server
+      ansible.builtin.set_fact:
+        fleet_server_service_token: >-
+          {{ fleet_service_token.json.token.value if fleet_service_token.json is defined
+             else fleet_server_existing_token.stdout }}
+      no_log: true
+      when: inventory_hostname == 'otel-01'
+
+    - name: Déployer la configuration du Fleet Server Quadlet
+      ansible.builtin.copy:
+        content: |
+          FLEET_SERVER_SERVICE_TOKEN={{ fleet_server_service_token }}
+          FLEET_SERVER_ELASTICSEARCH_USERNAME=elastic
+          FLEET_SERVER_ELASTICSEARCH_PASSWORD={{ elastic_password }}
+          KIBANA_FLEET_USERNAME=elastic
+          KIBANA_FLEET_PASSWORD={{ elastic_password }}
+        dest: /etc/observability/fleet-server.env
+        owner: root
+        group: root
+        mode: '0600'
+      register: fleet_server_env_config
+      no_log: true
+      when:
+        - inventory_hostname == 'otel-01'
+
+    - name: Démarrer Kibana et Fleet Server sur otel-01
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: true
+        state: started
+      loop: [observability-kibana, observability-fleet-server]
+      when: inventory_hostname == 'otel-01'
+
+    - name: Redémarrer Fleet Server après une modification de sa configuration
+      ansible.builtin.systemd_service:
+        name: observability-fleet-server.service
+        state: restarted
+      when:
+        - inventory_hostname == 'otel-01'
+        - fleet_server_env_config.changed | default(false)
+
+    - name: Redémarrer Kibana après une modification de sa configuration
+      ansible.builtin.systemd_service:
+        name: observability-kibana.service
+        state: restarted
+      when:
+        - inventory_hostname == 'otel-01'
+        - kibana_config.changed or kibana_credentials.changed
 
     - name: Démarrer PostgreSQL sur data-01
       ansible.builtin.systemd_service:
@@ -427,34 +726,41 @@
         state: started
       when: inventory_hostname == 'data-01'
 
-    - name: Redéployer MongoDB, Kafka, le Gateway et l'exporteur OTel après un changement ou sur demande
+    - name: Redéployer MongoDB et Kafka après un changement ou sur demande
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         state: restarted
-      loop: [observability-mongodb, observability-kafka, observability-otel-gateway, observability-otel-kafka-exporter]
-      when: quadlet_units.changed or (redeploy_services | bool)
+      loop: [observability-mongodb, observability-kafka]
+      when: inventory_hostname == 'data-01' and ((data_quadlet_units.changed | default(false)) or (redeploy_services | bool))
+
+    - name: Redéployer les gateways OTEL après un changement ou sur demande
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        state: restarted
+      loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+      when: inventory_hostname == 'otel-01' and ((otel_quadlet_units.changed | default(false)) or (redeploy_services | bool))
 
     - name: Redémarrer le Gateway OTLP après une modification de sa configuration
       ansible.builtin.systemd_service:
         name: observability-otel-gateway.service
         state: restarted
-      when: inventory_hostname == 'data-01' and otel_gateway_config.changed and not quadlet_units.changed
+      when: inventory_hostname == 'otel-01' and otel_gateway_config.changed and not (otel_quadlet_units.changed | default(false))
 
     - name: Redémarrer l'exporteur Kafka OTel après une modification de sa configuration
       ansible.builtin.systemd_service:
         name: observability-otel-kafka-exporter.service
         state: restarted
       when: >-
-        inventory_hostname == 'data-01' and
-        not quadlet_units.changed and
+        inventory_hostname == 'otel-01' and
+        not (otel_quadlet_units.changed | default(false)) and
         (otel_kafka_exporter_config.changed or otel_kafka_exporter_credentials.changed)
 
-    - name: Démarrer HAProxy devant le Gateway OTLP
+    - name: Démarrer HAProxy devant le Gateway OTLP sur otel-01
       ansible.builtin.systemd_service:
         name: haproxy.service
         enabled: true
         state: "{{ 'restarted' if haproxy_otel_gateway_config.changed else 'started' }}"
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Redéployer PostgreSQL après un changement ou sur demande
       ansible.builtin.systemd_service:
@@ -514,6 +820,8 @@
       delay: 2
       until: kafka_ready.rc == 0
       changed_when: false
+      run_once: true
+      delegate_to: data-01
 
     - name: Vérifier le endpoint de santé du Gateway OTLP
       ansible.builtin.uri:
@@ -524,7 +832,7 @@
       delay: 2
       until: otel_gateway_health.status == 200
       changed_when: false
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Vérifier le endpoint de santé de l'exporteur Kafka OTel
       ansible.builtin.uri:
@@ -535,7 +843,7 @@
       delay: 2
       until: otel_kafka_exporter_health.status == 200
       changed_when: false
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Vérifier le frontal HAProxy du Gateway OTLP
       ansible.builtin.command:
@@ -545,7 +853,7 @@
           - -f
           - /etc/haproxy/haproxy.cfg
       changed_when: false
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Vérifier le socket d'administration HAProxy
       ansible.builtin.stat:
@@ -553,7 +861,7 @@
       register: haproxy_admin_socket
       failed_when: not haproxy_admin_socket.stat.issock
       changed_when: false
-      when: inventory_hostname == 'data-01'
+      when: inventory_hostname == 'otel-01'
 
     - name: Attendre le quorum Kafka avant de créer les topics
       ansible.builtin.command:
@@ -714,6 +1022,7 @@
       delay: 2
       until: mongodb_ping.stdout | trim == '1'
       changed_when: false
+      when: inventory_hostname == 'data-01'
 
     - name: Créer le répertoire de téléchargement de l'Elastic Agent
       ansible.builtin.file:
