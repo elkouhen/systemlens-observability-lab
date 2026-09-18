@@ -1,0 +1,67 @@
+---
+- name: Autoriser le conteneur exporteur OTEL à écrire son file_storage
+  ansible.builtin.file:
+    path: /var/lib/observability/otel-kafka-exporter
+    state: directory
+    mode: '0777'
+
+- name: Déployer la configuration du Gateway OTEL backend
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/otel-gateway.yaml.j2"
+    dest: /etc/observability/otel-gateway.yaml
+    mode: '0644'
+  vars:
+    otel_gateway_kafka_broker: "{{ poc_ip }}:9092"
+  register: otel_gateway_config
+
+- name: Déployer la configuration de l'exporteur OTEL backend
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/otel-kafka-exporter.yaml.j2"
+    dest: /etc/observability/otel-kafka-exporter.yaml
+    mode: '0644'
+  vars:
+    otel_kafka_broker: "{{ poc_ip }}:9092"
+    elasticsearch_url: "http://{{ elk_ip }}:9200"
+
+- name: Déployer la clé API de l'exporteur OTEL backend
+  ansible.builtin.copy:
+    content: "ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}\n"
+    dest: /etc/observability/otel-kafka-exporter.env
+    mode: '0600'
+  no_log: true
+
+- name: Déployer les unités OTEL backend
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/{{ item }}.container.j2"
+    dest: "/etc/containers/systemd/{{ item }}.container"
+    mode: '0644'
+  loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+
+- name: Recharger systemd pour les unités OTEL backend
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Démarrer le backend OTEL
+  ansible.builtin.systemd_service:
+    name: "{{ item }}.service"
+    enabled: true
+    state: restarted
+  loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+
+- name: Vérifier la santé du Gateway OTEL
+  ansible.builtin.uri:
+    url: http://127.0.0.1:13133/
+    status_code: 200
+  register: otel_gateway_health
+  retries: 30
+  delay: 2
+  until: otel_gateway_health.status == 200
+
+- name: Vérifier la santé de l'exporteur Kafka OTEL
+  ansible.builtin.uri:
+    url: http://127.0.0.1:13134/
+    status_code: 200
+  register: otel_exporter_health
+  retries: 30
+  delay: 2
+  until: otel_exporter_health.status == 200

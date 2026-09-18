@@ -1,0 +1,133 @@
+---
+- name: Vérifier les variables injectées par Vagrant
+  ansible.builtin.assert:
+    that: [node_id is defined, node_ip is defined, node_role is defined]
+    fail_msg: Vagrant doit fournir node_id, node_ip et node_role.
+
+- name: Vérifier les secrets nécessaires au POC
+  ansible.builtin.assert:
+    that: postgresql_password | length > 0
+    fail_msg: Définir POSTGRESQL_PASSWORD hors Git.
+  when: node_role == 'poc'
+
+- name: Installer le certificat racine d'entreprise si fourni
+  ansible.builtin.copy:
+    content: "{{ zscaler_ca_cert_content }}"
+    dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
+    mode: '0644'
+  register: zscaler_ca
+  when: zscaler_ca_cert_content | length > 0
+
+- name: Actualiser le magasin de certificats
+  ansible.builtin.command: update-ca-trust extract
+  when: zscaler_ca.changed | default(false)
+  changed_when: true
+
+- name: Installer les dépendances système
+  ansible.builtin.dnf:
+    name: [podman, curl, openssl, chrony, haproxy, policycoreutils-python-utils]
+    state: present
+
+- name: Collecter l'état des services système
+  ansible.builtin.service_facts:
+
+- name: Identifier l'interface du réseau privé
+  ansible.builtin.shell: |
+    ip -o -4 addr show | awk -v ip='{{ node_ip }}' '$4 ~ ("^" ip "/") { print $2; exit }'
+  args:
+    executable: /bin/bash
+  register: private_network_device
+  changed_when: false
+
+- name: Restaurer le contexte SELinux des profils NetworkManager
+  ansible.builtin.command: restorecon -RFv /etc/NetworkManager/system-connections
+  changed_when: false
+
+- name: Empêcher le réseau privé de devenir la route par défaut
+  ansible.builtin.shell: >-
+    nmcli connection modify
+    "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
+    ipv4.never-default yes
+  changed_when: false
+
+- name: Réactiver le réseau privé sans route par défaut
+  ansible.builtin.shell: >-
+    nmcli connection up
+    "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
+    ifname {{ private_network_device.stdout }}
+  changed_when: false
+
+- name: Identifier la connexion NAT
+  ansible.builtin.shell: |
+    nmcli -g GENERAL.CONNECTION device show "$(ip route show default | awk 'NR == 1 { print $5 }')"
+  args:
+    executable: /bin/bash
+  register: nat_connection
+  changed_when: false
+
+- name: Configurer des DNS fiables sur la connexion NAT
+  ansible.builtin.shell: >-
+    nmcli connection modify "{{ nat_connection.stdout }}"
+    ipv4.ignore-auto-dns yes ipv4.dns "1.1.1.1,8.8.8.8"
+  changed_when: false
+
+- name: Réappliquer la connexion NAT
+  ansible.builtin.shell: nmcli connection up "{{ nat_connection.stdout }}"
+  changed_when: false
+
+- name: Activer la synchronisation NTP
+  ansible.builtin.systemd_service:
+    name: chronyd
+    enabled: true
+    state: started
+
+- name: Autoriser les ports de la topologie sur firewalld
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318, 8220, 9200, 5601] if node_role == 'edge' else []) + ([9200, 5601, 8220] if node_role == 'elk' else []) }}"
+  when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
+
+- name: Autoriser HAProxy à écouter ses ports edge sous SELinux
+  ansible.builtin.command:
+    argv: [semanage, port, -a, -t, http_port_t, -p, tcp, "{{ item }}"]
+  loop: [4317, 4318, 8220, 9200, 5601]
+  register: haproxy_selinux_ports
+  changed_when: haproxy_selinux_ports.rc == 0
+  failed_when: >-
+    haproxy_selinux_ports.rc != 0 and
+    'already defined' not in (haproxy_selinux_ports.stderr | lower)
+  when: node_role == 'edge'
+
+- name: Autoriser HAProxy à joindre les backends OTLP sous SELinux
+  ansible.posix.seboolean:
+    name: haproxy_connect_any
+    state: true
+    persistent: true
+  when: node_role == 'edge'
+
+- name: Créer les répertoires de la plateforme
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    mode: '0755'
+  loop:
+    - /etc/observability
+    - /etc/containers/systemd
+    - /var/lib/observability
+    - /var/lib/observability/otel-kafka-exporter
+    - /var/cache/observability
+    - /opt/observability
+
+- name: Installer la résolution locale des VM
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: '# {mark} POC OBSERVABILITY HOSTS'
+    block: |
+      {{ poc_ip }} poc-01
+      {{ otel_backend_ip }} otel-backend-01
+      {{ edge_ip }} edge-01
+      {{ elk_ip }} elk-01

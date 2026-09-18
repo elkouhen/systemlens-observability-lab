@@ -1,0 +1,45 @@
+---
+- name: Créer les répertoires de logs des middlewares
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /var/log/mongodb, mode: '0755'}
+    - {path: /var/log/kafka, mode: '0777'}
+    - {path: /var/log/postgresql, mode: '0777'}
+
+- name: Créer le fichier de log MongoDB
+  ansible.builtin.file:
+    path: /var/log/mongodb/mongod.log
+    state: touch
+    mode: '0666'
+    modification_time: preserve
+    access_time: preserve
+
+- name: Télécharger l'agent Jolokia pour Kafka
+  ansible.builtin.get_url:
+    url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
+    dest: /opt/observability/jolokia-agent.jar
+    mode: '0644'
+
+- name: Déployer les middlewares du POC
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/{{ item }}.container.j2"
+    dest: "/etc/containers/systemd/{{ item }}.container"
+    mode: '0644'
+  loop:
+    - observability-mongodb
+    - observability-kafka
+    - observability-postgresql
+
+- name: Recharger systemd pour les unités Quadlet du POC
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Démarrer les middlewares du POC
+  ansible.builtin.systemd_service:
+    name: "{{ item }}.service"
+    enabled: true
+    state: started
+  loop: [observability-mongodb, observability-kafka, observability-postgresql]

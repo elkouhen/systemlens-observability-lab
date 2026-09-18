@@ -386,7 +386,7 @@ otel-kafka-exporter-vm-status: ## Vérifier l'exporteur Kafka OTel exécuté sur
 otel-kafka-exporter-kubernetes-bascule: ## Retirer l'exporteur Kubernetes après validation du backend OTEL
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service otel-kafka-exporter --ignore-not-found
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-prometheus-scraper --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 	@$(MAKE) otel-kafka-exporter-vm-status
 
 otel-kafka-exporter-relocate: otel-kafka-exporter-vm-provision otel-kafka-exporter-kubernetes-bascule ## Basculer l'exporteur Kafka OTel vers le backend OTEL

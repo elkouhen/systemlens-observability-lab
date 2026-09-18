@@ -3,9 +3,8 @@
 Ces modèles Jinja sont rendus par `ansible/site.yml` sur chaque VM. Ils forment
 le lien entre les variables Ansible et les fichiers réellement consommés par
 systemd et Podman. La collecte des VM est assurée par l'Elastic Agent enrôlé
-dans Fleet. Le Gateway EDOT qui reçoit l'OTLP des applications Kubernetes est
-et l'exporteur Kafka sont également rendus ici sous forme de Quadlet Podman
-sur `otel-backend-01`, derrière `edge-01`.
+dans Fleet. L'exporteur Kafka EDOT est rendu ici sous forme de Quadlet Podman
+sur `otel-backend-01` ; le Gateway OTLP des applications vit dans Kubernetes.
 
 ## Lire les templates
 

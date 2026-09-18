@@ -1,0 +1,42 @@
+---
+- name: Déterminer l'architecture Elastic Agent
+  ansible.builtin.set_fact:
+    elastic_agent_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+- name: Vérifier si Elastic Agent est déjà enrôlé
+  ansible.builtin.stat:
+    path: /opt/Elastic/Agent/elastic-agent
+  register: enrolled_agent
+
+- name: Télécharger Elastic Agent pour un enrôlement Fleet demandé
+  ansible.builtin.get_url:
+    url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+    dest: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+    mode: '0644'
+  when:
+    - fleet_enrollment_token | length > 0
+    - not enrolled_agent.stat.exists
+
+- name: Extraire Elastic Agent
+  ansible.builtin.unarchive:
+    src: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+    dest: /var/tmp
+    remote_src: true
+  when:
+    - fleet_enrollment_token | length > 0
+    - not enrolled_agent.stat.exists
+
+- name: Enrôler la VM dans Fleet via l'edge
+  ansible.builtin.command:
+    argv:
+      - "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent"
+      - install
+      - --non-interactive
+      - --force
+      - "--url={{ fleet_url }}"
+      - "--enrollment-token={{ fleet_enrollment_token }}"
+      - --insecure
+  when:
+    - fleet_enrollment_token | length > 0
+    - not enrolled_agent.stat.exists
+  no_log: true

@@ -1,0 +1,33 @@
+---
+- name: Déployer le frontal edge
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/haproxy-edge.cfg.j2"
+    dest: /etc/haproxy/haproxy.cfg
+    mode: '0644'
+    validate: haproxy -c -f %s
+
+- name: Créer le répertoire des overrides systemd HAProxy
+  ansible.builtin.file:
+    path: /etc/systemd/system/haproxy.service.d
+    state: directory
+    mode: '0755'
+
+- name: Déployer le runtime du socket HAProxy
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/haproxy-runtime-directory.conf.j2"
+    dest: /etc/systemd/system/haproxy.service.d/runtime-directory.conf
+    mode: '0644'
+
+- name: Recharger systemd pour HAProxy
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Démarrer HAProxy edge
+  ansible.builtin.systemd_service:
+    name: haproxy.service
+    enabled: true
+    state: restarted
+
+- name: Vérifier la configuration HAProxy edge
+  ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
+  changed_when: false
