@@ -12,7 +12,7 @@ elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:
 : "${ELASTICSEARCH_PASSWORD:?Definir ELASTICSEARCH_PASSWORD avant de synchroniser les pipelines}"
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
-fleet_nodes=(poc-01 otel-backend-01 edge-01 elk-01)
+fleet_nodes=(poc-01 otel-backend-01 edge-01)
 
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.observability.test:9200:192.168.33.40
@@ -117,8 +117,11 @@ printf 'MongoDB service.address pipelines updated\n'
 # Les package policies préconfigurées par Kibana ne sont créées qu'une fois.
 # Mettre à jour explicitement la policy existante conserve la source de vérité
 # Kubernetes tout en diffusant une correction aux Agents déjà enrôlés.
+postgresql_policy_id="$(curl "${kibana_args[@]}" \
+  "${kibana_url}/api/fleet/package_policies?perPage=1000" |
+  jq -er '.items[] | select(.name == "postgresql-poc-01") | .id' | head -n 1)"
 postgresql_policy="$(curl "${kibana_args[@]}" \
-  "${kibana_url}/api/fleet/package_policies/postgresql-poc-01")"
+  "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}")"
 postgresql_payload="$(jq '
   .item
   | {name, namespace, policy_id, package, inputs}
@@ -132,6 +135,6 @@ postgresql_payload="$(jq '
     )
 ' <<<"${postgresql_policy}")"
 curl "${kibana_args[@]}" -X PUT \
-  "${kibana_url}/api/fleet/package_policies/postgresql-poc-01" \
+  "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}" \
   --data "${postgresql_payload}" >/dev/null
 printf 'PostgreSQL package policy updated for poc-01 only\n'

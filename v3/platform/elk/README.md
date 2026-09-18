@@ -56,6 +56,11 @@ conserve le même flux edge → Kafka → backend → Elasticsearch.
 Les règles de collecte Kubernetes et de buffer Kafka sont dans
 `../kubernetes/base/observability/otel-kafka.yaml`. Le Gateway OTLP VM,
 l'exporteur Kafka et l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
+La collecte filelog est limitée au namespace applicatif, conserve ses offsets
+sur le nœud et ignore les événements Kafka répétitifs de désérialisation. Les
+logs sont regroupés par lots de 50 toutes les 5 secondes ; les topics OTLP
+Kafka ont une rétention de 24 heures et 512 MiB par topic. Ces limites bornent
+la volumétrie du POC sans modifier le chemin de collecte.
 Pour migrer l'exporteur depuis Kubernetes, exécuter
 `make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
 

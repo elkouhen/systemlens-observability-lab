@@ -32,6 +32,22 @@ versionnée, reproductible et aussi petite que possible pour le besoin couvert.
 - Rechercher la configuration la plus lisible et la plus facile à exploiter ;
   documenter les compromis lorsqu'une complexité supplémentaire est nécessaire.
 
+## Autonomie d'exécution
+
+- Agir directement dans le périmètre du dépôt sans demander confirmation pour
+  les étapes normales.
+- Lire le README pertinent avant modification.
+- Modifier les fichiers nécessaires, puis exécuter les validations adaptées.
+- Corriger les erreurs rencontrées et relancer les contrôles.
+- Ne demander confirmation que pour :
+  - une action destructive ;
+  - une modification hors dépôt ;
+  - un secret ou une publication distante ;
+  - un déploiement explicitement interdit ;
+  - un changement d'architecture.
+- Considérer la tâche terminée uniquement lorsque le contrôle attendu est
+  réussi.
+
 ## Bonnes pratiques d'utilisation de l'IA
 
 - Garder une conversation pour un objectif cohérent. Ouvrir une nouvelle

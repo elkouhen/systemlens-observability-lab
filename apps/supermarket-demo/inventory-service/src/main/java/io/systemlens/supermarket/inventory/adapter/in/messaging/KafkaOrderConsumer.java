@@ -1,7 +1,7 @@
 package io.systemlens.supermarket.inventory.adapter.in.messaging;
 
 import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
-import io.systemlens.supermarket.inventory.generated.event.OrderPlaced;
+import io.systemlens.supermarket.contract.OrderPlaced;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +19,7 @@ public class KafkaOrderConsumer {
     public void consume(OrderPlaced order) {
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            inventory.reserve(order.getOrderId(), order.getProductId(), order.getQuantity(), "kafka", order.getRequestedAt().toInstant());
+            inventory.reserve(order.orderId(), order.productId(), order.quantity(), "kafka", order.requestedAt());
         } finally {
             sample.stop(meterRegistry.timer("business.kafka.message.processing", "consumer", "orders", "topic", "supermarket.order.placed"));
         }

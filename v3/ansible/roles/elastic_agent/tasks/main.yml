@@ -8,6 +8,21 @@
     path: /opt/Elastic/Agent/elastic-agent
   register: enrolled_agent
 
+- name: Déterminer si l’agent Fleet doit être réinstallé
+  ansible.builtin.set_fact:
+    reinstall_fleet_agent: >-
+      {{ fleet_enrollment_token | length > 0 and enrolled_agent.stat.exists and node_role != 'elk' }}
+
+- name: Retirer l’agent Fleet existant avant son réinstallation
+  ansible.builtin.command:
+    argv:
+      - /opt/Elastic/Agent/elastic-agent
+      - uninstall
+      - --force
+  when:
+    - reinstall_fleet_agent or (node_role == 'elk' and enrolled_agent.stat.exists)
+  no_log: true
+
 - name: Télécharger Elastic Agent pour un enrôlement Fleet demandé
   ansible.builtin.get_url:
     url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
@@ -15,7 +30,7 @@
     mode: '0644'
   when:
     - fleet_enrollment_token | length > 0
-    - not enrolled_agent.stat.exists
+    - not enrolled_agent.stat.exists or reinstall_fleet_agent
 
 - name: Extraire Elastic Agent
   ansible.builtin.unarchive:
@@ -24,7 +39,7 @@
     remote_src: true
   when:
     - fleet_enrollment_token | length > 0
-    - not enrolled_agent.stat.exists
+    - not enrolled_agent.stat.exists or reinstall_fleet_agent
 
 - name: Enrôler la VM dans Fleet via l'edge
   ansible.builtin.command:
@@ -38,5 +53,5 @@
       - --insecure
   when:
     - fleet_enrollment_token | length > 0
-    - not enrolled_agent.stat.exists
+    - not enrolled_agent.stat.exists or reinstall_fleet_agent
   no_log: true

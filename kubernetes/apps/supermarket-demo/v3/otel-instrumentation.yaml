@@ -9,6 +9,8 @@ spec:
       containers:
         - name: order-service
           env:
+            - name: ELASTIC_APM_ENABLED
+              value: "false"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -41,6 +43,8 @@ spec:
       containers:
         - name: inventory-service
           env:
+            - name: ELASTIC_APM_ENABLED
+              value: "false"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -73,6 +77,8 @@ spec:
       containers:
         - name: restock-service
           env:
+            - name: ELASTIC_APM_ENABLED
+              value: "false"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL

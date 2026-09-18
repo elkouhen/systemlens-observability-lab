@@ -62,6 +62,10 @@ data:
       batch:
         timeout: 1s
         send_batch_size: 512
+      batch/logs:
+        timeout: 5s
+        send_batch_size: 50
+        send_batch_max_size: 50
     exporters:
       kafka/otlp:
         brokers: ["192.168.33.10:9092"]
@@ -87,17 +91,25 @@ data:
           exporters: [kafka/otlp]
         logs:
           receivers: [otlp]
-          processors: [memory_limiter, batch]
+          processors: [memory_limiter, batch/logs]
           exporters: [kafka/otlp]
 
   daemonset.yaml: |
     extensions:
       health_check:
         endpoint: 0.0.0.0:13133
+      file_storage:
+        directory: /var/lib/otelcol/file_storage
+        create_directory: true
     receivers:
       filelog/kubernetes:
-        include: [/var/log/pods/*/*/*.log]
+        # Les logs applicatifs sont la seule source de logs Kubernetes utile à
+        # cette chaîne ; exclure les namespaces système évite une boucle et
+        # borne fortement la volumétrie envoyée vers Kafka.
+        include: [/var/log/pods/h0tl-supermarche-app_*/*/*.log]
         start_at: end
+        max_log_size: 64KiB
+        storage: file_storage
         include_file_path: true
         operators:
           - type: container
@@ -148,11 +160,21 @@ data:
       batch:
         timeout: 1s
         send_batch_size: 512
+      batch/logs:
+        timeout: 5s
+        send_batch_size: 50
+        send_batch_max_size: 50
+      filter/logs:
+        error_mode: ignore
+        logs:
+          log_record:
+            - 'IsMatch(attributes["message"], "^Consumer exception$")'
+            - 'IsMatch(attributes["message"], "^Value Deserializers with error:")'
     exporters:
       otlphttp/gateway:
         endpoint: http://otel-gateway.elastic-stack.svc.cluster.local:4318
     service:
-      extensions: [health_check]
+      extensions: [health_check, file_storage]
       telemetry:
         resource:
           service.name: otel-kubernetes
@@ -168,7 +190,7 @@ data:
       pipelines:
         logs:
           receivers: [filelog/kubernetes]
-          processors: [memory_limiter, k8sattributes, batch]
+          processors: [memory_limiter, k8sattributes, filter/logs, batch/logs]
           exporters: [otlphttp/gateway]
         metrics:
           receivers: [hostmetrics, prometheus/internal]
@@ -206,6 +228,7 @@ spec:
           volumeMounts:
             - {name: config, mountPath: /etc/otel, readOnly: true}
             - {name: varlogpods, mountPath: /var/log/pods, readOnly: true}
+            - {name: storage, mountPath: /var/lib/otelcol}
             - {name: hostfs, mountPath: /hostfs, readOnly: true}
           readinessProbe: {httpGet: {path: /, port: health}}
           livenessProbe: {httpGet: {path: /, port: health}}
@@ -219,6 +242,10 @@ spec:
           hostPath: {path: /var/log/pods}
         - name: hostfs
           hostPath: {path: /}
+        - name: storage
+          hostPath:
+            path: /var/lib/otelcol
+            type: DirectoryOrCreate
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -287,15 +314,20 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - >-
+              for topic in supermarket.order.placed supermarket.stock.depleted supermarket.stock.restock-requested; do
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
+              192.168.33.10:9092 --create --if-not-exists --topic "$topic"
+              --partitions 1 --replication-factor 1
+              --config min.insync.replicas=1;
+              done;
               for topic in otel-traces otel-metrics otel-logs; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.10:9092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1
-              --config min.insync.replicas=1;
-              partitions=$(/opt/kafka/bin/kafka-topics.sh
-              --bootstrap-server 192.168.33.10:9092 --describe --topic "$topic"
-              | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1);
-              if [ "${partitions:-0}" -lt 3 ]; then
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092 --alter --topic "$topic" --partitions 3;
-              fi; done
+              --config min.insync.replicas=1
+              --config retention.ms=86400000
+              --config retention.bytes=536870912;
+              /opt/kafka/bin/kafka-configs.sh --bootstrap-server
+              192.168.33.10:9092 --entity-type topics --entity-name "$topic"
+              --alter --add-config retention.ms=86400000,retention.bytes=536870912;
+              done

@@ -1,11 +1,11 @@
 package io.systemlens.supermarket.order;
 
-import io.systemlens.supermarket.order.generated.event.OrderPlaced;
+import io.systemlens.supermarket.contract.OrderPlaced;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -35,7 +35,7 @@ public class ScheduledOrderPublisher {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         String productId = CATALOG_PRODUCT_IDS.get(random.nextInt(CATALOG_PRODUCT_IDS.size()));
         int quantity = random.nextInt(1, 6);
-        OrderPlaced order = new OrderPlaced(UUID.randomUUID().toString(), productId, quantity, OffsetDateTime.now());
-        kafkaTemplate.send("supermarket.order.placed", order.getOrderId(), order);
+        OrderPlaced order = new OrderPlaced(UUID.randomUUID().toString(), productId, quantity, Instant.now());
+        kafkaTemplate.send("supermarket.order.placed", order.orderId(), order);
     }
 }

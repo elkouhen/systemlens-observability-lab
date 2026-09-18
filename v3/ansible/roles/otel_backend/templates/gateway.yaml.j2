@@ -10,6 +10,10 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 512
+  batch/logs:
+    timeout: 5s
+    send_batch_size: 50
+    send_batch_max_size: 50
 
 receivers:
   otlp:
@@ -57,5 +61,5 @@ service:
       exporters: [kafka/otlp]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, batch/logs]
       exporters: [kafka/otlp]
