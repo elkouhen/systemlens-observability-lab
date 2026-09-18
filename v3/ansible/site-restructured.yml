@@ -127,6 +127,13 @@
         'already defined' not in (haproxy_selinux_ports.stderr | lower)
       when: node_role == 'edge'
 
+    - name: Autoriser HAProxy à joindre les backends OTLP sous SELinux
+      ansible.posix.seboolean:
+        name: haproxy_connect_any
+        state: true
+        persistent: true
+      when: node_role == 'edge'
+
     - name: Créer les répertoires de la plateforme
       ansible.builtin.file:
         path: "{{ item }}"
@@ -378,7 +385,7 @@
       ansible.builtin.systemd_service:
         name: "{{ item }}.service"
         enabled: true
-        state: started
+        state: restarted
       loop: [observability-otel-gateway, observability-otel-kafka-exporter]
       when: node_role == 'otel_backend'
 
