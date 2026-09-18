@@ -220,7 +220,8 @@ elk-deploy: elastic-stack-deploy ## Déployer la plateforme d'observabilité Ela
 	@$(MAKE) otel-gateway-vm-provision
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics-v3 --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-prometheus-scraper
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-gateway --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
 	@$(MAKE) kibana-ready
 	@$(MAKE) kibana-fleet-config-deploy
@@ -360,13 +361,12 @@ otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01
 otel-gateway-vm-status: ## Vérifier HAProxy edge et le Gateway OTLP backend
 	@$(VAGRANT) ssh edge-01 -c 'sudo systemctl is-active haproxy && sudo test -S /run/haproxy/admin.sock'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-gateway && curl --fail --silent http://127.0.0.1:13133/'
 
-otel-gateway-kubernetes-bascule: ## Appliquer la bascule Kubernetes après validation du Gateway VM
+otel-gateway-kubernetes-bascule: ## Déployer le Gateway OTLP et les applications dans Kubernetes
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service,ingressroute otel-gateway --ignore-not-found
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-prometheus-scraper --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-gateway --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/v3
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
-	@$(MAKE) otel-gateway-vm-status
 
 otel-gateway-relocate: otel-gateway-vm-provision otel-gateway-kubernetes-bascule ## Basculer le Gateway OTLP de Kubernetes vers le backend OTEL
 

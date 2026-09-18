@@ -14,7 +14,7 @@ Kubernetes / opérateur
       edge-01  -- OTLP, Kibana, Elasticsearch, Fleet
           |
           v
-  otel-backend-01  -- Gateway EDOT + exporteur Kafka
+  otel-backend-01  -- exporteur Kafka EDOT
           |
           v
       poc-01  -- Kafka + MongoDB + PostgreSQL

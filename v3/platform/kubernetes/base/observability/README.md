@@ -10,21 +10,20 @@ les collecteurs OTel dans Kubernetes.
    Server déployées sur `elk-01`.
 2. `elastic-vm-services.yaml` et `elastic-ingress.yaml` : services externes et
    exposition TLS via Traefik vers la VM.
-3. `otel-kafka.yaml` : collecte OTel, buffer Kafka et export OTLP vers
-   Elasticsearch.
+3. `otel-kafka.yaml` : Gateway OTLP Kubernetes, collecte OTel, buffer Kafka et
+   export OTLP vers Elasticsearch.
 
 En v3, les applications utilisent l'agent Java OpenTelemetry injecté par leur
 manifest Kubernetes pour les traces et Micrometer OTLP pour leurs métriques ;
-les deux signaux sont envoyés via HAProxy au Gateway EDOT exécuté sur
-`otel-backend-01`. Le scraping Prometheus n'est plus utilisé pour les métriques
-applicatives.
+les deux signaux sont envoyés au Service `otel-gateway` dans `elastic-stack`.
+Le scraping Prometheus n'est plus utilisé pour les métriques applicatives.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
-Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
+Collector EDOT DaemonSet puis envoyés au Gateway Kubernetes. Les trois flux sont mis en tampon dans Kafka puis
 consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM ne passent pas par
 ce chemin pour leur télémétrie système : leur Elastic Agent Fleet exporte
 directement vers Elasticsearch.
 
-Le pipeline de traces du Gateway applique aussi le processeur et le connector
+Le pipeline de traces du Gateway Kubernetes applique aussi le processeur et le connector
 `elasticapm` avant Kafka. Ils enrichissent les traces OTLP et produisent les
 métriques APM agrégées nécessaires à la vue Applications (services,
 transactions, dépendances et service map). Ces métriques suivent ensuite le
@@ -46,7 +45,7 @@ VM ni Collector backend intermédiaire.
 Après le déploiement, vérifier les composants et les relais :
 
 ```bash
-vagrant ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-gateway'
+kubectl -n elastic-stack get deployment otel-gateway service otel-gateway
 kubectl -n elastic-stack get daemonset otel-kubernetes
 make otel-kafka-exporter-vm-status
 ```

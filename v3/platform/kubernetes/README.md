@@ -29,12 +29,11 @@ Kibana utilise le registre public Elastic (`https://epr.elastic.co`) pour les
 packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
 vers ce registre avant d’exécuter `make elk-deploy`.
 
-Le Gateway OTLP est exécuté sur la VM `otel-backend-01`, derrière HAProxy sur `edge-01`, publié aux
-conteneurs k3d via `192.168.33.30:4317` et `192.168.33.30:4318`. Les applications
-Kubernetes l'utilisent comme endpoint OTLP. Les applications exportent leurs
-métriques Micrometer directement en OTLP ; le DaemonSet conserve la collecte des logs et des
-métriques Kubernetes suivent le chemin EDOT vers Kafka, puis l'exporteur EDOT
-sur `otel-backend-01` les écrit dans Elasticsearch. Les VM utilisent l'Elastic Agent
+Le Gateway OTLP `otel-gateway` est déployé dans le namespace `elastic-stack` et
+exposé par un Service Kubernetes sur les ports `4317` et `4318`. Les applications
+et le DaemonSet Kubernetes l'utilisent comme endpoint OTLP. Le Gateway publie les
+trois signaux dans Kafka ; l'exporteur EDOT sur `otel-backend-01` les écrit ensuite
+dans Elasticsearch. Les VM utilisent l'Elastic Agent
 enrôlé dans Fleet et publient directement vers Elasticsearch.
 
 Les URL fonctionnelles v3 utilisent les mêmes noms que v1 et v2 :
