@@ -6,8 +6,8 @@ les collecteurs OTel dans Kubernetes.
 
 ## Lire les manifests dans cet ordre
 
-1. `../../ansible/templates/` : unités Quadlet Elasticsearch, Kibana et Fleet
-   Server déployées sur `elk-01`.
+1. `../../ansible/roles/elk/templates/` : unités Quadlet Elasticsearch, Kibana
+   et Fleet Server déployées sur `elk-01`.
 2. `elastic-vm-services.yaml` et `elastic-ingress.yaml` : services externes et
    exposition TLS via Traefik vers la VM.
 3. `otel-kafka.yaml` : Gateway OTLP Kubernetes, collecte OTel, buffer Kafka et

@@ -7,16 +7,15 @@
 
 - name: Déployer la configuration du Gateway OTEL backend
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/templates/otel-gateway.yaml.j2"
+    src: "{{ role_path }}/templates/gateway.yaml.j2"
     dest: /etc/observability/otel-gateway.yaml
     mode: '0644'
   vars:
     otel_gateway_kafka_broker: "{{ poc_ip }}:9092"
-  register: otel_gateway_config
 
 - name: Déployer la configuration de l'exporteur OTEL backend
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/templates/otel-kafka-exporter.yaml.j2"
+    src: "{{ role_path }}/templates/kafka-exporter.yaml.j2"
     dest: /etc/observability/otel-kafka-exporter.yaml
     mode: '0644'
   vars:
@@ -32,10 +31,12 @@
 
 - name: Déployer les unités OTEL backend
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/templates/{{ item }}.container.j2"
-    dest: "/etc/containers/systemd/{{ item }}.container"
+    src: "{{ role_path }}/templates/{{ item.template }}.container.j2"
+    dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
-  loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+  loop:
+    - {template: gateway, unit: observability-otel-gateway}
+    - {template: kafka-exporter, unit: observability-otel-kafka-exporter}
 
 - name: Recharger systemd pour les unités OTEL backend
   ansible.builtin.systemd_service:

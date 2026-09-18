@@ -33,14 +33,17 @@
 
 - name: Déployer les unités Elastic sur elk-01
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/templates/{{ item }}.container.j2"
-    dest: "/etc/containers/systemd/{{ item }}.container"
+    src: "{{ role_path }}/templates/{{ item.template }}.container.j2"
+    dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
-  loop: [observability-elasticsearch, observability-kibana, observability-fleet-server]
+  loop:
+    - {template: elasticsearch, unit: observability-elasticsearch}
+    - {template: kibana, unit: observability-kibana}
+    - {template: fleet-server, unit: observability-fleet-server}
 
 - name: Déployer la configuration Kibana
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/templates/kibana.yml.j2"
+    src: "{{ role_path }}/templates/kibana.yml.j2"
     dest: /etc/observability/kibana.yml
     mode: '0644'
 

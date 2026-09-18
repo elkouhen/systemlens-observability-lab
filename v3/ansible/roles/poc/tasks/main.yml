@@ -25,13 +25,13 @@
 
 - name: Déployer les middlewares du POC
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/templates/{{ item }}.container.j2"
-    dest: "/etc/containers/systemd/{{ item }}.container"
+    src: "{{ role_path }}/templates/{{ item.template }}.container.j2"
+    dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
   loop:
-    - observability-mongodb
-    - observability-kafka
-    - observability-postgresql
+    - {template: mongodb, unit: observability-mongodb}
+    - {template: kafka, unit: observability-kafka}
+    - {template: postgresql, unit: observability-postgresql}
 
 - name: Recharger systemd pour les unités Quadlet du POC
   ansible.builtin.systemd_service:

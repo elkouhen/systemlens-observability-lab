@@ -34,7 +34,7 @@ plateforme. Les données Kafka sont conservées dans le volume Podman
 1. `inventory/vagrant.yml` : hôtes ciblés et connexion SSH.
 2. `site.yml` : orchestration des rôles idempotents.
 3. `roles/` : responsabilités séparées par type de VM et composants communs.
-4. `templates/` : unités Podman Quadlet et configurations rendues par les rôles.
+4. `roles/*/templates/` : unités Podman Quadlet et configurations propres à chaque rôle.
 5. `status.yml` : diagnostic détaillé des services sur les VM.
 6. Le déploiement des VM avec `make fleet-vms-provision` ou `make deploy` crée
   un jeton temporaire et enrôle l’Elastic Agent de façon idempotente.
@@ -50,8 +50,8 @@ Le playbook `site.yml` applique les rôles dans cet ordre :
    `elk`.
 
 `site-restructured.yml` est conservé comme alias de compatibilité et importe
-`site.yml`. Les templates restent centralisés dans `templates/` pour éviter
-de dupliquer les unités Quadlet entre les rôles.
+`site.yml`. Chaque rôle possède ses propres templates afin que la tâche et la
+configuration déployée restent au même endroit.
 
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 
