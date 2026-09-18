@@ -21,8 +21,18 @@ spec:
       labels:
         app.kubernetes.io/name: order-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: order-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           image: order-service:1.1.2
           imagePullPolicy: IfNotPresent
           ports:
@@ -110,8 +120,18 @@ spec:
       labels:
         app.kubernetes.io/name: inventory-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: inventory-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           image: inventory-service:1.1.2
           imagePullPolicy: IfNotPresent
           ports:
@@ -182,6 +202,11 @@ metadata:
   namespace: h0tl-supermarche-app
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: restock-service
@@ -190,8 +215,18 @@ spec:
       labels:
         app.kubernetes.io/name: restock-service
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: restock-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           image: restock-service:1.1.2
           imagePullPolicy: IfNotPresent
           ports:

@@ -19,6 +19,7 @@ spec:
               -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
           securityContext:
             runAsUser: 0
+            runAsNonRoot: false
           volumeMounts:
             - name: apm-server-ca
               mountPath: /var/run/secrets/apm-server
@@ -86,6 +87,7 @@ spec:
               -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
           securityContext:
             runAsUser: 0
+            runAsNonRoot: false
           volumeMounts:
             - name: apm-server-ca
               mountPath: /var/run/secrets/apm-server
@@ -153,6 +155,7 @@ spec:
               -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
           securityContext:
             runAsUser: 0
+            runAsNonRoot: false
           volumeMounts:
             - name: apm-server-ca
               mountPath: /var/run/secrets/apm-server

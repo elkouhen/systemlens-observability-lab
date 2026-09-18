@@ -9,13 +9,13 @@ generatorOptions:
 configMapGenerator:
   - name: order-service-otel-config
     files:
-      - otel/order-service.properties
+      - otel.properties=otel/order-service.properties
   - name: inventory-service-otel-config
     files:
-      - otel/inventory-service.properties
+      - otel.properties=otel/inventory-service.properties
   - name: restock-service-otel-config
     files:
-      - otel/restock-service.properties
+      - otel.properties=otel/restock-service.properties
 patches:
   - path: data-endpoints.yaml
   - path: otel-instrumentation.yaml

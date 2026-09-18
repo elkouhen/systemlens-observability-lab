@@ -364,9 +364,11 @@ otel-gateway-vm-status: ## Vérifier HAProxy edge et le Gateway OTLP backend
 
 otel-gateway-kubernetes-bascule: ## Déployer le Gateway OTLP et les applications dans Kubernetes
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway daemonset/otel-kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-gateway --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/v3
+	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
 
 otel-gateway-relocate: otel-gateway-vm-provision otel-gateway-kubernetes-bascule ## Basculer le Gateway OTLP de Kubernetes vers le backend OTEL

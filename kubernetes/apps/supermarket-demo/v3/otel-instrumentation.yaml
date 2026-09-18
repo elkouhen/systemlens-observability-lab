@@ -23,8 +23,7 @@ spec:
                 -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
           volumeMounts:
             - name: order-service-otel-config
-              mountPath: /opt/opentelemetry/otel.properties
-              subPath: order-service.properties
+              mountPath: /opt/opentelemetry
               readOnly: true
       volumes:
         - name: order-service-otel-config
@@ -56,8 +55,7 @@ spec:
                 -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
           volumeMounts:
             - name: inventory-service-otel-config
-              mountPath: /opt/opentelemetry/otel.properties
-              subPath: inventory-service.properties
+              mountPath: /opt/opentelemetry
               readOnly: true
       volumes:
         - name: inventory-service-otel-config
@@ -89,8 +87,7 @@ spec:
                 -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
           volumeMounts:
             - name: restock-service-otel-config
-              mountPath: /opt/opentelemetry/otel.properties
-              subPath: restock-service.properties
+              mountPath: /opt/opentelemetry
               readOnly: true
       volumes:
         - name: restock-service-otel-config
