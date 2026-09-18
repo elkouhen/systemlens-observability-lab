@@ -21,10 +21,13 @@
   vars:
     otel_kafka_broker: "{{ poc_ip }}:9092"
     elasticsearch_url: "http://{{ elk_ip }}:9200"
+    apm_server_url: "http://{{ elk_ip }}:8200"
 
 - name: Déployer la clé API de l'exporteur OTEL backend
   ansible.builtin.copy:
-    content: "ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}\n"
+    content: |
+      ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}
+      APM_SERVER_SECRET_TOKEN={{ elastic_password | hash('sha256') }}
     dest: /etc/observability/otel-kafka-exporter.env
     mode: '0600'
   no_log: true

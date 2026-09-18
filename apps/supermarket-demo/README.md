@@ -68,7 +68,10 @@ d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 La version de l'agent OpenTelemetry est contrôlée par
 `OTEL_JAVA_AGENT_VERSION` lors de `make -C v3 apps-build`. Elle est intégrée
 dans chaque image applicative et n'est donc pas téléchargée au démarrage des
-Pods.
+Pods. Sa configuration est embarquée dans `otel/*.properties` et chargée par
+`JAVA_TOOL_OPTIONS` dans l'overlay Kubernetes v3. Les variables
+`MANAGEMENT_OTLP_*` restent dans Kubernetes car elles configurent l'exporteur
+Micrometer de Spring Boot, distinct de l'agent Java.
 
 Le tag des images Docker (`order-service:1.1.2` / `inventory-service:1.1.2` /
 `restock-service:1.1.2`,

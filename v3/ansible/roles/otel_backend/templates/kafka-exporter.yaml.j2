@@ -41,15 +41,15 @@ processors:
       - context: scope
         statements:
           - set(attributes["elastic.mapping.mode"], "ecs")
-  elasticapm: {}
   batch:
     timeout: 1s
     send_batch_size: 512
 
-connectors:
-  elasticapm: {}
-
 exporters:
+  otlphttp/apm-server:
+    endpoint: "{{ apm_server_url }}"
+    headers:
+      Authorization: "Bearer ${env:APM_SERVER_SECRET_TOKEN}"
   elasticsearch/otel:
     endpoints: ["{{ elasticsearch_url }}"]
     api_key: ${env:ELASTICSEARCH_API_KEY}
@@ -75,12 +75,8 @@ service:
   pipelines:
     traces:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, elasticapm, batch]
-      exporters: [elasticapm, elasticsearch/otel]
-    metrics/aggregated-apm:
-      receivers: [elasticapm]
-      processors: [batch]
-      exporters: [elasticsearch/otel]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/apm-server]
     metrics:
       receivers: [kafka/otlp]
       processors: [memory_limiter, batch]

@@ -1,0 +1,200 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: h0tl-supermarche-app
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: apm-truststore
+          image: order-service:1.1.2
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              cp "$JAVA_HOME/lib/security/cacerts" /opt/elastic-apm/truststore/cacerts &&
+              keytool -importcert -noprompt -trustcacerts -alias apm-server-ca
+              -file /var/run/secrets/apm-server/ca.crt
+              -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+      containers:
+        - name: order-service
+          env:
+            - name: ELASTIC_APM_SERVICE_NAME
+              value: order-service
+            - name: ELASTIC_APM_SERVICE_VERSION
+              value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: homologation
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ELASTIC_APM_APPLICATION_PACKAGES
+              value: io.systemlens.supermarket.order
+            - name: ELASTIC_APM_SERVER_URL
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
+            - name: ELASTIC_APM_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-apm-token
+                  key: secret-token
+            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+              readOnly: true
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: order-service-apm-server-ca
+        - name: apm-truststore
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: h0tl-supermarche-app
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: apm-truststore
+          image: inventory-service:1.1.2
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              cp "$JAVA_HOME/lib/security/cacerts" /opt/elastic-apm/truststore/cacerts &&
+              keytool -importcert -noprompt -trustcacerts -alias apm-server-ca
+              -file /var/run/secrets/apm-server/ca.crt
+              -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+      containers:
+        - name: inventory-service
+          env:
+            - name: ELASTIC_APM_SERVICE_NAME
+              value: inventory-service
+            - name: ELASTIC_APM_SERVICE_VERSION
+              value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: homologation
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ELASTIC_APM_APPLICATION_PACKAGES
+              value: io.systemlens.supermarket.inventory
+            - name: ELASTIC_APM_SERVER_URL
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
+            - name: ELASTIC_APM_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-apm-token
+                  key: secret-token
+            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+              readOnly: true
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: order-service-apm-server-ca
+        - name: apm-truststore
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restock-service
+  namespace: h0tl-supermarche-app
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: apm-truststore
+          image: restock-service:1.1.2
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              cp "$JAVA_HOME/lib/security/cacerts" /opt/elastic-apm/truststore/cacerts &&
+              keytool -importcert -noprompt -trustcacerts -alias apm-server-ca
+              -file /var/run/secrets/apm-server/ca.crt
+              -keystore /opt/elastic-apm/truststore/cacerts -storepass changeit
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+      containers:
+        - name: restock-service
+          env:
+            - name: ELASTIC_APM_SERVICE_NAME
+              value: restock-service
+            - name: ELASTIC_APM_SERVICE_VERSION
+              value: "1.0.0"
+            - name: ELASTIC_APM_ENVIRONMENT
+              value: homologation
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ELASTIC_APM_APPLICATION_PACKAGES
+              value: io.systemlens.supermarket.restock
+            - name: ELASTIC_APM_SERVER_URL
+              value: https://apm-server-apm-http.elastic-stack.svc:8200
+            - name: ELASTIC_APM_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-apm-token
+                  key: secret-token
+            - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
+              value: "true"
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/opt/elastic-apm/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+          volumeMounts:
+            - name: apm-server-ca
+              mountPath: /var/run/secrets/apm-server
+              readOnly: true
+            - name: apm-truststore
+              mountPath: /opt/elastic-apm/truststore
+              readOnly: true
+      volumes:
+        - name: apm-server-ca
+          secret:
+            secretName: order-service-apm-server-ca
+        - name: apm-truststore
+          emptyDir: {}

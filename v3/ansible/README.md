@@ -25,9 +25,9 @@ plateforme. Les données Kafka sont conservées dans le volume Podman
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
 | `poc-01` | MongoDB, Kafka, PostgreSQL | Middlewares du scénario applicatif |
-| `otel-backend-01` | Gateway EDOT ; exporteur Kafka EDOT | OTLP edge → Kafka `poc-01` → Elasticsearch |
+| `otel-backend-01` | Gateway EDOT ; exporteur Kafka EDOT | OTLP Kubernetes → Kafka `poc-01` → APM Server / Elasticsearch |
 | `edge-01` | HAProxy | Point d’entrée OTLP, Kibana, Elasticsearch et Fleet |
-| `elk-01` | Elasticsearch, Kibana, Fleet Server | Stockage, consultation et enrôlement |
+| `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 
 ## Ordre de lecture
 

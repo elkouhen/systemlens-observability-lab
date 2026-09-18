@@ -1,0 +1,9 @@
+apm-server:
+  host: "0.0.0.0:8200"
+  auth:
+    secret_token: "${APM_SERVER_SECRET_TOKEN}"
+
+output.elasticsearch:
+  hosts: ["http://127.0.0.1:9200"]
+  username: "${ELASTICSEARCH_USERNAME}"
+  password: "${ELASTICSEARCH_PASSWORD}"

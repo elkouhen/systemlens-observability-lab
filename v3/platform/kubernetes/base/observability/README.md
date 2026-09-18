@@ -6,8 +6,8 @@ les collecteurs OTel dans Kubernetes.
 
 ## Lire les manifests dans cet ordre
 
-1. `../../ansible/roles/elk/templates/` : unités Quadlet Elasticsearch, Kibana
-   et Fleet Server déployées sur `elk-01`.
+1. `../../ansible/roles/elk/templates/` : unités Quadlet Elasticsearch, APM
+   Server, Kibana et Fleet Server déployées sur `elk-01`.
 2. `elastic-vm-services.yaml` et `elastic-ingress.yaml` : services externes et
    exposition TLS via Traefik vers la VM.
 3. `otel-kafka.yaml` : Gateway OTLP Kubernetes, collecte OTel, buffer Kafka et
@@ -23,11 +23,11 @@ consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM ne passe
 ce chemin pour leur télémétrie système : leur Elastic Agent Fleet exporte
 directement vers Elasticsearch.
 
-Le pipeline de traces du Gateway Kubernetes applique aussi le processeur et le connector
-`elasticapm` avant Kafka. Ils enrichissent les traces OTLP et produisent les
-métriques APM agrégées nécessaires à la vue Applications (services,
-transactions, dépendances et service map). Ces métriques suivent ensuite le
-même chemin Kafka que les autres métriques.
+Le pipeline de traces du Gateway Kubernetes met les traces OTLP en tampon dans
+Kafka. L'exporteur backend les consomme ensuite et les envoie à APM Server sur
+`elk-01`, qui les transforme pour l'application APM de Kibana. Les métriques
+et les logs restent exportés directement vers Elasticsearch via l'exporteur
+OTLP backend.
 
 Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
 envoient traces et métriques en OTLP au Gateway. Le DaemonSet EDOT lit les logs
@@ -53,11 +53,13 @@ make otel-kafka-exporter-vm-status
 Le résultat attendu est un exporteur EDOT actif sur `otel-backend-01`, sans erreur de
 consommation Kafka ni d'indexation.
 
-Les traces conservent l'environnement défini par les variables `OTEL_*`. Les
-Les métriques applicatives Micrometer, notamment les métriques Kafka client,
-sont exportées directement en OTLP toutes les 15 secondes vers l'edge. Elles
-suivent ensuite Kafka et le Collector OTel Elasticsearch. L'export métrique de
-l'agent Java reste désactivé en v3 pour éviter un double envoi.
+Les traces conservent l'environnement défini par les fichiers de configuration
+OpenTelemetry embarqués dans les images applicatives. Elles suivent le chemin
+Gateway Kubernetes → Kafka → exporteur backend → APM Server. Les métriques
+applicatives Micrometer, notamment les métriques Kafka client, sont exportées
+directement en OTLP toutes les 15 secondes vers le Gateway Kubernetes, puis
+vers Elasticsearch. L'export métrique de l'agent Java reste désactivé en v3
+pour éviter un double envoi.
 Ce data stream est séparé des métriques APM natives pour éviter un conflit de
 mapping entre les événements Prometheus et les événements APM ECS. Les logs
 stdout et les métriques Kubernetes suivent leurs propres data streams.

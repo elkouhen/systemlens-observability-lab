@@ -6,44 +6,9 @@ metadata:
 spec:
   template:
     spec:
-      initContainers:
-        - $patch: delete
-          name: apm-truststore
       containers:
         - name: order-service
           env:
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_NAME
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_VERSION
-            - $patch: delete
-              name: ELASTIC_APM_ENVIRONMENT
-            - $patch: delete
-              name: ELASTIC_APM_APPLICATION_PACKAGES
-            - $patch: delete
-              name: ELASTIC_APM_SERVER_URL
-            - $patch: delete
-              name: ELASTIC_APM_SECRET_TOKEN
-            - $patch: delete
-              name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
-            - name: OTEL_SERVICE_NAME
-              value: order-service
-            - name: OTEL_SERVICE_VERSION
-              value: "1.0.0"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: deployment.environment=homologation,k8s.namespace.name=h0tl-supermarche-app
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-gateway.elastic-stack.svc.cluster.local:4318
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: http/protobuf
-            - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_METRICS_EXPORTER
-              value: none
-            - name: OTEL_LOGS_EXPORTER
-              value: none
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -52,20 +17,19 @@ spec:
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
               value: "false"
-            - name: OTEL_PROPAGATORS
-              value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
-              value: -javaagent:/opt/opentelemetry-javaagent.jar
+              value: >-
+                -javaagent:/opt/opentelemetry-javaagent.jar
+                -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
           volumeMounts:
-            - $patch: delete
-              name: apm-server-ca
-            - $patch: delete
-              name: apm-truststore
+            - name: order-service-otel-config
+              mountPath: /opt/opentelemetry/otel.properties
+              subPath: order-service.properties
+              readOnly: true
       volumes:
-        - $patch: delete
-          name: apm-server-ca
-        - $patch: delete
-          name: apm-truststore
+        - name: order-service-otel-config
+          configMap:
+            name: order-service-otel-config
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -75,44 +39,9 @@ metadata:
 spec:
   template:
     spec:
-      initContainers:
-        - $patch: delete
-          name: apm-truststore
       containers:
         - name: inventory-service
           env:
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_NAME
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_VERSION
-            - $patch: delete
-              name: ELASTIC_APM_ENVIRONMENT
-            - $patch: delete
-              name: ELASTIC_APM_APPLICATION_PACKAGES
-            - $patch: delete
-              name: ELASTIC_APM_SERVER_URL
-            - $patch: delete
-              name: ELASTIC_APM_SECRET_TOKEN
-            - $patch: delete
-              name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
-            - name: OTEL_SERVICE_NAME
-              value: inventory-service
-            - name: OTEL_SERVICE_VERSION
-              value: "1.0.0"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: deployment.environment=homologation,k8s.namespace.name=h0tl-supermarche-app
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-gateway.elastic-stack.svc.cluster.local:4318
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: http/protobuf
-            - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_METRICS_EXPORTER
-              value: none
-            - name: OTEL_LOGS_EXPORTER
-              value: none
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -121,20 +50,19 @@ spec:
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
               value: "false"
-            - name: OTEL_PROPAGATORS
-              value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
-              value: -javaagent:/opt/opentelemetry-javaagent.jar
+              value: >-
+                -javaagent:/opt/opentelemetry-javaagent.jar
+                -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
           volumeMounts:
-            - $patch: delete
-              name: apm-server-ca
-            - $patch: delete
-              name: apm-truststore
+            - name: inventory-service-otel-config
+              mountPath: /opt/opentelemetry/otel.properties
+              subPath: inventory-service.properties
+              readOnly: true
       volumes:
-        - $patch: delete
-          name: apm-server-ca
-        - $patch: delete
-          name: apm-truststore
+        - name: inventory-service-otel-config
+          configMap:
+            name: inventory-service-otel-config
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -144,44 +72,9 @@ metadata:
 spec:
   template:
     spec:
-      initContainers:
-        - $patch: delete
-          name: apm-truststore
       containers:
         - name: restock-service
           env:
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_NAME
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_VERSION
-            - $patch: delete
-              name: ELASTIC_APM_ENVIRONMENT
-            - $patch: delete
-              name: ELASTIC_APM_APPLICATION_PACKAGES
-            - $patch: delete
-              name: ELASTIC_APM_SERVER_URL
-            - $patch: delete
-              name: ELASTIC_APM_SECRET_TOKEN
-            - $patch: delete
-              name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
-            - name: OTEL_SERVICE_NAME
-              value: restock-service
-            - name: OTEL_SERVICE_VERSION
-              value: "1.0.0"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: deployment.environment=homologation,k8s.namespace.name=h0tl-supermarche-app
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-gateway.elastic-stack.svc.cluster.local:4318
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: http/protobuf
-            - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_METRICS_EXPORTER
-              value: none
-            - name: OTEL_LOGS_EXPORTER
-              value: none
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -190,17 +83,16 @@ spec:
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
               value: "false"
-            - name: OTEL_PROPAGATORS
-              value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
-              value: -javaagent:/opt/opentelemetry-javaagent.jar
+              value: >-
+                -javaagent:/opt/opentelemetry-javaagent.jar
+                -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
           volumeMounts:
-            - $patch: delete
-              name: apm-server-ca
-            - $patch: delete
-              name: apm-truststore
+            - name: restock-service-otel-config
+              mountPath: /opt/opentelemetry/otel.properties
+              subPath: restock-service.properties
+              readOnly: true
       volumes:
-        - $patch: delete
-          name: apm-server-ca
-        - $patch: delete
-          name: apm-truststore
+        - name: restock-service-otel-config
+          configMap:
+            name: restock-service-otel-config

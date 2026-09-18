@@ -6,3 +6,4 @@ resources:
   - ../base
 patches:
   - path: data-endpoints.yaml
+  - path: elastic-apm.yaml

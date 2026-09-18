@@ -38,8 +38,25 @@
     mode: '0644'
   loop:
     - {template: elasticsearch, unit: observability-elasticsearch}
+    - {template: apm-server, unit: observability-apm-server}
     - {template: kibana, unit: observability-kibana}
     - {template: fleet-server, unit: observability-fleet-server}
+
+- name: Déployer la configuration APM Server
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/apm-server.yml.j2"
+    dest: /etc/observability/apm-server.yml
+    mode: '0644'
+
+- name: Écrire les identifiants APM Server
+  ansible.builtin.copy:
+    content: |
+      ELASTICSEARCH_USERNAME=elastic
+      ELASTICSEARCH_PASSWORD={{ elastic_password }}
+      APM_SERVER_SECRET_TOKEN={{ elastic_password | hash('sha256') }}
+    dest: /etc/observability/apm-server.env
+    mode: '0600'
+  no_log: true
 
 - name: Déployer la configuration Kibana
   ansible.builtin.template:
@@ -144,4 +161,13 @@
     name: "{{ item }}.service"
     enabled: true
     state: restarted
-  loop: [observability-kibana, observability-fleet-server]
+  loop: [observability-apm-server, observability-kibana, observability-fleet-server]
+
+- name: Attendre APM Server sur elk-01
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8200/
+    status_code: 200
+  register: apm_server_ready
+  retries: 30
+  delay: 2
+  until: apm_server_ready.status == 200

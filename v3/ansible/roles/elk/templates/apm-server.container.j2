@@ -1,0 +1,20 @@
+[Unit]
+Description=APM Server du POC
+After=network-online.target observability-elasticsearch.service
+Wants=network-online.target
+Requires=observability-elasticsearch.service
+
+[Container]
+Image=docker.elastic.co/apm/apm-server:{{ apm_server_version }}
+ContainerName=observability-apm-server
+Network=host
+EnvironmentFile=/etc/observability/apm-server.env
+Volume=/etc/observability/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro,Z
+Memory=768m
+Exec=-e -c /usr/share/apm-server/apm-server.yml
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

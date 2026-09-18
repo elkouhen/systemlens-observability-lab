@@ -11,7 +11,7 @@ spec:
       match: Host(`elasticsearch.observability.test`)
       services:
         - name: elasticsearch-vm
-          port: 39200
+          port: 9200
           scheme: http
   tls:
     secretName: elastic-public-tls
@@ -29,7 +29,7 @@ spec:
       match: Host(`kibana.observability.test`)
       services:
         - name: kibana-vm
-          port: 35601
+          port: 5601
           scheme: http
   tls:
     secretName: elastic-public-tls
@@ -47,7 +47,7 @@ spec:
       match: Host(`fleet.observability.test`)
       services:
         - name: fleet-server-vm
-          port: 38220
+          port: 8220
           scheme: http
   tls:
     secretName: elastic-public-tls

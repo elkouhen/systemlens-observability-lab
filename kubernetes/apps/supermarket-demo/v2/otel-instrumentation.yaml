@@ -7,8 +7,6 @@ spec:
   template:
     spec:
       initContainers:
-        - $patch: delete
-          name: apm-truststore
         - name: opentelemetry-javaagent
           image: curlimages/curl:8.12.1
           command: ["sh", "-ec"]
@@ -22,22 +20,6 @@ spec:
       containers:
         - name: order-service
           env:
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_NAME
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_VERSION
-            - $patch: delete
-              name: ELASTIC_APM_ENVIRONMENT
-            - $patch: delete
-              name: ELASTIC_APM_APPLICATION_PACKAGES
-            - $patch: delete
-              name: ELASTIC_APM_SERVER_URL
-            - $patch: delete
-              name: ELASTIC_APM_SECRET_TOKEN
-            - $patch: delete
-              name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
             - name: OTEL_SERVICE_NAME
               value: order-service
             - name: OTEL_SERVICE_VERSION
@@ -59,17 +41,9 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar
           volumeMounts:
-            - $patch: delete
-              name: apm-server-ca
-            - $patch: delete
-              name: apm-truststore
             - name: opentelemetry-javaagent
               mountPath: /opt/opentelemetry-javaagent
       volumes:
-        - $patch: delete
-          name: apm-server-ca
-        - $patch: delete
-          name: apm-truststore
         - name: opentelemetry-javaagent
           emptyDir: {}
 ---
@@ -82,8 +56,6 @@ spec:
   template:
     spec:
       initContainers:
-        - $patch: delete
-          name: apm-truststore
         - name: opentelemetry-javaagent
           image: curlimages/curl:8.12.1
           command: ["sh", "-ec"]
@@ -97,22 +69,6 @@ spec:
       containers:
         - name: inventory-service
           env:
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_NAME
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_VERSION
-            - $patch: delete
-              name: ELASTIC_APM_ENVIRONMENT
-            - $patch: delete
-              name: ELASTIC_APM_APPLICATION_PACKAGES
-            - $patch: delete
-              name: ELASTIC_APM_SERVER_URL
-            - $patch: delete
-              name: ELASTIC_APM_SECRET_TOKEN
-            - $patch: delete
-              name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
             - name: OTEL_SERVICE_NAME
               value: inventory-service
             - name: OTEL_SERVICE_VERSION
@@ -134,17 +90,9 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar
           volumeMounts:
-            - $patch: delete
-              name: apm-server-ca
-            - $patch: delete
-              name: apm-truststore
             - name: opentelemetry-javaagent
               mountPath: /opt/opentelemetry-javaagent
       volumes:
-        - $patch: delete
-          name: apm-server-ca
-        - $patch: delete
-          name: apm-truststore
         - name: opentelemetry-javaagent
           emptyDir: {}
 ---
@@ -157,8 +105,6 @@ spec:
   template:
     spec:
       initContainers:
-        - $patch: delete
-          name: apm-truststore
         - name: opentelemetry-javaagent
           image: curlimages/curl:8.12.1
           command: ["sh", "-ec"]
@@ -172,22 +118,6 @@ spec:
       containers:
         - name: restock-service
           env:
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_NAME
-            - $patch: delete
-              name: ELASTIC_APM_SERVICE_VERSION
-            - $patch: delete
-              name: ELASTIC_APM_ENVIRONMENT
-            - $patch: delete
-              name: ELASTIC_APM_APPLICATION_PACKAGES
-            - $patch: delete
-              name: ELASTIC_APM_SERVER_URL
-            - $patch: delete
-              name: ELASTIC_APM_SECRET_TOKEN
-            - $patch: delete
-              name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
             - name: OTEL_SERVICE_NAME
               value: restock-service
             - name: OTEL_SERVICE_VERSION
@@ -209,17 +139,8 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: -javaagent:/opt/opentelemetry-javaagent/opentelemetry-javaagent.jar
           volumeMounts:
-            - $patch: delete
-              name: apm-server-ca
-            - $patch: delete
-              name: apm-truststore
             - name: opentelemetry-javaagent
               mountPath: /opt/opentelemetry-javaagent
       volumes:
-        - $patch: delete
-          name: apm-server-ca
-        - $patch: delete
-          name: apm-truststore
         - name: opentelemetry-javaagent
           emptyDir: {}
-

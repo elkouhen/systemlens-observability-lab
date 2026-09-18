@@ -1,8 +1,9 @@
 # Plateforme ELK
 
 Cette plateforme reçoit les traces, métriques et logs du POC. Elasticsearch,
-Kibana et Fleet Server sont déployés sur `elk-01` par Quadlet ; les Collectors OpenTelemetry acheminent les signaux
-applicatifs et Kubernetes vers Kafka, puis vers Elasticsearch via OTLP. Les VM
+Kibana, APM Server et Fleet Server sont déployés sur `elk-01` par Quadlet ; les
+Collectors OpenTelemetry acheminent les signaux applicatifs et Kubernetes vers
+Kafka, puis les traces vers APM Server et les métriques/logs vers Elasticsearch. Les VM
 utilisent Fleet et exportent directement vers Elasticsearch.
 Fleet Server gère les Elastic Agents des VM, qui exportent directement vers
 Elasticsearch.
@@ -19,14 +20,15 @@ Elasticsearch.
 
 ## Modèle mental
 
-`applications Java → edge-01 → Gateway OTel otel-backend-01 → Kafka poc-01 → exporteur OTel otel-backend-01 → elk-01 → Kibana`.
+`applications Java → Gateway OTel Kubernetes → Kafka poc-01 → exporteur OTel otel-backend-01 → APM Server elk-01 → Kibana` pour les traces ; les métriques et logs suivent l'export Elasticsearch.
 
-Les trois services reçoivent l'agent Java OpenTelemetry par init container et
-exportent leurs traces en OTLP/HTTP vers le Gateway EDOT de `edge-01`. Le
-Deployment `otel-prometheus-scraper` collecte leurs métriques Actuator. Le
-Collector DaemonSet lit les logs stdout et les métriques hôte, puis tous les signaux sont envoyés dans
-les topics Kafka OTLP par signal (`otel-traces`, `otel-metrics`, `otel-logs`). L'exporteur de
-sortie sur `otel-backend-01` consomme ces topics et écrit vers l'endpoint OTLP/HTTP Elasticsearch.
+Les trois services embarquent l'agent Java OpenTelemetry dans leurs images et
+exportent leurs traces et métriques en OTLP/HTTP vers le Gateway Kubernetes.
+Le Collector DaemonSet lit les logs stdout et les métriques hôte, puis les
+signaux sont envoyés dans les topics Kafka OTLP par signal (`otel-traces`,
+`otel-metrics`, `otel-logs`). L'exporteur de sortie sur `otel-backend-01`
+consomme ces topics et envoie les traces à APM Server sur `elk-01` ; les
+métriques et les logs sont exportés vers Elasticsearch.
 
 Chaque VM active exécute l’Elastic Agent provisionné et enrôlé dans Fleet par
 Ansible. Il lit les logs locaux et les métriques système/Kafka/MongoDB/PostgreSQL,
@@ -34,6 +36,7 @@ puis publie directement vers Elasticsearch. Les VM ne passent pas par le
 Gateway OTLP Kubernetes ni par Kafka pour leur télémétrie.
 
 Lors d'un déploiement initial, `make elk-deploy` provisionne le stack Quadlet,
+incluant APM Server sur `elk-01`,
 applique le routage Traefik et crée ou réconcilie la clé
 d'API Elasticsearch du Collector backend avant de démarrer les workloads.
 Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
