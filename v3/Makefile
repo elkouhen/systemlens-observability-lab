@@ -14,6 +14,7 @@ ECK_OPERATOR_NAMESPACE ?= elastic-system
 ECK_LICENSE_SECRET ?= eck-license
 ECK_LICENSE_FILE ?=
 APP_IMAGE_TAG ?= 1.1.2
+OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
 ELASTIC_STACK_VERSION ?= 9.4.3
@@ -96,15 +97,15 @@ vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 
 ##@ Construction et préparation locale
 
-apps-build: ## Construire les images applicatives (tag APP_IMAGE_TAG ; option ZSCALER_CA_CERT)
+apps-build: ## Construire les images applicatives avec les agents Elastic APM et OpenTelemetry
 	@zscaler_ca_b64=""; \
 	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
 	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
 	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
 	fi; \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target order-service -t order-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target restock-service -t restock-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target order-service -t order-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target restock-service -t restock-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo
 
 apps-test: ## Exécuter les tests unitaires et d'intégration Maven des applications
 	@mvn --batch-mode verify -f ../apps/supermarket-demo/pom.xml

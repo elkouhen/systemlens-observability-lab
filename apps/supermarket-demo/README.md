@@ -28,8 +28,8 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 ## Ordre de lecture
 
 1. `pom.xml` : agrégateur Maven et versions communes.
-2. `Dockerfile` : build multi-stage, avec l'agent Java Elastic APM pour les
-   trois services.
+2. `Dockerfile` : build multi-stage, avec les agents Java Elastic APM et
+   OpenTelemetry intégrés dans les trois images de service.
 3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patches v1/v2/v3
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
@@ -39,7 +39,7 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 5. Le code des trois modules pour le flux métier (`order-service/.../order`,
    `inventory-service/.../inventory`, `restock-service/.../restock`).
 
-Construire les trois images avec `make apps-build`, puis déployer uniquement
+Construire les images applicatives avec `make apps-build`, puis déployer uniquement
 l'application avec `make apps-deploy`. Cette cible sélectionne l'overlay v1 ou
 v2 sous `kubernetes/apps/supermarket-demo/`. Le code Java, les POM, le
 Dockerfile et le socle des manifests restent communs aux deux architectures.
@@ -64,6 +64,11 @@ make order-service-command ORDER_PRODUCT_ID=PASTA-500G ORDER_QUANTITY=2
 Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
 d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
+
+La version de l'agent OpenTelemetry est contrôlée par
+`OTEL_JAVA_AGENT_VERSION` lors de `make -C v3 apps-build`. Elle est intégrée
+dans chaque image applicative et n'est donc pas téléchargée au démarrage des
+Pods.
 
 Le tag des images Docker (`order-service:1.1.2` / `inventory-service:1.1.2` /
 `restock-service:1.1.2`,
