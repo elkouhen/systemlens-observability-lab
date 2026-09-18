@@ -54,6 +54,14 @@ spec:
               value: none
             - name: OTEL_LOGS_EXPORTER
               value: none
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
+              value: http://192.168.33.30:4318/v1/metrics
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
+              value: 15s
+            - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
+              value: "false"
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
@@ -129,6 +137,14 @@ spec:
               value: none
             - name: OTEL_LOGS_EXPORTER
               value: none
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
+              value: http://192.168.33.30:4318/v1/metrics
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
+              value: 15s
+            - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
+              value: "false"
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS
@@ -204,6 +220,14 @@ spec:
               value: none
             - name: OTEL_LOGS_EXPORTER
               value: none
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
+              value: http://192.168.33.30:4318/v1/metrics
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
+              value: 15s
+            - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
+              value: "false"
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
             - name: JAVA_TOOL_OPTIONS

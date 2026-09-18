@@ -14,9 +14,10 @@ les collecteurs OTel dans Kubernetes.
    Elasticsearch.
 
 En v3, les applications utilisent l'agent Java OpenTelemetry injecté par leur
-manifest Kubernetes pour les traces et les envoient via HAProxy au Gateway
-EDOT exécuté sur `otel-backend-01`. Le Deployment EDOT `otel-prometheus-scraper` scrape leurs
-métriques Actuator/Prometheus sur le port des Services applicatifs.
+manifest Kubernetes pour les traces et Micrometer OTLP pour leurs métriques ;
+les deux signaux sont envoyés via HAProxy au Gateway EDOT exécuté sur
+`otel-backend-01`. Le scraping Prometheus n'est plus utilisé pour les métriques
+applicatives.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet. Les trois flux sont mis en tampon dans Kafka puis
 consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM ne passent pas par
@@ -46,7 +47,7 @@ Après le déploiement, vérifier les composants et les relais :
 
 ```bash
 vagrant ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-gateway'
-kubectl -n elastic-stack get deployment otel-prometheus-scraper
+kubectl -n elastic-stack get daemonset otel-kubernetes
 make otel-kafka-exporter-vm-status
 ```
 
@@ -54,11 +55,10 @@ Le résultat attendu est un exporteur EDOT actif sur `otel-backend-01`, sans err
 consommation Kafka ni d'indexation.
 
 Les traces conservent l'environnement défini par les variables `OTEL_*`. Les
-métriques applicatives exposées par `/actuator/prometheus`, notamment les
-métriques Kafka client, sont scrappées toutes les 15 secondes par le receiver
-Prometheus du scraper Kubernetes. Elles suivent ensuite Kafka et le Collector OTel
-Elasticsearch. L'export métrique de l'agent Java est désactivé en v3 pour
-éviter un double envoi.
+Les métriques applicatives Micrometer, notamment les métriques Kafka client,
+sont exportées directement en OTLP toutes les 15 secondes vers l'edge. Elles
+suivent ensuite Kafka et le Collector OTel Elasticsearch. L'export métrique de
+l'agent Java reste désactivé en v3 pour éviter un double envoi.
 Ce data stream est séparé des métriques APM natives pour éviter un conflit de
 mapping entre les événements Prometheus et les événements APM ECS. Les logs
 stdout et les métriques Kubernetes suivent leurs propres data streams.

@@ -36,69 +36,6 @@ metadata:
   name: otel-kafka-config
   namespace: elastic-stack
 data:
-  prometheus.yaml: |
-    extensions:
-      health_check:
-        endpoint: 0.0.0.0:13133
-
-    processors:
-      memory_limiter:
-        check_interval: 1s
-        limit_mib: 400
-        spike_limit_mib: 100
-      batch:
-        timeout: 1s
-        send_batch_size: 512
-
-    receivers:
-      prometheus:
-        config:
-          scrape_configs:
-            - job_name: order-service
-              scrape_interval: 15s
-              metrics_path: /actuator/prometheus
-              static_configs:
-                - targets:
-                    - order-service.h0tl-supermarche-app.svc.cluster.local:3000
-
-            - job_name: inventory-service
-              scrape_interval: 15s
-              metrics_path: /actuator/prometheus
-              static_configs:
-                - targets:
-                    - inventory-service.h0tl-supermarche-app.svc.cluster.local:3001
-
-            - job_name: restock-service
-              scrape_interval: 15s
-              metrics_path: /actuator/prometheus
-              static_configs:
-                - targets:
-                    - restock-service.h0tl-supermarche-app.svc.cluster.local:3002
-
-    exporters:
-      otlphttp/edge:
-        endpoint: http://192.168.33.30:4318
-
-    service:
-      extensions: [health_check]
-      telemetry:
-        resource:
-          service.name: otel-prometheus-scraper
-          deployment.environment.name: homologation
-        metrics:
-          level: detailed
-          readers:
-            - pull:
-                exporter:
-                  prometheus:
-                    host: 0.0.0.0
-                    port: 8888
-      pipelines:
-        metrics/prometheus:
-          receivers: [prometheus]
-          processors: [memory_limiter, batch]
-          exporters: [otlphttp/edge]
-
   daemonset.yaml: |
     extensions:
       health_check:
@@ -184,38 +121,6 @@ data:
           processors: [memory_limiter, batch]
           exporters: [otlphttp/edge]
 
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: otel-prometheus-scraper
-  namespace: elastic-stack
-spec:
-  replicas: 1
-  selector:
-    matchLabels: {app.kubernetes.io/name: otel-prometheus-scraper}
-  template:
-    metadata:
-      labels: {app.kubernetes.io/name: otel-prometheus-scraper}
-    spec:
-      serviceAccountName: otel-collector
-      containers:
-        - name: collector
-          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
-          args: ["--config=/etc/otel/collector.yaml"]
-          ports:
-            - {name: health, containerPort: 13133}
-            - {name: metrics, containerPort: 8888}
-          volumeMounts:
-            - {name: config, mountPath: /etc/otel/collector.yaml, subPath: prometheus.yaml, readOnly: true}
-          readinessProbe: {httpGet: {path: /, port: health}}
-          livenessProbe: {httpGet: {path: /, port: health}}
-          resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: 500m, memory: 512Mi}
-      volumes:
-        - name: config
-          configMap: {name: otel-kafka-config}
 ---
 apiVersion: apps/v1
 kind: DaemonSet

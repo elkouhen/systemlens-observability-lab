@@ -29,9 +29,8 @@ vue Logs des transactions APM.
 Le service expose aussi le compteur métier Micrometer
 `business.orders.completed`, incrémenté après la réussite des écritures
 MongoDB et PostgreSQL. Le tag `channel` distingue les commandes `rest` et
-`kafka`. En architecture v3, la métrique est scrappée par le Gateway sur
-`/actuator/prometheus` et stockée dans le data stream
-`metrics-prometheusreceiver.otel-*`.
+`kafka`. En architecture v3, la métrique est exportée directement en OTLP par
+Micrometer et stockée dans le data stream `metrics-*.otel-*`.
 
 La même réussite produit l'événement structuré
 `event.action=product_sale_completed`. Les champs `product.id`, `product.name`,
