@@ -1,0 +1,23 @@
+[Unit]
+Description=Kibana du POC
+After=network-online.target observability-elasticsearch.service
+Wants=network-online.target
+Requires=observability-elasticsearch.service
+
+[Container]
+Image=docker.elastic.co/kibana/kibana:9.4.3
+ContainerName=observability-kibana
+Network=host
+EnvironmentFile=/etc/observability/kibana.env
+Volume=/etc/observability/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
+Memory=1536m
+Environment=SERVER_HOST=0.0.0.0
+Environment=SERVER_PORT=5601
+Environment=ELASTICSEARCH_HOSTS=http://127.0.0.1:9200
+Environment=NODE_OPTIONS=--max-old-space-size=1024
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

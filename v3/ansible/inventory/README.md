@@ -1,7 +1,7 @@
 # Inventaire Ansible
 
-`vagrant.yml` décrit `data-01` pour les services de données et `otel-01` pour
-les deux gateways OpenTelemetry. Les commandes Ansible ciblent les deux VM ;
+`vagrant.yml` décrit `poc-01`, `otel-backend-01`, `edge-01` et `elk-01`.
+Les commandes Ansible ciblent les quatre VM ;
 les cibles Make spécialisées indiquent la VM concernée.
 
 Lire cet inventaire avant `site.yml` pour savoir quels hôtes recevront les

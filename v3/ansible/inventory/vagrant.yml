@@ -4,15 +4,27 @@ all:
     ansible_user: vagrant
     ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   children:
-    data_nodes:
+    poc_nodes:
       hosts:
-        data-01:
+        poc-01:
           ansible_host: 127.0.0.1
           ansible_port: 2222
-          ansible_ssh_private_key_file: .vagrant/machines/data-01/virtualbox/private_key
-    otel_nodes:
+          ansible_ssh_private_key_file: .vagrant/machines/poc-01/virtualbox/private_key
+    otel_backend_nodes:
       hosts:
-        otel-01:
+        otel-backend-01:
           ansible_host: 192.168.33.20
           ansible_port: 22
-          ansible_ssh_private_key_file: .vagrant/machines/otel-01/virtualbox/private_key
+          ansible_ssh_private_key_file: .vagrant/machines/otel-backend-01/virtualbox/private_key
+    edge_nodes:
+      hosts:
+        edge-01:
+          ansible_host: 192.168.33.30
+          ansible_port: 22
+          ansible_ssh_private_key_file: .vagrant/machines/edge-01/virtualbox/private_key
+    elk_nodes:
+      hosts:
+        elk-01:
+          ansible_host: 192.168.33.40
+          ansible_port: 22
+          ansible_ssh_private_key_file: .vagrant/machines/elk-01/virtualbox/private_key

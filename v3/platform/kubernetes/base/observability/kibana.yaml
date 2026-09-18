@@ -109,7 +109,7 @@ spec:
               name: fleet_server
       # Les deux VM Fleet partagent la même policy : les intégrations MongoDB
       # et Kafka parlent à localhost sur chaque VM. PostgreSQL est filtré sur
-      # data-01, où le service est réellement présent.
+      # poc-01, où les middlewares sont réellement présents.
       - id: data-fleet
         name: Data — Elastic Agent
         namespace: default
@@ -119,8 +119,8 @@ spec:
           - logs
           - metrics
         package_policies:
-          - id: system-data-01-02
-            name: system-data-01-02
+          - id: system-poc-01
+            name: system-poc-01
             package:
               name: system
             inputs:
@@ -128,9 +128,9 @@ spec:
                 enabled: true
               - type: journald
                 enabled: true
-          - id: mongodb-data-01-02
-            name: mongodb-data-01-02
-            condition: host.name == 'data-01'
+          - id: mongodb-poc-01
+            name: mongodb-poc-01
+            condition: host.name == 'poc-01'
             package:
               name: mongodb
             inputs:
@@ -141,9 +141,9 @@ spec:
                     type: text
                     value:
                       - mongodb://127.0.0.1:27017
-          - id: kafka-data-01-02
-            name: kafka-data-01-02
-            condition: host.name == 'data-01'
+          - id: kafka-poc-01
+            name: kafka-poc-01
+            condition: host.name == 'poc-01'
             package:
               name: kafka
             inputs:
@@ -154,10 +154,10 @@ spec:
                     type: text
                     value:
                       - 127.0.0.1:9092
-          # PostgreSQL est installé sur l'unique VM data-01.
-          - id: postgresql-data-01
-            name: postgresql-data-01
-            condition: host.name == 'data-01'
+          # PostgreSQL est installé sur l'unique VM poc-01.
+          - id: postgresql-poc-01
+            name: postgresql-poc-01
+            condition: host.name == 'poc-01'
             package:
               name: postgresql
             inputs:
@@ -166,7 +166,7 @@ spec:
                 vars:
                   - name: condition
                     type: text
-                    value: ${host.name} == 'data-01'
+                    value: ${host.name} == 'poc-01'
                   - name: hosts
                     type: text
                     value:

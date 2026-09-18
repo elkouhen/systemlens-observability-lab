@@ -76,11 +76,8 @@ data:
                     - restock-service.h0tl-supermarche-app.svc.cluster.local:3002
 
     exporters:
-      kafka/otlp:
-        brokers: ["192.168.5.2:19092"]
-        metrics:
-          topic: otel-metrics
-          encoding: otlp_proto
+      otlphttp/edge:
+        endpoint: http://192.168.33.30:4318
 
     service:
       extensions: [health_check]
@@ -100,7 +97,7 @@ data:
         metrics/prometheus:
           receivers: [prometheus]
           processors: [memory_limiter, batch]
-          exporters: [kafka/otlp]
+          exporters: [otlphttp/edge]
 
   daemonset.yaml: |
     extensions:
@@ -161,17 +158,8 @@ data:
         timeout: 1s
         send_batch_size: 512
     exporters:
-      kafka/otlp:
-        brokers: ["192.168.5.2:19092"]
-        traces:
-          topic: otel-traces
-          encoding: otlp_proto
-        metrics:
-          topic: otel-metrics
-          encoding: otlp_proto
-        logs:
-          topic: otel-logs
-          encoding: otlp_proto
+      otlphttp/edge:
+        endpoint: http://192.168.33.30:4318
     service:
       extensions: [health_check]
       telemetry:
@@ -190,11 +178,11 @@ data:
         logs:
           receivers: [filelog/kubernetes]
           processors: [memory_limiter, k8sattributes, batch]
-          exporters: [kafka/otlp]
+          exporters: [otlphttp/edge]
         metrics:
           receivers: [hostmetrics, prometheus/internal]
           processors: [memory_limiter, batch]
-          exporters: [kafka/otlp]
+          exporters: [otlphttp/edge]
 
 ---
 apiVersion: apps/v1
@@ -285,13 +273,13 @@ spec:
             - >-
               for topic in otel-traces otel-metrics otel-logs; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.5.2:19092 --create --if-not-exists --topic "$topic"
+              192.168.33.10:9092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1
               --config min.insync.replicas=1;
               partitions=$(/opt/kafka/bin/kafka-topics.sh
-              --bootstrap-server 192.168.5.2:19092 --describe --topic "$topic"
+              --bootstrap-server 192.168.33.10:9092 --describe --topic "$topic"
               | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1);
               if [ "${partitions:-0}" -lt 3 ]; then
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.5.2:19092 --alter --topic "$topic" --partitions 3;
+              192.168.33.10:9092 --alter --topic "$topic" --partitions 3;
               fi; done

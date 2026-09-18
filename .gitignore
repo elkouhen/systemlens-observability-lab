@@ -31,3 +31,6 @@ certs/*.pem
 
 # APM dependencies
 apm_modules/
+
+# Dépendances locales du support Slidev.
+v3/slides/node_modules/

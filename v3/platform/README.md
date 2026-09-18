@@ -1,7 +1,8 @@
 # Plateforme
 
 Ce répertoire rassemble les composants transverses, indépendants du code des
-applications. Pour ce POC, la plateforme Elastic est déployée sur `otel-01`
+applications. Pour ce POC, la plateforme Elastic est déployée sur `elk-01`,
+le traitement OTEL sur `otel-backend-01` et l'exposition sur `edge-01`.
 avec des unités Quadlet ; Kubernetes conserve les collecteurs OTel et le
 routage TLS Traefik.
 

@@ -1,0 +1,511 @@
+---
+- name: Provisionner les quatre VM de la plateforme v3
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    poc_ip: 192.168.33.10
+    otel_backend_ip: 192.168.33.20
+    edge_ip: 192.168.33.30
+    elk_ip: 192.168.33.40
+    postgresql_database: observability_test
+    postgresql_user: observability
+    postgresql_password: ""
+    kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
+    kafka_controller_voters: 1@192.168.33.10:9093
+    otel_gateway_kafka_broker: 192.168.33.10:9092
+    otel_kafka_broker: 192.168.33.10:9092
+    elastic_agent_version: 9.4.3
+    elastic_password: ""
+    otel_elasticsearch_api_key: ""
+    fleet_enrollment_token: ""
+    redeploy_services: false
+    zscaler_ca_cert_content: ""
+    fleet_url: http://{{ edge_ip }}:8220
+
+  pre_tasks:
+    - name: Vérifier les variables injectées par Vagrant
+      ansible.builtin.assert:
+        that: [node_id is defined, node_ip is defined, node_role is defined]
+        fail_msg: Vagrant doit fournir node_id, node_ip et node_role.
+
+    - name: Vérifier les secrets nécessaires au POC
+      ansible.builtin.assert:
+        that: postgresql_password | length > 0
+        fail_msg: Définir POSTGRESQL_PASSWORD hors Git.
+      when: node_role == 'poc'
+
+    - name: Installer le certificat racine d'entreprise si fourni
+      ansible.builtin.copy:
+        content: "{{ zscaler_ca_cert_content }}"
+        dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
+        mode: '0644'
+      register: zscaler_ca
+      when: zscaler_ca_cert_content | length > 0
+
+    - name: Actualiser le magasin de certificats
+      ansible.builtin.command: update-ca-trust extract
+      when: zscaler_ca.changed | default(false)
+      changed_when: true
+
+    - name: Installer les dépendances système
+      ansible.builtin.dnf:
+        name: [podman, curl, openssl, chrony, haproxy, policycoreutils-python-utils]
+        state: present
+
+    - name: Collecter l'état des services système
+      ansible.builtin.service_facts:
+
+    - name: Identifier l'interface du réseau privé
+      ansible.builtin.shell: |
+        ip -o -4 addr show | awk -v ip='{{ node_ip }}' '$4 ~ ("^" ip "/") { print $2; exit }'
+      args:
+        executable: /bin/bash
+      register: private_network_device
+      changed_when: false
+
+    - name: Restaurer le contexte SELinux des profils NetworkManager
+      ansible.builtin.command: restorecon -RFv /etc/NetworkManager/system-connections
+      changed_when: false
+
+    - name: Empêcher le réseau privé de devenir la route par défaut
+      ansible.builtin.shell: >-
+        nmcli connection modify
+        "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
+        ipv4.never-default yes
+      changed_when: false
+
+    - name: Réactiver le réseau privé sans route par défaut
+      ansible.builtin.shell: >-
+        nmcli connection up
+        "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
+        ifname {{ private_network_device.stdout }}
+      changed_when: false
+
+    - name: Identifier la connexion NAT
+      ansible.builtin.shell: |
+        nmcli -g GENERAL.CONNECTION device show "$(ip route show default | awk 'NR == 1 { print $5 }')"
+      args:
+        executable: /bin/bash
+      register: nat_connection
+      changed_when: false
+
+    - name: Configurer des DNS fiables sur la connexion NAT
+      ansible.builtin.shell: >-
+        nmcli connection modify "{{ nat_connection.stdout }}"
+        ipv4.ignore-auto-dns yes ipv4.dns "1.1.1.1,8.8.8.8"
+      changed_when: false
+
+    - name: Réappliquer la connexion NAT
+      ansible.builtin.shell: >-
+        nmcli connection up "{{ nat_connection.stdout }}"
+      changed_when: false
+
+    - name: Activer la synchronisation NTP
+      ansible.builtin.systemd_service:
+        name: chronyd
+        enabled: true
+        state: started
+
+    - name: Autoriser les ports de la topologie sur firewalld
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        immediate: true
+        state: enabled
+      loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318, 8220, 9200, 5601] if node_role == 'edge' else []) + ([9200, 5601, 8220] if node_role == 'elk' else []) }}"
+      when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
+
+    - name: Autoriser HAProxy à écouter ses ports edge sous SELinux
+      ansible.builtin.command:
+        argv: [semanage, port, -a, -t, http_port_t, -p, tcp, "{{ item }}"]
+      loop: [4317, 4318, 8220, 9200, 5601]
+      register: haproxy_selinux_ports
+      changed_when: haproxy_selinux_ports.rc == 0
+      failed_when: >-
+        haproxy_selinux_ports.rc != 0 and
+        'already defined' not in (haproxy_selinux_ports.stderr | lower)
+      when: node_role == 'edge'
+
+    - name: Créer les répertoires de la plateforme
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        mode: '0755'
+      loop:
+        - /etc/observability
+        - /etc/containers/systemd
+        - /var/lib/observability
+        - /var/lib/observability/otel-kafka-exporter
+        - /opt/observability
+
+    - name: Créer les répertoires de logs des middlewares
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      loop:
+        - {path: /var/log/mongodb, mode: '0755'}
+        - {path: /var/log/kafka, mode: '0777'}
+        - {path: /var/log/postgresql, mode: '0777'}
+      when: node_role == 'poc'
+
+    - name: Autoriser le conteneur exporteur OTEL à écrire son file_storage
+      ansible.builtin.file:
+        path: /var/lib/observability/otel-kafka-exporter
+        state: directory
+        mode: '0777'
+      when: node_role == 'otel_backend'
+
+    - name: Préparer les stockages persistants du stack ELK
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0777'
+      loop:
+        - /var/lib/observability/elasticsearch
+        - /var/lib/observability/fleet-server
+      when: node_role == 'elk'
+
+    - name: Créer le fichier de log MongoDB
+      ansible.builtin.file:
+        path: /var/log/mongodb/mongod.log
+        state: touch
+        mode: '0666'
+        modification_time: preserve
+        access_time: preserve
+      when: node_role == 'poc'
+
+    - name: Télécharger l'agent Jolokia pour Kafka
+      ansible.builtin.get_url:
+        url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
+        dest: /opt/observability/jolokia-agent.jar
+        mode: '0644'
+      when: node_role == 'poc'
+
+    - name: Déterminer l'architecture Elastic Agent
+      ansible.builtin.set_fact:
+        elastic_agent_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+    - name: Vérifier si Elastic Agent est déjà enrôlé
+      ansible.builtin.stat:
+        path: /opt/Elastic/Agent/elastic-agent
+      register: enrolled_agent
+
+    - name: Télécharger Elastic Agent pour un enrôlement Fleet demandé
+      ansible.builtin.get_url:
+        url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+        dest: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+        mode: '0644'
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+
+    - name: Extraire Elastic Agent
+      ansible.builtin.unarchive:
+        src: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+        dest: /var/tmp
+        remote_src: true
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+
+    - name: Enrôler la VM dans Fleet via l'edge
+      ansible.builtin.command:
+        argv:
+          - "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent"
+          - install
+          - --non-interactive
+          - --force
+          - "--url={{ fleet_url }}"
+          - "--enrollment-token={{ fleet_enrollment_token }}"
+          - --insecure
+      when:
+        - fleet_enrollment_token | length > 0
+        - not enrolled_agent.stat.exists
+      no_log: true
+
+    - name: Installer la résolution locale des VM
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: '# {mark} POC OBSERVABILITY HOSTS'
+        block: |
+          {{ poc_ip }} poc-01
+          {{ otel_backend_ip }} otel-backend-01
+          {{ edge_ip }} edge-01
+          {{ elk_ip }} elk-01
+
+    - name: Générer les clés Kibana uniquement lors du premier provisioning
+      ansible.builtin.shell: |
+        if test ! -s /etc/observability/kibana.keys; then
+          umask 077
+          printf '%s\n%s\n%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > /etc/observability/kibana.keys
+        fi
+      args:
+        executable: /bin/bash
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Lire les clés Kibana locales
+      ansible.builtin.slurp:
+        src: /etc/observability/kibana.keys
+      register: kibana_keys
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Définir les clés Kibana du rendu local
+      ansible.builtin.set_fact:
+        kibana_encryption_key: "{{ (kibana_keys.content | b64decode).split('\n')[0] }}"
+        kibana_security_key: "{{ (kibana_keys.content | b64decode).split('\n')[1] }}"
+        kibana_reporting_key: "{{ (kibana_keys.content | b64decode).split('\n')[2] }}"
+      no_log: true
+      when: node_role == 'elk'
+
+  tasks:
+    - name: Déployer les middlewares du POC
+      ansible.builtin.template:
+        src: "{{ item }}.container.j2"
+        dest: "/etc/containers/systemd/{{ item }}.container"
+        mode: '0644'
+      loop:
+        - observability-mongodb
+        - observability-kafka
+        - observability-postgresql
+      when: node_role == 'poc'
+      register: poc_units
+
+    - name: Déployer la configuration du Gateway OTEL backend
+      ansible.builtin.template:
+        src: otel-gateway.yaml.j2
+        dest: /etc/observability/otel-gateway.yaml
+        mode: '0644'
+      vars:
+        otel_gateway_kafka_broker: "{{ poc_ip }}:9092"
+      when: node_role == 'otel_backend'
+      register: otel_gateway_config
+
+    - name: Déployer la configuration de l'exporteur OTEL backend
+      ansible.builtin.template:
+        src: otel-kafka-exporter.yaml.j2
+        dest: /etc/observability/otel-kafka-exporter.yaml
+        mode: '0644'
+      vars:
+        otel_kafka_broker: "{{ poc_ip }}:9092"
+        elasticsearch_url: http://{{ elk_ip }}:9200
+      when: node_role == 'otel_backend'
+      register: otel_exporter_config
+
+    - name: Déployer la clé API de l'exporteur OTEL backend
+      ansible.builtin.copy:
+        content: "ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}\n"
+        dest: /etc/observability/otel-kafka-exporter.env
+        mode: '0600'
+      no_log: true
+      when: node_role == 'otel_backend'
+
+    - name: Déployer les unités OTEL backend
+      ansible.builtin.template:
+        src: "{{ item }}.container.j2"
+        dest: "/etc/containers/systemd/{{ item }}.container"
+        mode: '0644'
+      loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+      when: node_role == 'otel_backend'
+      register: otel_units
+
+    - name: Déployer le frontal edge
+      ansible.builtin.template:
+        src: haproxy-edge.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: '0644'
+        validate: haproxy -c -f %s
+      when: node_role == 'edge'
+      register: edge_config
+
+    - name: Créer le répertoire des overrides systemd HAProxy
+      ansible.builtin.file:
+        path: /etc/systemd/system/haproxy.service.d
+        state: directory
+        mode: '0755'
+      when: node_role == 'edge'
+
+    - name: Déployer le runtime du socket HAProxy
+      ansible.builtin.template:
+        src: haproxy-runtime-directory.conf.j2
+        dest: /etc/systemd/system/haproxy.service.d/runtime-directory.conf
+        mode: '0644'
+      when: node_role == 'edge'
+
+    - name: Déployer les unités Elastic sur elk-01
+      ansible.builtin.template:
+        src: "{{ item }}.container.j2"
+        dest: "/etc/containers/systemd/{{ item }}.container"
+        mode: '0644'
+      loop: [observability-elasticsearch, observability-kibana, observability-fleet-server]
+      when: node_role == 'elk'
+      register: elk_units
+
+    - name: Déployer la configuration Kibana
+      ansible.builtin.template:
+        src: kibana.yml.j2
+        dest: /etc/observability/kibana.yml
+        mode: '0644'
+      when: node_role == 'elk'
+      register: kibana_config
+
+    - name: Écrire les identifiants Elasticsearch
+      ansible.builtin.copy:
+        content: "ELASTIC_PASSWORD={{ elastic_password }}\n"
+        dest: /etc/observability/elasticsearch.env
+        mode: '0600'
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Recharger systemd pour les unités Quadlet
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Démarrer les middlewares du POC
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: true
+        state: started
+      loop: [observability-mongodb, observability-kafka, observability-postgresql]
+      when: node_role == 'poc'
+
+    - name: Démarrer le backend OTEL
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: true
+        state: started
+      loop: [observability-otel-gateway, observability-otel-kafka-exporter]
+      when: node_role == 'otel_backend'
+
+    - name: Démarrer HAProxy edge
+      ansible.builtin.systemd_service:
+        name: haproxy.service
+        enabled: true
+        state: started
+      when: node_role == 'edge'
+
+    - name: Démarrer Elasticsearch sur elk-01
+      ansible.builtin.systemd_service:
+        name: observability-elasticsearch.service
+        enabled: true
+        state: started
+      when: node_role == 'elk'
+
+    - name: Attendre Elasticsearch sur elk-01
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: elasticsearch_ready
+      retries: 30
+      delay: 2
+      until: elasticsearch_ready.status == 200
+      when: node_role == 'elk'
+
+    - name: Réinitialiser le token de service Kibana
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200/_security/service/elastic/kibana/credential/token/kibana
+        method: DELETE
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: [200, 404]
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Créer le token de service Kibana
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200/_security/service/elastic/kibana/credential/token/kibana
+        method: POST
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: true
+        return_content: true
+        status_code: 200
+      register: kibana_token_response
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Déployer le token de service Kibana
+      ansible.builtin.copy:
+        content: "ELASTICSEARCH_SERVICEACCOUNTTOKEN={{ kibana_token_response.json.token.value }}\n"
+        dest: /etc/observability/kibana.env
+        mode: '0600'
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Réinitialiser le token service Fleet Server
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200/_security/service/elastic/fleet-server/credential/token/fleet-server
+        method: DELETE
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: true
+        status_code: [200, 404]
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Créer le token du Fleet Server
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9200/_security/service/elastic/fleet-server/credential/token/fleet-server
+        method: POST
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: true
+        return_content: true
+        status_code: [200, 409]
+      register: fleet_token_response
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Déployer les variables Fleet Server
+      ansible.builtin.copy:
+        content: |
+          FLEET_SERVER_SERVICE_TOKEN={{ fleet_token_response.json.token.value | default('') }}
+          FLEET_SERVER_ELASTICSEARCH_USERNAME=elastic
+          FLEET_SERVER_ELASTICSEARCH_PASSWORD={{ elastic_password }}
+          KIBANA_FLEET_USERNAME=elastic
+          KIBANA_FLEET_PASSWORD={{ elastic_password }}
+        dest: /etc/observability/fleet-server.env
+        mode: '0600'
+      no_log: true
+      when: node_role == 'elk'
+
+    - name: Démarrer Kibana et Fleet Server sur elk-01
+      ansible.builtin.systemd_service:
+        name: "{{ item }}.service"
+        enabled: true
+        state: started
+      loop: [observability-kibana, observability-fleet-server]
+      when: node_role == 'elk'
+
+    - name: Vérifier la santé du Gateway OTEL
+      ansible.builtin.uri:
+        url: http://127.0.0.1:13133/
+        status_code: 200
+      register: otel_gateway_health
+      retries: 30
+      delay: 2
+      until: otel_gateway_health.status == 200
+      when: node_role == 'otel_backend'
+
+    - name: Vérifier la santé de l'exporteur Kafka OTEL
+      ansible.builtin.uri:
+        url: http://127.0.0.1:13134/
+        status_code: 200
+      register: otel_exporter_health
+      retries: 30
+      delay: 2
+      until: otel_exporter_health.status == 200
+      when: node_role == 'otel_backend'
+
+    - name: Vérifier la configuration HAProxy edge
+      ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
+      changed_when: false
+      when: node_role == 'edge'

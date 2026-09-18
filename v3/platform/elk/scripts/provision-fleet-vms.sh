@@ -5,7 +5,7 @@ set -euo pipefail
 readonly kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
 readonly kibana_user="${KIBANA_USERNAME:-elastic}"
 readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:443:127.0.0.1}"
-readonly fleet_vm_nodes="data-01 otel-01"
+readonly fleet_vm_nodes="poc-01 otel-backend-01 edge-01 elk-01"
 
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de provisionner les VM Fleet}"
 
@@ -25,7 +25,7 @@ done
 # Le jeton ne transite que dans l'environnement du sous-processus Vagrant.
 # Le jeton ne transite jamais sur la ligne de commande ni dans le dépôt.
 for node in ${fleet_vm_nodes}; do
-  if [[ "${node}" == 'data-01' ]]; then
+  if [[ "${node}" == 'poc-01' ]]; then
     policy_id='data-fleet'
   else
     policy_id='otel-fleet'

@@ -1,0 +1,21 @@
+[Unit]
+Description=Elasticsearch du POC
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.elastic.co/elasticsearch/elasticsearch:9.4.3
+ContainerName=observability-elasticsearch
+Network=host
+EnvironmentFile=/etc/observability/elasticsearch.env
+Volume=/var/lib/observability/elasticsearch:/usr/share/elasticsearch/data:Z
+Memory=1536m
+Environment=discovery.type=single-node
+Environment=xpack.security.enabled=true
+Environment=ES_JAVA_OPTS=-Xms768m -Xmx768m
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

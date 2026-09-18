@@ -1,6 +1,6 @@
 ---
 - name: Vérifier MongoDB, Kafka et PostgreSQL sur les VM du POC
-  hosts: data-01
+  hosts: poc-01
   become: true
   gather_facts: false
 
@@ -29,7 +29,7 @@
       changed_when: false
       failed_when: false
       run_once: true
-      delegate_to: data-01
+      delegate_to: poc-01
 
     - name: Afficher l'état de MongoDB standalone
       ansible.builtin.debug:
@@ -75,7 +75,7 @@
       changed_when: false
       failed_when: false
       run_once: true
-      delegate_to: data-01
+      delegate_to: poc-01
 
     - name: Afficher le décalage du consommateur de commandes Kafka
       ansible.builtin.debug:
@@ -97,14 +97,14 @@
       changed_when: false
       failed_when: false
       run_once: true
-      delegate_to: data-01
+      delegate_to: poc-01
 
     - name: Afficher les commandes en ligne persistées dans MongoDB
       ansible.builtin.debug:
         msg: "MongoDB order_fulfillments — {{ mongodb_demo_work_status.stdout | default('indisponible') }}"
       run_once: true
 
-    - name: Vérifier PostgreSQL sur data-01
+    - name: Vérifier PostgreSQL sur poc-01
       ansible.builtin.command:
         argv:
           - podman
@@ -119,7 +119,7 @@
       changed_when: false
       failed_when: false
       run_once: true
-      delegate_to: data-01
+      delegate_to: poc-01
 
     - name: Compter les commandes en ligne persistées dans PostgreSQL
       ansible.builtin.command:
@@ -138,9 +138,9 @@
       changed_when: false
       failed_when: false
       run_once: true
-      delegate_to: data-01
+      delegate_to: poc-01
 
     - name: Afficher l'état et les traitements PostgreSQL
       ansible.builtin.debug:
-        msg: "PostgreSQL data-01 — {{ postgresql_status.stdout | default('indisponible') }} ; commandes en ligne : {{ postgresql_demo_work_status.stdout | default('indisponible') }}"
+        msg: "PostgreSQL poc-01 — {{ postgresql_status.stdout | default('indisponible') }} ; commandes en ligne : {{ postgresql_demo_work_status.stdout | default('indisponible') }}"
       run_once: true

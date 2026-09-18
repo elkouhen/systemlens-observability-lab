@@ -53,8 +53,6 @@ exporters:
   elasticsearch/otel:
     endpoints: ["{{ elasticsearch_url }}"]
     api_key: ${env:ELASTICSEARCH_API_KEY}
-    tls:
-      ca_file: /etc/otel/elasticsearch-ca.crt
     sending_queue:
       enabled: true
       queue_size: 1000

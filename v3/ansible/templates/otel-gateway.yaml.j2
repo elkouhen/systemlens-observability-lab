@@ -15,9 +15,9 @@ receivers:
   otlp:
     protocols:
       http:
-        endpoint: 127.0.0.1:4319
+        endpoint: 0.0.0.0:4319
       grpc:
-        endpoint: 127.0.0.1:4320
+        endpoint: 0.0.0.0:4320
 
 exporters:
   kafka/otlp:

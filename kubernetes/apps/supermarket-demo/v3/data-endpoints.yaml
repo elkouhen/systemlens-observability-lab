@@ -10,7 +10,7 @@ spec:
         - name: order-service
           env:
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.5.2:19092
+              value: 192.168.33.10:9092
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -24,11 +24,11 @@ spec:
         - name: inventory-service
           env:
             - name: SPRING_DATA_MONGODB_URI
-              value: mongodb://192.168.5.2:27017/observability_test?directConnection=true
+              value: mongodb://192.168.33.10:27017/observability_test?directConnection=true
             - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://192.168.5.2:5432/observability_test
+              value: jdbc:postgresql://192.168.33.10:5432/observability_test
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.5.2:19092
+              value: 192.168.33.10:9092
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -42,4 +42,4 @@ spec:
         - name: restock-service
           env:
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: 192.168.5.2:19092
+              value: 192.168.33.10:9092

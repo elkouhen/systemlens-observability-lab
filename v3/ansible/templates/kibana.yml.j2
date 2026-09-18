@@ -1,0 +1,27 @@
+server.host: 0.0.0.0
+server.port: 5601
+server.publicBaseUrl: https://kibana.observability.test
+elasticsearch.hosts: ["http://127.0.0.1:9200"]
+xpack.encryptedSavedObjects.encryptionKey: "{{ kibana_encryption_key }}"
+xpack.security.encryptionKey: "{{ kibana_security_key }}"
+xpack.reporting.encryptionKey: "{{ kibana_reporting_key }}"
+xpack.fleet.registryUrl: https://epr.elastic.co
+xpack.fleet.agents.fleet_server.hosts: ["https://fleet.observability.test:443"]
+xpack.fleet.outputs:
+  - id: fleet-default-output
+    name: Elasticsearch Quadlet
+    type: elasticsearch
+    is_default: true
+    is_default_monitoring: true
+    hosts: ["https://elasticsearch.observability.test:443"]
+    config:
+      ssl.verification_mode: none
+xpack.fleet.packages:
+  - name: fleet_server
+    version: 1.2.0
+  - name: apm
+    version: 9.4.3
+  - name: system
+    version: 1.20.4
+  - name: kubernetes
+    version: 1.27.1

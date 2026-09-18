@@ -1,8 +1,9 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
-La v3 crée `data-01` pour MongoDB standalone, Kafka mono-broker et PostgreSQL,
-ainsi que `otel-01` pour le Gateway EDOT, l'exporteur Kafka EDOT et HAProxy en frontal.
+La v3 crée quatre VM séparées : `poc-01` pour MongoDB, Kafka et PostgreSQL,
+`otel-backend-01` pour les collecteurs EDOT, `edge-01` pour HAProxy et
+`elk-01` pour Elasticsearch, Kibana et Fleet Server.
 Chaque VM reçoit un Elastic Agent enrôlé dans Fleet. La policy collecte
 les logs, métriques système et intégrations Kafka, MongoDB et PostgreSQL, puis
 envoie directement les événements vers Elasticsearch. Kafka reste une source
@@ -15,7 +16,7 @@ peuvent donner la priorité au réseau privé et empêcher la résolution des
 miroirs de paquets.
 
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
-sur `data-01`.
+sur `poc-01`.
 
 La cible `make deploy` reprovisionne les VM existantes avant de déployer la
 plateforme. Les données Kafka sont conservées dans le volume Podman
@@ -23,8 +24,10 @@ plateforme. Les données Kafka sont conservées dans le volume Podman
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| `data-01` | Elastic Agent Fleet ; MongoDB, Kafka, PostgreSQL | Fleet → Elasticsearch ; Kafka source observée |
-| `otel-01` | Elastic Agent Fleet ; HAProxy → Gateway EDOT ; exporteur Kafka EDOT | OTLP applicatif → Kafka sur `data-01` → Elasticsearch |
+| `poc-01` | MongoDB, Kafka, PostgreSQL | Middlewares du scénario applicatif |
+| `otel-backend-01` | Gateway EDOT ; exporteur Kafka EDOT | OTLP edge → Kafka `poc-01` → Elasticsearch |
+| `edge-01` | HAProxy | Point d’entrée OTLP, Kibana, Elasticsearch et Fleet |
+| `elk-01` | Elasticsearch, Kibana, Fleet Server | Stockage, consultation et enrôlement |
 
 ## Ordre de lecture
 
