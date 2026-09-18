@@ -4,9 +4,9 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dashboard_file="${1:?Usage : $0 <dashboard.json>}"
-kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
+kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:443:127.0.0.1}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 
 [[ -r "${dashboard_file}" ]] || { printf 'Fichier dashboard introuvable ou illisible : %s\n' "${dashboard_file}" >&2; exit 1; }
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de déployer le dashboard}"

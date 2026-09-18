@@ -2,15 +2,15 @@
 # Enrôle les VM gérées par Fleet sans exposer le jeton dans le terminal.
 set -euo pipefail
 
-readonly kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
+readonly kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 readonly kibana_user="${KIBANA_USERNAME:-elastic}"
-readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:443:127.0.0.1}"
+readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 readonly fleet_vm_nodes="poc-01 otel-backend-01 edge-01 elk-01"
 
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de provisionner les VM Fleet}"
 
 # La policy des VM est créée par l'API Kibana, car Kibana n'est plus réconcilié
-# par ECK depuis le déplacement du stack sur otel-01.
+# par ECK depuis le déplacement du stack sur elk-01.
 for policy_id in data-fleet otel-fleet; do
   curl --fail --silent --show-error --insecure \
     --resolve "${kibana_resolve}" \

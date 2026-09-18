@@ -16,16 +16,16 @@ frontend otlp_grpc
 
 backend otel_backend_grpc
   mode tcp
-  server otel_backend {{ otel_backend_ip }}:4320 check
+  server otel_backend {{ otel_backend_ip }}:4320
 
 frontend otlp_http
   bind :4318
-  mode http
+  mode tcp
   default_backend otel_backend_http
 
 backend otel_backend_http
-  mode http
-  server otel_backend {{ otel_backend_ip }}:4319 check
+  mode tcp
+  server otel_backend {{ otel_backend_ip }}:4319
 
 frontend elasticsearch
   bind :9200

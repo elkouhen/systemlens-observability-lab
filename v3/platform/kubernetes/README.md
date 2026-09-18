@@ -30,7 +30,7 @@ packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
 vers ce registre avant d’exécuter `make elk-deploy`.
 
 Le Gateway OTLP est exécuté sur la VM `otel-backend-01`, derrière HAProxy sur `edge-01`, publié aux
-conteneurs k3d via `192.168.5.2:4317` et `192.168.5.2:4318`. Les applications
+conteneurs k3d via `192.168.33.30:4317` et `192.168.33.30:4318`. Les applications
 Kubernetes l'utilisent comme endpoint OTLP. Le Deployment `otel-prometheus-scraper`
 conserve le scrape des métriques Actuator dans le cluster. Les logs et les
 métriques Kubernetes suivent le chemin EDOT vers Kafka, puis l'exporteur EDOT

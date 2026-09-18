@@ -20,11 +20,11 @@ ELASTIC_STACK_VERSION ?= 9.4.3
 ECK_VERSION ?= 3.5.0
 ECK_HELM_REPOSITORY ?= https://helm.elastic.co
 ECK_STACK_CHART_VERSION ?= 0.20.0
-ELASTICSEARCH_URL ?= https://elasticsearch.observability.test:443
-KIBANA_URL ?= https://kibana.observability.test
+ELASTICSEARCH_URL ?= http://elasticsearch.observability.test:9200
+KIBANA_URL ?= http://kibana.observability.test:5601
 KIBANA_HOST ?= kibana.observability.test
-KIBANA_CURL_RESOLVE ?= kibana.observability.test:443:127.0.0.1
-ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:443:127.0.0.1
+KIBANA_CURL_RESOLVE ?= kibana.observability.test:5601:192.168.33.40
+ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:9200:192.168.33.40
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
@@ -35,7 +35,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	observability-policies-validate observability-policies-deploy \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation \
-	deploy elasticsearch-ready kibana-ready apm-kibana-role-apply \
+	deploy elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
@@ -171,7 +171,13 @@ elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk
 	@password="$${ELASTIC_PASSWORD:-password}"; \
 	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent : définir le secret hors Git avant le déplacement.' >&2; exit 1; }; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) up elk-01 --provision
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) up elk-01 --no-provision
+	@$(MAKE) elastic-disk-ensure
+	@password="$${ELASTIC_PASSWORD:-password}"; api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision elk-01
+
+elastic-disk-ensure: ## Dimensionner idempotemment le disque système d'elk-01
+	@VAGRANT='$(VAGRANT)' ./scripts/ensure-vm-disk.sh elk-01 30720
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
 	@$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml
@@ -191,7 +197,7 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 		'$(ELASTICSEARCH_URL)/_security/_authenticate' >/dev/null; then \
 		echo "Clé API otel-elasticsearch-credentials valide"; \
 	else \
-		password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+		password="$${ELASTIC_PASSWORD:-password}"; \
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
@@ -202,8 +208,9 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 	fi
 
 elk-deploy: elastic-stack-deploy ## Déployer la plateforme d'observabilité Elastic sur elk-01
+	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics-v3 --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	@password="$${ELASTIC_PASSWORD:-password}"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent' >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic elasticsearch-es-elastic-user --from-literal=elastic="$$password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	@$(MAKE) public-tls-apply
@@ -211,7 +218,6 @@ elk-deploy: elastic-stack-deploy ## Déployer la plateforme d'observabilité Ela
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) otel-elasticsearch-credentials-apply
 	@$(MAKE) otel-gateway-vm-provision
-	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics-v3 --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics-v3 --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-prometheus-scraper
@@ -346,7 +352,7 @@ vm-provision: fleet-vms-provision ## Provisionner les VM avec Elastic Agent Flee
 otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01 avec la clé API Kubernetes existante
 	@$(VAGRANT) up otel-backend-01 --no-provision
 	@api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
-	password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	password="$${ELASTIC_PASSWORD:-password}"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01

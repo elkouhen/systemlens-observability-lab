@@ -4,9 +4,9 @@ set -euo pipefail
 
 : "${ELASTICSEARCH_PASSWORD:?Définir ELASTICSEARCH_PASSWORD avant la vérification}"
 
-elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.observability.test:443}"
+elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:9200}"
 elasticsearch_user="${ELASTICSEARCH_USERNAME:-elastic}"
-elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:443:127.0.0.1}"
+elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"
 window="${DASHBOARDS_VERIFY_WINDOW:-15m}"
 
 response="$(curl --fail --silent --show-error --insecure \

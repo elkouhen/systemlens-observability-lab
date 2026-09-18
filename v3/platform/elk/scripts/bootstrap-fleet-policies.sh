@@ -2,8 +2,8 @@
 # Réconcilie les policies Fleet nécessaires aux quatre VM v3.
 set -euo pipefail
 
-kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:443:127.0.0.1}"
+kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de configurer Fleet}"
 : "${POSTGRESQL_PASSWORD:?Définir POSTGRESQL_PASSWORD avant de configurer Fleet}"
 

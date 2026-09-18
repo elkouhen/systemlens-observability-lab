@@ -3,8 +3,8 @@ set -euo pipefail
 
 : "${ELASTICSEARCH_PASSWORD:?Définir ELASTICSEARCH_PASSWORD hors Git}"
 
-elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.observability.test:443}"
-curl_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:443:127.0.0.1}"
+elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:9200}"
+curl_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"
 k8s_namespace="${K8S_NAMESPACE:-elastic-stack}"
 kubectl_bin="${KUBECTL:-kubectl}"
 kibana_user="${APM_KIBANA_USERNAME:-apm-server-kibana}"

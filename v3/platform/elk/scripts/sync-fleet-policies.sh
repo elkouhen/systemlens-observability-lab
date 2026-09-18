@@ -8,18 +8,17 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elk_dir="$(cd "${script_dir}/.." && pwd)"
 command -v curl >/dev/null || { printf 'curl est requis.\n' >&2; exit 2; }
 command -v jq >/dev/null || { printf 'jq est requis.\n' >&2; exit 2; }
-elasticsearch_url="${ELASTICSEARCH_URL:-https://elasticsearch.observability.test}"
+elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:9200}"
 : "${ELASTICSEARCH_PASSWORD:?Definir ELASTICSEARCH_PASSWORD avant de synchroniser les pipelines}"
-kibana_url="${KIBANA_URL:-https://kibana.observability.test}"
+kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
-fleet_policy_id='data-fleet'
-fleet_nodes=(data-01 otel-01)
+fleet_nodes=(poc-01 otel-backend-01 edge-01 elk-01)
 
 elasticsearch_args=(--fail --silent --show-error --insecure
-  --resolve elasticsearch.observability.test:443:127.0.0.1
+  --resolve elasticsearch.observability.test:9200:192.168.33.40
   -u "elastic:${ELASTICSEARCH_PASSWORD}" -H 'Content-Type: application/json')
 kibana_args=(--fail --silent --show-error --insecure
-  --resolve "${KIBANA_HOST:-kibana.observability.test}:443:127.0.0.1"
+  --resolve "${KIBANA_HOST:-kibana.observability.test}:5601:192.168.33.40"
   -u "elastic:${kibana_password}" -H 'Content-Type: application/json'
   -H 'kbn-xsrf: systemlens-fleet-sync')
 
@@ -27,6 +26,11 @@ kibana_args=(--fail --silent --show-error --insecure
 # étape ne fait que migrer les Agents déjà enrôlés dans une policy historique.
 fleet_agents="$(curl "${kibana_args[@]}" "${kibana_url}/api/fleet/agents?perPage=100")"
 for node in "${fleet_nodes[@]}"; do
+  if [[ "${node}" == 'poc-01' ]]; then
+    fleet_policy_id='data-fleet'
+  else
+    fleet_policy_id='otel-fleet'
+  fi
   agent_id="$(jq -r --arg node "${node}" --arg policy "${fleet_policy_id}" '
     .items[] | select(.local_metadata.host.hostname == $node and .active == true and .status != "offline" and .policy_id != $policy) | .id
   ' <<<"${fleet_agents}" | head -n 1)"
@@ -87,7 +91,7 @@ done
 
 # L'integration MongoDB se connecte volontairement a localhost sur chaque VM.
 # Les dashboards groupent toutefois les instances par service.address :
-# remplacer uniquement l'adresse locale par le nom de la VM rend data-01..03
+# remplacer uniquement l'adresse locale par le nom de la VM rend les VM
 # distinguables, sans reecrire les adresses de replica set deja explicites.
 for dataset in collstats dbstats metrics replstatus status; do
   pipeline="metrics-mongodb.${dataset}@custom"
@@ -114,7 +118,7 @@ printf 'MongoDB service.address pipelines updated\n'
 # Mettre à jour explicitement la policy existante conserve la source de vérité
 # Kubernetes tout en diffusant une correction aux Agents déjà enrôlés.
 postgresql_policy="$(curl "${kibana_args[@]}" \
-  "${kibana_url}/api/fleet/package_policies/postgresql-data-01")"
+  "${kibana_url}/api/fleet/package_policies/postgresql-poc-01")"
 postgresql_payload="$(jq '
   .item
   | {name, namespace, policy_id, package, inputs}
@@ -122,12 +126,12 @@ postgresql_payload="$(jq '
       if .type == "postgresql/metrics" then
         .vars.condition = {
           type: "text",
-          value: "${host.name} == '\''data-01'\''"
+          value: "${host.name} == '\''poc-01'\''"
         }
       else . end
     )
 ' <<<"${postgresql_policy}")"
 curl "${kibana_args[@]}" -X PUT \
-  "${kibana_url}/api/fleet/package_policies/postgresql-data-01" \
+  "${kibana_url}/api/fleet/package_policies/postgresql-poc-01" \
   --data "${postgresql_payload}" >/dev/null
-printf 'PostgreSQL package policy updated for data-01 only\n'
+printf 'PostgreSQL package policy updated for poc-01 only\n'
