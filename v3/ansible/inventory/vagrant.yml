@@ -7,8 +7,8 @@ all:
     poc_nodes:
       hosts:
         poc-01:
-          ansible_host: 127.0.0.1
-          ansible_port: 2222
+          ansible_host: 192.168.33.10
+          ansible_port: 22
           ansible_ssh_private_key_file: .vagrant/machines/poc-01/virtualbox/private_key
     otel_backend_nodes:
       hosts:

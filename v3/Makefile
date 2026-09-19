@@ -226,6 +226,7 @@ elk-deploy: elastic-stack-deploy ## Déployer la plateforme d'observabilité Ela
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
 	@$(MAKE) kibana-ready
 	@$(MAKE) kibana-fleet-config-deploy
+	@$(MAKE) ilm-deploy
 	@$(MAKE) apm-data-view-deploy
 	@$(MAKE) business-dashboard-deploy
 	@$(MAKE) observability-policies-deploy
@@ -447,3 +448,25 @@ inventory-service-logs-follow: ## Suivre les logs de inventory-service
 
 restock-service-logs-follow: ## Suivre les logs de restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/restock-service
+
+.PHONY: retention-validate retention-plan retention-deploy retention-verify ilm-deploy
+
+retention-validate: ## Valider les règles de rétention sans les appliquer
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml ansible/retention.yml
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml ansible/retention-verify.yml
+	@python3 -c 'import ast,json,pathlib; ast.parse(pathlib.Path("platform/elk/scripts/retention.py").read_text()); ast.parse(pathlib.Path("ansible/roles/retention/files/purge-logs.py").read_text()); json.loads(pathlib.Path("platform/elk/ilm/retention.json").read_text())'
+
+retention-plan: ## Lire le périmètre et les politiques ILM sans mutation
+	@python3 platform/elk/scripts/retention.py plan
+
+ilm-deploy: ## Réconcilier les politiques ILM et les indices existants
+	@python3 platform/elk/scripts/retention.py apply
+
+retention-deploy: retention-validate ## Déployer uniquement la rétention VM, Kafka et ILM
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml ansible/retention.yml
+	@$(MAKE) ilm-deploy
+	@$(MAKE) retention-verify
+
+retention-verify: ## Contrôler les timers, Kafka et ILM effectivement déployés
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml ansible/retention-verify.yml
+	@python3 platform/elk/scripts/retention.py verify

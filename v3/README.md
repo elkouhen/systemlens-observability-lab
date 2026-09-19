@@ -37,3 +37,6 @@ Documents propres à la v3 :
 - [plateforme Kubernetes et ELK](platform/README.md) ;
 - [provisionnement des VM `poc-01`, `otel-backend-01`, `edge-01` et `elk-01`](ansible/README.md) ;
 - [dashboards et vérification](platform/elk/dashboards/README.md).
+
+La [rétention des signaux et des logs](platform/elk/retention/README.md) décrit
+les limites du POC et leur vérification avec `make retention-verify`.

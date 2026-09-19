@@ -38,3 +38,10 @@ paramétrables par variables d'environnement pour adapter l'accès au cluster.
 - [API Elasticsearch](https://www.elastic.co/docs/api/doc/elasticsearch)
 - [API Fleet](https://www.elastic.co/docs/api/doc/kibana/group/endpoint-fleet)
 - [API Saved Objects Kibana](https://www.elastic.co/docs/api/doc/kibana/group/endpoint-saved-objects)
+
+`retention.py` lit la déclaration `../ilm/retention.json`, réconcilie les
+politiques ILM et les composants `logs@custom`, `metrics@custom`, `traces@custom`,
+puis migre les indices existants. Il préserve les autres paramètres des
+composants et vérifie les templates résolus. Utiliser `make retention-plan`,
+`make ilm-deploy` et `make retention-verify` ; voir le
+[guide de rétention](../retention/README.md).

@@ -28,10 +28,18 @@
     src: "{{ role_path }}/templates/{{ item.template }}.container.j2"
     dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
+  register: poc_templates
   loop:
     - {template: mongodb, unit: observability-mongodb}
     - {template: kafka, unit: observability-kafka}
     - {template: postgresql, unit: observability-postgresql}
+
+- name: Redémarrer Kafka après modification de sa déclaration
+  ansible.builtin.systemd_service:
+    name: observability-kafka
+    daemon_reload: true
+    state: restarted
+  when: poc_templates.results[1].changed
 
 - name: Recharger systemd pour les unités Quadlet du POC
   ansible.builtin.systemd_service:

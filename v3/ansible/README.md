@@ -60,3 +60,13 @@ Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 - [Guide des playbooks Ansible](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks.html)
 - [Inventaires Ansible](https://docs.ansible.com/projects/ansible/latest/inventory_guide/intro_inventory.html)
 - [Templates Jinja](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks_templating.html)
+
+## Rétention des VM
+
+Le rôle `retention`, inclus dans `site.yml`, configure journald et logrotate,
+puis active le nettoyage horaire des archives de plus de 24 h. Le playbook
+`retention.yml` applique uniquement ces règles et la configuration Kafka ;
+il redémarre le broker si son Quadlet change et réconcilie les topics existants.
+Utiliser `make retention-deploy` et `make retention-verify` depuis la racine.
+Les durées, plafonds, prérequis et limites sont détaillés dans le
+[guide de rétention](../platform/elk/retention/README.md).

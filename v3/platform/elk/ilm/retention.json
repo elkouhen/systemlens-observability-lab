@@ -1,0 +1,29 @@
+{
+  "policy_name": "poc-observability-24h",
+  "patterns": [
+    "logs-*",
+    "metrics-*",
+    "traces-*"
+  ],
+  "policy": {
+    "phases": {
+      "hot": {
+        "actions": {
+          "rollover": {
+            "max_age": "6h",
+            "max_primary_shard_size": "512mb"
+          }
+        },
+        "min_age": "0ms"
+      },
+      "delete": {
+        "min_age": "24h",
+        "actions": {
+          "delete": {
+            "delete_searchable_snapshot": true
+          }
+        }
+      }
+    }
+  }
+}

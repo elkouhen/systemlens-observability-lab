@@ -24,6 +24,7 @@
 
   roles:
     - role: common
+    - role: retention
     - role: elastic_agent
     - role: poc
       when: node_role == 'poc'

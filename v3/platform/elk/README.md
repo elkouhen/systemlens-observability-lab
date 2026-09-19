@@ -59,7 +59,8 @@ l'exporteur Kafka et l'enrôlement Fleet sont décrits dans `../../ansible/site.
 La collecte filelog est limitée au namespace applicatif, conserve ses offsets
 sur le nœud et ignore les événements Kafka répétitifs de désérialisation. Les
 logs sont regroupés par lots de 50 toutes les 5 secondes ; les topics OTLP
-Kafka ont une rétention de 24 heures et 512 MiB par topic. Ces limites bornent
+Kafka ont une rétention de 24 heures et 512 MiB par partition (trois
+partitions par topic OTLP, soit un seuil de 1,5 GiB par topic). Ces limites bornent
 la volumétrie du POC sans modifier le chemin de collecte.
 Pour migrer l'exporteur depuis Kubernetes, exécuter
 `make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
@@ -76,3 +77,10 @@ migration terminée.
 - [OpenTelemetry avec Elastic (EDOT)](https://www.elastic.co/docs/reference/opentelemetry)
 - [Architecture Kafka avec OpenTelemetry](https://www.elastic.co/docs/reference/opentelemetry/architecture/kafka)
 - [Modèles de déploiement Fleet](https://www.elastic.co/docs/reference/fleet/deployment-models)
+
+## Rétention et maîtrise du disque
+
+Les règles et la procédure opérateur sont décrites dans
+[`retention/README.md`](retention/README.md). `make retention-deploy` applique
+uniquement les limites Kafka, la rotation des logs des VM et les politiques ILM.
+`make retention-verify` contrôle leur application effective.
