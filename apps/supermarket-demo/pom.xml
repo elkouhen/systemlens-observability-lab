@@ -18,6 +18,7 @@
 
     <modules>
         <module>supermarket-contracts</module>
+        <module>kafka-processing</module>
         <module>order-service</module>
         <module>inventory-service</module>
         <module>restock-service</module>
