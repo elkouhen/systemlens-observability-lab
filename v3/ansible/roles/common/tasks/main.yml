@@ -107,10 +107,10 @@
     permanent: true
     immediate: true
     state: enabled
-  loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318, 8220, 9200, 5601] if node_role == 'edge' else []) + ([8200, 9200, 5601, 8220] if node_role == 'elk' else []) }}"
+  loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318, 8220, 9200, 5601] if node_role == 'otel_edge' else []) + ([8200, 9200, 5601, 8220] if node_role == 'elk' else []) }}"
   when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
-- name: Autoriser HAProxy à écouter ses ports edge sous SELinux
+- name: Autoriser HAProxy à écouter ses ports otel-edge sous SELinux
   ansible.builtin.command:
     argv: [semanage, port, -a, -t, http_port_t, -p, tcp, "{{ item }}"]
   loop: [4317, 4318, 8220, 9200, 5601]
@@ -119,14 +119,14 @@
   failed_when: >-
     haproxy_selinux_ports.rc != 0 and
     'already defined' not in (haproxy_selinux_ports.stderr | lower)
-  when: node_role == 'edge'
+  when: node_role == 'otel_edge'
 
 - name: Autoriser HAProxy à joindre les backends OTLP sous SELinux
   ansible.posix.seboolean:
     name: haproxy_connect_any
     state: true
     persistent: true
-  when: node_role == 'edge'
+  when: node_role == 'otel_edge'
 
 - name: Créer les répertoires de la plateforme
   ansible.builtin.file:
@@ -149,7 +149,7 @@
     block: |
       {{ poc_ip }} poc-01
       {{ otel_backend_ip }} otel-backend-01
-      {{ edge_ip }} edge-01
+      {{ otel_edge_ip }} otel-edge-01
       {{ elk_ip }} elk-01
-      {{ edge_ip }} fleet.observability.test
+      {{ otel_edge_ip }} fleet.observability.test
       {{ elk_ip }} kibana.observability.test elasticsearch.observability.test

@@ -51,7 +51,7 @@ Les topics sont séparés par signal. L'exemple Elastic avec un topic partagé e
 un pattern d'architecture, mais le receiver Kafka embarqué dans EDOT Collector
 9.4.3 ne route pas automatiquement des payloads logs, métriques et traces
 mélangés dans un même topic ; les séparer évite les erreurs de décodage et
-conserve le même flux edge → Kafka → backend → Elasticsearch.
+conserve le même flux otel-edge → Kafka → backend → Elasticsearch.
 
 Les règles de collecte Kubernetes et de buffer Kafka sont dans
 `../kubernetes/base/observability/otel-kafka.yaml`. Le Gateway OTLP VM,

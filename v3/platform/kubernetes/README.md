@@ -2,7 +2,7 @@
 
 Ce répertoire est le point d'entrée déclaratif de la plateforme Kubernetes.
 
-- `base/observability/` contient le routage Traefik vers `elk-01` via `edge-01` et les
+- `base/observability/` contient le routage Traefik vers `elk-01` via `otel-edge-01` et les
   collecteurs Kubernetes pour les logs et métriques Prometheus.
 - `overlays/local/` décrit l'environnement POC local. Les futurs environnements
   (`recette`, `production`) seront des overlays distincts, sans duplication des

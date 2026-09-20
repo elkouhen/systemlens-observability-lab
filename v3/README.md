@@ -11,7 +11,7 @@ directement leurs logs et métriques vers Elasticsearch.
 Kubernetes / opérateur
           |
           v
-      edge-01  -- OTLP, Kibana, Elasticsearch, Fleet
+      otel-edge-01  -- OTLP, Kibana, Elasticsearch, Fleet
           |
           v
   otel-backend-01  -- exporteur Kafka EDOT
@@ -19,11 +19,11 @@ Kubernetes / opérateur
           v
       poc-01  -- Kafka + MongoDB + PostgreSQL
 
-      edge-01  ------------------> elk-01
+      otel-edge-01  ------------------> elk-01
                                   Elasticsearch + Kibana + Fleet Server
 ```
 
-`edge-01` est le seul point d’entrée exposé. `otel-backend-01` traite les
+`otel-edge-01` est le seul point d’entrée exposé. `otel-backend-01` traite les
 signaux OTLP, `poc-01` héberge les middlewares du scénario et `elk-01` porte
 le stockage et la consultation Elastic.
 
@@ -35,7 +35,7 @@ flux est dans la [documentation des architectures](../docs/architecture-v1-v2-v3
 Documents propres à la v3 :
 
 - [plateforme Kubernetes et ELK](platform/README.md) ;
-- [provisionnement des VM `poc-01`, `otel-backend-01`, `edge-01` et `elk-01`](ansible/README.md) ;
+- [provisionnement des VM `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`](ansible/README.md) ;
 - [dashboards et vérification](platform/elk/dashboards/README.md).
 
 La [rétention des signaux et des logs](platform/elk/retention/README.md) décrit

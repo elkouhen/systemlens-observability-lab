@@ -6,7 +6,7 @@
   vars:
     poc_ip: 192.168.33.10
     otel_backend_ip: 192.168.33.20
-    edge_ip: 192.168.33.30
+    otel_edge_ip: 192.168.33.30
     elk_ip: 192.168.33.40
     postgresql_database: observability_test
     postgresql_user: observability
@@ -20,7 +20,7 @@
     otel_elasticsearch_api_key: ""
     fleet_enrollment_token: ""
     zscaler_ca_cert_content: ""
-    fleet_url: "http://{{ edge_ip }}:8220"
+    fleet_url: "http://{{ otel_edge_ip }}:8220"
 
   roles:
     - role: common
@@ -30,7 +30,7 @@
       when: node_role == 'poc'
     - role: otel_backend
       when: node_role == 'otel_backend'
-    - role: edge
-      when: node_role == 'edge'
+    - role: otel_edge
+      when: node_role == 'otel_edge'
     - role: elk
       when: node_role == 'elk'

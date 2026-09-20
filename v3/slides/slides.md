@@ -64,7 +64,7 @@ flowchart LR
     APP[Applications Java\norder · inventory · restock]
     KCOL[Collectors EDOT\nDaemonSet + scraper Prometheus]
   end
-  EDGE[edge-01\nHAProxy / point d'entrée]
+  EDGE[otel-edge-01\nHAProxy / point d'entrée]
   BACK[otel-backend-01\nGateway OTLP + exporteur Kafka]
   DATA[poc-01\nKafka · MongoDB · PostgreSQL]
   ELK[elk-01\nElasticsearch · Kibana · Fleet Server]
@@ -85,7 +85,7 @@ flowchart LR
   class EDGE,BACK,DATA,ELK,FLEET vm
 ```
 
-<div class="text-sm opacity-70 mt-4">edge-01 est le seul point d’entrée exposé ; elk-01 porte le stockage et la consultation.</div>
+<div class="text-sm opacity-70 mt-4">otel-edge-01 est le seul point d’entrée exposé ; elk-01 porte le stockage et la consultation.</div>
 
 ---
 
@@ -94,7 +94,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   participant J as Service Java
-  participant E as edge-01
+  participant E as otel-edge-01
   participant G as Gateway EDOT
   participant K as Kafka
   participant X as Exporteur EDOT
@@ -121,7 +121,7 @@ flowchart LR
   PODS[stdout des pods Java\nJSON ECS] --> D[EDOT DaemonSet]
   HOST[hostmetrics\nlogs pods · k8sattributes] --> D
   ACT[Actuator /prometheus\norder · inventory · restock] --> S[EDOT scraper]
-  D -->|OTLP| EDGE[edge-01]
+  D -->|OTLP| EDGE[otel-edge-01]
   S -->|OTLP| EDGE
   EDGE --> G[Gateway EDOT]
   G --> L[Kafka otel-logs]
@@ -143,7 +143,7 @@ flowchart LR
   subgraph VM[VM observées]
     D[data-01\nKafka · MongoDB · PostgreSQL]
     B[otel-backend-01]
-    E[edge-01]
+    E[otel-edge-01]
   end
   F[Fleet Server\nelk-01]
   A[Elastic Agent\npolicy data-fleet]
@@ -237,7 +237,7 @@ endpoints OTLP joignables et données visibles dans Kibana.
 
 <div class="text-2xl leading-relaxed mt-8">
 
-1. **Un point d’entrée** : `edge-01` simplifie l’exposition OTLP et TLS.
+1. **Un point d’entrée** : `otel-edge-01` simplifie l’exposition OTLP et TLS.
 2. **Un buffer ciblé** : Kafka découple les signaux du cluster.
 3. **Une gestion VM native Elastic** : Fleet centralise les agents et les intégrations.
 4. **Une destination commune** : Elasticsearch et Kibana corrèlent traces, logs et métriques.

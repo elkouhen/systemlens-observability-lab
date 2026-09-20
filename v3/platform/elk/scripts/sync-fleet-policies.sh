@@ -12,7 +12,7 @@ elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:
 : "${ELASTICSEARCH_PASSWORD:?Definir ELASTICSEARCH_PASSWORD avant de synchroniser les pipelines}"
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
-fleet_nodes=(poc-01 otel-backend-01 edge-01)
+fleet_nodes=(poc-01 otel-backend-01 otel-edge-01)
 
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.observability.test:9200:192.168.33.40

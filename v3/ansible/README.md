@@ -2,7 +2,7 @@
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
 La v3 crée quatre VM séparées : `poc-01` pour MongoDB, Kafka et PostgreSQL,
-`otel-backend-01` pour les collecteurs EDOT, `edge-01` pour HAProxy et
+`otel-backend-01` pour les collecteurs EDOT, `otel-edge-01` pour HAProxy et
 `elk-01` pour Elasticsearch, Kibana et Fleet Server.
 Chaque VM reçoit un Elastic Agent enrôlé dans Fleet. La policy collecte
 les logs, métriques système et intégrations Kafka, MongoDB et PostgreSQL, puis
@@ -26,7 +26,7 @@ plateforme. Les données Kafka sont conservées dans le volume Podman
 | --- | --- | --- |
 | `poc-01` | MongoDB, Kafka, PostgreSQL | Middlewares du scénario applicatif |
 | `otel-backend-01` | Gateway EDOT ; exporteur Kafka EDOT | OTLP Kubernetes → Kafka `poc-01` → APM Server / Elasticsearch |
-| `edge-01` | HAProxy | Point d’entrée OTLP, Kibana, Elasticsearch et Fleet |
+| `otel-edge-01` | HAProxy | Point d’entrée OTLP, Kibana, Elasticsearch et Fleet |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 
 ## Ordre de lecture
@@ -46,7 +46,7 @@ Le playbook `site.yml` applique les rôles dans cet ordre :
 1. `common` : prérequis système, réseau, pare-feu, SELinux, répertoires et
    résolution des noms des VM ;
 2. `elastic_agent` : téléchargement et enrôlement Fleet de l'agent local ;
-3. un rôle de service selon `node_role` : `poc`, `otel_backend`, `edge` ou
+3. un rôle de service selon `node_role` : `poc`, `otel_backend`, `otel_edge` ou
    `elk`.
 
 `site-restructured.yml` est conservé comme alias de compatibilité et importe

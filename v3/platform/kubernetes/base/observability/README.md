@@ -1,7 +1,7 @@
 # Observabilité Kubernetes : base
 
 Les manifests de ce dossier constituent la base de la couche d'observabilité Kubernetes.
-Ils routent les URL publiques vers le stack Elastic de `elk-01` via `edge-01` et déploient
+Ils routent les URL publiques vers le stack Elastic de `elk-01` via `otel-edge-01` et déploient
 les collecteurs OTel dans Kubernetes.
 
 ## Lire les manifests dans cet ordre

@@ -1,5 +1,5 @@
 ---
-- name: Déployer le frontal edge
+- name: Déployer le frontal otel-edge
   ansible.builtin.template:
     src: "{{ role_path }}/templates/haproxy.cfg.j2"
     dest: /etc/haproxy/haproxy.cfg
@@ -22,12 +22,12 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
-- name: Démarrer HAProxy edge
+- name: Démarrer HAProxy otel-edge
   ansible.builtin.systemd_service:
     name: haproxy.service
     enabled: true
     state: restarted
 
-- name: Vérifier la configuration HAProxy edge
+- name: Vérifier la configuration HAProxy otel-edge
   ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
   changed_when: false

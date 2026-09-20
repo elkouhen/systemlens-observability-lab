@@ -1,6 +1,6 @@
 # Inventaire Ansible
 
-`vagrant.yml` décrit `poc-01`, `otel-backend-01`, `edge-01` et `elk-01`.
+`vagrant.yml` décrit `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`.
 Les commandes Ansible ciblent les quatre VM ;
 les cibles Make spécialisées indiquent la VM concernée.
 

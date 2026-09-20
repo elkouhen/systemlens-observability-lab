@@ -41,7 +41,7 @@
     - fleet_enrollment_token | length > 0
     - not enrolled_agent.stat.exists or reinstall_fleet_agent
 
-- name: Enrôler la VM dans Fleet via l'edge
+- name: Enrôler la VM dans Fleet via l'otel-edge
   ansible.builtin.command:
     argv:
       - "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent"

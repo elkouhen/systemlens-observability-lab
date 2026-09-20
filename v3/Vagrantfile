@@ -7,7 +7,7 @@ abort("La v3 utilise uniquement le profil minimal") unless ENV.fetch("DEPLOYMENT
 NODES = [
   { name: "poc-01", id: 1, ip: "192.168.33.10", role: :poc, memory: 3072 },
   { name: "otel-backend-01", id: 2, ip: "192.168.33.20", role: :otel_backend, memory: 3072 },
-  { name: "edge-01", id: 3, ip: "192.168.33.30", role: :edge, memory: 2048 },
+  { name: "otel-edge-01", id: 3, ip: "192.168.33.30", role: :otel_edge, memory: 2048 },
   { name: "elk-01", id: 4, ip: "192.168.33.40", role: :elk, memory: 6144 }
 ].freeze
 
@@ -41,8 +41,8 @@ Vagrant.configure("2") do |config|
       if node_config[:role] == :poc
         # Les middlewares sont accessibles par le réseau privé VirtualBox.
       end
-      if node_config[:role] == :edge
-        # L'edge est atteint par son adresse privée depuis les VM et Kubernetes.
+      if node_config[:role] == :otel_edge
+        # L'otel-edge est atteint par son adresse privée depuis les VM et Kubernetes.
       end
 
       node.vm.provider "virtualbox" do |vb|

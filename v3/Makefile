@@ -306,7 +306,7 @@ slides: ## Démarrer le support Slidev de l'architecture v3
 
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up poc-01 otel-backend-01 edge-01 elk-01 --provision; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up poc-01 otel-backend-01 otel-edge-01 elk-01 --provision; \
 	$(MAKE) elk-deploy; \
 	$(MAKE) fleet-vms-provision; \
 	$(MAKE) apps-build; \
@@ -360,8 +360,8 @@ otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01
 
-otel-gateway-vm-status: ## Vérifier HAProxy edge et le Gateway OTLP backend
-	@$(VAGRANT) ssh edge-01 -c 'sudo systemctl is-active haproxy && sudo test -S /run/haproxy/admin.sock'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-gateway && curl --fail --silent http://127.0.0.1:13133/'
+otel-gateway-vm-status: ## Vérifier HAProxy otel-edge et le Gateway OTLP backend
+	@$(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo test -S /run/haproxy/admin.sock'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-gateway && curl --fail --silent http://127.0.0.1:13133/'
 
 otel-gateway-kubernetes-bascule: ## Déployer le Gateway OTLP et les applications dans Kubernetes
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
