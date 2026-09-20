@@ -11,6 +11,14 @@ une rupture de stock (`OutOfStockException`, HTTP 409). Lire
 `src/main/resources/application.yml` avant les classes du package `inventory`
 pour comprendre les adresses de connexion et le nom du consumer group.
 
+Le schéma PostgreSQL est créé au démarrage par Flyway dans
+`src/main/resources/db/migration/V1__create_inventory_schema.sql`. Hibernate est
+en mode `validate` : il vérifie que les tables `products` et `stock_movements`
+correspondent à la migration sans modifier le schéma. Sur une base existante
+sans historique Flyway, `baseline-on-migrate` l'enregistre au niveau `0` afin de
+préserver les données déjà présentes ; une base vierge exécute la migration
+`V1` automatiquement.
+
 L'agent Java Elastic APM, défini dans le Dockerfile parent, produit les traces
 des interactions Kafka, MongoDB et PostgreSQL sans modifier le code de ce module.
 Les transactions Kafka sont exposées directement avec le type `messaging` dans
