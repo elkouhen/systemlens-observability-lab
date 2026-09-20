@@ -23,3 +23,12 @@ xpack.fleet.packages:
     version: 1.20.4
   - name: kubernetes
     version: 1.27.1
+  # Ces packages fournissent les assets Fleet et les dashboards des VM
+  # observées par la policy data-fleet. Les package policies sont ensuite
+  # réconciliées par bootstrap-fleet-policies.sh.
+  - name: kafka
+    version: 1.3.0
+  - name: mongodb
+    version: 1.5.0
+  - name: postgresql
+    version: 1.5.0

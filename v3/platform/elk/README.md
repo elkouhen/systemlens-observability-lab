@@ -65,8 +65,11 @@ la volumétrie du POC sans modifier le chemin de collecte.
 Pour migrer l'exporteur depuis Kubernetes, exécuter
 `make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
 
-`make kibana-fleet-config-deploy` réconcilie la policy `data-fleet` et les
-package policies des intégrations système, MongoDB, Kafka et PostgreSQL.
+La configuration Kibana Quadlet installe les packages Fleet `system`,
+`kubernetes`, `mongodb`, `kafka` et `postgresql`, puis la cible
+`make kibana-fleet-config-deploy` réconcilie la policy `data-fleet` et leurs
+package policies. Cette séparation garantit que les dashboards livrés par les
+packages existent avant l'enrôlement des Agents.
 Les données Elasticsearch ne sont pas copiées par Ansible : restaurer un
 snapshot ou réindexer les données sur la nouvelle VM avant de considérer la
 migration terminée.

@@ -17,6 +17,13 @@ En v3, les applications utilisent l'agent Java OpenTelemetry injecté par leur
 manifest Kubernetes pour les traces et Micrometer OTLP pour leurs métriques ;
 les deux signaux sont envoyés au Service `otel-gateway` dans `elastic-stack`.
 Le scraping Prometheus n'est plus utilisé pour les métriques applicatives.
+Le DaemonSet utilise `kubeletstats` pour publier les métriques des nœuds, pods,
+conteneurs et volumes. Un Deployment séparé utilise `k8s_cluster` pour publier
+l'état agrégé du cluster et des workloads ; `k8sattributes` ne fait que
+l'enrichissement des ressources et ne remplace pas ces collectes.
+Dans Kibana, utiliser les dashboards `[Kubernetes OTel]` installés par le
+package Kubernetes ; les vues `[Metrics Kubernetes]` correspondent à une autre
+intégration et ne lisent pas ce schéma OTLP.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet puis envoyés au Gateway Kubernetes. Les trois flux sont mis en tampon dans Kafka puis
 consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM ne passent pas par

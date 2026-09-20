@@ -13,7 +13,7 @@ produits par la collecte v3.
 | Besoin | Dashboard Kibana | Jeux de données attendus | Indicateurs à suivre |
 | --- | --- | --- | --- |
 | Santé des hôtes | **[Metrics System] Overview** | `metrics-hostmetricsreceiver-*` | CPU, charge, mémoire, filesystem, réseau, erreurs réseau et processus. |
-| Santé du cluster | **[Metrics Kubernetes] Cluster Overview**, **Nodes**, **Deployments**, **Pods** | `kubernetes.container`, `kubernetes.pod`, `kubernetes.state_*` | CPU/mémoire par pod et nœud, pods non prêts, redémarrages, réplicas souhaités/disponibles, capacité des volumes. |
+| Santé du cluster | **[Kubernetes OTel] Overview**, **Nodes**, **Workloads**, **Pods** | `kubeletstatsreceiver.otel`, `k8sclusterreceiver.otel` | CPU/mémoire par pod et nœud, état du cluster, déploiements, conteneurs, volumes et capacité observée par `kubeletstats`/`k8s_cluster`. |
 | Brokers et consommateurs | **[Metrics Kafka] Overview** | `metrics-kafka-*` | Brokers, partitions, réplication, lag et consumer groups. |
 | Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb-*` | Réplication, connexions, opérations, stockage et latence. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql-*` | Sessions, taille, cache, checkpoints et requêtes. |
@@ -24,6 +24,11 @@ produits par la collecte v3.
 | Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-prometheusreceiver.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
 
 Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
+
+Les métriques OTel Kubernetes sont consultables dans les dashboards **[Kubernetes OTel]**
+installés par le package `kubernetes`. Les dashboards classiques **[Metrics Kubernetes]**
+attendent le schéma de l’Elastic Agent Kubernetes autonome et ne sont pas alimentés par
+le flux `kubeletstats` de cette architecture.
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.

@@ -17,7 +17,8 @@ response="$(curl --fail --silent --show-error --insecure \
   --data "{\"size\":10000,\"query\":{\"bool\":{\"filter\":[{\"term\":{\"data_stream.type\":\"metrics\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}}]}},\"_source\":[\"data_stream.dataset\",\"metrics\"],\"aggs\":{\"datasets\":{\"terms\":{\"field\":\"data_stream.dataset\",\"size\":100}}}}")"
 
 expected_datasets=(
-  hostmetricsreceiver.otel service_transaction.1m.otel
+  hostmetricsreceiver.otel kubeletstatsreceiver.otel k8sclusterreceiver.otel generic.otel
+  apm.service_transaction.1m
   system.cpu system.memory system.filesystem system.network
   kafka.broker kafka.partition kafka.consumergroup
   mongodb.status mongodb.metrics mongodb.dbstats
