@@ -18,7 +18,8 @@ manifest Kubernetes pour les traces et Micrometer OTLP pour leurs métriques ;
 les deux signaux sont envoyés au Service `otel-gateway` dans `elastic-stack`.
 Le scraping Prometheus n'est plus utilisé pour les métriques applicatives.
 Le DaemonSet utilise `kubeletstats` pour publier les métriques des nœuds, pods,
-conteneurs et volumes. Un Deployment séparé utilise `k8s_cluster` pour publier
+conteneurs et volumes ; il associe aussi `host.name` au nom du nœud pour
+permettre la corrélation avec l’infrastructure APM. Un Deployment séparé utilise `k8s_cluster` pour publier
 l'état agrégé du cluster et des workloads, ainsi que les ressources CPU et
 mémoire allocatables utilisées par les dashboards `[Kubernetes OTel]` ;
 `k8sattributes` ne fait que

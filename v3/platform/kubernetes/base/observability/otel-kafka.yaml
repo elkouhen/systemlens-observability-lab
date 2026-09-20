@@ -239,6 +239,9 @@ data:
           - key: k8s.cluster.name
             value: ${env:K8S_CLUSTER_NAME}
             action: upsert
+          - key: host.name
+            value: ${env:K8S_NODE_NAME}
+            action: upsert
     exporters:
       otlphttp/gateway:
         endpoint: http://otel-gateway.elastic-stack.svc.cluster.local:4318
