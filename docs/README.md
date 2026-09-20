@@ -7,35 +7,22 @@ modification.
 
 Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
 
-## Comprendre les variantes
+## Comprendre l'architecture
 
-- [`v1-v2-en-bref.md`](v1-v2-en-bref.md) : orientation rapide et choix d'une
-  version.
-- [`architecture-v1-v2-differences.md`](architecture-v1-v2-differences.md) :
-  comparaison historique des différences v1/v2.
-- [`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md) : architecture v3
-  hybride avec Fleet pour les VM.
+- [`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md) : architectures
+  disponibles et flux de la v3 hybride avec Fleet pour les VM.
 - [`gestion-du-debit-observabilite.md`](gestion-du-debit-observabilite.md) :
   rate limiting, sampling, backpressure et quotas par type de flux.
 - [`briques-remontee-telemetrie.md`](briques-remontee-telemetrie.md) : briques,
   entrées, sorties et gestion de la pression pour les logs, traces et métriques.
-- [`observability-flows-v1-v2.md`](observability-flows-v1-v2.md) : schémas
-  historiques détaillés des flux v1/v2.
 
 ## Référence spécialisée
 
-- [`apm-application-kubernetes.md`](apm-application-kubernetes.md) : APM de la
-  v1 côté applications Java et Kubernetes.
 - [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
   instrumentation des clients Kafka/MongoDB et métriques Actuator.
-- [`prd-observabilite-elk.md`](prd-observabilite-elk.md) : objectifs,
-  périmètre et critères d'acceptation du POC.
 
-## Revue du dépôt
+## Outils du dépôt
 
-- [`diff-code-v1-v2.md`](diff-code-v1-v2.md) : différences de code et
-  priorités de mutualisation. Ce document ne remplace pas le comparatif
-  fonctionnel.
 - [`agent-package-manager.md`](agent-package-manager.md) : installation et
   contrôle du contexte d'agents avec Microsoft APM.
 

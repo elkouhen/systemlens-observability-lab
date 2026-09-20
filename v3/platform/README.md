@@ -15,8 +15,9 @@ routage TLS Traefik.
    bout en bout, puis `elk/fleet/`.
 3. Consulter les scripts et dashboards une fois le déploiement compris.
 
-Pour les impacts et les contrôles APM communs aux applications et à
-Kubernetes, consulter le [guide APM applications et Kubernetes](../../docs/apm-application-kubernetes.md).
+Pour les flux APM et les contrôles communs aux applications et à Kubernetes,
+consulter la [référence des architectures](../../docs/architecture-v1-v2-v3.md)
+et le [guide de déploiement](../../docs/deploiement-et-exploitation.md).
 
 ## Licence Elastic
 
