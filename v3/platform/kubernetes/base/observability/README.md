@@ -19,7 +19,9 @@ les deux signaux sont envoyés au Service `otel-gateway` dans `elastic-stack`.
 Le scraping Prometheus n'est plus utilisé pour les métriques applicatives.
 Le DaemonSet utilise `kubeletstats` pour publier les métriques des nœuds, pods,
 conteneurs et volumes. Un Deployment séparé utilise `k8s_cluster` pour publier
-l'état agrégé du cluster et des workloads ; `k8sattributes` ne fait que
+l'état agrégé du cluster et des workloads, ainsi que les ressources CPU et
+mémoire allocatables utilisées par les dashboards `[Kubernetes OTel]` ;
+`k8sattributes` ne fait que
 l'enrichissement des ressources et ne remplace pas ces collectes.
 Dans Kibana, utiliser les dashboards `[Kubernetes OTel]` installés par le
 package Kubernetes ; les vues `[Metrics Kubernetes]` correspondent à une autre

@@ -42,6 +42,7 @@ rules:
     resources:
       - namespaces
       - nodes
+      - nodes/spec
       - pods
       - replicationcontrollers
       - resourcequotas
@@ -273,6 +274,9 @@ data:
       k8s_cluster:
         auth_type: serviceAccount
         collection_interval: 30s
+        # Requis par les dashboards [Kubernetes OTel] pour calculer la
+        # saturation CPU et mémoire des nœuds.
+        allocatable_types_to_report: [cpu, memory]
     processors:
       memory_limiter:
         check_interval: 1s
