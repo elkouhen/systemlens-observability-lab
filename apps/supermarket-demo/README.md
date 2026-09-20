@@ -21,6 +21,11 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
   `inventory-service` après une réservation qui épuise le stock. Il publie une
   demande de 500 unités sur `supermarket.stock.restock-requested`, consommée
   par `inventory-service`, seul propriétaire du catalogue PostgreSQL.
+- Pour les commandes en ligne, `restock-service` consomme aussi
+  `supermarket.order.placed` avec un groupe Kafka indépendant afin d'observer
+  la demande sans réserver ni modifier le stock. Le flux produit ainsi le
+  fan-out `order-service → inventory-service` et `order-service →
+  restock-service`, visible dans APM/Kibana.
 - `GET /api/error` sur `order-service` déclenche volontairement une commande
   dont la quantité dépasse toujours le stock disponible, pour observer la
   propagation d'une erreur métier (rupture de stock) entre les deux services.
@@ -30,7 +35,7 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 1. `pom.xml` : agrégateur Maven et versions communes.
 2. `Dockerfile` : build multi-stage, avec les agents Java Elastic APM et
    OpenTelemetry intégrés dans les trois images de service.
-3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patches v1/v2/v3
+3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patch v3
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même
@@ -75,7 +80,7 @@ Micrometer de Spring Boot, distinct de l'agent Java.
 
 Le tag des images Docker (`order-service:1.1.2` / `inventory-service:1.1.2` /
 `restock-service:1.1.2`,
-fixé dans `Makefile` et les manifests Kubernetes de `v1/` ou `v2/`) est géré indépendamment
+fixé dans `Makefile` et le manifest Kubernetes de `v3/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag

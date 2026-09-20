@@ -29,11 +29,11 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help architecture-switch architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
-	observability-policies-validate observability-policies-deploy \
+	observability-policies-validate observability-policies-deploy ansible-deploy \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation kubernetes-observability-deploy \
 	deploy elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-verify apm-report-api-key-create \
+	dashboards-verify kubernetes-otel-dashboards-deploy kubernetes-otel-dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
@@ -47,10 +47,11 @@ help: ## Afficher les tâches disponibles
 architecture-status: ## Afficher l'architecture sélectionnée
 	@printf 'ARCH_VERSION=%s\nARCH_NAME=%s\nELASTIC_STACK_VERSION=%s\nARCH_ROOT=%s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)' '$(ELASTIC_STACK_VERSION)' '$(ARCH_ROOT)'
 
-architecture-switch: ## Sélectionner une architecture persistante (VERSION=v1|v2|v3)
-	@test '$(VERSION)' = v1 -o '$(VERSION)' = v2 -o '$(VERSION)' = v3 || { echo 'VERSION doit valoir v1, v2 ou v3' >&2; exit 1; }
+
+architecture-switch: ## Vérifier l'architecture persistante (VERSION=v3)
+	@test '$(VERSION)' = v3 || { echo 'VERSION doit valoir v3' >&2; exit 1; }
 	@printf '%s\n' '$(VERSION)' > .architecture-version
-	@echo "Architecture sélectionnée : $(VERSION)"
+	@echo 'Architecture sélectionnée : v3'
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh\n'
@@ -133,10 +134,17 @@ kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 
 kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarative
 	@if test '$(SKIP_KUBERNETES_APPLY)' != 1; then $(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local; fi
+	@$(MAKE) kibana-ready
 	@kibana_password="$${KIBANA_PASSWORD:-password}"; \
 	 postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
 	 test -n "$$kibana_password" && test -n "$$postgresql_password" || { echo 'Identifiants Kibana/PostgreSQL absents' >&2; exit 1; }; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh; \
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kubernetes-otel-dashboards.sh
+
+kubernetes-otel-dashboards-deploy: ## Réconcilier les dashboards Kubernetes OTel du package Fleet
+	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kubernetes-otel-dashboards.sh
 
 elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk-01 via Quadlet
 	@password="$${ELASTIC_PASSWORD:-password}"; \
@@ -290,6 +298,10 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
+
+ansible-deploy: ## Déployer toute l'architecture v3 via un seul orchestrateur Ansible
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
 otel-validation: ## Valider OTLP (VALIDATION_TAGS=host|direct ; vide = les deux)
 	@inventory="$${INVENTORY:-validation/otel/inventory/hosts.yml}"; \
@@ -379,7 +391,14 @@ dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboar
 	@es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la stack v3 Quadlet.' >&2; exit 1; }; \
 	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/verify-dashboard-data.sh
+		./$(ARCH_ROOT)/platform/elk/scripts/verify-dashboard-data.sh; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$es_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/verify-kubernetes-otel-dashboards.sh
+
+kubernetes-otel-dashboards-verify: ## Vérifier les requêtes des dashboards Kubernetes OTel
+	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-kubernetes-otel-dashboards.sh
 
 ##@ Identifiants et clés d'accès
 

@@ -230,7 +230,7 @@ son action de dépassement, sa métrique de saturation et sa procédure de retou
 ## Mise en œuvre dans ce dépôt
 
 Les réglages actuels fournissent déjà du batch, de la protection mémoire et du
-buffering pour les flux EDOT v2/v3. Ils ne définissent pas encore de quotas
+buffering pour les flux EDOT v3. Ils ne définissent pas encore de quotas
 numériques par source. Avant de fixer ces quotas :
 
 1. mesurer le débit réel avec `make dashboards-verify` et les métriques des

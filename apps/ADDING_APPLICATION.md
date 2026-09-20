@@ -1,24 +1,19 @@
 # Ajouter une application Java observée
 
-Ce guide décrit le raccordement à la chaîne d'observabilité v1 (Elastic APM,
-Elastic Agent et Logstash). Pour la v2, conserver le socle applicatif commun
-et ajouter le patch d'instrumentation OTel décrit dans
-`kubernetes/apps/supermarket-demo/v2/otel-instrumentation.yaml` ; consulter le
-[comparatif des architectures](../docs/architecture-v1-v2-v3.md) avant toute
-extension.
+Ce guide décrit le raccordement à la chaîne d'observabilité v3. Conserver le
+socle applicatif commun et ajouter le patch d'instrumentation OTel décrit dans
+`kubernetes/apps/supermarket-demo/v3/otel-instrumentation.yaml`.
 
 Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
 d'observabilité du POC. Le chemin des signaux est le suivant :
 
 ```text
-application Java → agent Java Elastic APM → APM Server → Logstash → Elasticsearch
-logs stdout ECS → Elastic Agent Kubernetes → Logstash → Elasticsearch
+application Java → agent Java OTel → Gateway EDOT → Kafka → Elasticsearch
+logs stdout ECS → EDOT DaemonSet → Kafka → Elasticsearch
 ```
 
-L'agent Java Elastic APM produit les traces, erreurs et métriques applicatives.
-L'Elastic Agent Kubernetes collecte exclusivement les logs stdout ECS. Logstash
-centralise ensuite la normalisation de l'environnement et le routage des seules
-métriques APM Java.
+L'agent Java OTel produit les traces applicatives. Le Gateway et le Collector
+backend centralisent ensuite la normalisation et le routage des signaux.
 
 ## Préparer l'application
 
@@ -116,9 +111,9 @@ logs-kube-0tl-homologation
 L'Agent Kubernetes actuel cible les fichiers des pods du namespace
 `h0tl-supermarche-app`. Pour une application dans un autre namespace, élargir de
 façon explicite le chemin `paths` dans
-`v1/platform/kubernetes/base/observability/kubernetes-logs-agent.yaml`, ou ajouter
+`v3/platform/kubernetes/base/observability/otel-kafka.yaml`, ou ajouter
 un stream dédié. Appliquer ensuite `make kubernetes-validate`, puis
-`make apm-logstash-deploy`.
+`make otel-validation`.
 
 ## Vérifier le résultat
 

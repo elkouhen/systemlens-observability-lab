@@ -3,7 +3,7 @@ certs/*
 .vagrant
 */.vagrant
 
-# Sélection locale de l'architecture déployée (v1 par défaut).
+# Sélection locale de l'architecture déployée (v3).
 .architecture-version
 */.architecture-version
 

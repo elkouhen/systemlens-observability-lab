@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architecture-version || echo v1)
-ARCH_NAME := $(if $(filter v1,$(ARCH_VERSION)),Elastic classique,$(if $(filter v2,$(ARCH_VERSION)),OpenTelemetry + Kafka,$(if $(filter v3,$(ARCH_VERSION)),Hybride Fleet,inconnue)))
+ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architecture-version || echo v3)
+ARCH_NAME := Hybride Fleet
 SYSTEMLENS ?= systemlens
 VAGRANT ?= vagrant
 
@@ -10,9 +10,8 @@ VAGRANT ?= vagrant
 
 help: ## Afficher les tâches de l'architecture sélectionnée
 	@printf 'Architecture active : %s — %s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)'
-	@printf 'Usage : make <cible> [VERSION=v1|v2|v3]\n'
-	@printf '  architecture-switch  Sélectionner v1, v2 ou v3\n'
-	@printf '  architecture-list    Lister les architectures disponibles\n'
+	@printf 'Usage : make <cible>\n'
+	@printf '  architecture-list    Afficher l\x27architecture disponible\n'
 	@printf '  architecture-status  Afficher la version active\n'
 	@printf '  apps-architecture-graph  Indexer les sources Java et générer le graphe SystemLens\n'
 	@printf '  apps-codeql-module-graph Analyser les dépendances de modules Java et actualiser le graphe\n'
@@ -26,12 +25,7 @@ architecture-status: ## Afficher la version active
 	@$(MAKE) -C $(ARCH_VERSION) architecture-status
 
 architecture-list: ## Lister les architectures disponibles
-	@active='$(ARCH_VERSION)'; \
-	for entry in 'v1|Elastic classique' 'v2|OpenTelemetry + Kafka' 'v3|Hybride Fleet'; do \
-	  version="$${entry%%|*}"; name="$${entry#*|}"; marker=' '; \
-	  test "$$version" = "$$active" && marker='*'; \
-	  printf '%s %s — %s\n' "$$marker" "$$version" "$$name"; \
-	done
+	@printf '* v3 — Hybride Fleet\n'
 
 apps-architecture-graph: ## Indexer les sources Java et générer le graphe SystemLens
 	@command -v '$(SYSTEMLENS)' >/dev/null 2>&1 || { echo 'SystemLens absent : installez une version compatible avec import-facts.' >&2; exit 1; }
@@ -65,11 +59,11 @@ vagrant-destroy: ## Détruire les VM de l’architecture active
 ci: ## Exécuter les validations de l'architecture sélectionnée
 	@$(MAKE) -C $(ARCH_VERSION) ci
 
-architecture-switch: ## Sélectionner une architecture persistante (VERSION=v1|v2|v3)
-	@test '$(VERSION)' = v1 -o '$(VERSION)' = v2 -o '$(VERSION)' = v3 || { echo 'VERSION doit valoir v1, v2 ou v3' >&2; exit 1; }
-	@printf '%s\n' '$(VERSION)' > .architecture-version
-	@echo "Architecture sélectionnée : $(VERSION)"
+architecture-switch: ## Vérifier l'architecture persistante (VERSION=v3)
+	@test '$(VERSION)' = v3 || { echo 'VERSION doit valoir v3' >&2; exit 1; }
+	@printf '%s\n' 'v3' > .architecture-version
+	@echo 'Architecture sélectionnée : v3'
 
 %:
-	@case '$(ARCH_VERSION)' in v1|v2|v3) ;; *) echo 'ARCH_VERSION doit valoir v1, v2 ou v3' >&2; exit 1;; esac
+	@case '$(ARCH_VERSION)' in v3) ;; *) echo 'ARCH_VERSION doit valoir v3' >&2; exit 1;; esac
 	@$(MAKE) -C $(ARCH_VERSION) '$@'

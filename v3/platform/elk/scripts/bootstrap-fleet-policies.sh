@@ -47,6 +47,30 @@ ensure_agent_policy data-fleet \
 ensure_agent_policy otel-fleet \
   '{"name":"OTel — Elastic Agent","namespace":"default","monitoring_enabled":["logs","metrics"]}'
 
+# Un redémarrage ou une réinitialisation historique du Fleet Server peut
+# laisser plusieurs enregistrements actifs pour le même hôte. L'architecture
+# v3 n'en déploie qu'un seul : conserver celui qui a le dernier check-in et
+# retirer uniquement les doublons de la policy Fleet Server.
+fleet_server_agents="$(curl "${curl_args[@]}" \
+  "${kibana_url}/api/fleet/agents?perPage=1000")"
+duplicate_fleet_server_ids="$(jq -r '
+  .items
+  | map(select(.policy_id == "eck-fleet-server" and .active == true))
+  | group_by(.local_metadata.host.hostname)[]
+  | sort_by(.last_checkin // "")
+  | reverse
+  | .[1:]
+  | .[].id
+' <<<"${fleet_server_agents}")"
+while IFS= read -r duplicate_id; do
+  [[ -n "${duplicate_id}" ]] || continue
+  curl "${curl_args[@]}" -X POST \
+    "${kibana_url}/api/fleet/agents/${duplicate_id}/unenroll" >/dev/null
+  curl "${curl_args[@]}" -X DELETE \
+    "${kibana_url}/api/fleet/agents/${duplicate_id}" >/dev/null
+  printf 'Ancien Fleet Server supprimé : %s\n' "${duplicate_id}"
+done <<<"${duplicate_fleet_server_ids}"
+
 # Fleet Server reste en attente tant que sa policy ne possède pas au moins une
 # clé d'enrôlement active. Créer cette clé une seule fois permet au Quadlet de
 # démarrer correctement après une réinstallation ou une nouvelle VM.
@@ -63,8 +87,8 @@ put_policy system-poc-01 "$(jq -n '{name:"system-poc-01",namespace:"default",pol
 put_policy system-otel-backend-01 "$(jq -n '{name:"system-otel-backend-01",namespace:"default",policy_id:"otel-fleet",condition:"host.name == '\''otel-backend-01'\''",package:{name:"system",version:"1.20.4"},inputs:{"system-system/metrics":{enabled:true}}}')"
 put_policy system-otel-edge-01 "$(jq -n '{name:"system-otel-edge-01",namespace:"default",policy_id:"otel-fleet",condition:"host.name == '\''otel-edge-01'\''",package:{name:"system",version:"1.20.4"},inputs:{"system-system/metrics":{enabled:true}}}')"
 put_policy system-elk-01 "$(jq -n '{name:"system-elk-01",namespace:"default",policy_id:"otel-fleet",condition:"host.name == '\''elk-01'\''",package:{name:"system",version:"1.20.4"},inputs:{"system-system/metrics":{enabled:true}}}')"
-put_policy mongodb-poc-01 "$(jq -n '{name:"mongodb-poc-01",namespace:"default",policy_id:"data-fleet",condition:"${host.name} == '\''poc-01'\''",package:{name:"mongodb",version:"1.5.0"},inputs:{"mongodb-mongodb/metrics":{enabled:true,streams:{"mongodb.replstatus":{enabled:false}},vars:{hosts:["mongodb://127.0.0.1:27017"]}}}}')"
-put_policy kafka-poc-01 "$(jq -n '{name:"kafka-poc-01",namespace:"default",policy_id:"data-fleet",condition:"${host.name} == '\''poc-01'\''",package:{name:"kafka",version:"1.3.0"},inputs:{"kafka-kafka/metrics":{enabled:true,vars:{hosts:["127.0.0.1:9092"]}}}}')"
-put_policy postgresql-poc-01 "$(jq -n --arg password "${POSTGRESQL_PASSWORD}" '{name:"postgresql-poc-01",namespace:"default",policy_id:"data-fleet",condition:"${host.name} == '\''poc-01'\''",package:{name:"postgresql",version:"1.5.0"},inputs:{"postgresql-postgresql/metrics":{enabled:true,streams:{"postgresql.statement":{enabled:false}},vars:{hosts:["postgres://127.0.0.1:5432/observability_test?sslmode=disable"],username:"observability",password:$password}}}}')"
+put_policy mongodb-poc-01 "$(jq -n '{name:"mongodb-poc-01",namespace:"default",policy_id:"data-fleet",condition:"${host.name} == '\''poc-01'\''",package:{name:"mongodb",version:"1.5.0"},inputs:{"mongodb-mongodb/metrics":{enabled:true,streams:{"mongodb.replstatus":{enabled:true}},vars:{hosts:["mongodb://127.0.0.1:27017"]}},"mongodb-logfile":{enabled:true,streams:{"mongodb.log":{enabled:true,vars:{paths:["/var/log/mongodb/mongod.log"]}}}}}}')"
+put_policy kafka-poc-01 "$(jq -n '{name:"kafka-poc-01",namespace:"default",policy_id:"data-fleet",condition:"${host.name} == '\''poc-01'\''",package:{name:"kafka",version:"1.3.0"},inputs:{"kafka-kafka/metrics":{enabled:true,vars:{hosts:["127.0.0.1:9092"]}},"kafka-logfile":{enabled:true,streams:{"kafka.log":{enabled:true,vars:{kafka_home:"/var/log/kafka",paths:["/controller.log*","/server.log*","/state-change.log*","/kafka-*.log*"]}}}}}}')"
+put_policy postgresql-poc-01 "$(jq -n --arg password "${POSTGRESQL_PASSWORD}" '{name:"postgresql-poc-01",namespace:"default",policy_id:"data-fleet",condition:"${host.name} == '\''poc-01'\''",package:{name:"postgresql",version:"1.5.0"},inputs:{"postgresql-postgresql/metrics":{enabled:true,streams:{"postgresql.statement":{enabled:true}},vars:{hosts:["postgres://127.0.0.1:5432/observability_test?sslmode=disable"],username:"observability",password:$password}},"postgresql-logfile":{enabled:true,streams:{"postgresql.log":{enabled:true,vars:{paths:["/var/log/postgresql/postgresql.log"]}}}}}}')"
 
 printf 'Policies Fleet v3 réconciliées\n'

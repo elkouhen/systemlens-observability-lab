@@ -6,6 +6,13 @@ publie une demande de 500 unités sur
 données : `inventory-service` reste propriétaire du catalogue PostgreSQL et
 applique la demande de réassort.
 
+Il consomme également `supermarket.order.placed` avec le groupe
+`restock-order-observer`. Cette consommation est volontairement en lecture
+seule : elle rend visible le fan-out d'une commande en ligne vers
+`inventory-service` et `restock-service` sans réserver le stock une seconde
+fois. Le compteur `business.orders.observed` et le log ECS associé permettent
+de vérifier le flux dans Kibana.
+
 Le module est instrumenté par l'agent Java Elastic APM dans le Dockerfile
 parent. Ses logs ECS sur `stdout` permettent de suivre l'épuisement et le
 réassort d'un produit dans Kibana.

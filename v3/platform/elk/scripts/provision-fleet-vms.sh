@@ -24,11 +24,23 @@ done
 
 # Le jeton ne transite que dans l'environnement du sous-processus Vagrant.
 # Le jeton ne transite jamais sur la ligne de commande ni dans le dépôt.
+fleet_agents="$(curl --fail --silent --show-error --insecure \
+  --resolve "${kibana_resolve}" \
+  -u "${kibana_user}:${KIBANA_PASSWORD}" \
+  "${kibana_url}/api/fleet/agents?perPage=1000")"
+
 for node in ${fleet_vm_nodes}; do
   if [[ "${node}" == 'poc-01' ]]; then
     policy_id='data-fleet'
   else
     policy_id='otel-fleet'
+  fi
+  existing_agent_id="$(jq -r --arg node "${node}" \
+    '.items[] | select(.local_metadata.host.hostname == $node and .active == true and .status != "uninstalled") | .id' \
+    <<<"${fleet_agents}" | head -n 1)"
+  if [[ -n "${existing_agent_id}" && "${existing_agent_id}" != 'null' ]]; then
+    printf 'Fleet agent déjà enrôlé : %s (%s), aucun reprovisionnement\n' "${node}" "${existing_agent_id}"
+    continue
   fi
   token_name="systemlens-${policy_id}-$(date +%s)"
   response="$(curl --fail --silent --show-error --insecure \

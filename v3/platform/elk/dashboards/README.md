@@ -12,11 +12,14 @@ produits par la collecte v3.
 
 | Besoin | Dashboard Kibana | Jeux de données attendus | Indicateurs à suivre |
 | --- | --- | --- | --- |
-| Santé des hôtes | **[Metrics System] Overview** | `metrics-hostmetricsreceiver-*` | CPU, charge, mémoire, filesystem, réseau, erreurs réseau et processus. |
+| Santé des hôtes | **[Metrics System] Overview** | `metrics-hostmetricsreceiver-*` | CPU (`system.cpu.utilization`), charge, mémoire (`system.memory.utilization`), filesystem, réseau, erreurs réseau et processus. |
 | Santé du cluster | **[Kubernetes OTel] Overview**, **Nodes**, **Workloads**, **Pods** | `kubeletstatsreceiver.otel`, `k8sclusterreceiver.otel` | CPU/mémoire par pod et nœud, état du cluster, déploiements, conteneurs, volumes et capacité observée par `kubeletstats`/`k8s_cluster`. |
 | Brokers et consommateurs | **[Metrics Kafka] Overview** | `metrics-kafka-*` | Brokers, partitions, réplication, lag et consumer groups. |
-| Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb-*` | Réplication, connexions, opérations, stockage et latence. |
+| Logs Kafka | **[Logs Kafka] Overview** | `logs-kafka.log-*` | Événements broker, contrôleur, changements d'état et erreurs Kafka. |
+| Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb-*` | Connexions, opérations, mémoire, cache et stockage ; les indicateurs de réplication `replstatus` nécessitent un replica set, alors que le POC utilise un MongoDB standalone. |
+| Logs MongoDB | **[Logs MongoDB] Overview** | `logs-mongodb.log-*` | Logs `mongod`, erreurs, démarrage et événements du serveur. |
 | Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql-*` | Sessions, taille, cache, checkpoints et requêtes. |
+| Logs PostgreSQL | **[Logs PostgreSQL] Overview**, **Query Duration Overview** | `logs-postgresql.log-*`, `metrics-postgresql.statement-*` | Logs PostgreSQL et durée des requêtes ; `pg_stat_statements` doit être chargé dans PostgreSQL. |
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | SLA pains achetés | **Observability > SLOs** et **Alerts and Insights > Rules** | `logs-*` | SLO à 99 % de périodes de 24 heures conformes sur 30 jours, avec au moins 10 pains `BREAD-WHOLE` achetés par période ; alerte sur les dernières 24 heures. |
@@ -26,9 +29,16 @@ produits par la collecte v3.
 Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
 
 Les métriques OTel Kubernetes sont consultables dans les dashboards **[Kubernetes OTel]**
-installés par le package `kubernetes`. Les dashboards classiques **[Metrics Kubernetes]**
+installés par le package `kubernetes_otel`. Les dashboards classiques **[Metrics Kubernetes]**
 attendent le schéma de l’Elastic Agent Kubernetes autonome et ne sont pas alimentés par
 le flux `kubeletstats` de cette architecture.
+
+Le package Fleet `kubernetes_otel` installe onze dashboards Kubernetes OTel avec des requêtes ES|QL
+embarquées. `make kibana-fleet-config-deploy` les réconcilie avec le schéma v3 :
+les panneaux de redémarrages, utilisation mémoire et utilisation des limites sont
+calculés à partir des champs réellement indexés par `kubeletstats` et `k8s_cluster`.
+La revue peut être rejouée séparément avec `make kubernetes-otel-dashboards-deploy`,
+puis contrôlée avec `make kubernetes-otel-dashboards-verify`.
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.
@@ -54,7 +64,8 @@ make dashboards-verify
 ```
 
 La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
-les métriques clés ci-dessus. Elle permet de distinguer un dashboard vide
+les métriques clés ci-dessus. Elle vérifie aussi les onze dashboards Kubernetes
+OTel et leurs références de champs. Elle permet de distinguer un dashboard vide
 d'un problème de collecte.
 
 Le dashboard versionné est supprimé puis réimporté par `make business-dashboard-deploy`

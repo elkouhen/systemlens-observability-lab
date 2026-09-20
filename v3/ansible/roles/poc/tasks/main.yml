@@ -41,6 +41,13 @@
     state: restarted
   when: poc_templates.results[1].changed
 
+- name: Redémarrer PostgreSQL après modification de sa déclaration
+  ansible.builtin.systemd_service:
+    name: observability-postgresql
+    daemon_reload: true
+    state: restarted
+  when: poc_templates.results[2].changed
+
 - name: Recharger systemd pour les unités Quadlet du POC
   ansible.builtin.systemd_service:
     daemon_reload: true
@@ -51,3 +58,19 @@
     enabled: true
     state: started
   loop: [observability-mongodb, observability-kafka, observability-postgresql]
+
+- name: Activer les statistiques PostgreSQL pour le dashboard Query Latency
+  ansible.builtin.command:
+    argv:
+      - podman
+      - exec
+      - observability-postgresql
+      - psql
+      - -U
+      - "{{ postgresql_user }}"
+      - -d
+      - "{{ postgresql_database }}"
+      - -c
+      - CREATE EXTENSION IF NOT EXISTS pg_stat_statements
+  register: pg_stat_statements_extension
+  changed_when: "'CREATE EXTENSION' in pg_stat_statements_extension.stdout"

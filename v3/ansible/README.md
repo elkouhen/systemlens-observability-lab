@@ -58,12 +58,29 @@ de Kibana. Il n'exécute que le rôle `elastic_agent`, afin que `make deploy` ne
 reprovisionne pas les middlewares et les services de chaque VM pour créer un
 nouveau jeton Fleet.
 
+Le script d'enrôlement vérifie d'abord l'inventaire Fleet et réutilise chaque
+agent actif par nom d'hôte ; il ne crée donc pas une nouvelle instance lors
+d'un second lancement. Les anciens enregistrements `uninstalled` restent
+historiques et ne correspondent pas à un service actif.
+
 Le téléchargement de l'Elastic Agent utilise un délai de 120 secondes et est
 réessayé cinq fois, avec 15 secondes entre les tentatives. Ces valeurs peuvent
 être adaptées ponctuellement avec `-e` si le réseau est particulièrement lent,
 par exemple `-e elastic_agent_download_retries=8 elastic_agent_download_delay=30`.
 
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
+
+Pour déployer toute l'architecture v3 en une seule commande, utiliser :
+
+```bash
+make ansible-deploy
+```
+
+Cette cible appelle `ansible/deploy-all.yml`. Le playbook démarre les VM sans
+provisionnement implicite, exécute `site.yml` une seule fois, applique les
+manifests Kubernetes versionnés, configure Elastic et Fleet, enrôle les VM,
+déploie l'application puis vérifie les dashboards. Les mots de passe restent
+dans `ELASTIC_PASSWORD` et `POSTGRESQL_PASSWORD` hors du dépôt.
 
 ## Documentation externe
 

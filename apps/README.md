@@ -7,15 +7,13 @@ porter la configuration de la plateforme ELK qui l'observe.
 ## Parcours conseillé
 
 Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis la base
-commune et les overlays Kubernetes sous `../kubernetes/apps/`, et enfin les
-modules Maven communs. Les overlays v1, v2 et v3 déploient le même métier avec des
-raccordements de télémétrie différents.
+commune et l'overlay v3 sous `../kubernetes/apps/`, et enfin les modules Maven
+communs. L'application est raccordée à l'architecture d'observabilité v3.
 
 Pour intégrer une nouvelle application Java dans les chaînes APM/OTel et logs
 ECS, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
 Pour vérifier l’intégration de bout en bout, consulter le
-[comparatif des architectures](../docs/architecture-v1-v2-v3.md), puis le guide
-APM correspondant à l'architecture choisie.
+guide de déploiement et d'exploitation de l'architecture v3.
 
 ## Documentation externe
 

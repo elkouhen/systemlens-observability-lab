@@ -41,6 +41,7 @@
     - {template: apm-server, unit: observability-apm-server}
     - {template: kibana, unit: observability-kibana}
     - {template: fleet-server, unit: observability-fleet-server}
+  notify: Redémarrer Fleet Server après modification de sa définition
 
 - name: Déployer la configuration APM Server
   ansible.builtin.template:
@@ -122,7 +123,12 @@
     mode: '0600'
   no_log: true
 
-- name: Réinitialiser le token service Fleet Server
+- name: Vérifier si les identifiants persistants Fleet Server existent
+  ansible.builtin.stat:
+    path: /etc/observability/fleet-server.env
+  register: fleet_server_env
+
+- name: Réinitialiser le token service Fleet Server au premier provisioning
   ansible.builtin.uri:
     url: http://127.0.0.1:9200/_security/service/elastic/fleet-server/credential/token/fleet-server
     method: DELETE
@@ -131,6 +137,7 @@
     force_basic_auth: true
     status_code: [200, 404]
   no_log: true
+  when: not fleet_server_env.stat.exists
 
 - name: Créer le token du Fleet Server
   ansible.builtin.uri:
@@ -143,8 +150,9 @@
     status_code: [200, 409]
   register: fleet_token_response
   no_log: true
+  when: not fleet_server_env.stat.exists
 
-- name: Déployer les variables Fleet Server
+- name: Déployer les variables Fleet Server au premier provisioning
   ansible.builtin.copy:
     content: |
       FLEET_SERVER_SERVICE_TOKEN={{ fleet_token_response.json.token.value | default('') }}
@@ -155,13 +163,38 @@
     dest: /etc/observability/fleet-server.env
     mode: '0600'
   no_log: true
+  when: not fleet_server_env.stat.exists
 
-- name: Démarrer Kibana et Fleet Server sur elk-01
+- name: Actualiser le mot de passe Elasticsearch Fleet Server sans changer son identité
+  ansible.builtin.lineinfile:
+    path: /etc/observability/fleet-server.env
+    regexp: '^FLEET_SERVER_ELASTICSEARCH_PASSWORD='
+    line: "FLEET_SERVER_ELASTICSEARCH_PASSWORD={{ elastic_password }}"
+  no_log: true
+  when: fleet_server_env.stat.exists
+  notify: Redémarrer Fleet Server après modification de ses identifiants
+
+- name: Actualiser le mot de passe Kibana Fleet Server sans changer son identité
+  ansible.builtin.lineinfile:
+    path: /etc/observability/fleet-server.env
+    regexp: '^KIBANA_FLEET_PASSWORD='
+    line: "KIBANA_FLEET_PASSWORD={{ elastic_password }}"
+  no_log: true
+  when: fleet_server_env.stat.exists
+  notify: Redémarrer Fleet Server après modification de ses identifiants
+
+- name: Redémarrer APM Server et Kibana sur elk-01
   ansible.builtin.systemd_service:
     name: "{{ item }}.service"
     enabled: true
     state: restarted
-  loop: [observability-apm-server, observability-kibana, observability-fleet-server]
+  loop: [observability-apm-server, observability-kibana]
+
+- name: Démarrer Fleet Server sans recréer son identité Fleet
+  ansible.builtin.systemd_service:
+    name: observability-fleet-server.service
+    enabled: true
+    state: started
 
 - name: Attendre APM Server sur elk-01
   ansible.builtin.uri:

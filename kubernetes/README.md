@@ -1,23 +1,19 @@
 # Manifests Kubernetes communs
 
-Cette arborescence contient les manifests applicatifs mutualisés entre v1 et
-v2. La base décrit les Deployments, Services, probes, ressources et namespace
+Cette arborescence contient les manifests applicatifs mutualisés et l'overlay
+v3. La base décrit les Deployments, Services, probes, ressources et namespace
 de `supermarket-demo`.
 
-Les overlays ajoutent uniquement les différences de chaque architecture :
+L'overlay conservé ajoute le raccordement à l'architecture v3 :
 
-- `apps/supermarket-demo/v1` : endpoint Kafka du chemin Beats/Logstash ;
-- `apps/supermarket-demo/v2` : endpoint Kafka et instrumentation Java OTel.
+- `apps/supermarket-demo/v3` : endpoint OTLP et instrumentation Java OTel.
 
-Les manifests de la plateforme d'observabilité restent dans `v1/platform` et
-`v2/platform`, car les chaînes de collecte sont différentes.
+Les manifests de la plateforme d'observabilité sont dans `v3/platform`.
 
 Validation depuis la racine :
 
 ```bash
-kubectl kustomize kubernetes/apps/supermarket-demo/v1 >/dev/null
-kubectl kustomize kubernetes/apps/supermarket-demo/v2 >/dev/null
+kubectl kustomize kubernetes/apps/supermarket-demo/v3 >/dev/null
 ```
 
-Les cibles `make apps-deploy` de chaque bundle utilisent directement l'overlay
-de la version active.
+La cible `make apps-deploy` utilise directement l'overlay v3.

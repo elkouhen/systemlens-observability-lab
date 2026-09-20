@@ -18,14 +18,21 @@ manifest Kubernetes pour les traces et Micrometer OTLP pour leurs métriques ;
 les deux signaux sont envoyés au Service `otel-gateway` dans `elastic-stack`.
 Le scraping Prometheus n'est plus utilisé pour les métriques applicatives.
 Le DaemonSet utilise `kubeletstats` pour publier les métriques des nœuds, pods,
-conteneurs et volumes ; il associe aussi `host.name` au nom du nœud pour
-permettre la corrélation avec l’infrastructure APM. Un Deployment séparé utilise `k8s_cluster` pour publier
+conteneurs et volumes, y compris `container.id` et les statistiques réseau et
+filesystem ; il associe aussi `host.name` au nom du nœud pour permettre la
+corrélation avec l’infrastructure APM. Les applications publient également
+`service.node.name`, `host.name` et leur identité de pod dans leurs ressources
+OTel afin que la vue **Infrastructure** d’un microservice puisse relier les
+hôtes, pods et conteneurs au même service. Un Deployment séparé utilise `k8s_cluster` pour publier
 l'état agrégé du cluster et des workloads, ainsi que les ressources CPU et
 mémoire allocatables utilisées par les dashboards `[Kubernetes OTel]` ;
 `k8sattributes` ne fait que
 l'enrichissement des ressources et ne remplace pas ces collectes.
+Les scrapers hôte activent explicitement `system.cpu.utilization`,
+`system.cpu.logical.count` et `system.memory.utilization` ; les noms indexés
+sont donc consultables sous `metrics.system.*`.
 Dans Kibana, utiliser les dashboards `[Kubernetes OTel]` installés par le
-package Kubernetes ; les vues `[Metrics Kubernetes]` correspondent à une autre
+package `kubernetes_otel` ; les vues `[Metrics Kubernetes]` correspondent à une autre
 intégration et ne lisent pas ce schéma OTLP.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet puis envoyés au Gateway Kubernetes. Les trois flux sont mis en tampon dans Kafka puis

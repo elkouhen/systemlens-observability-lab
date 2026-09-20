@@ -13,18 +13,21 @@ response="$(curl --fail --silent --show-error --insecure \
   --resolve "${elasticsearch_resolve}" \
   -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
   -H 'Content-Type: application/json' \
-  -X POST "${elasticsearch_url}/metrics-*,traces-*/_search" \
-  --data "{\"size\":10000,\"query\":{\"bool\":{\"filter\":[{\"term\":{\"data_stream.type\":\"metrics\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}}]}},\"_source\":[\"data_stream.dataset\",\"metrics\"],\"aggs\":{\"datasets\":{\"terms\":{\"field\":\"data_stream.dataset\",\"size\":100}}}}")"
+  -X POST "${elasticsearch_url}/metrics-*,traces-*,logs-*/_search" \
+  --data "{\"size\":10000,\"query\":{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},\"_source\":[\"data_stream.dataset\",\"metrics\"],\"aggs\":{\"datasets\":{\"terms\":{\"field\":\"data_stream.dataset\",\"size\":100}}}}")"
 
 expected_datasets=(
   hostmetricsreceiver.otel kubeletstatsreceiver.otel k8sclusterreceiver.otel generic.otel
   apm.service_transaction.1m
   system.cpu system.memory system.filesystem system.network
   kafka.broker kafka.partition kafka.consumergroup
-  mongodb.status mongodb.metrics mongodb.dbstats
-  postgresql.database
+  mongodb.status mongodb.metrics mongodb.dbstats mongodb.replstatus
+  postgresql.database postgresql.statement
+  kafka.log mongodb.log postgresql.log
 )
 expected_metrics=(
+  'metrics-hostmetricsreceiver.otel-*|system.cpu.utilization'
+  'metrics-hostmetricsreceiver.otel-*|system.memory.utilization'
   'metrics-system.cpu-*|system.cpu.total.norm.pct'
   'metrics-system.memory-*|system.memory.actual.used.pct'
   'metrics-system.filesystem-*|system.filesystem.used.bytes'
@@ -38,6 +41,14 @@ expected_metrics=(
   'metrics-postgresql.database-*|postgresql.database.number_of_backends'
   'metrics-postgresql.database-*|postgresql.database.transactions.commit'
   'metrics-postgresql.database-*|postgresql.database.blocks.hit'
+  'metrics-postgresql.statement-*|postgresql.statement.query.time.total.ms'
+)
+expected_apm_fields=(
+  service.name
+  service.node.name
+  host.name
+  kubernetes.pod.name
+  kubernetes.pod.uid
 )
 
 missing=0
@@ -70,8 +81,24 @@ for expectation in "${expected_metrics[@]}"; do
   fi
 done
 
+for field in "${expected_apm_fields[@]}"; do
+  apm_response="$(curl --fail --silent --show-error --insecure \
+    --resolve "${elasticsearch_resolve}" \
+    -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
+    -H 'Content-Type: application/json' \
+    -X POST "${elasticsearch_url}/traces-apm-*/_count" \
+    --data "{\"query\":{\"bool\":{\"filter\":[{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},{\"exists\":{\"field\":\"${field}\"}}]}}}")"
+  count="$(jq -r '.count // 0' <<<"${apm_response}")"
+  if (( count > 0 )); then
+    printf 'OK      APM %-24s %s trace(s) sur %s\n' "${field}" "${count}" "${window}"
+  else
+    printf 'ABSENT  APM %-24s aucune trace sur %s\n' "${field}" "${window}" >&2
+    missing=1
+  fi
+done
+
 if (( missing )); then
-  printf 'Au moins un jeu de données attendu est absent : consulter Fleet > Agents et les logs du collecteur concerné.\n' >&2
+  printf 'Au moins une source, métrique ou corrélation APM attendue est absente : consulter Fleet, les logs du collecteur et le mapping OTLP.\n' >&2
   exit 1
 fi
 

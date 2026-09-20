@@ -9,11 +9,11 @@ Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-
 
 ## Comprendre l'architecture
 
-- [`architecture-v1-v2-v3.md`](architecture-v1-v2-v3.md) : architectures
-  disponibles et flux de la v3 hybride avec Fleet pour les VM.
+- [`architecture-v3.md`](architecture-v3.md) : architecture conservée et flux
+  hybrides avec Fleet pour les VM.
 - [`gestion-du-debit-observabilite.md`](gestion-du-debit-observabilite.md) :
   rate limiting, sampling, backpressure et quotas par type de flux.
-- [`briques-remontee-telemetrie.md`](briques-remontee-telemetrie.md) : briques,
+- [`briques-remontee-telemetrie-v3.md`](briques-remontee-telemetrie-v3.md) : briques,
   entrées, sorties et gestion de la pression pour les logs, traces et métriques.
 
 ## Référence spécialisée

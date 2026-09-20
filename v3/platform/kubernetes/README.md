@@ -35,7 +35,7 @@ trois signaux dans Kafka ; l'exporteur EDOT sur `otel-backend-01` les écrit ens
 dans Elasticsearch. Les VM utilisent l'Elastic Agent
 enrôlé dans Fleet et publient directement vers Elasticsearch.
 
-Les URL fonctionnelles v3 utilisent les mêmes noms que v1 et v2 :
+Les URL fonctionnelles v3 utilisent les noms suivants :
 `elasticsearch.observability.test`, `kibana.observability.test` et `fleet.observability.test`. Fleet Server
 n'est pas une interface web : la racine `/` peut répondre `404`. Pour vérifier
 son état, utiliser `https://fleet.observability.test/api/status` ; une réponse `200`

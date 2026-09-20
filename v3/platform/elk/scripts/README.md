@@ -25,6 +25,10 @@ ne stockent aucun mot de passe dans le dépôt.
    `kafka.consumergroup`, `mongodb.status`, `mongodb.metrics`,
    `mongodb.dbstats` et `postgresql.database` ; les champs contrôlés restent
    ceux des intégrations (`kafka.*`, `mongodb.*` et `postgresql.*`).
+   `reconcile-kubernetes-otel-dashboards.sh` réconcilie les onze dashboards
+   embarqués du package `kubernetes_otel` avec les champs réellement produits par les
+   Collectors OTel ; `verify-kubernetes-otel-dashboards.sh` contrôle qu'aucune
+   référence au schéma absent ne reste dans leurs requêtes ES|QL.
 4. `apply-apm-kibana-role.sh` crée ou met à jour un compte Kibana natif en
    lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
    identifiants et le certificat CA restent hors Git.

@@ -16,8 +16,7 @@ routage TLS Traefik.
 3. Consulter les scripts et dashboards une fois le déploiement compris.
 
 Pour les flux APM et les contrôles communs aux applications et à Kubernetes,
-consulter la [référence des architectures](../../docs/architecture-v1-v2-v3.md)
-et le [guide de déploiement](../../docs/deploiement-et-exploitation.md).
+consulter le [guide de déploiement](../../docs/deploiement-et-exploitation.md).
 
 ## Licence Elastic
 
