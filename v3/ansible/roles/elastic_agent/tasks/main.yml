@@ -13,6 +13,15 @@
     reinstall_fleet_agent: >-
       {{ fleet_enrollment_token | length > 0 and enrolled_agent.stat.exists and node_role != 'elk' }}
 
+- name: Arrêter l’agent Fleet existant avant sa désinstallation
+  ansible.builtin.systemd_service:
+    name: elastic-agent.service
+    state: stopped
+    enabled: false
+  when:
+    - reinstall_fleet_agent or (node_role == 'elk' and enrolled_agent.stat.exists)
+  failed_when: false
+
 - name: Retirer l’agent Fleet existant avant son réinstallation
   ansible.builtin.command:
     argv:
@@ -22,6 +31,12 @@
   when:
     - reinstall_fleet_agent or (node_role == 'elk' and enrolled_agent.stat.exists)
   no_log: true
+
+- name: Recharger systemd après la désinstallation de l’agent Fleet
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when:
+    - reinstall_fleet_agent or (node_role == 'elk' and enrolled_agent.stat.exists)
 
 - name: Télécharger Elastic Agent pour un enrôlement Fleet demandé
   ansible.builtin.get_url:

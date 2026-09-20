@@ -306,8 +306,7 @@ slides: ## Démarrer le support Slidev de l'architecture v3
 
 deploy: ## Déployer l'architecture complète : Kubernetes, VM et applications
 	@set -euo pipefail; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$POSTGRESQL_PASSWORD" $(VAGRANT) up poc-01 otel-backend-01 otel-edge-01 elk-01 --provision; \
-	$(MAKE) elk-deploy; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" $(VAGRANT) up poc-01 otel-backend-01 otel-edge-01 elk-01 --provision; \
 	$(MAKE) fleet-vms-provision; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
@@ -341,7 +340,7 @@ kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur poc
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
 	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
-fleet-vms-provision: ## Enrôler les VM dans Fleet et appliquer leur policy
+fleet-vms-provision: elk-deploy ## Enrôler les VM dans Fleet et appliquer leur policy
 	@kibana_password="$${KIBANA_PASSWORD:-password}"; \
 	 api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	 postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
