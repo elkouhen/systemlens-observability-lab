@@ -63,7 +63,9 @@ Le résultat attendu est un exporteur EDOT actif sur `otel-backend-01`, sans err
 consommation Kafka ni d'indexation.
 
 Les traces conservent l'environnement défini par les fichiers de configuration
-OpenTelemetry embarqués dans les images applicatives. Elles suivent le chemin
+OpenTelemetry embarqués dans les images applicatives et portent le namespace,
+le nom et l'UID du pod ainsi que le nœud Kubernetes via le Downward API. Elles
+suivent le chemin
 Gateway Kubernetes → Kafka → exporteur backend → APM Server. Les métriques
 applicatives Micrometer, notamment les métriques Kafka client, sont exportées
 directement en OTLP toutes les 15 secondes vers le Gateway Kubernetes, puis
