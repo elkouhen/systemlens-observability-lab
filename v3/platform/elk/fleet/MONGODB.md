@@ -1,16 +1,15 @@
 # MongoDB avec Elastic Agent Fleet
 
 Ce guide décrit la collecte MongoDB v3 par Elastic Agent Fleet. La package policy
-MongoDB déclarée dans
-[`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
-`kibana.yaml` reste disponible pour la configuration Fleet de la plateforme,
+MongoDB est déclarée dans
+[`../scripts/bootstrap-fleet-policies.sh`](../scripts/bootstrap-fleet-policies.sh)
 et constitue le chemin actif de la VM v3. `make fleet-sync` n'est pas
 nécessaire à cette collecte.
 
 ## Chemin des données
 
 ```text
-Elastic Agent Fleet de data-01
+Elastic Agent Fleet de poc-01
   └─ intégration MongoDB : localhost:27017
        └─ dbStats, serverStatus, opérations, connexions, stockage
             ↓
@@ -22,7 +21,7 @@ MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 
 ## Lire la configuration
 
-1. L'intégration `mongodb` est déclarée dans `kibana.yaml` et s'exécute
+1. L'intégration `mongodb` est déclarée dans le script de bootstrap Fleet et s'exécute
    localement sur la VM après l'enrôlement Fleet.
 2. L'intégration `system` collecte les logs MongoDB locaux, sans Filebeat
    concurrent.
@@ -42,8 +41,10 @@ MongoDB. `host.name` distingue ce membre des autres profils de collecte.
 | `mongodb.storage.*`, `mongodb.data.*` | stockage et taille des données |
 | `mongodb.network.*`, `mongodb.cursor.*` | trafic, requêtes et curseurs |
 
-Les documents sont écrits dans `metrics-mongodb.otel-*`. Rechercher
-`data_stream.dataset: mongodb.otel` dans Discover, puis utiliser `host.name`
+Les documents sont écrits dans les data streams natifs
+`metrics-mongodb.status-*`, `metrics-mongodb.metrics-*` et
+`metrics-mongodb.dbstats-*`. Rechercher `data_stream.dataset: mongodb.status`
+dans Discover, puis utiliser `host.name`
 pour isoler le membre.
 
 ## Adapter à un autre environnement
@@ -65,8 +66,8 @@ plus les droits détaillés par l'intégration officielle.
 ## Vérification et dépannage
 
 1. Vérifier localement `mongosh` et l'écoute sur `localhost:27017` depuis la VM.
-2. Dans Discover, filtrer `data_stream.dataset: mongodb.otel` et vérifier un
-   événement récent pour `host.name: data-01`.
+2. Dans Discover, filtrer `data_stream.dataset: mongodb.status` et vérifier un
+   événement récent pour `host.name: poc-01`.
 3. En cas d'erreur d'autorisation, corriger le rôle MongoDB utilisé par EDOT.
 4. En cas d'absence de métriques, vérifier l'état de l'Elastic Agent dans Fleet.
 

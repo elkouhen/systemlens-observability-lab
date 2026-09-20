@@ -22,12 +22,14 @@ RUN if [ -n "$ZSCALER_CA_CERT_B64" ]; then \
 
 COPY pom.xml ./
 COPY supermarket-contracts/pom.xml supermarket-contracts/pom.xml
+COPY kafka-processing/pom.xml kafka-processing/pom.xml
 COPY order-service/pom.xml order-service/pom.xml
 COPY inventory-service/pom.xml inventory-service/pom.xml
 COPY restock-service/pom.xml restock-service/pom.xml
 RUN mvn --batch-mode --projects order-service,inventory-service,restock-service --also-make dependency:go-offline
 
 COPY supermarket-contracts/src supermarket-contracts/src
+COPY kafka-processing/src kafka-processing/src
 COPY order-service/src order-service/src
 COPY inventory-service/src inventory-service/src
 COPY restock-service/src restock-service/src

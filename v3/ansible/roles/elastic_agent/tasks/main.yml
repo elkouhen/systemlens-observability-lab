@@ -43,9 +43,14 @@
     url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
     dest: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
     mode: '0644'
+    timeout: "{{ elastic_agent_download_timeout | default(120) }}"
   when:
     - fleet_enrollment_token | length > 0
     - not enrolled_agent.stat.exists or reinstall_fleet_agent
+  register: elastic_agent_download
+  retries: "{{ elastic_agent_download_retries | default(5) }}"
+  delay: "{{ elastic_agent_download_delay | default(15) }}"
+  until: elastic_agent_download is succeeded
 
 - name: Extraire Elastic Agent
   ansible.builtin.unarchive:

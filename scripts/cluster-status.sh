@@ -2,7 +2,8 @@
 set -euo pipefail
 
 profile=minimal
-nodes=(data-01)
+data_node="${POC_VM_NAME:-data-01}"
+nodes=("${data_node}")
 
 run_on_vm() {
   local node="$1"
@@ -19,7 +20,7 @@ for node in "${nodes[@]}"; do
 done
 
 printf '\n== MongoDB standalone ==\n'
-run_on_vm data-01 "timeout 15 sudo podman exec observability-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'" \
+run_on_vm "${data_node}" "timeout 15 sudo podman exec observability-mongodb mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'" \
   || printf 'MongoDB indisponible\n'
 
 printf '\n== Kafka KRaft quorum ==\n'
@@ -30,7 +31,7 @@ for node in "${nodes[@]}"; do
     || printf 'Kafka indisponible ou quorum non forme\n'
 done
 
-printf '\n== PostgreSQL data-01 ==\n'
-run_on_vm data-01 \
-  'timeout 15 sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) AS kafka_orders FROM stock_movements WHERE channel = '\''kafka'\''"' \
+printf '\n== PostgreSQL %s ==\n' "${data_node}"
+run_on_vm "${data_node}" \
+  'timeout 15 sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT CASE WHEN to_regclass('\''public.stock_movements'\'') IS NULL THEN '\''PostgreSQL OK ; stock_movements absente (workload applicatif non initialise)'\'' ELSE '\''PostgreSQL OK ; stock_movements presente'\'' END"' \
   || printf 'PostgreSQL indisponible ou table stock_movements non créée\n'

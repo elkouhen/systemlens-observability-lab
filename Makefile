@@ -4,8 +4,9 @@ SHELL := /bin/bash
 ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architecture-version || echo v1)
 ARCH_NAME := $(if $(filter v1,$(ARCH_VERSION)),Elastic classique,$(if $(filter v2,$(ARCH_VERSION)),OpenTelemetry + Kafka,$(if $(filter v3,$(ARCH_VERSION)),Hybride Fleet,inconnue)))
 SYSTEMLENS ?= systemlens
+VAGRANT ?= vagrant
 
-.PHONY: help architecture-list architecture-switch architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit ci
+.PHONY: help architecture-list architecture-switch architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit vagrant-destroy ci
 
 help: ## Afficher les tâches de l'architecture sélectionnée
 	@printf 'Architecture active : %s — %s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)'
@@ -17,6 +18,7 @@ help: ## Afficher les tâches de l'architecture sélectionnée
 	@printf '  apps-codeql-module-graph Analyser les dépendances de modules Java et actualiser le graphe\n'
 	@printf '  apm-install          Installer le contexte APM déclaré dans apm.yml\n'
 	@printf '  apm-audit            Auditer le contexte APM du projet\n'
+	@printf '  vagrant-destroy      Détruire les VM de l’architecture active\n'
 	@printf "  ci                   Exécuter les validations de l'architecture sélectionnée\n"
 	@printf '  make <cible>         Déléguer la cible au bundle sélectionné\n'
 
@@ -56,6 +58,9 @@ apm-install: ## Installer le contexte APM déclaré dans apm.yml
 apm-audit: ## Auditer le contexte APM du projet
 	@command -v apm >/dev/null 2>&1 || { echo "APM CLI absent : voir docs/agent-package-manager.md" >&2; exit 1; }
 	@apm audit --ci
+
+vagrant-destroy: ## Détruire les VM de l’architecture active
+	@cd '$(ARCH_VERSION)' && '$(VAGRANT)' destroy --force
 
 ci: ## Exécuter les validations de l'architecture sélectionnée
 	@$(MAKE) -C $(ARCH_VERSION) ci

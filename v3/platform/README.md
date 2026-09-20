@@ -18,39 +18,11 @@ routage TLS Traefik.
 Pour les impacts et les contrôles APM communs aux applications et à
 Kubernetes, consulter le [guide APM applications et Kubernetes](../../docs/apm-application-kubernetes.md).
 
-## Licence ECK
+## Licence Elastic
 
-Les fonctions Elastic soumises à licence, notamment les SLO Kibana, exigent
-une licence ECK Enterprise ou Trial valide. Utiliser un fichier de licence
-**Orchestration** conservé uniquement sur le poste opérateur ; ne jamais le
-copier dans le dépôt.
-
-Sans fichier Orchestration, démarrer explicitement l'essai Enterprise de
-30 jours (une seule activation par version majeure) :
-
-```bash
-make eck-trial-start
-make eck-license-status
-```
-
-Installer ou remplacer la licence avec :
-
-```bash
-make eck-license-apply ECK_LICENSE_FILE=/chemin/local/licence.json
-```
-
-La cible valide le JSON, crée le Secret `eck-license` dans le namespace de
-l'opérateur `elastic-system` et ajoute le label
-`license.k8s.elastic.co/scope=operator`. Elle n'affiche pas le contenu du
-fichier. Contrôler ensuite la réconciliation :
-
-```bash
-make eck-license-status
-```
-
-Le résultat attendu est une licence `active` de type `enterprise`, `platinum`
-ou `trial`. Une licence chargée directement dans Elasticsearch n'est pas la
-source de vérité de ce déploiement ECK et peut être remplacée par l'opérateur.
+La licence du stack Elastic est gérée directement par Elasticsearch sur
+`elk-01`. Aucun opérateur ECK, Secret de licence ou ressource Elastic
+applicative n'est déployé dans Kubernetes v3.
 
 ## Documentation externe
 

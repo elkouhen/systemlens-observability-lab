@@ -1,0 +1,11 @@
+---
+- name: Enrôler uniquement l'Elastic Agent dans Fleet
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    elastic_agent_version: 9.4.3
+    fleet_url: "http://192.168.33.30:8220"
+
+  roles:
+    - role: elastic_agent

@@ -53,6 +53,16 @@ Le playbook `site.yml` applique les rôles dans cet ordre :
 `site.yml`. Chaque rôle possède ses propres templates afin que la tâche et la
 configuration déployée restent au même endroit.
 
+Le playbook `fleet-agent.yml` est réservé à l'enrôlement après l'initialisation
+de Kibana. Il n'exécute que le rôle `elastic_agent`, afin que `make deploy` ne
+reprovisionne pas les middlewares et les services de chaque VM pour créer un
+nouveau jeton Fleet.
+
+Le téléchargement de l'Elastic Agent utilise un délai de 120 secondes et est
+réessayé cinq fois, avec 15 secondes entre les tentatives. Ces valeurs peuvent
+être adaptées ponctuellement avec `-e` si le réseau est particulièrement lent,
+par exemple `-e elastic_agent_download_retries=8 elastic_agent_download_delay=30`.
+
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 
 ## Documentation externe

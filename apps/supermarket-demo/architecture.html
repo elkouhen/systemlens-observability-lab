@@ -124,13 +124,21 @@
     #graph-groups { position: absolute; inset: 0; pointer-events: none; z-index: auto; overflow: visible; }
     #graph-port-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
     .graph-port-path { fill: none; stroke: #7c3aed; stroke-width: 2; stroke-linecap: round; opacity: .9; pointer-events: stroke; }
+    .graph-arc-hit-area { fill: none; stroke: transparent !important; stroke-width: 14px !important; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
     .graph-port-path.is-kafka { stroke: #009e73; }
+    .graph-port-path.is-analysis-selected { stroke-width: 4; opacity: 1; filter: drop-shadow(0 0 3px currentColor); }
     .graph-call-path { fill: none; stroke: #6d28d9; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 1; pointer-events: stroke; }
     .graph-call-path.is-kafka { stroke: #008f69; }
-    .graph-call-label { fill: #4c1d95; font-size: 11px; font-weight: 700; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; text-anchor: middle; pointer-events: none; }
-    :root[data-theme="dark"] .graph-call-label { fill: #ddd6fe; stroke: #111827; }
+    .graph-call-path.is-analysis-selected { stroke-width: 4; filter: drop-shadow(0 0 4px currentColor); }
+    .graph-call-label { fill: #6d28d9; font-size: 11px; font-weight: 700; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; text-anchor: middle; pointer-events: none; }
+    .graph-call-label.is-kafka { fill: #008f69; }
+    .graph-call-label.is-analysis-selected { font-size: 13px; font-weight: 850; }
+    :root[data-theme="dark"] .graph-call-label { fill: #c4b5fd; stroke: #111827; }
+    :root[data-theme="dark"] .graph-call-label.is-kafka { fill: #5eead4; }
     .graph-local-port-path { fill: none; stroke: #d97706; stroke-width: 1.5; stroke-dasharray: 3 2; stroke-linecap: round; opacity: .9; pointer-events: stroke; }
     .graph-local-port-path.is-code-flow-path { stroke: #7c3aed; stroke-width: 3; stroke-dasharray: none; opacity: 1; }
+    .graph-local-port-path.is-analysis-selected { stroke-width: 4; opacity: 1; filter: drop-shadow(0 0 3px currentColor); }
+    .graph-node-port-reference.is-analysis-selected { outline: 2px solid currentColor; outline-offset: 2px; transform: translateY(-50%) scale(1.08); }
     :root[data-theme="dark"] .graph-port-path { stroke: #c4b5fd; }
     :root[data-theme="dark"] .graph-port-path.is-kafka { stroke: #5eead4; }
     :root[data-theme="dark"] .graph-call-path { stroke: #c4b5fd; }
@@ -173,7 +181,10 @@
     .graph-node-trigger-badge { position: absolute; top: -27px; left: -7px; z-index: 3; max-width: 180px; padding: 3px 5px; border: 1px solid; border-radius: 8px; box-shadow: 0 2px 5px rgba(15, 23, 42, .2); font-size: 8px; font-weight: 800; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .graph-node-trigger-badge.is-http { border-color: #2563eb; color: #1e3a8a; background: #eff6ff; }
     .graph-node-trigger-badge.is-kafka { border-color: #059669; color: #065f46; background: #ecfdf5; }
-    .graph-node-port-reference { position: absolute; top: var(--port-offset); z-index: 1; display: grid; place-items: center; min-width: 24px; height: 16px; padding: 0 3px; box-sizing: border-box; transform: translateY(-50%); border: 1px solid #8b5cf6; border-radius: 8px; color: #4c1d95; background: #faf5ff; box-shadow: 0 2px 5px rgba(76,29,149,.14); font-size: 9px; font-weight: 800; line-height: 1; white-space: nowrap; }
+    .graph-node-port-reference { position: absolute; top: var(--port-offset); z-index: 1; display: grid; place-items: center; min-width: 28px; height: 18px; padding: 0 4px; box-sizing: border-box; transform: translateY(-50%); border: 1px solid #8b5cf6; border-radius: 9px; color: #4c1d95; background: #faf5ff; box-shadow: 0 2px 5px rgba(76,29,149,.14); font-size: 10px; font-weight: 800; line-height: 1; white-space: nowrap; }
+    /* Port badges reuse the protocol colours of their associated arcs. */
+    .graph-node-port-reference.is-http { border-color: #6d28d9; color: #4c1d95; background: #faf5ff; }
+    .graph-node-port-reference.is-kafka { border-color: #008f69; color: #047857; background: #ecfdf5; box-shadow: 0 2px 5px rgba(0, 143, 105, .18); }
     .graph-node-port-reference.is-in { right: calc(100% - 7px); }
     .graph-node-port-reference.is-out { left: calc(100% - 7px); }
     .graph-port-tooltip { position: fixed; z-index: 1; display: grid; gap: 5px; width: max-content; max-width: min(380px, calc(100vw - 24px)); padding: 10px 12px; pointer-events: none; border: 1px solid #8b5cf6; border-radius: 10px; color: #f8fafc; background: linear-gradient(145deg, #2e1550, #1e293b); box-shadow: 0 10px 28px rgba(15, 23, 42, .38), 0 0 0 1px rgba(255, 255, 255, .08) inset; font-size: 11px; font-weight: 500; line-height: 1.4; text-align: left; white-space: normal; }
@@ -201,6 +212,13 @@
     .graph-arc-tooltip-endpoints, .graph-arc-tooltip-methods { color: #e0f2fe; overflow-wrap: anywhere; }
     .graph-arc-tooltip-type { color: #bbf7d0; font-weight: 700; }
     .graph-arc-tooltip code { color: #bae6fd; font: 600 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    .graph-entity-tooltip, .graph-edge-tooltip { position: fixed; z-index: 2; display: grid; gap: 4px; width: max-content; max-width: min(330px, calc(100vw - 24px)); padding: 9px 11px; pointer-events: none; border: 1px solid #64748b; border-radius: 9px; color: #f8fafc; background: #1e293b; box-shadow: 0 9px 24px rgba(15, 23, 42, .35); font-size: 10px; line-height: 1.35; text-align: left; white-space: normal; }
+    .graph-entity-tooltip::after, .graph-edge-tooltip::after { content: ""; position: absolute; left: var(--tooltip-arrow-left, 50%); width: 8px; height: 8px; border: 1px solid #64748b; background: #1e293b; transform: translateX(-50%) rotate(45deg); }
+    .graph-entity-tooltip[data-placement="bottom"]::after, .graph-edge-tooltip[data-placement="bottom"]::after { top: -5px; border-right: 0; border-bottom: 0; }
+    .graph-entity-tooltip[data-placement="top"]::after, .graph-edge-tooltip[data-placement="top"]::after { bottom: -5px; border-left: 0; border-top: 0; }
+    .graph-entity-tooltip strong, .graph-edge-tooltip strong { color: #f8fafc; font-size: 11px; font-weight: 850; }
+    .graph-entity-tooltip-kind, .graph-edge-tooltip-kind { color: #bfdbfe; font-weight: 750; }
+    .graph-entity-tooltip-detail, .graph-edge-tooltip-detail { color: #cbd5e1; overflow-wrap: anywhere; }
     .graph-port-tooltip ul { display: grid; gap: 2px; margin: 0; padding-left: 16px; }
     .graph-flow-step { position: absolute; top: -8px; left: -8px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; color: #fff; background: #7c3aed; box-shadow: 0 2px 6px rgba(76, 29, 149, .35); font-size: 10px; font-weight: 850; }
     #graph-node-labels.is-symbol-mode { overflow: visible; }
@@ -249,6 +267,8 @@
     :root[data-theme="dark"] .graph-node-trigger-badge.is-http { border-color: #60a5fa; color: #dbeafe; background: #1e3a8a; }
     :root[data-theme="dark"] .graph-node-trigger-badge.is-kafka { border-color: #34d399; color: #d1fae5; background: #065f46; }
     :root[data-theme="dark"] .graph-node-port-reference { color: #ddd6fe; border-color: #8b5cf6; background: #2e1a47; }
+    :root[data-theme="dark"] .graph-node-port-reference.is-http { color: #ddd6fe; border-color: #c4b5fd; background: #2e1a47; }
+    :root[data-theme="dark"] .graph-node-port-reference.is-kafka { color: #d1fae5; border-color: #5eead4; background: #064e3b; }
     :root[data-theme="dark"] #graph-node-labels.is-symbol-mode .graph-node-card-icon { color: #e5edf8; background: linear-gradient(145deg, color-mix(in srgb, #243650 82%, var(--card-accent, #64748b)), color-mix(in srgb, #101b2d 72%, var(--card-accent, #64748b))); border-color: color-mix(in srgb, var(--card-accent, #64748b) 78%, #dce8f7); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 4px 11px rgba(0, 0, 0, .34); }
     :root[data-theme="dark"] #graph-node-labels.is-symbol-mode .graph-node-card-icon.is-service { background: transparent; box-shadow: none; }
     :root[data-theme="dark"] #graph-node-labels.is-symbol-mode .graph-node-card-icon.is-service::before { background: color-mix(in srgb, var(--card-accent, #64748b) 78%, #dce8f7); }
@@ -264,6 +284,10 @@
     .toolbar input:not([type="checkbox"]) { height: 34px; padding: 0 10px; border: 1px solid #b9c5d6; border-radius: 6px; color: #172033; background: #fff; font: inherit; font-size: 13px; }
     .toolbar-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 8px; background: #edf2f7; }
     .toolbar > .toolbar-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .toolbar-tab-groups { display: grid; gap: 6px; }
+    .toolbar-tab-group { display: grid; gap: 3px; }
+    .toolbar-tab-group[hidden] { display: none; }
+    .toolbar-tab-group-title { padding: 0 3px; color: #64748b; font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
     .toolbar-tab { min-width: 0; height: 30px !important; width: auto !important; padding: 0 7px; overflow: hidden; border: 0 !important; border-radius: 6px !important; color: #52616b !important; background: transparent !important; font-size: 11px !important; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
     .toolbar-tab:hover { background: rgba(255, 255, 255, .65) !important; }
     .toolbar-tab.is-active { color: #1d4f91 !important; background: #fff !important; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
@@ -279,6 +303,15 @@
     #search, #path-query { width: 100%; }
     .graph-context { display: grid; gap: 8px; }
     .graph-context[hidden] { display: none; }
+    .graph-mode-context { position: fixed; z-index: 9; top: 16px; left: 370px; display: flex; align-items: center; gap: 8px; width: min(460px, calc(100vw - 390px)); box-sizing: border-box; padding: 8px 9px; border: 1px solid #c7d2fe; border-left: 3px solid #405ad5; border-radius: 8px; color: #283b73; background: rgba(238, 242, 255, .96); box-shadow: 0 8px 22px rgba(36, 50, 83, .12); backdrop-filter: blur(10px); font-size: 11px; line-height: 1.35; }
+    .graph-mode-context[hidden] { display: none; }
+    .graph-mode-context-copy { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
+    .graph-mode-context-copy strong { color: #293c82; font-size: 11px; overflow-wrap: anywhere; }
+    .graph-mode-context-copy span { color: #52658f; }
+    .graph-mode-context .graph-secondary-action { flex: 0 0 auto; height: 28px; padding: 0 7px; border: 1px solid #a5b4fc; border-radius: 6px; color: #3348b8; background: #fff; font-size: 10px; }
+    @media (max-width: 720px) {
+      .graph-mode-context { top: auto; right: 8px; bottom: 8px; left: 8px; width: auto; }
+    }
     .graph-actions { display: grid; gap: 6px; }
     .graph-action-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
     .toolbar button { width: 34px; height: 34px; border: 1px solid #b9c5d6; border-radius: 6px; color: #315f9b; background: #fff; font-size: 19px; line-height: 1; cursor: pointer; }
@@ -955,14 +988,24 @@
       <div class="brand"><span class="brand-mark">SL</span><strong>SystemLens</strong><span class="brand-subtitle">Espace d’architecture</span></div>
       <button id="theme-toggle" class="graph-action-label theme-toggle" type="button" aria-label="Passer au thème clair" title="Passer au thème clair">☼</button>
     </div>
-    <div class="toolbar-tabs" role="tablist" aria-label="Vues de l'architecture">
-      <button id="graph-tab" class="toolbar-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="graph-panel">Explorer</button>
-      <button id="resources-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="resources-panel">Ressources</button>
-      <button id="flows-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="flows-panel">Flux</button>
-      <button id="openapi-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="openapi-panel">OpenAPI</button>
-      <button id="kafka-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="kafka-panel">Topics</button>
-      <button id="persistence-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="persistence-panel">Data</button>
-      <button id="issues-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="issues-panel" title="Problemes d'indexation">Qualité</button>
+    <div class="toolbar-tab-groups" aria-label="Navigation de l'architecture">
+      <section class="toolbar-tab-group" aria-labelledby="explore-tabs-title">
+        <span id="explore-tabs-title" class="toolbar-tab-group-title">Graphe</span>
+        <div class="toolbar-tabs" role="tablist" aria-label="Vues d'exploration">
+          <button id="graph-tab" class="toolbar-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="graph-panel">Graphe</button>
+          <button id="flows-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="flows-panel">Flux de code</button>
+          <button id="issues-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="issues-panel" title="Problemes d'indexation">Diagnostics</button>
+        </div>
+      </section>
+      <section id="resource-tab-group" class="toolbar-tab-group" aria-labelledby="resources-tabs-title">
+        <span id="resources-tabs-title" class="toolbar-tab-group-title">Ressources</span>
+        <div class="toolbar-tabs" role="tablist" aria-label="Ressources et contrats">
+          <button id="resources-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="resources-panel">Ressources</button>
+          <button id="openapi-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="openapi-panel">OpenAPI</button>
+          <button id="kafka-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="kafka-panel">Messages</button>
+          <button id="persistence-tab" class="toolbar-tab" type="button" role="tab" aria-selected="false" aria-controls="persistence-panel">Données</button>
+        </div>
+      </section>
     </div>
     <p id="progress-notice" class="progress-notice" hidden></p>
     <div id="graph-panel" class="toolbar-panel" role="tabpanel" aria-labelledby="graph-tab">
@@ -981,17 +1024,17 @@
               <button id="zoom-in" type="button" aria-label="Zoomer" title="Zoomer">+</button>
             </div>
             <div class="graph-control-group fit-controls" role="group" aria-label="Cadrage">
-              <button id="fit-view" class="graph-action-label fit-mode" type="button" aria-label="Afficher tous les nœuds" title="Afficher tous les nœuds" aria-pressed="false">Tout</button>
-              <button id="fit-readable" class="graph-action-label fit-mode is-active" type="button" aria-label="Afficher le graphe à une distance lisible" title="Afficher le graphe à une distance lisible" aria-pressed="true">Lisible</button>
+              <button id="fit-view" class="graph-action-label fit-mode" type="button" aria-label="Afficher tout le graphe" title="Afficher tout le graphe" aria-pressed="false">Tout le graphe</button>
+              <button id="fit-readable" class="graph-action-label fit-mode is-active" type="button" aria-label="Afficher une vue lisible" title="Afficher une vue lisible" aria-pressed="true">Vue lisible</button>
             </div>
             <span class="graph-actions-spacer" aria-hidden="true"></span>
-            <button id="reset" class="graph-action-label graph-secondary-action" type="button" aria-label="Effacer la sélection" title="Effacer la sélection" disabled>Effacer</button>
+            <button id="reset" class="graph-action-label graph-secondary-action" type="button" aria-label="Réinitialiser la sélection" title="Réinitialiser la sélection" disabled>Réinitialiser</button>
           </div>
           <div class="graph-action-row display-actions">
             <div class="graph-control-group view-controls" role="group" aria-label="Vue principale">
-              <button id="layout-forceatlas2-noverlap" class="graph-action-label view-mode is-active" type="button" aria-pressed="true" title="Explorer les relations avec des nœuds espacés">Graphe</button>
-              <button id="layout-elk" class="graph-action-label view-mode" type="button" aria-pressed="false" title="Afficher les couches et les ressources">Couches</button>
-              <button id="layout-cluster" class="graph-action-label view-mode" type="button" aria-pressed="false" title="Afficher la hiérarchie des modules et des projets">Modules</button>
+              <button id="layout-forceatlas2-noverlap" class="graph-action-label view-mode is-active" type="button" aria-pressed="true" title="Afficher les relations avec des nœuds espacés">Graphe</button>
+              <button id="layout-elk" class="graph-action-label view-mode" type="button" aria-pressed="false" title="Afficher les couches et les ressources">Vue par couches</button>
+              <button id="layout-cluster" class="graph-action-label view-mode" type="button" aria-pressed="false" title="Afficher la hiérarchie des modules et des projets">Vue par modules</button>
             </div>
             <div class="graph-control-group render-controls" role="group" aria-label="Rendu des nœuds">
               <button id="render-cards" class="graph-action-label render-mode is-active" type="button" aria-label="Afficher les nœuds sous forme de cartes" title="Afficher les nœuds sous forme de cartes" aria-pressed="true">Cartes</button>
@@ -1003,32 +1046,32 @@
         <button id="inventory-status" class="inventory-status" type="button" hidden></button>
       </section>
       <details id="display-controls" class="display-controls">
-        <summary>Nœuds et arêtes affichés</summary>
+        <summary>Filtres du graphe</summary>
         <div class="display-filter-groups">
           <fieldset class="relation-filters">
             <legend>Types d’arêtes</legend>
             <label class="relation-filter" title="Afficher les appels d’API"><input id="relation-http" type="checkbox" checked aria-label="Afficher les arêtes d’API">APIs</label>
-            <label class="relation-filter" title="Afficher les publications, consommations et échanges request/reply"><input id="relation-kafka" type="checkbox" checked aria-label="Afficher les arêtes de Topics">Topics</label>
-            <label class="relation-filter" title="Afficher les lectures et écritures de Data"><input id="relation-mongodb" type="checkbox" checked aria-label="Afficher les arêtes d’accès à la Data">Data</label>
+            <label class="relation-filter" title="Afficher les publications, consommations et échanges request/reply"><input id="relation-kafka" type="checkbox" checked aria-label="Afficher les arêtes de messages">Messages</label>
+            <label class="relation-filter" title="Afficher les lectures et écritures de données"><input id="relation-mongodb" type="checkbox" checked aria-label="Afficher les arêtes d’accès aux données">Données</label>
             <label class="relation-filter" title="Afficher les autres types de relations"><input id="relation-other" type="checkbox" checked aria-label="Afficher les autres types d’arêtes">Autres</label>
           </fieldset>
           <fieldset class="relation-filters">
             <legend>Types de nœuds</legend>
             <label class="relation-filter" title="Afficher les microservices indexés"><input id="node-microservice" type="checkbox" checked aria-label="Afficher les microservices">Microservices</label>
             <label class="relation-filter" title="Afficher les microservices externes"><input id="node-external-microservice" type="checkbox" checked aria-label="Afficher les microservices externes">Externes</label>
-            <label class="relation-filter" title="Afficher les Topics"><input id="node-kafka-topic" type="checkbox" checked aria-label="Afficher les Topics">Topics</label>
-            <label class="relation-filter" title="Afficher les Data"><input id="node-mongodb-collection" type="checkbox" checked aria-label="Afficher les Data">Data</label>
+            <label class="relation-filter" title="Afficher les messages"><input id="node-kafka-topic" type="checkbox" checked aria-label="Afficher les messages">Messages</label>
+            <label class="relation-filter" title="Afficher les données"><input id="node-mongodb-collection" type="checkbox" checked aria-label="Afficher les données">Données</label>
             <label class="relation-filter" title="Afficher les autres types de ressources"><input id="node-other" type="checkbox" checked aria-label="Afficher les autres types de nœuds">Autres</label>
           </fieldset>
         </div>
       </details>
       <details id="advanced-controls" class="advanced-controls">
-        <summary>Filtres et disposition avancés</summary>
+        <summary>Options avancées</summary>
       <fieldset class="layout-controls">
         <legend>Placement des nœuds</legend>
         <div class="layout-options layout-strategy-options" role="group" aria-label="Choix du placement des nœuds">
-          <button id="layout-forceatlas2" class="layout-option" type="button" aria-pressed="false" title="Regrouper les nœuds liés">Liens groupés</button>
-          <button id="layout-noverlap" class="layout-option" type="button" aria-pressed="false" title="Écarter les nœuds qui se chevauchent">Sans chevauchement</button>
+          <button id="layout-forceatlas2" class="layout-option" type="button" aria-pressed="false" title="Regrouper les nœuds liés">Regrouper les liens</button>
+          <button id="layout-noverlap" class="layout-option" type="button" aria-pressed="false" title="Écarter les nœuds qui se chevauchent">Éviter les chevauchements</button>
         </div>
       </fieldset>
       <fieldset class="layout-controls">
@@ -1051,9 +1094,9 @@
     </div>
     <div id="resources-panel" class="toolbar-panel references-view" role="tabpanel" aria-labelledby="resources-tab" hidden>
       <div class="references-header">
-        <p class="references-kicker">Inventaire indexé</p>
+        <p class="references-kicker">Ressources indexées</p>
         <h2 id="resources-title" class="references-title">Ressources</h2>
-        <p class="references-description">Recherchez un microservice, un topic, une Data ou toute autre ressource par son nom.</p>
+        <p class="references-description">Recherchez un microservice, un message, une donnée ou toute autre ressource par son nom.</p>
       </div>
       <section class="references-section"><input id="resources-filter" class="reference-filter-input" type="search" placeholder="Rechercher une ressource par nom" autocomplete="off" aria-label="Rechercher une ressource par nom"><ul id="resources-list" class="references-list"></ul><p id="resources-empty" class="references-empty">Aucune ressource ne correspond à ce filtre.</p></section>
     </div>
@@ -1085,21 +1128,28 @@
     <div id="kafka-panel" class="toolbar-panel references-view" role="tabpanel" aria-labelledby="kafka-tab" hidden>
       <div class="references-header">
         <p class="references-kicker">Schémas de données d’événements</p>
-        <h2 id="dto-references-title" class="references-title">Schémas de données Topics</h2>
-        <p class="references-description">Inspectez les classes Java qui définissent les données échangées via les Topics.</p>
+        <h2 id="dto-references-title" class="references-title">Schémas de données Messages</h2>
+        <p class="references-description">Inspectez les classes Java qui définissent les données échangées par messages.</p>
       </div>
-      <section class="references-section"><input id="dto-reference-filter" class="reference-filter-input" type="search" placeholder="Filtrer les DTO par nom ou package" autocomplete="off" aria-label="Filtrer les DTO de Topics"><ul id="dto-references" class="references-list"></ul><p id="dto-references-empty" class="references-empty">Aucun DTO de Topics détecté.</p></section>
+      <section class="references-section"><input id="dto-reference-filter" class="reference-filter-input" type="search" placeholder="Filtrer les DTO par nom ou package" autocomplete="off" aria-label="Filtrer les DTO de messages"><ul id="dto-references" class="references-list"></ul><p id="dto-references-empty" class="references-empty">Aucun DTO de messages détecté.</p></section>
       <section class="references-section"><h3 id="asyncapi-references-title">Contrats AsyncAPI</h3><ul id="asyncapi-references" class="references-list"></ul><p id="asyncapi-references-empty" class="references-empty">Aucun contrat AsyncAPI détecté.</p></section>
     </div>
     <div id="persistence-panel" class="toolbar-panel references-view" role="tabpanel" aria-labelledby="persistence-tab" hidden>
       <div class="references-header">
         <p class="references-kicker">Schémas de données persistées</p>
-        <h2 id="mongo-class-references-title" class="references-title">Schémas de données Data</h2>
+        <h2 id="mongo-class-references-title" class="references-title">Schémas de données persistées</h2>
         <p class="references-description">Inspectez les classes Java qui définissent les données persistées.</p>
       </div>
-      <section class="references-section"><input id="mongo-class-reference-filter" class="reference-filter-input" type="search" placeholder="Filtrer par classe, package ou Data" autocomplete="off" aria-label="Filtrer les classes de persistance Data"><ul id="mongo-class-references" class="references-list"></ul><p id="mongo-class-references-empty" class="references-empty">Aucune classe de persistance Data détectée.</p></section>
+      <section class="references-section"><input id="mongo-class-reference-filter" class="reference-filter-input" type="search" placeholder="Filtrer par classe, package ou donnée" autocomplete="off" aria-label="Filtrer les classes de données persistées"><ul id="mongo-class-references" class="references-list"></ul><p id="mongo-class-references-empty" class="references-empty">Aucune classe de données persistées détectée.</p></section>
     </div>
     <div id="details" class="is-empty"><div class="details-empty">Selectionnez un noeud pour isoler ses relations et afficher ses APIs.</div></div>
+  </div>
+  <div id="graph-mode-context" class="graph-mode-context" hidden>
+    <div class="graph-mode-context-copy">
+      <strong id="graph-mode-context-title"></strong>
+      <span id="graph-mode-context-help"></span>
+    </div>
+    <button id="analysis-mode-clear" class="graph-action-label graph-secondary-action" type="button" hidden>Réinitialiser l’analyse</button>
   </div>
   <details id="graph-legend" class="legend" aria-label="Legende du graphe">
     <summary>Legende</summary>
@@ -1110,15 +1160,15 @@
       <div class="legend-row">La connectivité est relative à chaque type de ressource, pas un niveau de risque.</div>
       <div class="legend-row"><span class="legend-mark legend-resource-mark microservice"></span>Microservice</div>
       <div class="legend-row"><span class="legend-mark legend-resource-mark topic"></span>Topic</div>
-      <div class="legend-row"><span class="legend-mark legend-resource-mark collection"></span>Data</div>
+      <div class="legend-row"><span class="legend-mark legend-resource-mark collection"></span>Donnée</div>
       <div class="legend-row"><span class="legend-line" style="background:#D55E00"></span>Appel d’API</div>
       <div class="legend-row"><span class="legend-line" style="background:#009E73"></span>Publication de Topic</div>
       <div class="legend-row"><span class="legend-line" style="background:#0072B2"></span>Consommation de Topic</div>
       <div class="legend-row"><span class="legend-line" style="background:#7C3AED"></span>Pattern request/reply de Topic</div>
-      <div class="legend-row"><span class="legend-line" style="background:#CC79A7"></span>Accès Data</div>
-      <div class="legend-row"><span class="legend-mark" style="background:#16a34a"></span>Relation prouvee : code ou manifeste</div>
-      <div class="legend-row"><span class="legend-mark" style="background:#d97706"></span>Relation inferee : OpenAPI ou inventaire</div>
-      <div class="legend-row"><span class="legend-mark" style="background:#7c3aed"></span>Relation conventionnelle : Strategy1</div>
+      <div class="legend-row"><span class="legend-line" style="background:#CC79A7"></span>Accès aux données</div>
+      <div class="legend-row"><span class="legend-mark" style="background:#16a34a"></span>Preuve source : code ou manifeste</div>
+      <div class="legend-row"><span class="legend-mark" style="background:#d97706"></span>Déduction contractuelle : OpenAPI ou inventaire</div>
+      <div class="legend-row"><span class="legend-mark" style="background:#7c3aed"></span>Convention d’architecture : Strategy1</div>
     </div>
   </details>
   <div id="graph" aria-label="Graphe des interactions"></div>
@@ -1186,9 +1236,9 @@
     const showProjectGroups = document.getElementById("show-project-groups");
     const nodeKindLabel = node => {
       if (node.kind === "kafka_topic") return "Topic";
-      if (node.kind === "mongodb_collection") return "Data";
-      if (node.kind === "data_schema") return "Data";
-      if (node.kind === "message_channel") return "Topic";
+      if (node.kind === "mongodb_collection") return "Donnée";
+      if (node.kind === "data_schema") return "Donnée";
+      if (node.kind === "message_channel") return "Message";
       return node.external ? "Service externe" : "Microservice";
     };
     const nodeKindSuggestion = node => (
@@ -1211,8 +1261,8 @@
     };
     const summaryItems = [
       `${summaryCounts.microservices} service${summaryCounts.microservices > 1 ? "s" : ""}`,
-      `${summaryCounts.channels} Topic${summaryCounts.channels > 1 ? "s" : ""}`,
-      `${summaryCounts.dataResources} Data`,
+      `${summaryCounts.channels} message${summaryCounts.channels > 1 ? "s" : ""}`,
+      `${summaryCounts.dataResources} donnée${summaryCounts.dataResources > 1 ? "s" : ""}`,
       `${graphData.links.length} relation${graphData.links.length > 1 ? "s" : ""}`,
       ...(isolatedNodeIds.size
         ? [`${isolatedNodeIds.size} ressource${isolatedNodeIds.size > 1 ? "s" : ""} isolée${isolatedNodeIds.size > 1 ? "s" : ""}`]
@@ -1250,6 +1300,7 @@
       relatedNodes: null,
       relatedEdges: null,
       relatedLocalPortLinks: new Set(),
+      analysisPortEndpointId: null,
       selectedCodeFlowId: null,
       codeFlowRootNodeId: null,
       codeFlowTrigger: null,
@@ -1816,6 +1867,48 @@
         if (node.kind === "message_channel") return "kafka_topic";
         return node.kind;
       };
+      const placeGraphTooltip = (tooltip, bounds, clientX = bounds.left + bounds.width / 2) => {
+        flowTooltipOverlay.replaceChildren(tooltip);
+        const tooltipBounds = tooltip.getBoundingClientRect();
+        const left = Math.max(8, Math.min(window.innerWidth - tooltipBounds.width - 8, clientX - tooltipBounds.width / 2));
+        const below = bounds.bottom + tooltipBounds.height + 10 <= window.innerHeight;
+        tooltip.dataset.placement = below ? "bottom" : "top";
+        tooltip.style.setProperty("--tooltip-arrow-left", `${Math.max(10, Math.min(tooltipBounds.width - 10, clientX - left))}px`);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${below ? bounds.bottom + 10 : Math.max(8, bounds.top - tooltipBounds.height - 10)}px`;
+      };
+      const addTooltipLine = (tooltip, text, className = "") => {
+        const line = document.createElement("span");
+        if (className) line.className = className;
+        line.textContent = text;
+        tooltip.append(line);
+      };
+      const showNodeTooltip = (node, element, event) => {
+        const tooltip = document.createElement("span");
+        tooltip.className = "graph-entity-tooltip";
+        const title = document.createElement("strong");
+        title.textContent = node.name;
+        tooltip.append(title);
+        addTooltipLine(tooltip, nodeKindLabel(node), "graph-entity-tooltip-kind");
+        if (node.kind === "microservice") {
+          const inputs = (node.ports || []).filter(port => port.direction === "in");
+          const outputs = (node.ports || []).filter(port => port.direction === "out");
+          addTooltipLine(tooltip, `${inputs.length} entrée${inputs.length === 1 ? "" : "s"} · ${outputs.length} sortie${outputs.length === 1 ? "" : "s"}`);
+          const topics = [...new Set((node.ports || []).filter(port => /kafka|topic|message/i.test(port.type || "")).map(port => port.name))];
+          if (topics.length) addTooltipLine(tooltip, `Messages : ${topics.slice(0, 4).join(", ")}${topics.length > 4 ? "…" : ""}`, "graph-entity-tooltip-detail");
+          if (node.technology || node.build_system) addTooltipLine(tooltip, [node.technology, node.build_system].filter(Boolean).join(" · "), "graph-entity-tooltip-detail");
+        } else if (node.kind === "kafka_topic") {
+          addTooltipLine(tooltip, `Producteurs : ${(node.published_message_types || []).length || 0} type(s)`);
+          addTooltipLine(tooltip, `Consommateurs : ${(node.consumed_message_types || []).length || 0} type(s)`);
+          const types = [...new Set([...(node.published_message_types || []), ...(node.consumed_message_types || [])])];
+          if (types.length) addTooltipLine(tooltip, `Types : ${types.slice(0, 3).join(", ")}${types.length > 3 ? "…" : ""}`, "graph-entity-tooltip-detail");
+        } else if (node.kind === "mongodb_collection") {
+          addTooltipLine(tooltip, `Propriétaire : ${node.owner || "inconnu"}`);
+          const classes = (node.persistence_classes || []).map(item => item.name).filter(Boolean);
+          if (classes.length) addTooltipLine(tooltip, `Accès : ${classes.slice(0, 3).join(", ")}${classes.length > 3 ? "…" : ""}`, "graph-entity-tooltip-detail");
+        }
+        placeGraphTooltip(tooltip, element.getBoundingClientRect(), event.clientX);
+      };
       layoutNodes.forEach(node => network.addNode(node.id, {
         // The readable geometry is rendered by the HTML card overlay; Sigma
         // keeps its compact node marker underneath it.
@@ -2019,6 +2112,39 @@
         const graphPointToViewport = graphPoint => {
           return renderer.graphToViewport(graphPoint);
         };
+        const updateAnalysisModeIndicator = () => {
+          const context = document.getElementById("graph-mode-context");
+          const title = document.getElementById("graph-mode-context-title");
+          const help = document.getElementById("graph-mode-context-help");
+          const clear = document.getElementById("analysis-mode-clear");
+          if (!context || !title || !help || !clear) return;
+          const active = Boolean(graphState.selectedCodeFlowId);
+          context.hidden = !active;
+          if (!active) return;
+          const flowPath = [...(graphState.pathMicroserviceOrder?.keys() || [])]
+            .map(id => nodeDataById.get(id)?.name)
+            .filter(Boolean)
+            .join(" → ");
+          const trigger = graphState.codeFlowTrigger?.name;
+          title.textContent = flowPath
+            ? `Analyse du flux · ${flowPath}`
+            : trigger ? `Analyse du flux · ${trigger}` : "Analyse du flux";
+          help.textContent = graphState.analysisPortEndpointId
+            ? "Arc associé sélectionné · cliquez sur un autre arc ou port pour changer"
+            : "Cliquez sur un port ou un arc pour afficher sa relation";
+          clear.hidden = !graphState.analysisPortEndpointId;
+        };
+        const toggleAnalysisEndpoint = (endpointId, event) => {
+          if (!endpointId) return;
+          event?.preventDefault();
+          event?.stopPropagation();
+          graphState.analysisPortEndpointId = graphState.analysisPortEndpointId === endpointId
+            ? null
+            : endpointId;
+          updateAnalysisModeIndicator();
+          requestGraphRender();
+        };
+        updateAnalysisModeIndicator();
         network.forEachNode((id, attributes) => {
           if (
             !isVisibleNodeId(id)
@@ -2316,8 +2442,14 @@
           });
           Object.entries(portsByDirection).forEach(([portDirection, ports]) => ports.forEach((port, index) => {
             const anchor = document.createElement("span");
-            anchor.className = `graph-node-port-reference is-${portDirection}`;
+            const portProtocol = port.system === "kafka" ? "kafka" : port.system === "rest" ? "http" : "unknown";
+            anchor.className = `graph-node-port-reference is-${portDirection} is-${portProtocol}`;
             anchor.dataset.endpointId = port.endpoint_id;
+            anchor.classList.toggle(
+              "is-analysis-selected",
+              graphState.analysisPortEndpointId === port.endpoint_id,
+            );
+            anchor.title = "Analyser l’arc associé à ce port";
             // Keep the graph anchor compact. The full endpoint presentation
             // remains in the tooltip and the inspector.
             anchor.style.setProperty("--port-offset", `${(index + 1) / (ports.length + 1) * 100}%`);
@@ -2339,12 +2471,7 @@
                 : `${port.system === "rest" ? "Ressource HTTP" : "Ressource"} : ${port.name}`;
               const evidence = document.createElement("code");
               evidence.textContent = `${port.path || "Source inconnue"}${port.line ? `:${port.line}` : ""}`;
-              const action = document.createElement("span");
-              action.className = "graph-port-tooltip-action";
-              action.textContent = portDirection === "in"
-                ? `Déclencheur : ${port.name}`
-                : `Déclenchement réalisé : ${port.name}`;
-              tooltip.append(title, protocol, endpoint, action, evidence);
+              tooltip.append(title, protocol, endpoint, evidence);
               if (port.message_type) {
                 const messageType = document.createElement("span");
                 messageType.className = "graph-port-tooltip-type";
@@ -2375,9 +2502,19 @@
             };
             anchor.addEventListener("pointerenter", showPortTooltip);
             anchor.addEventListener("pointerleave", () => flowTooltipOverlay.replaceChildren());
+            anchor.addEventListener("click", event => {
+              toggleAnalysisEndpoint(port.endpoint_id, event);
+            });
             label.append(anchor);
           }));
           }
+          label.addEventListener("pointerenter", event => {
+            if (event.target.closest?.(".graph-node-port-reference")) return;
+            showNodeTooltip(node, label, event);
+          });
+          label.addEventListener("pointerleave", event => {
+            if (!label.contains(event.relatedTarget)) flowTooltipOverlay.replaceChildren();
+          });
           // Cards sit above Sigma's canvas and therefore normally consume the
           // pointer stream. Pan the camera directly when a drag starts on a
           // card, while preserving a plain click for node selection. Keeping
@@ -2416,7 +2553,7 @@
             });
           };
           label.addEventListener("pointerdown", event => {
-            if (event.button !== 0 || forwardedPointer) return;
+            if (event.button !== 0 || forwardedPointer || event.target.closest?.(".graph-node-port-reference")) return;
             forwardedPointer = {
               pointerId: event.pointerId,
               startX: event.clientX,
@@ -2436,7 +2573,7 @@
           // it, a card drag would be handled once by our direct pan and once
           // by Sigma's native mouse pan, producing an amplified movement.
           label.addEventListener("mousedown", event => {
-            if (event.button !== 0) return;
+            if (event.button !== 0 || event.target.closest?.(".graph-node-port-reference")) return;
             event.preventDefault();
             event.stopImmediatePropagation();
           });
@@ -2587,6 +2724,28 @@
           }
           return true;
         };
+        const portPathIsExternal = (points, sourceSide, targetSide) => {
+          if (points.length < 2) return false;
+          const [start, next] = points;
+          const previous = points[points.length - 2];
+          const end = points[points.length - 1];
+          const epsilon = 1;
+          const leavesSource = sourceSide === "EAST"
+            ? next[0] >= start[0] - epsilon
+            : sourceSide === "WEST"
+              ? next[0] <= start[0] + epsilon
+              : sourceSide === "SOUTH"
+                ? next[1] >= start[1] - epsilon
+                : previous[1] <= start[1] + epsilon;
+          const entersTarget = targetSide === "EAST"
+            ? previous[0] <= end[0] + epsilon
+            : targetSide === "WEST"
+              ? previous[0] >= end[0] - epsilon
+              : targetSide === "SOUTH"
+                ? previous[1] <= end[1] + epsilon
+                : previous[1] >= end[1] - epsilon;
+          return leavesSource && entersTarget;
+        };
         const hybridPath = (start, end, sourceId, targetId, occupiedSegments = [], forceCurve = false) => {
           const padding = 14;
           const obstacles = obstacleBounds
@@ -2597,7 +2756,9 @@
               right: obstacle.right + padding,
               bottom: obstacle.bottom + padding,
             }));
-          if (!forceCurve && pathIsClear([start, end], obstacles, occupiedSegments)) {
+          if (!forceCurve
+            && portPathIsExternal([start, end], "EAST", "WEST")
+            && pathIsClear([start, end], obstacles, occupiedSegments)) {
             return { d: `M ${start[0]} ${start[1]} L ${end[0]} ${end[1]}`, points: [start, end], obstacleRouted: false };
           }
           const deltaX = end[0] - start[0];
@@ -2637,7 +2798,8 @@
               const t = step / 32;
               points.push(cubicPoint(midpoint, controlPoints[2], controlPoints[3], end, t));
             }
-            if (pathIsClear(points, obstacles, occupiedSegments)) {
+            if (portPathIsExternal(points, "EAST", "WEST")
+              && pathIsClear(points, obstacles, occupiedSegments)) {
               candidates.push({
                 d: `M ${start[0]} ${start[1]} C ${controlPoints[0][0]} ${controlPoints[0][1]}, ${controlPoints[1][0]} ${controlPoints[1][1]}, ${midpoint[0]} ${midpoint[1]} C ${controlPoints[2][0]} ${controlPoints[2][1]}, ${controlPoints[3][0]} ${controlPoints[3][1]}, ${end[0]} ${end[1]}`,
                 points,
@@ -2682,6 +2844,19 @@
         const occupiedCallGraphSegments = [];
         const libavoidNodes = new Map();
         const libavoidEdges = [];
+        const addLibavoidObstacle = card => {
+          const nodeId = card.dataset.nodeId;
+          if (libavoidNodes.has(nodeId)) return;
+          const bounds = card.getBoundingClientRect();
+          libavoidNodes.set(nodeId, {
+            id: nodeId,
+            x: bounds.left - overlayBounds.left,
+            y: bounds.top - overlayBounds.top,
+            width: bounds.width,
+            height: bounds.height,
+            ports: [],
+          });
+        };
         const ensureLibavoidNode = (card, bounds, anchor, portId, side) => {
           const nodeId = card.dataset.nodeId;
           if (!libavoidNodes.has(nodeId)) {
@@ -2697,10 +2872,20 @@
           const node = libavoidNodes.get(nodeId);
           if (!node.ports.some(port => port.id === portId)) {
             const anchorBounds = (anchor || card).getBoundingClientRect();
+            const portX = side === "EAST"
+              ? anchorBounds.right - bounds.left
+              : side === "WEST"
+                ? anchorBounds.left - bounds.left
+                : anchorBounds.left + anchorBounds.width / 2 - bounds.left;
+            const portY = side === "SOUTH"
+              ? anchorBounds.bottom - bounds.top
+              : side === "NORTH"
+                ? anchorBounds.top - bounds.top
+                : anchorBounds.top + anchorBounds.height / 2 - bounds.top;
             node.ports.push({
               id: portId,
-              x: anchorBounds.left + anchorBounds.width / 2 - bounds.left,
-              y: anchorBounds.top + anchorBounds.height / 2 - bounds.top,
+              x: portX,
+              y: portY,
               width: 1,
               height: 1,
               layoutOptions: { "org.eclipse.elk.port.side": side },
@@ -2708,6 +2893,13 @@
           }
           return nodeId;
         };
+        // Libavoid must know every visible microservice, not only the source
+        // and target of the edges currently being routed. Otherwise an
+        // unrelated service is invisible to the obstacle model and an arc can
+        // cross straight through its card.
+        [...nodeLabelOverlay.querySelectorAll(".graph-node-card-label")]
+          .filter(card => nodeDataById.get(card.dataset.nodeId)?.kind === "microservice")
+          .forEach(addLibavoidObstacle);
         const routePointsToPath = (route, start, end, sourceId, targetId) => {
           if (!route?.sourcePoint || !route?.targetPoint) return null;
           const points = [route.sourcePoint, ...(route.bendPoints || []), route.targetPoint]
@@ -2720,33 +2912,49 @@
             const obstacles = obstacleBounds
               .filter(obstacle => ![sourceId, targetId].includes(obstacle.id))
               .map(obstacle => ({
-                left: obstacle.left - 14,
-                top: obstacle.top - 14,
-                right: obstacle.right + 14,
-                bottom: obstacle.bottom + 14,
+                left: obstacle.left - overlayBounds.left - 14,
+                top: obstacle.top - overlayBounds.top - 14,
+                right: obstacle.right - overlayBounds.left + 14,
+                bottom: obstacle.bottom - overlayBounds.top + 14,
               }));
-            const laneCandidates = [
-              Math.max(start[1], end[1]) + 80,
-              Math.min(start[1], end[1]) - 80,
-              (start[1] + end[1]) / 2 + 120,
-              (start[1] + end[1]) / 2 - 120,
-            ].map(lane => Math.max(42, Math.min(overlayBounds.height - 42, lane)));
-            const rectangular = laneCandidates.map(lane => [
-              start,
-              [start[0], lane],
-              [end[0], lane],
-              end,
-            ]).find(candidate => pathIsClear(candidate, obstacles));
-            if (rectangular) points.splice(0, points.length, ...rectangular);
+            if (!pathIsClear([start, end], obstacles)) {
+              const laneCandidates = [
+                Math.max(start[1], end[1]) + 80,
+                Math.min(start[1], end[1]) - 80,
+                (start[1] + end[1]) / 2 + 120,
+                (start[1] + end[1]) / 2 - 120,
+              ].map(lane => Math.max(42, Math.min(overlayBounds.height - 42, lane)));
+              const rectangular = laneCandidates.map(lane => [
+                start,
+                [start[0], lane],
+                [end[0], lane],
+                end,
+              ]).find(candidate => pathIsClear(candidate, obstacles));
+              if (rectangular) points.splice(0, points.length, ...rectangular);
+            }
           }
-          // libavoid has no viewport boundary obstacle and may select y=0 or
-          // y=height for a detour. Keep intermediate horizontal lanes inside
-          // the readable graph area while preserving the port endpoints.
+          // Libavoid receives virtual viewport obstacles below, so modifying
+          // its points after routing would invalidate its obstacle guarantees.
+          // Reject an out-of-bounds route and let the geometry fallback choose
+          // a safe path instead.
           const viewportMargin = 28;
-          points.slice(1, -1).forEach(point => {
-            point[0] = Math.max(viewportMargin, Math.min(overlayBounds.width - viewportMargin, point[0]));
-            point[1] = Math.max(viewportMargin, Math.min(overlayBounds.height - viewportMargin, point[1]));
-          });
+          const routeInsideViewport = points.slice(1, -1).every(([x, y]) => (
+            x >= viewportMargin
+            && x <= overlayBounds.width - viewportMargin
+            && y >= viewportMargin
+            && y <= overlayBounds.height - viewportMargin
+          ));
+          if (!routeInsideViewport) return null;
+          const routeObstacles = obstacleBounds
+            .filter(obstacle => ![sourceId, targetId].includes(obstacle.id))
+            .map(obstacle => ({
+              left: obstacle.left - overlayBounds.left - 14,
+              top: obstacle.top - overlayBounds.top - 14,
+              right: obstacle.right - overlayBounds.left + 14,
+              bottom: obstacle.bottom - overlayBounds.top + 14,
+            }));
+          if (!portPathIsExternal(points, "EAST", "WEST")) return null;
+          if (!pathIsClear(points, routeObstacles)) return null;
           const roundedPath = points.length < 3
             ? `M ${points[0][0]} ${points[0][1]} L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`
             : points.slice(1, -1).reduce((path, point, index) => {
@@ -2798,15 +3006,11 @@
           const targetCardBounds = target.getBoundingClientRect();
           const sourceBounds = sourceAnchor.getBoundingClientRect();
           const targetBounds = targetAnchor.getBoundingClientRect();
-          const sourceCenter = [sourceBounds.left + sourceBounds.width / 2, sourceBounds.top + sourceBounds.height / 2];
-          const targetCenter = [targetBounds.left + targetBounds.width / 2, targetBounds.top + targetBounds.height / 2];
-          const deltaX = targetCenter[0] - sourceCenter[0];
-          const deltaY = targetCenter[1] - sourceCenter[1];
-          // LibAvoid receives the actual port centers. The route therefore
-          // starts at OUT and terminates at IN, rather than stopping at a
-          // card edge and only looking visually connected to a port.
-          const start = sourceCenter;
-          const end = targetCenter;
+          // OUT arcs leave through the right edge of their badge and IN arcs
+          // arrive at its left edge. Connecting to the badge centers makes
+          // arrowheads look detached and hides the direction of the arc.
+          const start = [sourceBounds.right, sourceBounds.top + sourceBounds.height / 2];
+          const end = [targetBounds.left, targetBounds.top + targetBounds.height / 2];
           const startPoint = [start[0] - overlayBounds.left, start[1] - overlayBounds.top];
           const endPoint = [end[0] - overlayBounds.left, end[1] - overlayBounds.top];
           const resolvedEdgeKey = edgeKey || `call-edge-${index}`;
@@ -2816,8 +3020,8 @@
           const targetPortId = (link.endpoint_ids || []).find(endpointId => (
             anchorsByEndpointId.get(endpointId)?.classList.contains("is-in")
           )) || `${resolvedEdgeKey}-target`;
-          const sourceSide = Math.abs(deltaX) >= Math.abs(deltaY) ? "EAST" : "SOUTH";
-          const targetSide = Math.abs(deltaX) >= Math.abs(deltaY) ? "WEST" : "NORTH";
+          const sourceSide = "EAST";
+          const targetSide = "WEST";
           ensureLibavoidNode(source, sourceCardBounds, sourceAnchor, sourcePortId, sourceSide);
           ensureLibavoidNode(target, targetCardBounds, targetAnchor, targetPortId, targetSide);
           libavoidEdges.push({
@@ -2855,51 +3059,31 @@
             const tooltip = document.createElement("span");
             tooltip.className = "graph-arc-tooltip";
             const title = document.createElement("strong");
-            title.textContent = `${shortPortLabel(sourcePort, "out")} => ${shortPortLabel(targetPort, "in")}`;
+            title.textContent = `${shortPortLabel(sourcePort, "out")} → ${shortPortLabel(targetPort, "in")}`;
             const relation = document.createElement("span");
             relation.className = "graph-arc-tooltip-relation";
             relation.textContent = `${link.kind === "kafka" ? "Kafka" : link.kind === "rest" ? "HTTP" : link.kind || "Relation"} · ${link.label || sourcePort?.name || targetPort?.name || "Endpoint"}`;
-            const endpoints = document.createElement("span");
-            endpoints.className = "graph-arc-tooltip-endpoints";
-            endpoints.textContent = `${link.source.replace(/^microservice:/, "")} → ${link.target.replace(/^microservice:/, "")}`;
-            tooltip.append(title, relation, endpoints);
-            const portBlock = (port, direction) => {
+            tooltip.append(title, relation);
+            const portBlock = (port, direction, serviceId) => {
               const block = document.createElement("span");
               block.className = "graph-arc-tooltip-port";
               const heading = document.createElement("strong");
               heading.textContent = `Port ${direction} · ${shortPortLabel(port, direction === "OUT" ? "out" : "in")}`;
-              const name = document.createElement("span");
-              name.textContent = `${direction === "OUT" ? "Déclenchement réalisé" : "Déclencheur"} : ${port?.name || "Endpoint inconnu"}`;
-              const method = document.createElement("span");
-              method.textContent = `Méthode Java : ${port?.method || "inconnue"}`;
-              const location = document.createElement("code");
-              location.textContent = `${port?.path || "Source inconnue"}${port?.line ? `:${port.line}` : ""}`;
-              block.append(heading, name, method, location);
+              const service = document.createElement("span");
+              service.textContent = `Microservice : ${serviceId?.replace(/^microservice:/, "") || "inconnu"}`;
+              block.append(heading, service);
               return block;
             };
-            tooltip.append(portBlock(sourcePort, "OUT"), portBlock(targetPort, "IN"));
-            if (link.kind === "internal") {
-              const mapping = document.createElement("span");
-              mapping.className = "graph-arc-tooltip-type";
-              mapping.textContent = `Sortie interne associée : ${shortPortLabel(sourcePort, "out")}`;
-              tooltip.append(mapping);
-            }
+            tooltip.append(
+              portBlock(sourcePort, "OUT", link.source),
+              portBlock(targetPort, "IN", link.target),
+            );
             if (sourcePort?.message_type || targetPort?.message_type) {
               const type = document.createElement("span");
               type.className = "graph-arc-tooltip-type";
               type.textContent = `Type : ${sourcePort?.message_type || targetPort?.message_type}`;
               tooltip.append(type);
             }
-            const evidence = document.createElement("code");
-            evidence.textContent = [
-              `${sourcePort?.path || "Source inconnue"}${sourcePort?.line ? `:${sourcePort.line}` : ""}`,
-              `${targetPort?.path || "Cible inconnue"}${targetPort?.line ? `:${targetPort.line}` : ""}`,
-            ].join(" → ");
-            tooltip.append(evidence);
-            const methods = document.createElement("span");
-            methods.className = "graph-arc-tooltip-methods";
-            methods.textContent = `${sourcePort?.method || "Méthode inconnue"} → ${targetPort?.method || "Méthode inconnue"}`;
-            tooltip.append(methods);
             flowTooltipOverlay.replaceChildren(tooltip);
             const bounds = path.getBoundingClientRect();
             const tooltipBounds = tooltip.getBoundingClientRect();
@@ -2912,6 +3096,13 @@
             tooltip.style.top = `${below ? bounds.bottom + 10 : Math.max(8, bounds.top - tooltipBounds.height - 10)}px`;
           });
           path.addEventListener("pointerleave", () => flowTooltipOverlay.replaceChildren());
+        };
+        const addArcHitArea = path => {
+          const hitArea = path.cloneNode();
+          hitArea.classList.add("graph-arc-hit-area");
+          hitArea.removeAttribute("marker-end");
+          portPathOverlay.append(hitArea);
+          return hitArea;
         };
         selectedCallGraphLinks.forEach(({ link, index, edgeKey }) => {
           const routed = callGraphPath(link, edgeKey, index);
@@ -2933,12 +3124,19 @@
           const path = document.createElementNS(svgNamespace, "path");
           path.classList.add("graph-call-path");
           if (link.kind === "kafka") path.classList.add("is-kafka");
+          if ((link.endpoint_ids || []).includes(graphState.analysisPortEndpointId)) {
+            path.classList.add("is-analysis-selected");
+          }
           path.setAttribute("marker-end", "url(#graph-port-arrow)");
           if (routed.router) path.dataset.router = routed.router;
           path.setAttribute("d", routed.d);
           portPathOverlay.append(path);
           const arcLabel = document.createElementNS(svgNamespace, "text");
           arcLabel.classList.add("graph-call-label");
+          if (link.kind === "kafka") arcLabel.classList.add("is-kafka");
+          if ((link.endpoint_ids || []).includes(graphState.analysisPortEndpointId)) {
+            arcLabel.classList.add("is-analysis-selected");
+          }
           const sourcePort = (link.endpoint_ids || [])
             .map(endpointId => portsByEndpointId.get(endpointId))
             .find(port => port?.direction === "out")
@@ -2955,12 +3153,16 @@
             const match = String(port?.label || "").match(direction === "out" ? /O\d+/ : /I\d+/);
             return match?.[0] || (direction === "out" ? "O?" : "I?");
           };
-          arcLabel.textContent = `${shortPortLabel(sourcePort, "out")} => ${shortPortLabel(targetPort, "in")}`;
+          arcLabel.textContent = `${shortPortLabel(sourcePort, "out")} → ${shortPortLabel(targetPort, "in")}`;
           const labelPoint = routed.points[Math.floor(routed.points.length / 2)] || routed.points[0];
           arcLabel.setAttribute("x", String(labelPoint[0]));
           arcLabel.setAttribute("y", String(labelPoint[1] - 8));
           portPathOverlay.append(arcLabel);
-          bindArcTooltip(path, link, sourcePort, targetPort);
+          const hitArea = addArcHitArea(path);
+          hitArea.addEventListener("click", event => {
+            toggleAnalysisEndpoint(sourcePort?.endpoint_id || targetPort?.endpoint_id, event);
+          });
+          bindArcTooltip(hitArea, link, sourcePort, targetPort);
         });
         const libavoidRouteKeyForGeometry = [
           ...[...libavoidNodes.values()].map(node => (
@@ -3028,14 +3230,21 @@
           if (!input?.classList.contains("is-in") || !output?.classList.contains("is-out")) return;
           const path = document.createElementNS(svgNamespace, "path");
           path.classList.add("graph-local-port-path");
+          if ([link.input_endpoint_id, link.output_endpoint_id].includes(graphState.analysisPortEndpointId)) {
+            path.classList.add("is-analysis-selected");
+          }
           if (graphState.relatedLocalPortLinks?.has(
             `${link.input_endpoint_id}:${link.output_endpoint_id}`
           )) path.classList.add("is-code-flow-path");
           path.setAttribute("marker-end", "url(#graph-port-arrow)");
           path.setAttribute("d", portPath(input, output));
           portPathOverlay.append(path);
+          const hitArea = addArcHitArea(path);
+          hitArea.addEventListener("click", event => {
+            toggleAnalysisEndpoint(link.output_endpoint_id || link.input_endpoint_id, event);
+          });
           bindArcTooltip(
-            path,
+            hitArea,
             {
               kind: "internal",
               label: "Flux interne",
@@ -3053,11 +3262,18 @@
           const path = document.createElementNS(svgNamespace, "path");
           path.classList.add("graph-port-path");
           if (link.kind === "kafka") path.classList.add("is-kafka");
+          if ([link.source_endpoint_id, link.target_endpoint_id].includes(graphState.analysisPortEndpointId)) {
+            path.classList.add("is-analysis-selected");
+          }
           path.setAttribute("marker-end", "url(#graph-port-arrow)");
           path.setAttribute("d", portPath(source, target));
           portPathOverlay.append(path);
+          const hitArea = addArcHitArea(path);
+          hitArea.addEventListener("click", event => {
+            toggleAnalysisEndpoint(link.source_endpoint_id || link.target_endpoint_id, event);
+          });
           bindArcTooltip(
-            path,
+            hitArea,
             {
               kind: link.kind,
               label: link.kind === "kafka" ? source.dataset.endpointId : "HTTP",
@@ -3087,6 +3303,24 @@
       requestGraphRender();
       renderer.on("enterNode", ({ node }) => { graphState.hoveredId = node; requestGraphRender(); });
       renderer.on("leaveNode", () => { graphState.hoveredId = null; requestGraphRender(); });
+      renderer.on("enterEdge", ({ edge }) => {
+        if (String(edge).startsWith("call-edge-")) return;
+        const match = String(edge).match(/^edge-(\d+)$/);
+        const link = match ? visibleLinks[Number(match[1])] : null;
+        if (!link) return;
+        const source = nodeDataById.get(link.source);
+        const target = nodeDataById.get(link.target);
+        const tooltip = document.createElement("span");
+        tooltip.className = "graph-edge-tooltip";
+        const title = document.createElement("strong");
+        title.textContent = `${source?.name || link.source} → ${target?.name || link.target}`;
+        tooltip.append(title);
+        addTooltipLine(tooltip, `${link.kind || "Relation"}${link.label ? ` · ${link.label}` : ""}`, "graph-edge-tooltip-kind");
+        if (link.message_type) addTooltipLine(tooltip, `Type : ${link.message_type}`);
+        if (link.provenance) addTooltipLine(tooltip, `Preuve : ${link.provenance}`, "graph-edge-tooltip-detail");
+        placeGraphTooltip(tooltip, document.getElementById("graph").getBoundingClientRect());
+      });
+      renderer.on("leaveEdge", () => flowTooltipOverlay.replaceChildren());
       renderer.on("clickNode", ({ node }) => selectNode(node));
       renderer.on("clickStage", reset);
       renderer.on("doubleClickStage", event => event.preventSigmaDefault?.());
@@ -3250,11 +3484,11 @@
       ["cluster", document.getElementById("layout-cluster")],
     ]);
     const layoutLabels = new Map([
-      ["forceatlas2", "placement liens groupés"],
-      ["noverlap", "placement sans chevauchement"],
-      ["forceatlas2-noverlap", "vue graphe"],
-      ["elk", "vue couches"],
-      ["cluster", "vue modules"],
+      ["forceatlas2", "regroupement des liens"],
+      ["noverlap", "éviter les chevauchements"],
+      ["forceatlas2-noverlap", "vue par graphe"],
+      ["elk", "vue par couches"],
+      ["cluster", "vue par modules"],
     ]);
     const pathStops = [];
     const MAX_SIMPLE_PATH_DEPTH = 8;
@@ -3988,6 +4222,8 @@
       const showingKafka = tab === "kafka";
       const showingPersistence = tab === "persistence";
       const showingFlows = tab === "flows";
+      const resourceTabGroup = document.getElementById("resource-tab-group");
+      if (resourceTabGroup) resourceTabGroup.hidden = showingFlows || showingIssues;
       graphTab.classList.toggle("is-active", showingGraph);
       graphTab.setAttribute("aria-selected", String(showingGraph));
       resourcesTab.classList.toggle("is-active", showingResources);
@@ -4022,7 +4258,7 @@
       inventoryStatus.classList.toggle("is-warning", indexingIssues.length > 0);
       inventoryStatus.textContent = indexingIssues.length
         ? `${indexingIssues.length} fait${indexingIssues.length > 1 ? "s" : ""} à vérifier`
-        : "Inventaire complet";
+        : "Index complet";
       inventoryStatus.title = indexingIssues.length
         ? "Ouvrir les problèmes d'indexation"
         : "Aucun fait non résolu dans cet inventaire";
@@ -4113,7 +4349,7 @@
       dtoReferencesEmpty.hidden = visibleDtos.length > 0;
       dtoReferencesEmpty.textContent = query && !visibleDtos.length
         ? "Aucun DTO ne correspond à ce filtre."
-        : "Aucun DTO de Topics détecté.";
+        : "Aucun DTO de messages détecté.";
       visibleDtos.forEach(dto => {
         const exchangeCount = (dto.producers?.length || 0) + (dto.consumers?.length || 0);
         dtoReferencesList.append(referenceItem(
@@ -4124,7 +4360,7 @@
         ));
       });
       openapiReferencesTitle.textContent = `Contrats OpenAPI (${visibleContracts.length}/${contracts.length})`;
-      dtoReferencesTitle.textContent = `DTO de Topics (${visibleDtos.length}/${dtos.length})`;
+      dtoReferencesTitle.textContent = `DTO de messages (${visibleDtos.length}/${dtos.length})`;
       const asyncContracts = graphData.nodes.flatMap(node => (
         node.kind === "microservice"
           ? (node.asyncapi_contracts || []).map(contract => ({ ...contract, module: node.name }))
@@ -4150,7 +4386,7 @@
       mongoClassReferencesEmpty.hidden = visiblePersistenceClasses.length > 0;
       mongoClassReferencesEmpty.textContent = mongoQuery && !visiblePersistenceClasses.length
         ? "Aucune classe de persistance ne correspond à ce filtre."
-        : "Aucune classe de persistance Data détectée.";
+        : "Aucune classe de données persistées détectée.";
       visiblePersistenceClasses.forEach(item => mongoClassReferencesList.append(referenceItem(
         item.qualified_name,
         `${item.collection} · ${item.service} / ${item.module} · ${item.fields?.length || 0} champ(s)`,
@@ -4322,7 +4558,7 @@
         button.className = "relation-link";
         button.type = "button";
         button.textContent = label;
-        button.title = actionTitle || "Explorer cet element dans le graphe";
+        button.title = actionTitle || "Afficher cet élément dans le graphe";
         button.addEventListener("click", action);
         item.append(button);
         list.append(item);
@@ -4528,7 +4764,7 @@
     function renderMongoPersistenceInspector(classId) {
       const item = (graphData.mongo_persistence_classes || []).find(candidate => candidate.id === classId);
       if (!item) return;
-      openInspector(`Persistance Data · ${item.name}`);
+      openInspector(`Données persistées · ${item.name}`);
       inspectorBody.classList.add("dto-inspector");
       if (mongoNavigation.length) {
         const navigation = document.createElement("div");
@@ -4616,7 +4852,7 @@
       summary.className = "dto-summary";
       summary.textContent = dto.source
         ? `Classe source : ${dto.source}`
-        : "Classe Java non retrouvee dans les sources indexees ; les relations de Topics restent disponibles.";
+        : "Classe Java non retrouvée dans les sources indexées ; les relations de messages restent disponibles.";
       inspectorBody.append(summary);
       if (dto.vscode_uri) {
         const sourceLink = document.createElement("a");
@@ -4655,7 +4891,7 @@
         section.append(heading, list);
         inspectorBody.append(section);
       }
-      appendDtoInspectorSection("Topics", dto.topics || []);
+      appendDtoInspectorSection("Messages", dto.topics || []);
       appendDtoInspectorSection("Valeurs enum", dto.enum_values || []);
       appendDtoInspectorSection("Producteurs", dto.producers || []);
       appendDtoInspectorSection("Consommateurs", dto.consumers || []);
@@ -4676,8 +4912,8 @@
       details.classList.add("is-empty");
       document.querySelector(".toolbar")?.classList.remove("has-details");
       resetButton.disabled = true;
-      resetButton.textContent = "Effacer";
-      resetButton.title = "Effacer la sélection";
+      resetButton.textContent = "Réinitialiser";
+      resetButton.title = "Réinitialiser la sélection";
       resetButton.setAttribute("aria-label", resetButton.title);
       details.replaceChildren();
       const empty = document.createElement("div");
@@ -4723,7 +4959,7 @@
           ? `API · ${source.name} appelle ${target.name} (${resource})`
           : `API · ${source.name} appelle ${target.name} (contrat non indexe)`;
       }
-      if (link.kind === "mongodb") return `Data · ${source.name} stocke dans ${target.name}`;
+      if (link.kind === "mongodb") return `Données · ${source.name} stocke dans ${target.name}`;
       if (source.kind === "microservice") {
         const types = link.published_message_types || [];
         return `Topic · ${source.name} publie${types.length ? ` <${types.join(", ")}>` : ""} sur ${target.name}${warning}`;
@@ -4899,7 +5135,7 @@
       header.className = "path-details-header";
       const kicker = document.createElement("p");
       kicker.className = "path-details-kicker";
-      kicker.textContent = context.codeFlow ? "Flux de code sélectionné" : "Analyse de flux";
+      kicker.textContent = context.codeFlow ? "Flux de code sélectionné" : "Analyse du flux";
       const title = document.createElement("h1");
       title.className = "path-details-title";
       title.textContent = context.codeFlow?.method
@@ -5034,6 +5270,7 @@
       graphState.relatedLocalPortLinks = new Set((path.localLinks || []).map(link => (
         `${link.input_endpoint_id}:${link.output_endpoint_id}`
       )));
+      graphState.analysisPortEndpointId = null;
       graphState.selectedCodeFlowId = context.codeFlow?.id || null;
       graphState.codeFlowRootNodeId = context.codeFlowRootNodeId || null;
       graphState.codeFlowTrigger = context.codeFlowTrigger || null;
@@ -5053,8 +5290,8 @@
       if (context.showDetails !== false) renderPathDetails(path, context);
       else {
         resetButton.disabled = false;
-        resetButton.textContent = "Effacer";
-        resetButton.title = "Effacer la sélection";
+        resetButton.textContent = "Réinitialiser";
+        resetButton.title = "Réinitialiser la sélection";
         resetButton.setAttribute("aria-label", resetButton.title);
       }
       if (context.codeFlow) {
@@ -5241,7 +5478,7 @@
         [
           `${publishedApiCount} API${publishedApiCount > 1 ? "s" : ""} exposee${publishedApiCount > 1 ? "s" : ""}`,
           `${publishedTopicCount} topic${publishedTopicCount > 1 ? "s" : ""} publie${publishedTopicCount > 1 ? "s" : ""}`,
-          `${collectionCount} Data utilisée${collectionCount > 1 ? "s" : ""}`,
+          `${collectionCount} donnée${collectionCount > 1 ? "s" : ""} utilisée${collectionCount > 1 ? "s" : ""}`,
         ].forEach(label => { const badge = document.createElement("span"); badge.className = "detail-badge"; badge.textContent = label; meta.append(badge); });
       }
       const confidenceLabels = { proved: "prouvee", inferred: "inferee", conventional: "conventionnelle" };
@@ -5260,7 +5497,7 @@
         const connectivityLabels = { low: "basse", medium: "médiane", high: "élevée" };
         scoreBadge.textContent = `Connectivité relative : ${connectivityLabels[complexity.level]} (${complexity.score})`;
         const breakdown = complexity.breakdown || {};
-        scoreBadge.title = `APIs : ${breakdown.http || 0} · Topics : ${breakdown.kafka || 0} · Data : ${breakdown.mongodb || 0} · Rang relatif ${complexity.rank}/${complexity.population} · Tiers : ${complexity.tier_start}-${complexity.tier_end}`;
+        scoreBadge.title = `APIs : ${breakdown.http || 0} · Messages : ${breakdown.kafka || 0} · Données : ${breakdown.mongodb || 0} · Rang relatif ${complexity.rank}/${complexity.population} · Tiers : ${complexity.tier_start}-${complexity.tier_end}`;
         meta.append(scoreBadge);
       }
       header.append(kicker, title, meta);
@@ -5378,9 +5615,9 @@
           title: `Inspecter le contrat AsyncAPI ${contract.path}`,
           action: () => openAsyncApiContract(contract),
         })), relationsGroup);
-        appendServiceKafkaActivities(node, "consume", "Topics consommes", kafkaConsumptions, relationsGroup);
-        appendServiceKafkaActivities(node, "produce", "Topics publies", kafkaPublications, relationsGroup);
-        appendRelationList("Data", mongoCollections, id, link => (
+        appendServiceKafkaActivities(node, "consume", "Messages consommés", kafkaConsumptions, relationsGroup);
+        appendServiceKafkaActivities(node, "produce", "Messages publiés", kafkaPublications, relationsGroup);
+        appendRelationList("Données", mongoCollections, id, link => (
           nodeDataById.get(link.target).name
         ), relationsGroup);
         discardEmptyDetailsGroup(relationsGroup);
@@ -5402,10 +5639,10 @@
         const sourcesGroup = createDetailsGroup("Sources", false);
         appendActionList("Fichiers de preuve", sourceEntries, sourcesGroup);
         discardEmptyDetailsGroup(sourcesGroup);
-        const qualityGroup = createDetailsGroup("Qualité", false);
+        const qualityGroup = createDetailsGroup("Diagnostics", false);
         appendFindings(node.findings || [], qualityGroup);
         discardEmptyDetailsGroup(qualityGroup);
-        const groupOrder = ["Architecture", "Ports d'intégration", "Relations", "Flux associés", "Flux internes", "Kubernetes", "Sources", "Qualité"];
+        const groupOrder = ["Architecture", "Ports d'intégration", "Relations", "Flux associés", "Flux internes", "Kubernetes", "Sources", "Diagnostics"];
         [...details.querySelectorAll(":scope > .details-group")]
           .sort((left, right) => {
             const leftRank = groupOrder.indexOf(left.querySelector("summary")?.textContent);
@@ -6061,6 +6298,7 @@
         selectedClusterKey: null,
         relatedNodes: null,
         relatedEdges: null,
+        analysisPortEndpointId: null,
         selectedCodeFlowId: null,
         pathMicroserviceOrder: new Map(),
       });
@@ -6082,7 +6320,12 @@
     const fitReadableButton = document.getElementById("fit-readable");
     const renderCardsButton = document.getElementById("render-cards");
     const renderSymbolsButton = document.getElementById("render-symbols");
+    const analysisModeClear = document.getElementById("analysis-mode-clear");
     graphCanvas.dataset.renderMode = graphState.renderMode;
+    analysisModeClear?.addEventListener("click", () => {
+      graphState.analysisPortEndpointId = null;
+      requestGraphRender();
+    });
     function updateFitModeControls(mode) {
       [
         [fitOverviewButton, "overview"],

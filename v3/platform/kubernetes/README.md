@@ -21,7 +21,6 @@ Kustomize ne contient que les services externes et le routage Traefik vers les
 ports publiés de cette VM. `ELASTIC_PASSWORD` doit être fourni hors dépôt lors
 d'une installation neuve.
 
-Le manifeste historique `eck-trial-license.yaml` n'est plus utilisé par la v3.
 La licence et les identifiants du stack Quadlet sont gérés directement par
 Elasticsearch sur `elk-01`.
 

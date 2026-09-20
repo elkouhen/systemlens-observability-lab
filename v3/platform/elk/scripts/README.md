@@ -20,7 +20,11 @@ ne stockent aucun mot de passe dans le dépôt.
 3. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
    qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
    PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script
-   directement : la cible lit le secret ECK sans l'afficher.
+   directement : la cible lit le secret ECK sans l'afficher. Les intégrations
+   Fleet utilisent les datasets natifs `kafka.broker`, `kafka.partition`,
+   `kafka.consumergroup`, `mongodb.status`, `mongodb.metrics`,
+   `mongodb.dbstats` et `postgresql.database` ; les champs contrôlés restent
+   ceux des intégrations (`kafka.*`, `mongodb.*` et `postgresql.*`).
 4. `apply-apm-kibana-role.sh` crée ou met à jour un compte Kibana natif en
    lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
    identifiants et le certificat CA restent hors Git.

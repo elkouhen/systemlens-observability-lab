@@ -53,19 +53,28 @@ Vagrant.configure("2") do |config|
       end
 
       # L'Elastic Agent est enrôlé dans Fleet après le déploiement de Kibana.
+      ansible_extra_vars = {
+        "node_id" => node_config[:id],
+        "node_ip" => node_config[:ip],
+        "node_role" => node_config[:role].to_s,
+        "kafka_controller_voters" => KAFKA_CONTROLLER_VOTERS,
+        "postgresql_password" => postgresql_password || "",
+        "otel_elasticsearch_api_key" => otel_elasticsearch_api_key || "",
+        "elastic_password" => elastic_password || "",
+        "fleet_enrollment_token" => fleet_enrollment_token || "",
+        "zscaler_ca_cert_content" => zscaler_ca_cert_content
+      }
+
       node.vm.provision "ansible" do |ansible|
         ansible.playbook = "ansible/site.yml"
-        ansible.extra_vars = {
-          "node_id" => node_config[:id],
-          "node_ip" => node_config[:ip],
-          "node_role" => node_config[:role].to_s,
-          "kafka_controller_voters" => KAFKA_CONTROLLER_VOTERS,
-          "postgresql_password" => postgresql_password || "",
-          "otel_elasticsearch_api_key" => otel_elasticsearch_api_key || "",
-          "elastic_password" => elastic_password || "",
-          "fleet_enrollment_token" => fleet_enrollment_token || "",
-          "zscaler_ca_cert_content" => zscaler_ca_cert_content
-        }
+        ansible.extra_vars = ansible_extra_vars
+      end
+
+      # Provisionnement léger utilisé après la création du token Fleet : il ne
+      # rejoue pas les rôles système, middleware ou services Elastic.
+      node.vm.provision "fleet-agent", type: "ansible" do |ansible|
+        ansible.playbook = "ansible/fleet-agent.yml"
+        ansible.extra_vars = ansible_extra_vars
       end
     end
   end

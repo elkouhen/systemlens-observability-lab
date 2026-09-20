@@ -1,9 +1,9 @@
 # Kafka dans Fleet
 
 Ce guide explique la package policy Kafka déclarée dans
-[`../../kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml)
+[`../scripts/bootstrap-fleet-policies.sh`](../scripts/bootstrap-fleet-policies.sh)
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
-La policy Kafka est déclarée dans `kibana.yaml`; `make fleet-sync` applique les
+La policy Kafka est appliquée au Kibana Quadlet de `elk-01`; `make fleet-sync` applique les
 pipelines Elasticsearch `@custom`. Chaque hôte de
 données héberge un broker/controller Kafka KRaft dans Podman. Toutes les VM
 actives exécutent l'Elastic Agent enrôlé dans Fleet.
@@ -19,8 +19,10 @@ Elastic Agent Fleet de chaque VM
 ```
 
 L'intégration Fleet couvre les métriques Kafka exposées par le protocole Kafka.
-Les documents sont routés vers `metrics-kafka.otel-*` avec
-`service.name: kafka` et `host.name: data-01`. Jolokia est historique et n'est
+Les documents sont routés vers les data streams natifs
+`metrics-kafka.broker-*`, `metrics-kafka.partition-*` et
+`metrics-kafka.consumergroup-*` avec
+`service.name: kafka` et `host.name: poc-01`. Jolokia est historique et n'est
 pas requis par le chemin v3.
 
 ## Lire la policy
@@ -65,7 +67,8 @@ Après une modification de policy, exécuter `make fleet-sync` puis vérifier
 
 1. Vérifier depuis la VM que `localhost:9092` répond et que le
    quorum KRaft est sain : `make vm-status`.
-2. Dans Discover, filtrer `data_stream.dataset: kafka.otel`.
+2. Dans Discover, filtrer `data_stream.dataset: kafka.broker` (ou
+   `kafka.partition` / `kafka.consumergroup`).
 3. Vérifier les métriques `kafka.brokers`, `kafka.partition.current_offset`
    et `kafka.consumer_group.lag`.
 4. En cas d'échec Fleet, consulter `journalctl -u elastic-agent` et vérifier

@@ -238,4 +238,5 @@ make dashboards-verify
 - architecture v2 : `v2/platform/` et `v2/ansible/` ;
 - architecture v3 : `v3/platform/` et `v3/ansible/` ;
 - flux applicatifs et Kubernetes v2/v3 : `v3/platform/kubernetes/base/observability/otel-kafka.yaml` ;
-- policy VM v3 : `v3/platform/kubernetes/base/observability/kibana.yaml`.
+- policy VM v3 : `v3/platform/elk/scripts/bootstrap-fleet-policies.sh`, appliquée
+  au Kibana Quadlet de `elk-01`.

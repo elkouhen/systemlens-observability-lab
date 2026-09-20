@@ -3,8 +3,8 @@
 Les fichiers `.ndjson` sont des exports d'objets sauvegardés Kibana. Le fichier
 `business-metrics-dashboard.json` est une définition inline de l'API Dashboard
 Kibana, avec des visualisations ES|QL. La collecte v3 des VM est assurée par Elastic Agent Fleet et envoyée directement à
-Elasticsearch. Les packages Fleet de plateforme déclarés dans
-[`platform/kubernetes/base/observability/kibana.yaml`](../../kubernetes/base/observability/kibana.yaml).
+Elasticsearch. Les packages Fleet sont installés par la configuration Quadlet
+de `elk-01` puis réconciliés par le script de bootstrap Fleet.
 Les dashboards Fleet classiques peuvent donc exploiter les champs ECS
 produits par la collecte v3.
 
@@ -20,7 +20,7 @@ produits par la collecte v3.
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | SLA pains achetés | **Observability > SLOs** et **Alerts and Insights > Rules** | `logs-*` | SLO à 99 % de périodes de 24 heures conformes sur 30 jours, avec au moins 10 pains `BREAD-WHOLE` achetés par période ; alerte sur les dernières 24 heures. |
-| Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agents Fleet healthy sur `data-01` et `otel-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
+| Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agents Fleet healthy sur `poc-01`, `otel-backend-01` et `otel-edge-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
 | Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-prometheusreceiver.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
 
 Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
@@ -32,8 +32,8 @@ le flux `kubeletstats` de cette architecture.
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.
-Pour ce POC, PostgreSQL est attendu uniquement sur `data-01`; le dashboard ne
-doit afficher les métriques PostgreSQL de `data-01`.
+Pour ce POC, PostgreSQL est attendu uniquement sur `poc-01`; le dashboard ne
+doit afficher les métriques PostgreSQL de `poc-01`.
 
 ## Déploiement et vérification
 
@@ -118,8 +118,7 @@ de collecte. `make observability-policies-deploy` crée ou met à jour :
 - une alerte horaire lorsque les ventes de pain restent sous 10 unités sur les
   dernières 24 heures.
 
-L'API SLO nécessite une licence Elastic compatible, par exemple la licence
-Trial déclarée par `make eck-trial-start`. Avec une licence Basic, la cible
+L'API SLO nécessite une licence Elastic compatible. Avec une licence Basic, la cible
 signale que le SLO est ignoré et poursuit la réconciliation des alertes
 compatibles.
 

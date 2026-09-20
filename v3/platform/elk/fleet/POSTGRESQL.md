@@ -1,6 +1,6 @@
 # PostgreSQL avec Elastic Agent Fleet
 
-La VM `data-01` collecte PostgreSQL localement avec l'intégration Fleet
+La VM `poc-01` collecte PostgreSQL localement avec l'intégration Fleet
 `postgresql`. Les métriques sont envoyées directement vers Elasticsearch.
 
 | Famille | Métriques attendues |
@@ -10,8 +10,8 @@ La VM `data-01` collecte PostgreSQL localement avec l'intégration Fleet
 | Objets | tables, index, scans et tailles |
 | Écriture | buffers, checkpoints et WAL selon les droits et la version PostgreSQL |
 
-Dans Discover, utiliser `data_stream.dataset: postgresql.otel` et
-`host.name: data-01`. La collecte des requêtes détaillées n'est pas activée
+Dans Discover, utiliser `data_stream.dataset: postgresql.database` et
+`host.name: poc-01`. La collecte des requêtes détaillées n'est pas activée
 par défaut ; elle nécessite notamment `pg_stat_statements` et des droits
 adaptés.
 

@@ -160,7 +160,7 @@ Source : [`otel-agent.yml.j2`](../v2/ansible/templates/otel-agent.yml.j2).
 les événements répétitifs. Aucun quota global par VM n'est configuré ; un
 plafond strict doit être appliqué en amont et surveillé.
 
-Source : policy `data-fleet` dans [`kibana.yaml`](../v3/platform/kubernetes/base/observability/kibana.yaml).
+Source : policy `data-fleet` dans [`bootstrap-fleet-policies.sh`](../v3/platform/elk/scripts/bootstrap-fleet-policies.sh).
 
 ### 3.8 EDOT Gateway — v2/v3
 

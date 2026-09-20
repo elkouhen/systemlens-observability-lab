@@ -40,5 +40,5 @@ for node in ${fleet_vm_nodes}; do
     --data "{\"name\":\"${token_name}\",\"policy_id\":\"${policy_id}\"}" \
     "${kibana_url}/api/fleet/enrollment_api_keys")"
   token="$(jq -er '.item.api_key' <<<"${response}")"
-  FLEET_ENROLLMENT_TOKEN="${token}" vagrant provision "${node}"
+  FLEET_ENROLLMENT_TOKEN="${token}" vagrant provision "${node}" --provision-with fleet-agent
 done
