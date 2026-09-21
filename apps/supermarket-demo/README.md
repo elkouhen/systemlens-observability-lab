@@ -35,7 +35,7 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 1. `pom.xml` : agrégateur Maven et versions communes.
 2. `Dockerfile` : build multi-stage, avec les agents Java Elastic APM et
    OpenTelemetry intégrés dans les trois images de service.
-3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patch v3
+3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patch architecture
    et raccordement d'`order-service` à APM Server et d'`inventory-service` à
    APM Server.
 4. `order-service/src/main/resources/application.yml`, puis la même
@@ -71,16 +71,16 @@ d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
 
 La version de l'agent OpenTelemetry est contrôlée par
-`OTEL_JAVA_AGENT_VERSION` lors de `make -C v3 apps-build`. Elle est intégrée
+`OTEL_JAVA_AGENT_VERSION` lors de `make -C architecture apps-build`. Elle est intégrée
 dans chaque image applicative et n'est donc pas téléchargée au démarrage des
 Pods. Sa configuration est embarquée dans `otel/*.properties` et chargée par
-`JAVA_TOOL_OPTIONS` dans l'overlay Kubernetes v3. Les variables
+`JAVA_TOOL_OPTIONS` dans l'overlay Kubernetes architecture. Les variables
 `MANAGEMENT_OTLP_*` restent dans Kubernetes car elles configurent l'exporteur
 Micrometer de Spring Boot, distinct de l'agent Java.
 
 Le tag des images Docker (`order-service:1.1.2` / `inventory-service:1.1.2` /
 `restock-service:1.1.2`,
-fixé dans `Makefile` et le manifest Kubernetes de `v3/`) est géré indépendamment
+fixé dans `Makefile` et le manifest Kubernetes de `architecture/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag

@@ -80,13 +80,12 @@ versionnée, reproductible et aussi petite que possible pour le besoin couvert.
 
 ### Stratégie d'économie de tokens
 
-- Au début d'une tâche, déterminer l'architecture active à partir de
-  `.architecture-version` ou de `make architecture-status`. Par défaut, limiter
-  les lectures et recherches au répertoire de cette version et aux composants
-  partagés qu'il référence.
-- Exclure les autres répertoires de version (`v1/`, `v2/` ou `v3/`) des
-  recherches. Ne les consulter que pour une comparaison, une migration ou une
-  demande explicite ; signaler alors cet élargissement du périmètre.
+- Au début d'une tâche, vérifier l'architecture active avec `make architecture-status`.
+  Le bundle unique se trouve dans `architecture/`; limiter les lectures et
+  recherches à ce répertoire et aux composants partagés qu'il référence.
+- Les architectures historiques ne font plus partie du dépôt actif. Ne
+  rechercher une ancienne configuration que pour une comparaison ou une
+  migration explicitement demandée ; signaler alors cet élargissement du périmètre.
 - Commencer par le périmètre minimal : objectif, sous-système, fichiers
   probables et résultat vérifiable. Élargir la recherche seulement si les
   premiers éléments ne permettent pas de conclure.

@@ -1,0 +1,80 @@
+---
+- name: Déterminer l'architecture Elastic Agent
+  ansible.builtin.set_fact:
+    elastic_agent_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+- name: Vérifier si Elastic Agent est déjà enrôlé
+  ansible.builtin.stat:
+    path: /opt/Elastic/Agent/elastic-agent
+  register: enrolled_agent
+
+- name: Déterminer si l’agent Fleet doit être réinstallé
+  ansible.builtin.set_fact:
+    reinstall_fleet_agent: "{{ fleet_agent_reinstall | default(false) | bool }}"
+
+- name: Déterminer si un enrôlement Fleet est réellement nécessaire
+  ansible.builtin.set_fact:
+    fleet_agent_enrollment_required: >-
+      {{ fleet_enrollment_token | length > 0 and
+         (not enrolled_agent.stat.exists or reinstall_fleet_agent) }}
+
+- name: Arrêter l’agent Fleet existant avant sa désinstallation
+  ansible.builtin.systemd_service:
+    name: elastic-agent.service
+    state: stopped
+    enabled: false
+  when:
+    - reinstall_fleet_agent
+  failed_when: false
+
+- name: Retirer l’agent Fleet existant avant son réinstallation
+  ansible.builtin.command:
+    argv:
+      - /opt/Elastic/Agent/elastic-agent
+      - uninstall
+      - --force
+  when:
+    - reinstall_fleet_agent
+  no_log: true
+
+- name: Recharger systemd après la désinstallation de l’agent Fleet
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when:
+    - reinstall_fleet_agent
+
+- name: Télécharger Elastic Agent pour un enrôlement Fleet demandé
+  ansible.builtin.get_url:
+    url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+    dest: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+    mode: '0644'
+    force: false
+    timeout: "{{ elastic_agent_download_timeout | default(120) }}"
+  when:
+    - fleet_agent_enrollment_required
+  register: elastic_agent_download
+  retries: "{{ elastic_agent_download_retries | default(5) }}"
+  delay: "{{ elastic_agent_download_delay | default(15) }}"
+  until: elastic_agent_download is succeeded
+
+- name: Extraire Elastic Agent
+  ansible.builtin.unarchive:
+    src: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
+    dest: /var/tmp
+    remote_src: true
+  when:
+    - fleet_agent_enrollment_required
+
+- name: Enrôler la VM dans Fleet via l'otel-edge
+  ansible.builtin.command:
+    argv:
+      - "/var/tmp/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}/elastic-agent"
+      - install
+      - --non-interactive
+      - --force
+      - "--url={{ fleet_url }}"
+      - "--enrollment-token={{ fleet_enrollment_token }}"
+      - --insecure
+  when:
+    - fleet_agent_enrollment_required
+  no_log: true

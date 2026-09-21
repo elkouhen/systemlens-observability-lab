@@ -1,8 +1,8 @@
 # Ajouter une application Java observée
 
-Ce guide décrit le raccordement à la chaîne d'observabilité v3. Conserver le
+Ce guide décrit le raccordement à la chaîne d'observabilité architecture. Conserver le
 socle applicatif commun et ajouter le patch d'instrumentation OTel décrit dans
-`kubernetes/apps/supermarket-demo/v3/otel-instrumentation.yaml`.
+`kubernetes/apps/supermarket-demo/default/otel-instrumentation.yaml`.
 
 Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
 d'observabilité du POC. Le chemin des signaux est le suivant :
@@ -111,7 +111,7 @@ logs-kube-0tl-homologation
 L'Agent Kubernetes actuel cible les fichiers des pods du namespace
 `h0tl-supermarche-app`. Pour une application dans un autre namespace, élargir de
 façon explicite le chemin `paths` dans
-`v3/platform/kubernetes/base/observability/otel-kafka.yaml`, ou ajouter
+`architecture/platform/kubernetes/base/observability/otel-kafka.yaml`, ou ajouter
 un stream dédié. Appliquer ensuite `make kubernetes-validate`, puis
 `make otel-validation`.
 

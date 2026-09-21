@@ -6,20 +6,20 @@ la machine du groupe `otel_collectors`. Comme Kibana Discover lit ces index, le 
 également que l'API Kibana est joignable et affiche le marqueur à rechercher
 dans Discover.
 
-Le parcours validé en architecture v3 est :
+Le parcours validé dans l’architecture active est :
 
 - `gateway-directe-ssh` : playbook SSH sur un collecteur → Gateway EDOT
-  `127.0.0.1:4319` → Kafka `otel-metrics` → exporteur OTel `data-01` → data stream
+  `127.0.0.1:4319` → Kafka `otel-metrics` → exporteur OTel `poc-01` → data stream
   `metrics-*` → Kibana.
 
 ## Prérequis
 
-- Ansible, Vagrant et la VM `data-01` démarrée ;
+- Ansible, Vagrant et la VM `poc-01` démarrée ;
 - un compte Elasticsearch ayant le droit de lire `metrics-*` ;
 - le mot de passe fourni uniquement par l'environnement :
 
   ```bash
-  source ./v3/platform/elk/scripts/load-credentials.sh
+  source ./architecture/platform/elk/scripts/load-credentials.sh
   ```
 
 ## Paramétrage de l'inventaire
@@ -52,7 +52,7 @@ Depuis ce répertoire, Ansible utilise directement `ansible.cfg` et son
 inventaire par défaut :
 
 ```bash
-source ../../v3/platform/elk/scripts/load-credentials.sh
+source ../../architecture/platform/elk/scripts/load-credentials.sh
 ansible-playbook playbook.yml
 ```
 

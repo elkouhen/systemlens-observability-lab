@@ -1,0 +1,154 @@
+---
+# Point d'entrée unique du déploiement architecture.
+# Les manifests Kubernetes restent la source de vérité ; ce playbook ne fait
+# qu'orchestrer leur application avec le provisionnement des VM et Fleet.
+
+- name: Démarrer les VM sans déclencher un provisionnement implicite
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    repo_root: "{{ playbook_dir }}/.."
+  tasks:
+    - name: Démarrer les quatre VM
+      ansible.builtin.command:
+        argv:
+          - vagrant
+          - up
+          - poc-01
+          - otel-backend-01
+          - otel-edge-01
+          - elk-01
+          - --no-provision
+        chdir: "{{ repo_root }}"
+      environment:
+        DEPLOYMENT_PROFILE: "{{ lookup('env', 'DEPLOYMENT_PROFILE') | default('minimal', true) }}"
+        POSTGRESQL_PASSWORD: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+        ELASTIC_PASSWORD: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
+
+- import_playbook: site.yml
+  vars:
+    postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+    elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
+    fleet_enrollment_token: ""
+
+- name: Déployer Kubernetes, Elastic, Fleet et l'application
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    repo_root: "{{ playbook_dir }}/.."
+    elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
+    postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+    kibana_url: "{{ lookup('env', 'KIBANA_URL') | default('http://kibana.observability.test:5601', true) }}"
+    elasticsearch_url: "{{ lookup('env', 'ELASTICSEARCH_URL') | default('http://elasticsearch.observability.test:9200', true) }}"
+  tasks:
+    - name: Appliquer les manifests Kubernetes architecture
+      ansible.builtin.command:
+        argv: [kubectl, apply, -k, platform/kubernetes/overlays/local]
+        chdir: "{{ repo_root }}"
+
+    - name: Préparer le secret Elasticsearch utilisé par les jobs Kubernetes
+      ansible.builtin.shell: >-
+        kubectl -n elastic-stack create secret generic elasticsearch-es-elastic-user
+        --from-literal=elastic="$ELASTIC_PASSWORD" --dry-run=client -o yaml |
+        kubectl apply -f -
+      args:
+        chdir: "{{ repo_root }}"
+      environment:
+        ELASTIC_PASSWORD: "{{ elastic_password }}"
+      no_log: true
+
+    - name: Préparer les identifiants PostgreSQL Fleet et applicatifs
+      ansible.builtin.command:
+        argv: [make, postgresql-credentials-apply]
+        chdir: "{{ repo_root }}"
+      environment:
+        POSTGRESQL_PASSWORD: "{{ postgresql_password }}"
+      no_log: true
+
+    - name: Attendre Elasticsearch et créer la clé API OTel
+      ansible.builtin.command:
+        argv: [make, elasticsearch-ready, otel-elasticsearch-credentials-apply]
+        chdir: "{{ repo_root }}"
+      environment:
+        ELASTIC_PASSWORD: "{{ elastic_password }}"
+      no_log: true
+
+    - name: Lire la clé API OTel réconciliée
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - elastic-stack
+          - get
+          - secret
+          - otel-elasticsearch-credentials
+          - -o
+          - jsonpath={.data.api-key}
+      register: otel_api_key_b64
+      changed_when: false
+      no_log: true
+
+    - name: Reconfigurer uniquement le backend OTel avec la clé API courante
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - -i
+          - ansible/inventory/vagrant.yml
+          - ansible/site.yml
+          - --limit
+          - otel-backend-01
+          - -e
+          - "elastic_password={{ elastic_password }}"
+          - -e
+          - "otel_elasticsearch_api_key={{ otel_api_key_b64.stdout | b64decode }}"
+        chdir: "{{ repo_root }}"
+      environment:
+        ANSIBLE_LOCAL_TEMP: /tmp
+      no_log: true
+
+    - name: Attendre Kibana et réconcilier Fleet et les dashboards
+      ansible.builtin.command:
+        argv: [make, kibana-ready, kibana-fleet-config-deploy]
+        chdir: "{{ repo_root }}"
+      environment:
+        KIBANA_PASSWORD: "{{ elastic_password }}"
+        POSTGRESQL_PASSWORD: "{{ postgresql_password }}"
+      no_log: true
+
+    - name: Importer les objets Kibana versionnés
+      ansible.builtin.command:
+        argv: [make, apm-data-view-deploy, business-dashboard-deploy, observability-policies-deploy]
+        chdir: "{{ repo_root }}"
+      environment:
+        KIBANA_PASSWORD: "{{ elastic_password }}"
+      no_log: true
+
+    - name: Enrôler les VM Fleet sans reprovisionner leurs services
+      ansible.builtin.command:
+        argv: [./platform/elk/scripts/provision-fleet-vms.sh]
+        chdir: "{{ repo_root }}"
+      environment:
+        KIBANA_PASSWORD: "{{ elastic_password }}"
+        KIBANA_URL: "{{ kibana_url }}"
+      no_log: true
+
+    - name: Construire et importer les images applicatives
+      ansible.builtin.command:
+        argv: [make, apps-build, images-import]
+        chdir: "{{ repo_root }}"
+
+    - name: Déployer les trois services applicatifs
+      ansible.builtin.command:
+        argv: [make, apps-deploy]
+        chdir: "{{ repo_root }}"
+
+    - name: Vérifier l'alimentation des dashboards et de l'APM
+      ansible.builtin.command:
+        argv: [make, dashboards-verify]
+        chdir: "{{ repo_root }}"
+      environment:
+        ELASTICSEARCH_PASSWORD: "{{ elastic_password }}"
+        KIBANA_PASSWORD: "{{ elastic_password }}"
+      no_log: true

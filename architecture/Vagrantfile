@@ -1,0 +1,82 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+PROFILE = "minimal"
+abort("L’architecture utilise uniquement le profil minimal") unless ENV.fetch("DEPLOYMENT_PROFILE", "minimal") == PROFILE
+
+NODES = [
+  { name: "poc-01", id: 1, ip: "192.168.33.10", role: :poc, memory: 3072 },
+  { name: "otel-backend-01", id: 2, ip: "192.168.33.20", role: :otel_backend, memory: 3072 },
+  { name: "otel-edge-01", id: 3, ip: "192.168.33.30", role: :otel_edge, memory: 2048 },
+  { name: "elk-01", id: 4, ip: "192.168.33.40", role: :elk, memory: 6144 }
+].freeze
+
+VM_MEMORY = 3072
+KAFKA_CONTROLLER_VOTERS = "1@192.168.33.10:9093"
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "cloud-image/rocky-10"
+  config.vm.boot_timeout = 600
+  # Secret injecte au provisionnement, jamais versionne dans le depot.
+  # Valeur volontairement faible pour le POC ; une variable d'environnement
+  # reste prioritaire pour tout environnement partagé.
+  postgresql_password = ENV.fetch("POSTGRESQL_PASSWORD", "password")
+  otel_elasticsearch_api_key = ENV["OTEL_ELASTICSEARCH_API_KEY"]
+  elastic_password = ENV.fetch("ELASTIC_PASSWORD", "password")
+  fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
+
+  # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent), optionnel.
+  # Sur une machine sans interception TLS, ne pas définir ZSCALER_CA_CERT :
+  # aucune confiance supplémentaire n'est installée sur les VM. Voir certs/README.md.
+  zscaler_ca_cert_path = ENV["ZSCALER_CA_CERT"]
+  zscaler_ca_cert_content = ""
+  if zscaler_ca_cert_path && !zscaler_ca_cert_path.empty?
+    abort("ZSCALER_CA_CERT défini mais introuvable : #{zscaler_ca_cert_path}") unless File.exist?(zscaler_ca_cert_path)
+    zscaler_ca_cert_content = File.read(zscaler_ca_cert_path)
+  end
+
+  NODES.each do |node_config|
+    config.vm.define node_config[:name] do |node|
+      node.vm.hostname = node_config[:name]
+      node.vm.network "private_network", ip: node_config[:ip]
+      if node_config[:role] == :poc
+        # Les middlewares sont accessibles par le réseau privé VirtualBox.
+      end
+      if node_config[:role] == :otel_edge
+        # L'otel-edge est atteint par son adresse privée depuis les VM et Kubernetes.
+      end
+
+      node.vm.provider "virtualbox" do |vb|
+        # Rocky Linux 10 needs an Intel NIC for the host-only interface.
+        vb.customize ["modifyvm", :id, "--nictype2", "82540EM"]
+        vb.memory = node_config[:memory] || VM_MEMORY
+        vb.cpus = 2
+      end
+
+      # L'Elastic Agent est enrôlé dans Fleet après le déploiement de Kibana.
+      ansible_extra_vars = {
+        "node_id" => node_config[:id],
+        "node_ip" => node_config[:ip],
+        "node_role" => node_config[:role].to_s,
+        "kafka_controller_voters" => KAFKA_CONTROLLER_VOTERS,
+        "postgresql_password" => postgresql_password || "",
+        "otel_elasticsearch_api_key" => otel_elasticsearch_api_key || "",
+        "elastic_password" => elastic_password || "",
+        "fleet_enrollment_token" => fleet_enrollment_token || "",
+        "zscaler_ca_cert_content" => zscaler_ca_cert_content
+      }
+
+      node.vm.provision "ansible" do |ansible|
+        ansible.playbook = "ansible/site.yml"
+        ansible.extra_vars = ansible_extra_vars
+      end
+
+      # Provisionnement léger utilisé après la création du token Fleet : il ne
+      # rejoue pas les rôles système, middleware ou services Elastic.
+      node.vm.provision "fleet-agent", type: "ansible" do |ansible|
+        ansible.playbook = "ansible/fleet-agent.yml"
+        ansible.extra_vars = ansible_extra_vars
+      end
+    end
+  end
+end

@@ -1,19 +1,19 @@
 # Manifests Kubernetes communs
 
 Cette arborescence contient les manifests applicatifs mutualisés et l'overlay
-v3. La base décrit les Deployments, Services, probes, ressources et namespace
+par défaut. La base décrit les Deployments, Services, probes, ressources et namespace
 de `supermarket-demo`.
 
-L'overlay conservé ajoute le raccordement à l'architecture v3 :
+L'overlay par défaut ajoute le raccordement à l'architecture active :
 
-- `apps/supermarket-demo/v3` : endpoint OTLP et instrumentation Java OTel.
+- `apps/supermarket-demo/default` : endpoint OTLP et instrumentation Java OTel.
 
-Les manifests de la plateforme d'observabilité sont dans `v3/platform`.
+Les manifests de la plateforme d'observabilité sont dans `architecture/platform`.
 
 Validation depuis la racine :
 
 ```bash
-kubectl kustomize kubernetes/apps/supermarket-demo/v3 >/dev/null
+kubectl kustomize kubernetes/apps/supermarket-demo/default >/dev/null
 ```
 
-La cible `make apps-deploy` utilise directement l'overlay v3.
+La cible `make apps-deploy` utilise directement l'overlay par défaut.

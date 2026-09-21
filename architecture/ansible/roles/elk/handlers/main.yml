@@ -1,0 +1,10 @@
+---
+- name: Redémarrer Fleet Server après modification de sa définition
+  ansible.builtin.systemd_service:
+    name: observability-fleet-server.service
+    state: restarted
+
+- name: Redémarrer Fleet Server après modification de ses identifiants
+  ansible.builtin.systemd_service:
+    name: observability-fleet-server.service
+    state: restarted

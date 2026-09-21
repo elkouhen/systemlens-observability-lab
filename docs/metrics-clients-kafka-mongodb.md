@@ -93,7 +93,7 @@ Documentation :
 Le cas d'usage de réservation expose également la métrique métier
 `business.orders.completed`. Elle est incrémentée après les écritures MongoDB et
 PostgreSQL réussies, avec le tag de faible cardinalité `channel` (`rest` ou
-`kafka`). En v3, le Gateway scrappe cette métrique via `/actuator/prometheus`.
+`kafka`). Dans l’architecture active, le Gateway scrappe cette métrique via `/actuator/prometheus`.
 
 Le flux de réassort expose deux compteurs complémentaires :
 `business.stock.restock.requested` pour les demandes émises par
@@ -140,7 +140,7 @@ and service.name:"inventory-service"
 ```
 
 Les métriques sont stockées sous `prometheus.metrics.*` pour la collecte Elastic
-Agent. Pour la collecte Prometheus du Gateway v3, elles sont disponibles dans
+Agent. Pour la collecte Prometheus du Gateway, elles sont disponibles dans
 le data stream `metrics-prometheusreceiver.otel-*`, sous `metrics.*`.
 Elles sont consultables dans Discover et dans les dashboards métriques, pas
 uniquement dans l'interface APM.

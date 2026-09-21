@@ -1,31 +1,27 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-ARCH_VERSION ?= $(shell test -f .architecture-version && sed -n '1p' .architecture-version || echo v3)
+ARCH_ROOT := architecture
 ARCH_NAME := Hybride Fleet
 SYSTEMLENS ?= systemlens
 VAGRANT ?= vagrant
 
-.PHONY: help architecture-list architecture-switch architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit vagrant-destroy ci
+.PHONY: help architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit vagrant-destroy ci
 
-help: ## Afficher les tâches de l'architecture sélectionnée
-	@printf 'Architecture active : %s — %s\n' '$(ARCH_VERSION)' '$(ARCH_NAME)'
+help: ## Afficher les tâches de l'architecture par défaut
+	@printf 'Architecture par défaut : %s\n' '$(ARCH_NAME)'
 	@printf 'Usage : make <cible>\n'
-	@printf '  architecture-list    Afficher l\x27architecture disponible\n'
-	@printf '  architecture-status  Afficher la version active\n'
+	@printf "  architecture-status  Afficher la configuration de l'architecture\n"
 	@printf '  apps-architecture-graph  Indexer les sources Java et générer le graphe SystemLens\n'
 	@printf '  apps-codeql-module-graph Analyser les dépendances de modules Java et actualiser le graphe\n'
 	@printf '  apm-install          Installer le contexte APM déclaré dans apm.yml\n'
 	@printf '  apm-audit            Auditer le contexte APM du projet\n'
 	@printf '  vagrant-destroy      Détruire les VM de l’architecture active\n'
-	@printf "  ci                   Exécuter les validations de l'architecture sélectionnée\n"
-	@printf '  make <cible>         Déléguer la cible au bundle sélectionné\n'
+	@printf "  ci                   Exécuter les validations de l'architecture\n"
+	@printf '  make <cible>         Déléguer la cible au bundle d’architecture\n'
 
-architecture-status: ## Afficher la version active
-	@$(MAKE) -C $(ARCH_VERSION) architecture-status
-
-architecture-list: ## Lister les architectures disponibles
-	@printf '* v3 — Hybride Fleet\n'
+architecture-status: ## Afficher la configuration de l'architecture
+	@$(MAKE) -C $(ARCH_ROOT) architecture-status
 
 apps-architecture-graph: ## Indexer les sources Java et générer le graphe SystemLens
 	@command -v '$(SYSTEMLENS)' >/dev/null 2>&1 || { echo 'SystemLens absent : installez une version compatible avec import-facts.' >&2; exit 1; }
@@ -54,16 +50,10 @@ apm-audit: ## Auditer le contexte APM du projet
 	@apm audit --ci
 
 vagrant-destroy: ## Détruire les VM de l’architecture active
-	@cd '$(ARCH_VERSION)' && '$(VAGRANT)' destroy --force
+	@cd '$(ARCH_ROOT)' && '$(VAGRANT)' destroy --force
 
-ci: ## Exécuter les validations de l'architecture sélectionnée
-	@$(MAKE) -C $(ARCH_VERSION) ci
-
-architecture-switch: ## Vérifier l'architecture persistante (VERSION=v3)
-	@test '$(VERSION)' = v3 || { echo 'VERSION doit valoir v3' >&2; exit 1; }
-	@printf '%s\n' 'v3' > .architecture-version
-	@echo 'Architecture sélectionnée : v3'
+ci: ## Exécuter les validations de l'architecture
+	@$(MAKE) -C $(ARCH_ROOT) ci
 
 %:
-	@case '$(ARCH_VERSION)' in v3) ;; *) echo 'ARCH_VERSION doit valoir v3' >&2; exit 1;; esac
-	@$(MAKE) -C $(ARCH_VERSION) '$@'
+	@$(MAKE) -C $(ARCH_ROOT) '$@'

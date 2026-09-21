@@ -1,0 +1,59 @@
+# Scripts ELK
+
+Ces scripts pilotent les API Elasticsearch et Kibana depuis le poste hôte. Ils
+ne stockent aucun mot de passe dans le dépôt.
+
+## Lire et exécuter
+
+1. `load-credentials.sh` lit le secret ECK Elasticsearch et le Secret
+   `h0tl-supermarche-app/postgresql-credentials`, puis exporte les variables
+   utiles. Une valeur `POSTGRESQL_PASSWORD` déjà présente reste prioritaire.
+   La clé API Elasticsearch déjà exportée est vérifiée contre le cluster ; si
+   elle appartient à un ancien cluster, elle est automatiquement remplacée.
+   En architecture, aucun Secret APM n'est requis : les applications utilisent
+   OpenTelemetry et le Gateway EDOT. Le script doit être *sourcé* :
+   `source ./platform/elk/scripts/load-credentials.sh`.
+2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et applique les
+   correctifs de compatibilité encore nécessaires au POC. Il ne configure pas
+   le chemin actif de télémétrie EDOT, qui est déclaré dans Ansible et dans les
+   manifests du Collector Kubernetes.
+   `reconcile-otel-opamp-credentials.sh`, appelé par
+   `make otel-fleet-opamp-credentials-apply`, crée ou réutilise la policy et la
+   clé d’enrôlement OpAMP des collecteurs EDOT Kubernetes ; la clé reste dans
+   un Secret Kubernetes et n’est jamais versionnée.
+3. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
+   qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
+   PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script
+   directement : la cible lit le secret ECK sans l'afficher. Les intégrations
+   Fleet utilisent les datasets natifs `kafka.broker`, `kafka.partition`,
+   `kafka.consumergroup`, `mongodb.status`, `mongodb.metrics`,
+   `mongodb.dbstats` et `postgresql.database` ; les champs contrôlés restent
+   ceux des intégrations (`kafka.*`, `mongodb.*` et `postgresql.*`).
+   `reconcile-kubernetes-otel-dashboards.sh` réconcilie les onze dashboards
+   embarqués du package `kubernetes_otel` avec les champs réellement produits par les
+   Collectors OTel ; `verify-kubernetes-otel-dashboards.sh` contrôle qu'aucune
+   référence au schéma absent ne reste dans leurs requêtes ES|QL.
+4. `apply-apm-kibana-role.sh` crée ou met à jour un compte Kibana natif en
+   lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
+   identifiants et le certificat CA restent hors Git.
+5. `sync-observability-policies.sh` réconcilie les SLO et règles d'alerte
+   versionnés. Il retire `id` du corps lors de la mise à jour d'un SLO. Pour les
+   règles, il conserve `rule_type_id` et `consumer` à la création et les retire
+   du corps des mises à jour, conformément aux schémas Kibana. Utiliser `make
+   observability-policies-deploy` : la cible lit le secret ECK sans l'afficher.
+
+Les valeurs `KIBANA_URL`, `ELASTICSEARCH_URL` et les options `--resolve` sont
+paramétrables par variables d'environnement pour adapter l'accès au cluster.
+
+## Documentation externe
+
+- [API Elasticsearch](https://www.elastic.co/docs/api/doc/elasticsearch)
+- [API Fleet](https://www.elastic.co/docs/api/doc/kibana/group/endpoint-fleet)
+- [API Saved Objects Kibana](https://www.elastic.co/docs/api/doc/kibana/group/endpoint-saved-objects)
+
+`retention.py` lit la déclaration `../ilm/retention.json`, réconcilie les
+politiques ILM et les composants `logs@custom`, `metrics@custom`, `traces@custom`,
+puis migre les indices existants. Il préserve les autres paramètres des
+composants et vérifie les templates résolus. Utiliser `make retention-plan`,
+`make ilm-deploy` et `make retention-verify` ; voir le
+[guide de rétention](../retention/README.md).

@@ -2,7 +2,7 @@
 
 Ce dépôt fournit un environnement Kubernetes et Vagrant pour observer une
 application Java avec Elastic, OpenTelemetry, Kafka, MongoDB et PostgreSQL.
-L’architecture active est `v3`, nommée « Hybride Fleet ».
+L’architecture active est l’architecture « Hybride Fleet ».
 
 ## Commencer ici
 
@@ -30,17 +30,17 @@ VM de données
 
 La plateforme conserve les namespaces Kubernetes `elastic-stack` et
 `h0tl-supermarche-app`. La description complète des flux se trouve dans
-[`docs/architecture-v3.md`](docs/architecture-v3.md).
+[`docs/architecture.md`](docs/architecture.md).
 
 ## Parcours documentaire
 
 - [Documentation système](docs/README.md) : index des procédures et références
   transverses.
-- [Architecture v3](v3/README.md) : topologie et points d’entrée de la
+- [Architecture](architecture/README.md) : topologie et points d’entrée de la
   plateforme active.
 - [Applications](apps/README.md) : code, images et manifests des workloads.
-- [Plateforme v3](v3/platform/README.md) : Kubernetes, Elastic et Fleet.
-- [Provisionnement des VM](v3/ansible/README.md) : Ansible, rôles et services.
+- [Plateforme](architecture/platform/README.md) : Kubernetes, Elastic et Fleet.
+- [Provisionnement des VM](architecture/ansible/README.md) : Ansible, rôles et services.
 
 Chaque sous-système conserve les procédures détaillées dans son README local.
 Ces documents sont la source de vérité pour les commandes et les fichiers du
@@ -49,7 +49,7 @@ composant concerné.
 ## Organisation du dépôt
 
 ```text
-v3/                    # architecture active, plateforme et provisionnement
+architecture/          # plateforme et provisionnement de l’architecture active
 apps/supermarket-demo/ # code Java, Docker et tests Maven
 kubernetes/            # manifests applicatifs partagés
 docs/                  # procédures et références transverses
