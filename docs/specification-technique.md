@@ -8,7 +8,7 @@ les contraintes qui réalisent les exigences de la
 | Élément | Définition |
 | --- | --- |
 | Nature | Spécification technique de référence |
-| Périmètre | Kubernetes, EDOT, Kafka, Fleet et Elastic de l’architecture active |
+| Périmètre | Kubernetes, EDOT, Kafka et Elastic de l’architecture active |
 | Public | Architectes, développeurs plateforme et opérateurs |
 | Version Elastic | `9.4.3` |
 | Architecture associée | [Architecture active](architecture.md) |
@@ -17,12 +17,12 @@ les contraintes qui réalisent les exigences de la
 
 L’architecture sépare les chemins de collecte selon leur origine : les applications et
 Kubernetes passent par OpenTelemetry, EDOT et Kafka ; les VM passent par
-Elastic Agent Fleet et exportent directement vers Elasticsearch.
+Elastic Agent EDOT standalone et exportent vers le Collecteur Edge.
 
 Cette séparation réduit le couplage entre la collecte Kubernetes et la
 collecte des VM. Elle impose en contrepartie deux modes d’administration : les
-collecteurs Kubernetes sont déclarés par Kustomize et Fleet via OpAMP, tandis
-que les agents VM sont provisionnés par Ansible et enrôlés dans Fleet.
+collecteurs Kubernetes sont déclarés par Kustomize, tandis que les agents VM
+sont provisionnés par Ansible en mode EDOT standalone.
 
 ## 2. Topologie des composants
 
@@ -35,7 +35,7 @@ que les agents VM sont provisionnés par Ansible et enrôlés dans Fleet.
 | HAProxy et routage TLS | `otel-edge-01` | Exposer les points d’entrée OTLP, Elasticsearch, Kibana et Fleet |
 | Elasticsearch | `elk-01` | Stocker les signaux et fournir les API d’ingestion et de recherche |
 | Kibana | `elk-01` | Fournir Discover, APM, Fleet et les dashboards |
-| Fleet Server | `elk-01` | Enrôler et administrer les Elastic Agents des VM |
+| Fleet Server | `elk-01` | Fournir les interfaces Fleet conservées pour le stack Elastic ; aucun agent de cette chaîne n’est enrôlé |
 | Elastic Agent | Chaque VM active | Collecter les logs et métriques des VM et des services intégrés |
 
 Les workloads applicatifs utilisent le namespace `h0tl-supermarche-app`. Les
@@ -73,12 +73,10 @@ topics évite de décoder des payloads de types différents dans un même flux.
 
 ### 3.3 Flux VM
 
-Chaque VM active exécute un Elastic Agent enrôlé dans la policy Fleet
-`data-fleet`. Les intégrations System, Kafka, MongoDB et PostgreSQL envoient
-leurs événements directement vers Elasticsearch.
-
-Les VM ne publient pas leur télémétrie dans `otel-logs`, `otel-metrics` ou
-`otel-traces`.
+Chaque VM active exécute un Elastic Agent EDOT standalone. Il collecte les
+logs locaux et les métriques hôte, puis les publie en OTLP vers le Collecteur
+Edge ; les signaux suivent ensuite `otel-logs`, `otel-metrics` ou
+`otel-traces` jusqu’au Collector backend.
 
 ## 4. Configuration et sources IaC
 
@@ -88,7 +86,7 @@ Les VM ne publient pas leur télémétrie dans `otel-logs`, `otel-metrics` ou
 | Collecteurs et buffer Kafka | `architecture/platform/kubernetes/base/observability/otel-kafka.yaml` |
 | Instrumentation applicative | `kubernetes/apps/supermarket-demo/default/otel-instrumentation.yaml` |
 | Provisionnement des VM | `architecture/ansible/` |
-| Policy Fleet et intégrations VM | `architecture/platform/elk/fleet/` et `architecture/platform/elk/scripts/` |
+| Configuration EDOT VM et intégrations Elastic | `architecture/ansible/roles/elastic_agent/` et `architecture/platform/elk/fleet/` |
 | Dashboards et objets Kibana | `architecture/platform/elk/dashboards/` |
 | Validation partagée | `validation/otel/` et cibles du `Makefile` |
 
@@ -106,9 +104,9 @@ rester idempotents.
 
 ### 5.2 Administration Fleet
 
-Les collecteurs EDOT Kubernetes sont gérés par Fleet via OpAMP. Les agents des
-VM sont installés et enrôlés par Ansible. L’identité d’un agent actif est
-réutilisée lors d’un reprovisionnement afin d’éviter les doublons dans Fleet.
+Les collecteurs EDOT Kubernetes et les agents EDOT des VM sont configurés par
+les sources IaC correspondantes. OpAMP et l’enrôlement Fleet ne font pas partie
+du chemin de collecte.
 
 ### 5.3 Sécurité des secrets
 
@@ -137,6 +135,8 @@ Makefile :
 
 ```bash
 export POSTGRESQL_PASSWORD='...'
+make vms-up
+make vm-status
 make deploy
 ```
 

@@ -24,6 +24,9 @@ Applications Java et pods Kubernetes
        otel-gateway dans Kubernetes
                  |
                  v
+       Collecteur Edge sur otel-edge-01
+                 |
+                 v
        Kafka sur poc-01
                  |
                  v
@@ -38,10 +41,10 @@ Applications Java et pods Kubernetes
 VM de données et VM de plateforme
                  |
                  v
-        Elastic Agent Fleet
+        Elastic Agent EDOT
                  |
                  v
-       Elasticsearch sur elk-01
+       Collecteur Edge, Kafka et backend
 ```
 
 `otel-edge-01` fournit le point d’entrée exposé pour OTLP, Elasticsearch,
@@ -56,15 +59,15 @@ et `h0tl-supermarche-app` pour l’application.
 
 Les applications Java et les composants Kubernetes utilisent Kafka comme
 tampon entre la collecte et le traitement backend. Les VM envoient leurs logs
-et métriques directement vers Elasticsearch avec Elastic Agent Fleet.
+et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP, Gateway, Kafka `otel-traces` | EDOT backend, Elasticsearch |
-| Logs applicatifs et Kubernetes | EDOT DaemonSet `filelog` | Kafka `otel-logs` | EDOT backend, Elasticsearch |
-| Métriques applicatives | Receiver Prometheus sur `/actuator/prometheus` | Kafka `otel-metrics` | EDOT backend, Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet | Kafka `otel-metrics` | EDOT backend, Elasticsearch |
-| Logs et métriques des VM | Elastic Agent enrôlé dans Fleet | HTTPS direct | Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP, Gateway, Edge, Kafka `otel-traces` | EDOT backend, APM Server |
+| Logs applicatifs et Kubernetes | EDOT DaemonSet `filelog` | OTLP, Gateway, Edge, Kafka `otel-logs` | EDOT backend, Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP, Gateway, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
+| Métriques Kubernetes | EDOT DaemonSet | OTLP, Gateway, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
+| Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka par signal | EDOT backend, Elasticsearch |
 
 Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
 `otel-metrics`. Le Collector backend applique le traitement nécessaire avant
@@ -74,17 +77,17 @@ l’export vers Elastic.
 
 | Composant | Responsabilité | Source de configuration |
 | --- | --- | --- |
-| `otel-gateway` | Recevoir les signaux OTLP et les publier dans Kafka | `architecture/platform/kubernetes/` |
+| `otel-gateway` | Recevoir les signaux OTLP et les transmettre au Collecteur Edge | `architecture/platform/kubernetes/` |
+| `otel-edge-01` | Recevoir l’OTLP Kubernetes et VM puis publier dans Kafka | `architecture/ansible/roles/otel_edge/` |
 | EDOT DaemonSet | Collecter les logs et métriques Kubernetes | `architecture/platform/kubernetes/base/observability/` |
 | `poc-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
 | `otel-backend-01` | Consommer Kafka et exporter les signaux vers Elastic | `architecture/ansible/` |
-| `otel-edge-01` | Exposer les points d’entrée et assurer le routage TLS | `architecture/ansible/` et `architecture/platform/kubernetes/` |
+| `otel-edge-01` | Exposer les points d’entrée et héberger le Collecteur Edge | `architecture/ansible/` et `architecture/platform/kubernetes/` |
 | `elk-01` | Fournir Elasticsearch, Kibana et Fleet Server | `architecture/ansible/` |
-| Elastic Agent Fleet | Collecter les données des VM | Policy Fleet et rôles Ansible |
+| Elastic Agent EDOT | Collecter les logs et métriques des VM et les exporter en OTLP | `architecture/ansible/roles/elastic_agent/` |
 
-La collecte VM ne passe ni par le Gateway OTLP Kubernetes ni par Kafka. Kafka
-reste observé comme source de données et comme tampon des flux applicatifs et
-Kubernetes.
+La collecte VM ne passe pas par le Gateway OTLP Kubernetes. Elle rejoint le
+Collecteur Edge, puis Kafka et le backend comme les flux du cluster.
 
 ## Invariants d’architecture
 
@@ -95,8 +98,8 @@ Les contrôles et évolutions de l'architecture doivent conserver les invariants
 2. Les signaux OTLP applicatifs et Kubernetes passent par Kafka avant le
    traitement backend.
 3. Les topics Kafka distinguent les traces, les logs et les métriques.
-4. Les VM utilisent Elastic Agent Fleet et exportent directement vers
-   Elasticsearch.
+4. Les VM utilisent Elastic Agent EDOT et exportent en OTLP vers le Collecteur
+   Edge avant Kafka et le traitement backend.
 5. Les secrets et jetons restent hors Git et sont fournis par les mécanismes
    prévus par le dépôt.
 6. Les changements durables de Kubernetes, Fleet, Elastic et Ansible restent
@@ -118,6 +121,8 @@ exécuter :
 
 ```bash
 export POSTGRESQL_PASSWORD='...'
+make vms-up
+make vm-status
 make deploy
 ```
 

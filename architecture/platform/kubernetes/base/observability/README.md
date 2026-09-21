@@ -2,9 +2,9 @@
 
 Les manifests de ce dossier constituent la base de la couche d'observabilité Kubernetes.
 Ils routent les URL publiques vers le stack Elastic de `elk-01` via `otel-edge-01` et déploient
-les collecteurs OTel dans Kubernetes. Les trois collecteurs EDOT sont
-également rattachés à Fleet par OpAMP : Fleet pilote leur état et leur
-configuration, tandis que leur chemin de données reste inchangé.
+les collecteurs OTel dans Kubernetes. Les collecteurs EDOT Kubernetes sont
+configurés par des ConfigMaps versionnées ; Fleet Server n'intervient pas dans
+leur plan de contrôle.
 
 ## Lire les manifests dans cet ordre
 
@@ -38,9 +38,8 @@ package `kubernetes_otel` ; les vues `[Metrics Kubernetes]` correspondent à une
 intégration et ne lisent pas ce schéma OTLP.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
 Collector EDOT DaemonSet puis envoyés au Gateway Kubernetes. Les trois flux sont mis en tampon dans Kafka puis
-consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM ne passent pas par
-ce chemin pour leur télémétrie système : leur Elastic Agent Fleet exporte
-directement vers Elasticsearch.
+consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM rejoignent
+ce chemin via leur Elastic Agent EDOT standalone : Edge, Kafka, puis backend.
 
 Le pipeline de traces du Gateway Kubernetes met les traces OTLP en tampon dans
 Kafka. L'exporteur backend les consomme ensuite et les envoie à APM Server sur
@@ -52,14 +51,14 @@ Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
 envoient traces et métriques en OTLP au Gateway. Le DaemonSet EDOT lit les logs
 et métriques Kubernetes, puis les signaux applicatifs et Kubernetes sont
 bufferisés dans Kafka avant leur export OTLP vers Elasticsearch. Les Elastic Agents
-des VM publient quant à eux directement dans Elasticsearch via Fleet. Les identités Kubernetes sont
+des VM publient quant à eux en OTLP vers le Collecteur Edge. Les identités Kubernetes sont
 enrichies par `k8sattributes`; le Collector backend utilise le mapping ECS
 pour conserver la compatibilité avec les vues APM et les dashboards
 classiques.
 
-Le flux VM utilise l'Elastic Agent Fleet sur chaque VM. Les intégrations Fleet
-alimentent directement les data streams `logs-*` et `metrics-*`, sans topic OTLP
-VM ni Collector backend intermédiaire.
+Le flux VM utilise l'Elastic Agent EDOT standalone sur chaque VM. Les logs et
+métriques sont envoyés en OTLP au Collecteur Edge, puis suivent les topics
+Kafka et le Collector backend.
 
 Après le déploiement, vérifier les composants et les relais :
 
@@ -68,12 +67,6 @@ kubectl -n elastic-stack get deployment otel-gateway service otel-gateway
 kubectl -n elastic-stack get daemonset otel-kubernetes
 make otel-kafka-exporter-vm-status
 ```
-
-Le Secret `elastic-stack/otel-fleet-opamp-credentials` est créé par
-`make otel-fleet-opamp-credentials-apply` et n’est jamais versionné. Les
-collecteurs utilisent l’UID de leur pod comme identité OpAMP ; un redémarrage
-crée donc une nouvelle instance technique sans réenrôler un agent système ni
-modifier les data streams.
 
 Le résultat attendu est un exporteur EDOT actif sur `otel-backend-01`, sans erreur de
 consommation Kafka ni d'indexation.

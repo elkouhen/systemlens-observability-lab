@@ -125,15 +125,6 @@
         KIBANA_PASSWORD: "{{ elastic_password }}"
       no_log: true
 
-    - name: Enrôler les VM Fleet sans reprovisionner leurs services
-      ansible.builtin.command:
-        argv: [./platform/elk/scripts/provision-fleet-vms.sh]
-        chdir: "{{ repo_root }}"
-      environment:
-        KIBANA_PASSWORD: "{{ elastic_password }}"
-        KIBANA_URL: "{{ kibana_url }}"
-      no_log: true
-
     - name: Construire et importer les images applicatives
       ansible.builtin.command:
         argv: [make, apps-build, images-import]

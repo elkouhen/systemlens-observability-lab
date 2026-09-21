@@ -17,10 +17,9 @@ ne stockent aucun mot de passe dans le dépôt.
    correctifs de compatibilité encore nécessaires au POC. Il ne configure pas
    le chemin actif de télémétrie EDOT, qui est déclaré dans Ansible et dans les
    manifests du Collector Kubernetes.
-   `reconcile-otel-opamp-credentials.sh`, appelé par
-   `make otel-fleet-opamp-credentials-apply`, crée ou réutilise la policy et la
-   clé d’enrôlement OpAMP des collecteurs EDOT Kubernetes ; la clé reste dans
-   un Secret Kubernetes et n’est jamais versionnée.
+   Les collecteurs EDOT Kubernetes ne sont pas enrôlés dans Fleet et ne
+   nécessitent donc aucune clé OpAMP ; leur configuration est portée par les
+   ConfigMaps Kustomize.
 3. `verify-dashboard-data.sh` contrôle la présence récente des jeux de données
    qui alimentent les dashboards System, Kubernetes, Kafka, MongoDB,
    PostgreSQL et APM. Lancer `make dashboards-verify` plutôt que le script

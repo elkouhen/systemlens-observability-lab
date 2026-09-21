@@ -5,13 +5,17 @@
     state: directory
     mode: '0777'
 
-- name: Déployer la configuration du Gateway OTEL backend
-  ansible.builtin.template:
-    src: "{{ role_path }}/templates/gateway.yaml.j2"
-    dest: /etc/observability/otel-gateway.yaml
-    mode: '0644'
-  vars:
-    otel_gateway_kafka_broker: "{{ poc_ip }}:9092"
+- name: Arrêter l’ancien Gateway OTEL du backend
+  ansible.builtin.systemd_service:
+    name: observability-otel-gateway.service
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Retirer l’ancienne unité Gateway OTEL du backend
+  ansible.builtin.file:
+    path: /etc/containers/systemd/observability-otel-gateway.container
+    state: absent
 
 - name: Déployer la configuration de l'exporteur OTEL backend
   ansible.builtin.template:
@@ -38,7 +42,6 @@
     dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
   loop:
-    - {template: gateway, unit: observability-otel-gateway}
     - {template: kafka-exporter, unit: observability-otel-kafka-exporter}
 
 - name: Recharger systemd pour les unités OTEL backend
@@ -50,16 +53,7 @@
     name: "{{ item }}.service"
     enabled: true
     state: restarted
-  loop: [observability-otel-gateway, observability-otel-kafka-exporter]
-
-- name: Vérifier la santé du Gateway OTEL
-  ansible.builtin.uri:
-    url: http://127.0.0.1:13133/
-    status_code: 200
-  register: otel_gateway_health
-  retries: 30
-  delay: 2
-  until: otel_gateway_health.status == 200
+  loop: [observability-otel-kafka-exporter]
 
 - name: Vérifier la santé de l'exporteur Kafka OTEL
   ansible.builtin.uri:

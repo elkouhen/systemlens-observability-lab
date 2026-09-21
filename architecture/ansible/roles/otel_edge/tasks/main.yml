@@ -6,6 +6,25 @@
     mode: '0644'
     validate: haproxy -c -f %s
 
+- name: Déployer la configuration du Collecteur EDOT Edge
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/otel-edge.yaml.j2"
+    dest: /etc/observability/otel-edge.yaml
+    mode: '0644'
+
+- name: Créer le répertoire d’état du Collecteur EDOT Edge
+  ansible.builtin.file:
+    path: /var/lib/observability/otel-edge
+    state: directory
+    owner: root
+    mode: '0755'
+
+- name: Déployer l'unité du Collecteur EDOT Edge
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/otel-edge.container.j2"
+    dest: /etc/containers/systemd/observability-otel-edge.container
+    mode: '0644'
+
 - name: Créer le répertoire des overrides systemd HAProxy
   ansible.builtin.file:
     path: /etc/systemd/system/haproxy.service.d
@@ -22,6 +41,12 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
+- name: Démarrer le Collecteur EDOT Edge
+  ansible.builtin.systemd_service:
+    name: observability-otel-edge.service
+    enabled: true
+    state: restarted
+
 - name: Démarrer HAProxy otel-edge
   ansible.builtin.systemd_service:
     name: haproxy.service
@@ -31,3 +56,12 @@
 - name: Vérifier la configuration HAProxy otel-edge
   ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
   changed_when: false
+
+- name: Vérifier la santé du Collecteur EDOT Edge
+  ansible.builtin.uri:
+    url: http://127.0.0.1:13135/
+    status_code: 200
+  register: otel_edge_health
+  retries: 30
+  delay: 2
+  until: otel_edge_health.status == 200

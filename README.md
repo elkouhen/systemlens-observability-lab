@@ -12,8 +12,14 @@ Pour déployer l’environnement local :
 make architecture-status
 make kubernetes-validate
 export POSTGRESQL_PASSWORD='...'
+make vms-up
+make vm-status
 make deploy
 ```
+
+`make vms-up` démarre et provisionne les quatre VM, puis s'arrête. Après le
+contrôle `make vm-status`, `make deploy` déploie la plateforme Elastic, Fleet,
+Kubernetes et l'application.
 
 Le [guide de déploiement et d’exploitation](docs/deploiement-et-exploitation.md)
 décrit les prérequis, l’ordre des opérations et la recette fonctionnelle.
@@ -25,7 +31,7 @@ Applications Java et pods Kubernetes
     -> EDOT Kubernetes -> Kafka -> Collector backend -> Elasticsearch -> Kibana
 
 VM de données
-    -> Elastic Agent Fleet -> Elasticsearch -> Kibana
+    -> Elastic Agent EDOT -> Collecteur Edge -> Kafka -> Collector backend -> Elasticsearch -> Kibana
 ```
 
 La plateforme conserve les namespaces Kubernetes `elastic-stack` et

@@ -1,13 +1,13 @@
 # ADR-001 : choisir Elastic Agent ou OTel selon le composant
 
 Cette décision décrit le modèle de collecte de l’architecture et les
-frontières entre Fleet classique, EDOT et OpAMP.
+frontières entre Fleet classique et EDOT.
 
 |                |                                            |
 | -------------- | ------------------------------------------ |
 | **Statut**     | Acceptée                                   |
 | **Date**       | 2026-09-21                                 |
-| **Périmètre**  | VM, Kubernetes, applications Java, transport et contrôle Fleet |
+| **Périmètre**  | VM, Kubernetes, applications Java et transport |
 | **Audience**   | Développeurs, exploitants et responsables de la plateforme |
 | **Références** | [`Documentation système`](README.md), [`architecture.md`](architecture.md) |
 
@@ -15,8 +15,7 @@ frontières entre Fleet classique, EDOT et OpAMP.
 
 ## 1. Décision
 
-L’architecture conserve Elastic Agent Fleet classique pour les VM et leurs
-intégrations System, Kafka, MongoDB et PostgreSQL. Elle utilise EDOT et
+L’architecture utilise Elastic Agent en mode EDOT standalone sur les VM. Elle utilise EDOT et
 OpenTelemetry pour Kubernetes, les applications Java et les collectors qui
 transportent les signaux vers Elastic. Ce choix est conservé pour faire passer
 les logs, les traces et les métriques Kubernetes par le Gateway local avant
@@ -24,16 +23,45 @@ leur mise en tampon et leur export.
 
 | Composant | Collecte retenue | Gestion | Transport et destination |
 | --- | --- | --- | --- |
-| VM `poc-01` | Elastic Agent Fleet avec `system`, `kafka`, `mongodb`, `postgresql` | Fleet classique | HTTPS direct vers Elasticsearch |
-| VM `otel-backend-01` et `otel-edge-01` | Elastic Agent Fleet avec `system` | Fleet classique | HTTPS direct vers Elasticsearch |
-| Kubernetes | EDOT Collector avec `hostmetrics`, `kubeletstats`, `k8scluster`, `filelog` | OpAMP via Fleet | OTLP vers Gateway, Kafka, puis Elasticsearch |
+| VM actives | Elastic Agent EDOT avec filelog et hostmetrics | Configuration Ansible locale | OTLP vers Edge, Kafka, backend, puis Elastic |
+| Kubernetes | EDOT Collector avec `hostmetrics`, `kubeletstats`, `k8scluster`, `filelog` | Configuration Kustomize locale | OTLP vers Gateway, Edge, Kafka, puis Elasticsearch |
 | Applications Java | EDOT Java, OTLP et Micrometer OTLP | Configuration Kubernetes | Gateway OTLP, Kafka, puis backend EDOT |
-| Gateway et collectors Kubernetes | EDOT Collector | OpAMP via Fleet | Kafka par signal, puis export Elasticsearch ou APM Server |
+| Gateway et collectors Kubernetes | EDOT Collector | Configuration Kustomize locale | Kafka par signal, puis export Elasticsearch ou APM Server |
 | Fleet Server | Elastic Agent Fleet Server | Fleet classique | Plan de contrôle Fleet |
 
 Cette décision maintient les data streams ECS des VM et les data streams OTel
 de Kubernetes dans leurs périmètres respectifs. Elle évite de remplacer les
 dashboards VM existants par des dashboards OTel en Technical Preview.
+
+### 1.1 Décision complémentaire : utiliser Elastic Agent en mode EDOT sur les VM
+
+La décision complémentaire du 2026-09-21 remplace le choix Fleet classique
+pour la collecte des logs et métriques des VM. Chaque VM conserve un Elastic
+Agent installé localement, mais l’agent exécute le collector EDOT en mode OTel.
+Les receivers OTel collectent les logs et métriques locaux ainsi que les
+intégrations nécessaires. L’exporteur OTLP envoie ces signaux au Collecteur
+Edge.
+
+Le chemin de données devient :
+
+```text
+Elastic Agent EDOT sur la VM
+    -> OTLP
+Collecteur Edge
+    -> Kafka par signal
+Collecteur Backend
+    -> Elasticsearch ou APM Server
+```
+
+Cette décision s’applique à `poc-01`, `otel-backend-01` et `otel-edge-01`.
+Fleet Server est conservé pour les interfaces Elastic, mais n’est pas utilisé
+comme plan de contrôle de cette chaîne. Les anciennes package policies Fleet
+qui collecteraient les mêmes logs ou métriques doivent être désactivées afin
+d’éviter les doublons.
+
+Les sections 3.1 à 3.4 décrivent le choix précédent pour les intégrations VM.
+Elles restent la trace des alternatives évaluées, mais la présente décision
+complémentaire est normative pour la cible de déploiement.
 
 ## 2. Contexte vérifié
 
@@ -49,8 +77,8 @@ System sur les VM et Kafka, MongoDB et PostgreSQL sur `poc-01`.
 
 Le manifeste [`otel-kafka.yaml`](../architecture/platform/kubernetes/base/observability/otel-kafka.yaml:101)
 déclare les collectors EDOT Kubernetes, leurs receivers et leurs extensions
-OpAMP. Les trois collectors Kubernetes utilisent l’UID de leur pod comme
-identité technique.
+Les collectors Kubernetes utilisent une configuration versionnée et ne
+s’enrôlent pas dans Fleet.
 
 Elastic documente deux modèles compatibles dans un même Elastic Agent : les
 receivers hérités qui produisent ECS et les receivers OTel natifs qui suivent
@@ -149,7 +177,7 @@ consultée le 2026-09-21.
 
 > **Pourquoi et quoi - choisir EDOT Kubernetes**
 >
-> **Choix :** Kubernetes utilise EDOT Collector avec OpAMP pour les métriques,
+> **Choix :** Kubernetes utilise EDOT Collector configuré par Kustomize pour les métriques,
 > les logs et les signaux applicatifs.
 >
 > **Pourquoi :** `kubeletstats` collecte les ressources des nœuds, pods et
@@ -197,31 +225,34 @@ Elle impose deux modèles de données dans Elasticsearch. Les opérateurs doiven
 donc choisir les dashboards selon le composant observé et éviter de mélanger
 les data views ECS et OTel dans une même vérification.
 
-Elle conserve deux plans de gestion. Fleet classique pilote les agents VM et
-Fleet Server ; OpAMP pilote les collectors EDOT Kubernetes. Cette séparation
-permet de gérer les policies Fleet des VM sans convertir ces agents en
-collectors standalone.
+Elle conserve Fleet Server comme plan de contrôle commun lorsque le mode EDOT
+est géré par Fleet. Les données des VM suivent toutefois le plan OTel et le
+chemin Edge, Kafka et Backend au lieu de l’output Elasticsearch direct.
 
 Elle conserve le Gateway local comme point de passage des logs, traces et
 métriques Kubernetes. Ce point de passage permet de conserver le traitement
 commun, le buffer Kafka et l’export backend définis par l’architecture.
 
-Elle reporte la migration OTel de System, Kafka, MongoDB et PostgreSQL. Cette
-migration reste possible après la disponibilité de packages d’entrée adaptés,
-la validation des dashboards OTel et la comparaison des volumes indexés.
+Elle impose la validation des receivers EDOT retenus pour System, Kafka,
+MongoDB et PostgreSQL, ainsi que la comparaison des volumes indexés. Les
+dashboards ECS historiques ne sont conservés que pour les données déjà
+produites ou pour les composants qui ne sont pas encore basculés.
 
 ## 5. Invariants et contrôles
 
 Les évolutions de cette architecture doivent conserver les invariants suivants :
 
 1. une seule collecte active par signal et par source ;
-2. les VM utilisent `data-fleet` ou `otel-fleet` avec export direct vers
-   Elasticsearch ;
+2. les VM utilisent Elastic Agent en mode EDOT et exportent leurs signaux en
+   OTLP vers le Collecteur Edge ;
 3. Kubernetes utilise les collectors EDOT déclarés dans
    `platform/kubernetes/base/observability/otel-kafka.yaml` ;
-4. les topics Kafka OTLP restent séparés par signal ;
-5. aucun secret n’est versionné dans les policies ou les manifests ;
-6. les dashboards ciblent explicitement le schéma ECS ou OTel correspondant.
+4. les topics Kafka OTLP restent séparés par signal et le Collecteur Backend
+   les consomme ;
+5. les anciennes policies Fleet qui doublonneraient la collecte EDOT sont
+   désactivées ;
+6. aucun secret n’est versionné dans les policies ou les manifests ;
+7. les dashboards ciblent explicitement le schéma ECS ou OTel correspondant.
 
 Les contrôles reproductibles sont :
 
@@ -232,9 +263,8 @@ make ansible-validate
 make dashboards-verify
 ```
 
-Le contrôle live Fleet doit confirmer les agents VM actifs, les collectors
-OpAMP Kubernetes et l’absence de doublons actifs avant toute modification de
-policy.
+Le contrôle live doit confirmer les agents EDOT actifs, les collectors
+Kubernetes prêts et l’absence de doublons actifs.
 
 ## 6. Références
 

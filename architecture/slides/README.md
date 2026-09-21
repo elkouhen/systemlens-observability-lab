@@ -1,6 +1,6 @@
 # Présentation de l’architecture
 
-Support Slidev de présentation de l’architecture **Hybride Fleet**.
+Support Slidev de présentation de l’architecture **EDOT hybride**.
 
 ## Pré requis
 

@@ -19,29 +19,22 @@ response="$(curl --fail --silent --show-error --insecure \
 expected_datasets=(
   hostmetricsreceiver.otel kubeletstatsreceiver.otel k8sclusterreceiver.otel generic.otel
   apm.service_transaction.1m
-  system.cpu system.memory system.filesystem system.network
-  kafka.broker kafka.partition kafka.consumergroup
-  mongodb.status mongodb.metrics mongodb.dbstats mongodb.replstatus
-  postgresql.database postgresql.statement
-  kafka.log mongodb.log postgresql.log
+  kafkametricsreceiver.otel mongodbreceiver.otel postgresqlreceiver.otel
 )
 expected_metrics=(
   'metrics-hostmetricsreceiver.otel-*|system.cpu.utilization'
   'metrics-hostmetricsreceiver.otel-*|system.memory.utilization'
-  'metrics-system.cpu-*|system.cpu.total.norm.pct'
-  'metrics-system.memory-*|system.memory.actual.used.pct'
-  'metrics-system.filesystem-*|system.filesystem.used.bytes'
-  'metrics-system.network-*|system.network.in.bytes'
-  'metrics-kafka.broker-*|kafka.broker.topic.net.out.bytes_per_sec'
-  'metrics-kafka.partition-*|kafka.partition.offset.newest'
-  'metrics-kafka.consumergroup-*|kafka.consumergroup.consumer_lag'
-  'metrics-mongodb.status-*|mongodb.status.connections.current'
-  'metrics-mongodb.status-*|mongodb.status.ops.counters.command'
-  'metrics-mongodb.dbstats-*|mongodb.dbstats.storage_size.bytes'
-  'metrics-postgresql.database-*|postgresql.database.number_of_backends'
-  'metrics-postgresql.database-*|postgresql.database.transactions.commit'
-  'metrics-postgresql.database-*|postgresql.database.blocks.hit'
-  'metrics-postgresql.statement-*|postgresql.statement.query.time.total.ms'
+  'metrics-hostmetricsreceiver.otel-*|system.disk.io'
+  'metrics-hostmetricsreceiver.otel-*|system.network.connections'
+  'metrics-kafkametricsreceiver.otel-*|kafka.brokers'
+  'metrics-kafkametricsreceiver.otel-*|kafka.topic.partitions'
+  'metrics-kafkametricsreceiver.otel-*|kafka.consumer_group.lag'
+  'metrics-mongodbreceiver.otel-*|mongodb.connection.count'
+  'metrics-mongodbreceiver.otel-*|mongodb.operation.count'
+  'metrics-mongodbreceiver.otel-*|mongodb.storage.size'
+  'metrics-postgresqlreceiver.otel-*|postgresql.backends'
+  'metrics-postgresqlreceiver.otel-*|postgresql.commits'
+  'metrics-postgresqlreceiver.otel-*|postgresql.db_size'
 )
 expected_apm_fields=(
   service.name

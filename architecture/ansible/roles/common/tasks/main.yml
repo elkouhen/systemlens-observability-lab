@@ -10,27 +10,6 @@
     fail_msg: Définir POSTGRESQL_PASSWORD hors Git.
   when: node_role == 'poc'
 
-- name: Installer le certificat racine d'entreprise si fourni
-  ansible.builtin.copy:
-    content: "{{ zscaler_ca_cert_content }}"
-    dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
-    mode: '0644'
-  register: zscaler_ca
-  when: zscaler_ca_cert_content | length > 0
-
-- name: Actualiser le magasin de certificats
-  ansible.builtin.command: update-ca-trust extract
-  when: zscaler_ca.changed | default(false)
-  changed_when: true
-
-- name: Installer les dépendances système
-  ansible.builtin.dnf:
-    name: [podman, curl, openssl, chrony, haproxy, policycoreutils-python-utils]
-    state: present
-
-- name: Collecter l'état des services système
-  ansible.builtin.service_facts:
-
 - name: Identifier l'interface du réseau privé
   ansible.builtin.shell: |
     ip -o -4 addr show | awk -v ip='{{ node_ip }}' '$4 ~ ("^" ip "/") { print $2; exit }'
@@ -39,7 +18,7 @@
   register: private_network_device
   changed_when: false
 
-- name: Restaurer le contexte SELinux des profils NetworkManager
+- name: Restaurer le contexte SELinux des profils NetworkManager avant modification
   ansible.builtin.command: restorecon -RFv /etc/NetworkManager/system-connections
   changed_when: false
 
@@ -74,6 +53,27 @@
 - name: Réappliquer la connexion NAT
   ansible.builtin.shell: nmcli connection up "{{ nat_connection.stdout }}"
   changed_when: false
+
+- name: Installer le certificat racine d'entreprise si fourni
+  ansible.builtin.copy:
+    content: "{{ zscaler_ca_cert_content }}"
+    dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
+    mode: '0644'
+  register: zscaler_ca
+  when: zscaler_ca_cert_content | length > 0
+
+- name: Actualiser le magasin de certificats
+  ansible.builtin.command: update-ca-trust extract
+  when: zscaler_ca.changed | default(false)
+  changed_when: true
+
+- name: Installer les dépendances système
+  ansible.builtin.dnf:
+    name: [podman, curl, openssl, chrony, haproxy, policycoreutils-python-utils]
+    state: present
+
+- name: Collecter l'état des services système
+  ansible.builtin.service_facts:
 
 - name: Configurer des sources NTP accessibles en IPv4
   ansible.builtin.replace:

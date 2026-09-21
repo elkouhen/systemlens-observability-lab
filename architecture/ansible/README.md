@@ -2,23 +2,25 @@
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
 L’architecture crée quatre VM séparées : `poc-01` pour MongoDB, Kafka et PostgreSQL,
-`otel-backend-01` pour les collecteurs EDOT, `otel-edge-01` pour HAProxy et
+`otel-backend-01` pour l’exporteur EDOT Kafka, `otel-edge-01` pour HAProxy et le
+Collecteur EDOT Edge et
 `elk-01` pour Elasticsearch, Kibana et Fleet Server.
-Chaque VM reçoit un Elastic Agent enrôlé dans Fleet. La policy collecte
-les logs, métriques système et intégrations Kafka, MongoDB et PostgreSQL, puis
-envoie directement les événements vers Elasticsearch. Kafka reste une source
-observée et n’est plus un buffer de télémétrie VM.
+Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
+et métriques locaux et les envoie en OTLP au Collecteur Edge. Kafka est le
+buffer commun des signaux Kubernetes et VM.
 
 Le rôle `common` configure chrony avec `makestep 1.0 3` afin de corriger
 automatiquement l’horloge après un redémarrage ou une reprise de VM. Cette
 synchronisation est nécessaire aux fenêtres temporelles des dashboards et au
 chemin OTLP → Kafka → Elasticsearch.
 
-L’enrôlement Fleet est idempotent : la présence de
-`/opt/Elastic/Agent/elastic-agent` conserve l’identité locale après un
-redémarrage ou un reprovisionnement. Une réinstallation doit être demandée
-explicitement avec la variable Ansible `fleet_agent_reinstall=true` ; elle ne
-fait pas partie du chemin normal de démarrage.
+Le mode EDOT standalone est idempotent : la présence de
+`/opt/Elastic/Agent/elastic-agent` et du marqueur
+`/etc/observability/elastic-agent-otel.mode` conserve l'installation après un
+redémarrage ou un reprovisionnement. Les VM ne sont pas enrôlées dans Fleet.
+Une réinstallation doit être demandée explicitement avec la variable Ansible
+`fleet_agent_reinstall=true` ; elle ne fait pas partie du chemin normal de
+démarrage.
 
 Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
 privé VirtualBox et configure des résolveurs DNS sur l'interface NAT. Cette
@@ -29,15 +31,15 @@ miroirs de paquets.
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `poc-01`.
 
-La cible `make deploy` reprovisionne les VM existantes avant de déployer la
-plateforme. Les données Kafka sont conservées dans le volume Podman
+La cible `make vms-up` démarre et provisionne les quatre VM avant le déploiement
+de la plateforme. Les données Kafka sont conservées dans le volume Podman
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
 | `poc-01` | MongoDB, Kafka, PostgreSQL | Middlewares du scénario applicatif |
-| `otel-backend-01` | Gateway EDOT ; exporteur Kafka EDOT | OTLP Kubernetes → Kafka `poc-01` → APM Server / Elasticsearch |
-| `otel-edge-01` | HAProxy | Point d’entrée OTLP, Kibana, Elasticsearch et Fleet |
+| `otel-backend-01` | Exporteur Kafka EDOT | Kafka `poc-01` → APM Server / Elasticsearch |
+| `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka ; point d’entrée Kibana, Elasticsearch et Fleet |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 
 ## Ordre de lecture
@@ -47,8 +49,8 @@ plateforme. Les données Kafka sont conservées dans le volume Podman
 3. `roles/` : responsabilités séparées par type de VM et composants communs.
 4. `roles/*/templates/` : unités Podman Quadlet et configurations propres à chaque rôle.
 5. `status.yml` : diagnostic détaillé des services sur les VM.
-6. Le déploiement des VM avec `make fleet-vms-provision` ou `make deploy` crée
-  un jeton temporaire et enrôle l’Elastic Agent de façon idempotente.
+6. `make vms-up` prépare les VM et installe les agents EDOT. Après
+  l'initialisation d'Elastic, `make deploy` déploie le stack et les applications.
 
 ## Rôles
 
@@ -56,7 +58,7 @@ Le playbook `site.yml` applique les rôles dans cet ordre :
 
 1. `common` : prérequis système, réseau, pare-feu, SELinux, répertoires et
    résolution des noms des VM ;
-2. `elastic_agent` : téléchargement et enrôlement Fleet de l'agent local ;
+2. `elastic_agent` : téléchargement, installation et configuration locale de l’agent EDOT ;
 3. un rôle de service selon `node_role` : `poc`, `otel_backend`, `otel_edge` ou
    `elk`.
 
@@ -64,10 +66,9 @@ Le playbook `site.yml` applique les rôles dans cet ordre :
 `site.yml`. Chaque rôle possède ses propres templates afin que la tâche et la
 configuration déployée restent au même endroit.
 
-Le playbook `fleet-agent.yml` est réservé à l'enrôlement après l'initialisation
-de Kibana. Il n'exécute que le rôle `elastic_agent`, afin que `make deploy` ne
-reprovisionne pas les middlewares et les services de chaque VM pour créer un
-nouveau jeton Fleet.
+Le playbook `fleet-agent.yml` est conservé comme point d'entrée de compatibilité,
+mais le rôle `elastic_agent` configure désormais le mode EDOT standalone. Il ne
+crée pas d'enrôlement Fleet pour les VM.
 
 Le script d'enrôlement vérifie d'abord l'inventaire Fleet et réutilise chaque
 agent actif par nom d'hôte ; il ne crée donc pas une nouvelle instance lors
@@ -81,17 +82,22 @@ par exemple `-e elastic_agent_download_retries=8 elastic_agent_download_delay=30
 
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 
-Pour déployer toute l'architecture en une seule commande, utiliser :
+Pour démarrer et provisionner les VM, utiliser :
 
 ```bash
-make ansible-deploy
+make vms-up
+make vm-status
 ```
 
-Cette cible appelle `ansible/deploy-all.yml`. Le playbook démarre les VM sans
-provisionnement implicite, exécute `site.yml` une seule fois, applique les
-manifests Kubernetes versionnés, configure Elastic et Fleet, enrôle les VM,
-déploie l'application puis vérifie les dashboards. Les mots de passe restent
-dans `ELASTIC_PASSWORD` et `POSTGRESQL_PASSWORD` hors du dépôt.
+Après vérification des services, déployer le reste de l'architecture avec :
+
+```bash
+make deploy
+```
+
+Les mots de passe restent dans `ELASTIC_PASSWORD` et `POSTGRESQL_PASSWORD` hors
+du dépôt. La cible `ansible-deploy` reste disponible pour l'orchestrateur
+Ansible complet.
 
 ## Documentation externe
 

@@ -2,28 +2,29 @@
 
 Les fichiers `.ndjson` sont des exports d'objets sauvegardés Kibana. Le fichier
 `business-metrics-dashboard.json` est une définition inline de l'API Dashboard
-Kibana, avec des visualisations ES|QL. La collecte des VM est assurée par Elastic Agent Fleet et envoyée directement à
+Kibana, avec des visualisations ES|QL. La collecte des VM est assurée par Elastic Agent EDOT standalone et envoyée au
 Elasticsearch. Les packages Fleet sont installés par la configuration Quadlet
-de `elk-01` puis réconciliés par le script de bootstrap Fleet.
-Les dashboards Fleet classiques peuvent donc exploiter les champs ECS
-produits par la collecte architecture.
+de `elk-01` puis réconciliés par le script de bootstrap Fleet. Les dashboards
+Fleet classiques restent des assets de compatibilité ; les contrôles
+ci-dessous ciblent les data streams OTel réellement produits par le chemin
+EDOT standalone → Edge → Kafka → backend.
 
 ## Dashboards à utiliser
 
 | Besoin | Dashboard Kibana | Jeux de données attendus | Indicateurs à suivre |
 | --- | --- | --- | --- |
-| Santé des hôtes | **[Metrics System] Overview** | `metrics-hostmetricsreceiver-*` | CPU (`system.cpu.utilization`), charge, mémoire (`system.memory.utilization`), filesystem, réseau, erreurs réseau et processus. |
+| Santé des hôtes | Vue OTel System / Discover | `metrics-hostmetricsreceiver.otel-*` | CPU (`system.cpu.utilization`), mémoire (`system.memory.utilization`), disque et réseau. |
 | Santé du cluster | **[Kubernetes OTel] Overview**, **Nodes**, **Workloads**, **Pods** | `kubeletstatsreceiver.otel`, `k8sclusterreceiver.otel` | CPU/mémoire par pod et nœud, état du cluster, déploiements, conteneurs, volumes et capacité observée par `kubeletstats`/`k8s_cluster`. |
-| Brokers et consommateurs | **[Metrics Kafka] Overview** | `metrics-kafka-*` | Brokers, partitions, réplication, lag et consumer groups. |
-| Logs Kafka | **[Logs Kafka] Overview** | `logs-kafka.log-*` | Événements broker, contrôleur, changements d'état et erreurs Kafka. |
-| Réplication MongoDB | **[Metrics MongoDB] Overview** | `metrics-mongodb-*` | Connexions, opérations, mémoire, cache et stockage ; les indicateurs de réplication `replstatus` nécessitent un replica set, alors que le POC utilise un MongoDB standalone. |
-| Logs MongoDB | **[Logs MongoDB] Overview** | `logs-mongodb.log-*` | Logs `mongod`, erreurs, démarrage et événements du serveur. |
-| Base PostgreSQL | **[Metrics PostgreSQL] Database Overview** | `metrics-postgresql-*` | Sessions, taille, cache, checkpoints et requêtes. |
-| Logs PostgreSQL | **[Logs PostgreSQL] Overview**, **Query Duration Overview** | `logs-postgresql.log-*`, `metrics-postgresql.statement-*` | Logs PostgreSQL et durée des requêtes ; `pg_stat_statements` doit être chargé dans PostgreSQL. |
+| Brokers et consommateurs | Vue OTel Kafka / Discover | `metrics-kafkametricsreceiver.otel-*` | Brokers, partitions, réplication, lag et consumer groups. |
+| Logs Kafka | Discover | `logs-generic-*` | Logs Kafka collectés par `filelog/system`, avec hôte et chemin source. |
+| MongoDB | Vue OTel MongoDB / Discover | `metrics-mongodbreceiver.otel-*` | Connexions, opérations, mémoire, cache et stockage ; les indicateurs de réplication nécessitent un replica set, alors que le POC utilise un MongoDB standalone. |
+| Logs MongoDB | Discover | `logs-generic-*` | Logs `mongod`, erreurs, démarrage et événements du serveur. |
+| Base PostgreSQL | Vue OTel PostgreSQL / Discover | `metrics-postgresqlreceiver.otel-*` | Sessions, taille, cache, checkpoints et requêtes. |
+| Logs PostgreSQL | Discover | `logs-generic-*` | Logs PostgreSQL et durée des requêtes ; `pg_stat_statements` doit être chargé dans PostgreSQL. |
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | SLA pains achetés | **Observability > SLOs** et **Alerts and Insights > Rules** | `logs-*` | SLO à 99 % de périodes de 24 heures conformes sur 30 jours, avec au moins 10 pains `BREAD-WHOLE` achetés par période ; alerte sur les dernières 24 heures. |
-| Santé de la collecte | Logs de `elastic-agent`, état Fleet et consumer lag Kafka | journaux systemd, état Fleet et état des groupes Kafka | Agents Fleet healthy sur `poc-01`, `otel-backend-01` et `otel-edge-01`, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
+| Santé de la collecte | État EDOT, logs et consumer lag Kafka | journaux systemd, `logs-generic-*` et `metrics-kafkametricsreceiver.otel-*` | Agents EDOT healthy, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
 | Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-prometheusreceiver.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
 
 Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
@@ -61,12 +62,25 @@ documents sur les quinze dernières minutes :
 
 ```bash
 make dashboards-verify
+make otel-dashboards-reconcile
 ```
 
 La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
 les métriques clés ci-dessus. Elle vérifie aussi les onze dashboards Kubernetes
 OTel et leurs références de champs. Elle permet de distinguer un dashboard vide
 d'un problème de collecte.
+
+Les dashboards OTel System, Kafka, MongoDB et PostgreSQL partagent un filtre
+`Hôte` basé sur `resource.attributes.host.name`. Les anciens filtres propres
+aux intégrations classiques (`attributes.mongodb.instance` ou un nom de base
+non présent dans les documents OTel) ne doivent pas être réintroduits : ils
+produisent un sélecteur vide ou en erreur.
+
+Le receiver PostgreSQL OTel de ce POC expose les sessions, transactions, taille
+des bases et compteurs du bgwriter. Il n’expose pas les statistiques de requêtes,
+les verrous, `pg_stat_statements`, les deadlocks ou les compteurs de tuples : les
+vues PostgreSQL correspondantes ne doivent donc pas être présentées comme des
+métriques OTel disponibles.
 
 Le dashboard versionné est réconcilié de manière non destructive par
 `make business-dashboard-deploy` (ou automatiquement par `make elk-deploy`). Le script

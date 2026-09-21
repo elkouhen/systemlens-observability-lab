@@ -8,8 +8,9 @@ dans Discover.
 
 Le parcours validé dans l’architecture active est :
 
-- `gateway-directe-ssh` : playbook SSH sur un collecteur → Gateway EDOT
-  `127.0.0.1:4319` → Kafka `otel-metrics` → exporteur OTel `poc-01` → data stream
+- `edge-directe-ssh` : playbook SSH sur `otel-edge-01` → Collecteur EDOT Edge
+  via HAProxy `127.0.0.1:4318` → Kafka `otel-metrics` → exporteur OTel
+  `otel-backend-01` → data stream
   `metrics-*` → Kibana.
 
 ## Prérequis

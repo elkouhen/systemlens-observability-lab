@@ -30,12 +30,11 @@ vers ce registre avant d’exécuter `make elk-deploy`.
 
 Le Gateway OTLP `otel-gateway` est déployé dans le namespace `elastic-stack` et
 exposé par un Service Kubernetes sur les ports `4317` et `4318`. Les applications
-et le DaemonSet Kubernetes l'utilisent comme endpoint OTLP. Le Gateway publie les
-trois signaux dans Kafka ; l'exporteur EDOT sur `otel-backend-01` les écrit ensuite
-dans Elasticsearch. Le DaemonSet, le collecteur cluster et le Gateway sont des
-collecteurs EDOT gérés par Fleet via OpAMP ; leur chemin de données reste
-inchangé. Les VM utilisent l'Elastic Agent enrôlé dans Fleet et publient
-directement vers Elasticsearch.
+et le DaemonSet Kubernetes l'utilisent comme endpoint OTLP. Le Gateway transmet
+les trois signaux au Collecteur EDOT Edge via le Service `otel-edge-vm` ; Edge
+les publie ensuite dans Kafka et l'exporteur EDOT sur `otel-backend-01` les
+écrit dans Elasticsearch ou APM Server. Les VM utilisent Elastic Agent en mode
+EDOT et suivent le même chemin Edge, Kafka et Backend.
 
 Les URL fonctionnelles de l’architecture utilisent les noms suivants :
 `elasticsearch.observability.test`, `kibana.observability.test` et `fleet.observability.test`. Fleet Server

@@ -76,7 +76,8 @@ identifiable par son nom d’hôte.
 **SF-VM-03.** Fleet doit collecter les métriques des services Kafka, MongoDB et
 PostgreSQL lorsque l’intégration correspondante est activée.
 
-**SF-VM-04.** La télémétrie VM doit être envoyée directement vers Elasticsearch
+**SF-VM-04.** La télémétrie VM doit être envoyée vers le Collecteur Edge, puis
+Kafka, le Collector backend et Elasticsearch
 sans passer par le Gateway OTLP Kubernetes ni par Kafka.
 
 ### 3.4 Transport et consultation

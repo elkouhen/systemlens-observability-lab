@@ -1,6 +1,6 @@
 ---
-- name: Valider le receiver OTLP de la Gateway en SSH sur le collecteur
-  hosts: otel_collectors
+- name: Valider le receiver OTLP du Collecteur Edge en SSH
+  hosts: otel_validation_edge
   gather_facts: true
   tags: [host]
   vars:

@@ -1,36 +1,35 @@
-# Kafka dans Fleet
+# Kafka avec l'agent EDOT standalone
 
 Ce guide explique la package policy Kafka déclarée dans
 [`../scripts/bootstrap-fleet-policies.sh`](../scripts/bootstrap-fleet-policies.sh)
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
-La policy Kafka est appliquée au Kibana Quadlet de `elk-01`; `make fleet-sync` applique les
-pipelines Elasticsearch `@custom`. Chaque hôte de
-données héberge un broker/controller Kafka KRaft dans Podman. Toutes les VM
-actives exécutent l'Elastic Agent enrôlé dans Fleet.
+La policy Kafka est conservée comme asset de compatibilité dans Kibana. La
+collecte active est déclarée dans le template EDOT Ansible et déployée par
+`make elastic-agent-vm-provision`. Chaque hôte de données héberge un
+broker/controller Kafka KRaft dans Podman.
 
 ## Chemin de collecte architecture
 
 ```text
-Elastic Agent Fleet de chaque VM
-  └─ intégration Kafka : localhost:9092
+Elastic Agent EDOT standalone de poc-01
+  └─ receiver kafka_metrics : localhost:9092
        └─ brokers, topics, partitions, consumer groups
             ↓
        métriques Kafka → Elasticsearch
 ```
 
-L'intégration Fleet couvre les métriques Kafka exposées par le protocole Kafka.
-Les documents sont routés vers les data streams natifs
-`metrics-kafka.broker-*`, `metrics-kafka.partition-*` et
-`metrics-kafka.consumergroup-*` avec
-`service.name: kafka` et `host.name: poc-01`. Jolokia est historique et n'est
-pas requis par le chemin architecture.
+Le receiver `kafka_metrics` active les scrapers `brokers`, `topics` et
+`consumers`. Les documents sont routés vers
+`metrics-kafkametricsreceiver.otel-default`; les métriques principales sont
+`kafka.brokers`, `kafka.topic.partitions` et `kafka.consumer_group.lag`.
+Jolokia est historique et n'est pas requis par le chemin architecture.
 
 ## Lire la policy
 
-1. La collecte des VM est assurée par la policy `data-fleet`.
-2. Les entrées Fleet `system` collectent les logs et métriques hôte. Aucun
-   Filebeat, Metricbeat ou Logstash n'est utilisé.
-3. L'intégration Kafka utilise `localhost:9092` toutes les 60 secondes et produit
+1. La collecte est assurée par l'agent EDOT standalone de `poc-01`.
+2. Le receiver `filelog/system` collecte les logs locaux et le receiver
+   `hostmetrics/system` les métriques hôte.
+3. Le receiver Kafka utilise `localhost:9092` toutes les 60 secondes et produit
    `kafka.brokers`, les offsets/partitions et les métriques de consumer groups.
 4. Les métriques JVM détaillées nécessitent une instrumentation JMX dédiée ;
    elles ne sont pas promises par le receiver Kafka natif.
@@ -67,8 +66,7 @@ Après une modification de policy, exécuter `make fleet-sync` puis vérifier
 
 1. Vérifier depuis la VM que `localhost:9092` répond et que le
    quorum KRaft est sain : `make vm-status`.
-2. Dans Discover, filtrer `data_stream.dataset: kafka.broker` (ou
-   `kafka.partition` / `kafka.consumergroup`).
+2. Dans Discover, filtrer `data_stream.dataset: kafkametricsreceiver.otel`.
 3. Vérifier les métriques `kafka.brokers`, `kafka.partition.current_offset`
    et `kafka.consumer_group.lag`.
 4. En cas d'échec Fleet, consulter `journalctl -u elastic-agent` et vérifier
