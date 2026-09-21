@@ -1,46 +1,47 @@
 # Documentation système
 
-Ce répertoire contient les documents transverses du POC. La documentation
-opérationnelle la plus proche d'un composant reste sa source de vérité : lire
-`platform/README.md`, `apps/README.md` ou `ansible/README.md` avant toute
-modification.
+Ce répertoire contient les procédures et les références communes au dépôt.
+Les README des composants restent propriétaires de leur configuration et de
+leurs commandes détaillées.
 
-Pour commencer, suivre le [guide de déploiement et d'exploitation](deploiement-et-exploitation.md).
+## Parcours recommandé
 
-## Comprendre l'architecture
+1. Lire le [guide de déploiement et d’exploitation](deploiement-et-exploitation.md)
+   pour préparer l’environnement et choisir la commande adaptée.
+2. Lire l’[architecture v3](architecture-v3.md) pour comprendre les flux de
+   télémétrie et les responsabilités des VM et du cluster.
+3. Consulter les README de la [plateforme v3](../v3/platform/README.md), des
+   [applications](../apps/README.md) ou du [provisionnement](../v3/ansible/README.md)
+   avant de modifier un composant.
 
-- [`architecture-v3.md`](architecture-v3.md) : architecture conservée et flux
-  hybrides avec Fleet pour les VM.
-- [`gestion-du-debit-observabilite.md`](gestion-du-debit-observabilite.md) :
-  rate limiting, sampling, backpressure et quotas par type de flux.
-- [`briques-remontee-telemetrie-v3.md`](briques-remontee-telemetrie-v3.md) : briques,
-  entrées, sorties et gestion de la pression pour les logs, traces et métriques.
+## Opérer l’environnement
 
-## Référence spécialisée
+- [Déploiement et exploitation](deploiement-et-exploitation.md) : prérequis,
+  déploiement, vérifications et dépannage.
+- [Architecture v3](architecture-v3.md) : topologie, flux et validations.
+- [Spécification fonctionnelle v3](specification-fonctionnelle-v3.md) :
+  capacités attendues et critères d’acceptation.
+- [Spécification technique v3](specification-technique-v3.md) : composants,
+  interfaces, contraintes et contrôles techniques.
+- [Briques de remontée de la télémétrie](briques-remontee-telemetrie-v3.md) :
+  sources, transport, destinations et fichiers IaC associés.
+- [Gestion du débit de télémétrie](gestion-du-debit-observabilite.md) :
+  limitation, échantillonnage, files et quotas.
 
-- [`metrics-clients-kafka-mongodb.md`](metrics-clients-kafka-mongodb.md) :
-  instrumentation des clients Kafka/MongoDB et métriques Actuator.
+## Références techniques
 
-## Outils du dépôt
+- [Métriques des clients Kafka et MongoDB](metrics-clients-kafka-mongodb.md) :
+  instrumentation Java et exposition Actuator.
+- [Agent Package Manager](agent-package-manager.md) : installation et audit du
+  contexte d’agents déclaré par le projet.
 
-- [`agent-package-manager.md`](agent-package-manager.md) : installation et
-  contrôle du contexte d'agents avec Microsoft APM.
+## Validation reproductible
 
-Les procédures propres à un composant restent dans son README local ; elles
-ne sont pas recopiées ici.
-
-Pour la v3, la procédure de référence est : `make elk-deploy`, puis
-`make fleet-vms-provision`, puis `make apps-deploy`. Le flux VM est visible dans
-Fleet et dans les data streams Elasticsearch ; les flux applicatifs et
-Kubernetes restent vérifiables via les topics OTLP et `otel-kafka-exporter`.
-
-## Vérification reproductible
-
-Depuis la racine du dépôt, exécuter :
+Depuis la racine du dépôt :
 
 ```bash
 make ci
 ```
 
-Le résultat attendu est un rendu Kustomize valide et l'exécution des tests
-Maven. Cette commande ne déploie aucune ressource.
+Le résultat attendu est un rendu Kustomize valide, une syntaxe Ansible valide
+et le succès des tests Maven. Cette commande ne déploie aucune ressource.

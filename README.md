@@ -1,50 +1,66 @@
-# POC Observabilité Elastic
+# POC d’observabilité Elastic
 
-Ce dépôt fournit un environnement de recette pour observer une application
-Java, Kafka, MongoDB, PostgreSQL et Kubernetes dans Elastic.
+Ce dépôt fournit un environnement Kubernetes et Vagrant pour observer une
+application Java avec Elastic, OpenTelemetry, Kafka, MongoDB et PostgreSQL.
+L’architecture active est `v3`, nommée « Hybride Fleet ».
 
-## Architecture
+## Commencer ici
 
-L'architecture conservée utilise la topologie suivante :
-
-```text
-data-01 : Kafka mono-broker · MongoDB standalone · PostgreSQL
-    │
-    └─ v3 — Hybride Fleet : Elastic Agent Fleet → Elasticsearch pour les VM
-
-Applications Java sur Kubernetes
-    └─ v3 — Hybride Fleet : OpenTelemetry/EDOT pour les applications et Kubernetes ; Fleet pour les VM
-```
-
-Le code Java, Maven et Docker est partagé. L'architecture utilise les namespaces
-Kubernetes `elastic-stack` et `h0tl-supermarche-app`.
-
-## Démarrage rapide
+Pour déployer l’environnement local :
 
 ```bash
-make architecture-switch VERSION=v3
-make architecture-list
+make architecture-status
 make kubernetes-validate
 export POSTGRESQL_PASSWORD='...'
 make deploy
 ```
 
-## Documentation
+Le [guide de déploiement et d’exploitation](docs/deploiement-et-exploitation.md)
+décrit les prérequis, l’ordre des opérations et la recette fonctionnelle.
 
-- [Guide de déploiement et d’exploitation](docs/deploiement-et-exploitation.md)
-- [Architecture v3](v3/README.md)
-- [Métriques Kafka et MongoDB](docs/metrics-clients-kafka-mongodb.md)
-- [Agent Package Manager](docs/agent-package-manager.md)
-
-Les documentations proches des composants se trouvent dans `v3/`, `apps/`,
-`kubernetes/` et `scripts/`. L’index complet est disponible dans
-[`docs/README.md`](docs/README.md).
-
-## Organisation
+## Architecture active
 
 ```text
-v3/                    # Hybride Fleet, EDOT et Kafka OTLP
-apps/supermarket-demo/ # code Java, Docker et Maven partagé
-docs/                  # documentation transversale et procédures
-scripts/               # diagnostics partagés
+Applications Java et pods Kubernetes
+    -> EDOT Kubernetes -> Kafka -> Collector backend -> Elasticsearch -> Kibana
+
+VM de données
+    -> Elastic Agent Fleet -> Elasticsearch -> Kibana
 ```
+
+La plateforme conserve les namespaces Kubernetes `elastic-stack` et
+`h0tl-supermarche-app`. La description complète des flux se trouve dans
+[`docs/architecture-v3.md`](docs/architecture-v3.md).
+
+## Parcours documentaire
+
+- [Documentation système](docs/README.md) : index des procédures et références
+  transverses.
+- [Architecture v3](v3/README.md) : topologie et points d’entrée de la
+  plateforme active.
+- [Applications](apps/README.md) : code, images et manifests des workloads.
+- [Plateforme v3](v3/platform/README.md) : Kubernetes, Elastic et Fleet.
+- [Provisionnement des VM](v3/ansible/README.md) : Ansible, rôles et services.
+
+Chaque sous-système conserve les procédures détaillées dans son README local.
+Ces documents sont la source de vérité pour les commandes et les fichiers du
+composant concerné.
+
+## Organisation du dépôt
+
+```text
+v3/                    # architecture active, plateforme et provisionnement
+apps/supermarket-demo/ # code Java, Docker et tests Maven
+kubernetes/            # manifests applicatifs partagés
+docs/                  # procédures et références transverses
+scripts/               # diagnostics partagés
+certs/                 # certificats locaux et prérequis TLS
+```
+
+## Validation sans déploiement
+
+```bash
+make ci
+```
+
+Cette cible valide le rendu Kustomize, la syntaxe Ansible et les tests Maven.
