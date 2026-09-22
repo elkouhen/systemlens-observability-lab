@@ -1,0 +1,22 @@
+direction: down
+classes: {
+  source: {style.fill: "#eef2ff"; style.stroke: "#6366f1"; style.border-radius: 12}
+  gateway: {style.fill: "#eff6ff"; style.stroke: "#2563eb"; style.border-radius: 12}
+  transport: {style.fill: "#fff7ed"; style.stroke: "#ea8b2d"; style.border-radius: 12}
+  store: {style.fill: "#ecfdf5"; style.stroke: "#16a34a"; style.border-radius: 12}
+}
+
+pods: "Pods\nstdout · logs applicatifs" {class: source}
+vm: "VM et services\nlogs locaux" {class: source}
+node: "EDOT node collector\nfileread · enrichissement" {class: gateway}
+edge: "Gateway Edge" {class: gateway}
+kafka: "Kafka\notel-logs" {class: transport}
+backend: "Gateway Backend" {class: gateway}
+elastic: "Elasticsearch\nlogs-*" {class: store}
+
+pods -> node
+node -> edge: "OTLP"
+vm -> edge: "OTLP via EDOT standalone"
+edge -> kafka: "publication"
+kafka -> backend: "consommation"
+backend -> elastic: "indexation"

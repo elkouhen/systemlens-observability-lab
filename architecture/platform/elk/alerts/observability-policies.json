@@ -7,7 +7,7 @@
       "indicator": {
         "type": "sli.kql.custom",
         "params": {
-          "index": "metrics-prometheusreceiver.otel-*",
+          "index": "metrics-generic.otel-*",
           "filter": "",
           "good": "metrics.up : 1",
           "total": "metrics.up : *",
@@ -65,7 +65,7 @@
         "schedule": {"interval": "1m"},
         "actions": [],
         "params": {
-          "index": ["metrics-prometheusreceiver.otel-*"],
+          "index": ["metrics-generic.otel-*"],
           "timeField": "@timestamp",
           "searchType": "esQuery",
           "esQuery": "{\"query\":{\"bool\":{\"should\":[{\"range\":{\"metrics.otelcol_exporter_send_failed_spans\":{\"gt\":0}}},{\"range\":{\"metrics.otelcol_exporter_send_failed_metric_points\":{\"gt\":0}}},{\"range\":{\"metrics.otelcol_exporter_send_failed_log_records\":{\"gt\":0}}}],\"minimum_should_match\":1}}}",
@@ -87,7 +87,7 @@
         "schedule": {"interval": "1m"},
         "actions": [],
         "params": {
-          "index": ["metrics-prometheusreceiver.otel-*"],
+          "index": ["metrics-generic.otel-*"],
           "timeField": "@timestamp",
           "searchType": "esQuery",
           "esQuery": "{\"query\":{\"range\":{\"metrics.otelcol_exporter_queue_size\":{\"gte\":800}}}}",
@@ -109,7 +109,7 @@
         "schedule": {"interval": "1m"},
         "actions": [],
         "params": {
-          "index": ["metrics-prometheusreceiver.otel-*"],
+          "index": ["metrics-generic.otel-*"],
           "timeField": "@timestamp",
           "searchType": "esQuery",
           "esQuery": "{\"query\":{\"term\":{\"metrics.up\":0}}}",

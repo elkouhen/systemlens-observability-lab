@@ -3,6 +3,7 @@ package io.systemlens.supermarket.restock;
 import io.systemlens.supermarket.contract.StockDepleted;
 import io.systemlens.supermarket.contract.StockRestockRequested;
 import io.systemlens.supermarket.messaging.AbstractKafkaMessageProcessor;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
@@ -20,11 +21,13 @@ public class StockDepletedConsumer extends AbstractKafkaMessageProcessor<StockDe
     private static final Logger LOGGER = LoggerFactory.getLogger(StockDepletedConsumer.class);
 
     private final KafkaTemplate<String, StockRestockRequested> kafkaTemplate;
+    private final Counter restocksRequested;
     @Autowired
     public StockDepletedConsumer(KafkaTemplate<String, StockRestockRequested> kafkaTemplate,
                                 MeterRegistry meterRegistry) {
         super(meterRegistry);
         this.kafkaTemplate = kafkaTemplate;
+        this.restocksRequested = Counter.builder("business.stock.restock.requested").description("Réassorts demandés").register(meterRegistry);
     }
 
     public StockDepletedConsumer(KafkaTemplate<String, StockRestockRequested> kafkaTemplate) { this(kafkaTemplate, new io.micrometer.core.instrument.simple.SimpleMeterRegistry()); }
@@ -40,7 +43,7 @@ public class StockDepletedConsumer extends AbstractKafkaMessageProcessor<StockDe
                 event.productId(), RESTOCK_QUANTITY, Instant.now()
         );
         kafkaTemplate.send("supermarket.stock.restock-requested", request.productId(), request);
-        meterRegistry().counter("business.stock.restock.requested").increment();
+        restocksRequested.increment();
         LOGGER.info("Reassort demande: productId={}, quantity={}", request.productId(), request.quantity());
     }
 }

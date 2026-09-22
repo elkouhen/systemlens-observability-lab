@@ -1,0 +1,24 @@
+direction: down
+classes: {
+  source: {style.fill: "#eef2ff"; style.stroke: "#6366f1"; style.border-radius: 12}
+  gateway: {style.fill: "#eff6ff"; style.stroke: "#2563eb"; style.border-radius: 12}
+  transport: {style.fill: "#fff7ed"; style.stroke: "#ea8b2d"; style.border-radius: 12}
+  store: {style.fill: "#ecfdf5"; style.stroke: "#16a34a"; style.border-radius: 12}
+}
+
+client: "Client" {class: source}
+service: "Service Java\ntrace.id · span.id" {class: source}
+gateway: "Gateway OTLP" {class: gateway}
+edge: "Gateway Edge" {class: gateway}
+kafka: "Kafka\notel-traces" {class: transport}
+backend: "Gateway Backend" {class: gateway}
+apm: "APM Server" {class: store}
+kibana: "Kibana APM" {class: store}
+
+client -> service: "HTTP"
+service -> gateway: "spans OTLP"
+gateway -> edge: "OTLP"
+edge -> kafka: "publication"
+kafka -> backend: "consommation"
+backend -> apm: "export"
+apm -> kibana: "services · transactions · traces"

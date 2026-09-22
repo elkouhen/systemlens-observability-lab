@@ -1,0 +1,32 @@
+direction: right
+
+site: "ansible/site.yml" {
+  style.fill: "#172554"
+  style.stroke: "#172554"
+  style.font-color: "#ffffff"
+  style.border-radius: 14
+}
+
+common: "role: common\nOS · NTP · conventions"
+agent: "role: elastic_agent\nEDOT standalone"
+retention: "role: retention\nrotation · ILM"
+poc: "role: poc\nKafka · PostgreSQL · MongoDB"
+edge: "role: otel_edge\nHAProxy · Gateway Edge"
+backend: "role: otel_backend\nGateway Backend"
+elk: "role: elk\nElasticsearch · APM · Kibana"
+
+common.style.fill: "#e8f0fe"
+agent.style.fill: "#e8f0fe"
+retention.style.fill: "#e8f0fe"
+poc.style.fill: "#fff7ed"
+edge.style.fill: "#fff7ed"
+backend.style.fill: "#fff7ed"
+elk.style.fill: "#ecfdf5"
+
+site -> common
+site -> agent
+site -> retention
+site -> poc
+site -> edge
+site -> backend
+site -> elk

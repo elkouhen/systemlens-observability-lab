@@ -21,11 +21,11 @@ EDOT standalone → Edge → Kafka → backend.
 | Logs MongoDB | Discover | `logs-generic-*` | Logs `mongod`, erreurs, démarrage et événements du serveur. |
 | Base PostgreSQL | Vues OTel PostgreSQL / Discover | `metrics-postgresqlreceiver.otel-*` | Sessions, transactions, taille des bases et activité du bgwriter. |
 | Logs PostgreSQL | Discover | `logs-generic-*` | Logs PostgreSQL et événements du serveur ; les statistiques de requêtes nécessitent une collecte dédiée. |
-| Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
-| Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
+| Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-generic.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
+| Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-generic.otel-*` | `metrics.business.orders.completed`, `metrics.business.stock.restock.requested`, `metrics.business.stock.restock.completed` et `metrics.business.stock.quantity`, avec ventilation des commandes par `attributes.channel`. |
 | SLA pains achetés | **Observability > SLOs** et **Alerts and Insights > Rules** | `logs-*` | SLO à 99 % de périodes de 24 heures conformes sur 30 jours, avec au moins 10 pains `BREAD-WHOLE` achetés par période ; alerte sur les dernières 24 heures. |
 | Santé de la collecte | État EDOT, logs et consumer lag Kafka | journaux systemd, `logs-generic-*` et `metrics-kafkametricsreceiver.otel-*` | Agents EDOT healthy, absence d'erreurs d'export et débit des topics applicatifs/Kubernetes. |
-| Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-prometheusreceiver.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
+| Fiabilité des Collectors | **Alerts** et, avec une licence Platinum, SLO Kibana | `metrics-generic.otel-*` | Échecs d'export, queue backend proche de la saturation et scrape Actuator indisponible. |
 
 Les métriques Prometheus des applications sont scrappées par jobs distincts (`order-service`, `inventory-service` et `restock-service`) afin que les courbes techniques et les tableaux puissent conserver une série par microservice.
 
@@ -110,19 +110,21 @@ commandes par canal (`REST` et `Kafka`). Les valeurs sont les deltas des
 compteurs sur chaque bucket ; elles représentent donc un volume de période et
 non la valeur cumulée brute du compteur.
 
-La vue inclut également quatre panneaux de santé applicative : disponibilité
-(`metrics.up`), tendances CPU et mémoire JVM, puis surcharge GC. Ces indicateurs
+La vue inclut également quatre panneaux de santé applicative : requêtes HTTP
+actives, tendances CPU et mémoire JVM, puis surcharge GC. Ces indicateurs
 sont calculés sur la période sélectionnée et peuvent être vides si le flux de
 métriques applicatives n'est pas alimenté.
 
 L'ordre visuel regroupe les panneaux par parcours de lecture : indicateurs et
-graphiques métier, stock, trafic HTTP entrant et sortant, traitements Kafka,
-puis disponibilité et saturation JVM. Les liens vers APM terminent le dashboard.
+graphiques métier, stock, requêtes HTTP actives, traitements Kafka, puis
+saturation CPU, mémoire et GC JVM. Les métriques de latence HTTP et d'appels
+HTTP sortants ne sont pas exposées par la collecte OTel actuelle ; ces analyses
+restent disponibles dans APM lorsque le flux de traces est alimenté.
 
 Les filtres KQL doivent conserver une expression entre parenthèses. Une
 expression générée avec un groupe vide (`and ()metrics...`) est invalide ; la
 forme équivalente correcte est par exemple :
-`data_stream.dataset:"prometheusreceiver.otel" and (metrics.business_orders_completed_total:* or metrics.business_stock_restock_requested_total:* or metrics.business_stock_restock_completed_total:*)`.
+`data_stream.dataset:"generic.otel" and (metrics.business.orders.completed:* or metrics.business.stock.restock.requested:* or metrics.business.stock.restock.completed:*)`.
 Le dashboard API ci-dessus n'embarque pas ce filtre global et évite ainsi la
 réutilisation d'un filtre KQL vide provenant d'un ancien export.
 

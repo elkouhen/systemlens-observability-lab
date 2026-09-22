@@ -32,6 +32,10 @@ expected_metrics=(
   'metrics-mongodbreceiver.otel-*|mongodb.connection.count'
   'metrics-mongodbreceiver.otel-*|mongodb.operation.count'
   'metrics-mongodbreceiver.otel-*|mongodb.storage.size'
+  'metrics-generic.otel-*|metrics.business.orders.completed'
+  'metrics-generic.otel-*|metrics.business.stock.restock.requested'
+  'metrics-generic.otel-*|metrics.business.stock.restock.completed'
+  'metrics-generic.otel-*|metrics.business.stock.quantity'
   'metrics-postgresqlreceiver.otel-*|postgresql.backends'
   'metrics-postgresqlreceiver.otel-*|postgresql.connection.max'
   'metrics-postgresqlreceiver.otel-*|postgresql.commits'
@@ -52,6 +56,10 @@ expected_apm_fields=(
   kubernetes.pod.name
   kubernetes.pod.uid
 )
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+dashboard_file="${script_dir}/../dashboards/business-metrics-dashboard.json"
+dashboard_query_start="$(date -u -v-15M '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -d '15 minutes ago' '+%Y-%m-%dT%H:%M:%SZ')"
+dashboard_query_end="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
 missing=0
 ko_metrics=()
@@ -84,6 +92,26 @@ for expectation in "${expected_metrics[@]}"; do
     missing=1
   fi
 done
+
+business_query_number=0
+while IFS= read -r business_query; do
+  business_query_number=$((business_query_number + 1))
+  normalized_query="$(printf '%s' "${business_query}" |
+    sed "s/?_tstart/TO_DATETIME(\"${dashboard_query_start}\")/g; s/?_tend/TO_DATETIME(\"${dashboard_query_end}\")/g")"
+  query_response="$(curl --silent --show-error --insecure \
+    --resolve "${elasticsearch_resolve}" \
+    -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
+    -H 'Content-Type: application/json' \
+    -X POST "${elasticsearch_url}/_query" \
+    --data "$(jq -cn --arg query "${normalized_query}" '{query:$query}')")"
+  if jq -e '.error != null' <<<"${query_response}" >/dev/null; then
+    printf 'KO      dashboard métier requête %-3s ES|QL : %s\n' "${business_query_number}" \
+      "$(jq -r '.error.reason // .error.type // "erreur inconnue"' <<<"${query_response}" | tr '\n' ' ')" >&2
+    missing=1
+  else
+    printf 'OK      dashboard métier requête %-3s ES|QL valide\n' "${business_query_number}"
+  fi
+done < <(jq -r '.. | objects | select(.data_source? and .data_source.type == "esql") | .data_source.query' "${dashboard_file}")
 
 hostmetrics_response="$(curl --fail --silent --show-error --insecure \
   --resolve "${elasticsearch_resolve}" \

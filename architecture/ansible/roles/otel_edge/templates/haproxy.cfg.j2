@@ -45,12 +45,3 @@ frontend kibana
 backend kibana_backend
   mode http
   server elk {{ elk_ip }}:5601 check
-
-frontend fleet
-  bind :8220
-  mode http
-  default_backend fleet_backend
-
-backend fleet_backend
-  mode http
-  server elk {{ elk_ip }}:8220 check

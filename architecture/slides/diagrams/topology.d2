@@ -1,0 +1,74 @@
+direction: down
+
+classes: {
+  role: {
+    style.fill: "#e8f0fe"
+    style.stroke: "#356ae6"
+    style.border-radius: 14
+    style.font-color: "#172554"
+  }
+  service: {
+    style.fill: "#ffffff"
+    style.stroke: "#93a4c7"
+    style.border-radius: 10
+    style.font-size: 15
+  }
+  transport: {
+    style.fill: "#fff7ed"
+    style.stroke: "#ea8b2d"
+    style.border-radius: 14
+    style.font-color: "#7c2d12"
+  }
+  storage: {
+    style.fill: "#ecfdf5"
+    style.stroke: "#1f9d68"
+    style.border-radius: 14
+    style.font-color: "#064e3b"
+  }
+}
+
+kubernetes: Kubernetes {
+  shape: cloud
+  style.fill: "#f8fbff"
+  style.stroke: "#7aa2e3"
+  app: "Applications Java" {class: service}
+  node: "EDOT node collector\nlogs · hostmetrics · kubeletstats" {class: service}
+  cluster: "EDOT cluster collector\nk8s_cluster" {class: service}
+  gateway: "Gateway OTLP\n4317 / 4318" {class: role}
+  app -> gateway: "traces · metrics"
+  app -> node: "stdout logs"
+  node -> gateway
+  cluster -> gateway: "cluster metrics"
+}
+
+poc: "role: poc" {
+  class: role
+  kafka: "Kafka\notel-traces · otel-metrics · otel-logs" {class: transport}
+  databases: "PostgreSQL · MongoDB" {class: service}
+}
+
+edge: "role: otel_edge" {
+  class: role
+  gateway: "Gateway Edge\nHAProxy · OTLP" {class: service}
+}
+
+backend: "role: otel_backend" {
+  class: role
+  gateway: "Gateway Backend\nKafka exporter EDOT" {class: service}
+}
+
+elk: "role: elk" {
+  class: role
+  elasticsearch: "Elasticsearch" {class: storage}
+  apm: "APM Server" {class: storage}
+  kibana: "Kibana\ndashboards · APM" {class: storage}
+}
+
+kubernetes.gateway -> edge.gateway: "OTLP"
+poc.databases -> edge.gateway: "logs · metrics"
+edge.gateway -> poc.kafka: "publish by signal"
+poc.kafka -> backend.gateway: "consume"
+backend.gateway -> elk.elasticsearch: "metrics · logs"
+backend.gateway -> elk.apm: "traces"
+elk.elasticsearch -> elk.kibana
+elk.apm -> elk.kibana

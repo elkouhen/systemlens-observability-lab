@@ -9,6 +9,7 @@ import io.systemlens.supermarket.inventory.domain.Product;
 import io.systemlens.supermarket.inventory.domain.ProductNotFoundException;
 import io.systemlens.supermarket.inventory.domain.Quantity;
 import io.systemlens.supermarket.inventory.domain.StockReservation;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -32,6 +33,7 @@ public class InventoryApplicationService implements InventoryUseCase {
     private final StockDepletedPort stockDepleted;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
+    private final Counter restocksCompleted;
     private final ConcurrentHashMap<String, AtomicInteger> stockGauges = new ConcurrentHashMap<>();
 
     @Autowired
@@ -56,6 +58,7 @@ public class InventoryApplicationService implements InventoryUseCase {
         this.stockDepleted = stockDepleted;
         this.clock = clock;
         this.meterRegistry = meterRegistry;
+        this.restocksCompleted = Counter.builder("business.stock.restock.completed").description("Réassorts terminés").register(meterRegistry);
     }
 
     @Override
@@ -85,7 +88,11 @@ public class InventoryApplicationService implements InventoryUseCase {
             fulfillments.deleteById(orderId);
             throw exception;
         }
-        meterRegistry.counter("business.orders.completed", "channel", channel).increment();
+        if ("kafka".equalsIgnoreCase(channel)) {
+            meterRegistry.counter("business.orders.completed", "channel", "kafka").increment();
+        } else {
+            meterRegistry.counter("business.orders.completed", "channel", "rest").increment();
+        }
         LOGGER.atInfo()
                 .addKeyValue("event.action", "product_sale_completed")
                 .addKeyValue("order.id", orderId)
@@ -111,7 +118,7 @@ public class InventoryApplicationService implements InventoryUseCase {
         product.restock(Quantity.of(quantity));
         products.save(product);
         updateStockGauge(product, product.stockQuantity());
-        meterRegistry.counter("business.stock.restock.completed").increment();
+        restocksCompleted.increment();
         LOGGER.info("Reassort effectue: productId={}, quantity={}, stockQuantity={}", productId, quantity, product.stockQuantity());
     }
 
