@@ -12,12 +12,12 @@ leur plan de contrôle.
    Server, Kibana et Fleet Server déployées sur `elk-01`.
 2. `elastic-vm-services.yaml` et `elastic-ingress.yaml` : services externes et
    exposition TLS via Traefik vers la VM.
-3. `otel-kafka.yaml` : Gateway OTLP Kubernetes, collecte OTel, buffer Kafka et
-   export OTLP vers Elasticsearch.
+3. `otel-kafka.yaml` : collecte OTel Kubernetes, buffer Kafka et export OTLP
+   vers Elasticsearch.
 
 En architecture, les applications utilisent l'agent Java OpenTelemetry injecté par leur
 manifest Kubernetes pour les traces et Micrometer OTLP pour leurs métriques ;
-les deux signaux sont envoyés au Service `otel-gateway` dans `elastic-stack`.
+les deux signaux sont envoyés au Service `otel-edge-vm` dans `elastic-stack`.
 Le scraping Prometheus n'est plus utilisé pour les métriques applicatives.
 Le DaemonSet utilise `kubeletstats` pour publier les métriques des nœuds, pods,
 conteneurs et volumes, y compris `container.id` et les statistiques réseau et
@@ -37,18 +37,18 @@ Dans Kibana, utiliser les dashboards `[Kubernetes OTel]` installés par le
 package `kubernetes_otel` ; les vues `[Metrics Kubernetes]` correspondent à une autre
 intégration et ne lisent pas ce schéma OTLP.
 Les logs stdout et les métriques hôte/Kubernetes sont collectés par le
-Collector EDOT DaemonSet puis envoyés au Gateway Kubernetes. Les trois flux sont mis en tampon dans Kafka puis
+Collector EDOT DaemonSet puis envoyés directement au Collecteur Edge. Les trois flux sont mis en tampon dans Kafka puis
 consommés par l'exporteur EDOT exécuté sur `otel-backend-01`. Les VM rejoignent
 ce chemin via leur Elastic Agent EDOT standalone : Edge, Kafka, puis backend.
 
-Le pipeline de traces du Gateway Kubernetes met les traces OTLP en tampon dans
+Le pipeline Edge met les traces OTLP en tampon dans
 Kafka. L'exporteur backend les consomme ensuite et les envoie à APM Server sur
 `elk-01`, qui les transforme pour l'application APM de Kibana. Les métriques
 et les logs restent exportés directement vers Elasticsearch via l'exporteur
 OTLP backend.
 
 Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
-envoient traces et métriques en OTLP au Gateway. Le DaemonSet EDOT lit les logs
+envoient traces et métriques en OTLP au Collecteur Edge. Le DaemonSet EDOT lit les logs
 et métriques Kubernetes, puis les signaux applicatifs et Kubernetes sont
 bufferisés dans Kafka avant leur export OTLP vers Elasticsearch. Les Elastic Agents
 des VM publient quant à eux en OTLP vers le Collecteur Edge. Les identités Kubernetes sont
@@ -63,7 +63,7 @@ Kafka et le Collector backend.
 Après le déploiement, vérifier les composants et les relais :
 
 ```bash
-kubectl -n elastic-stack get deployment otel-gateway service otel-gateway
+kubectl -n elastic-stack get daemonset otel-kubernetes deployment otel-kubernetes-cluster service otel-edge-vm
 kubectl -n elastic-stack get daemonset otel-kubernetes
 make otel-kafka-exporter-vm-status
 ```
@@ -75,9 +75,9 @@ Les traces conservent l'environnement défini par les fichiers de configuration
 OpenTelemetry embarqués dans les images applicatives et portent le namespace,
 le nom et l'UID du pod ainsi que le nœud Kubernetes via le Downward API. Elles
 suivent le chemin
-Gateway Kubernetes → Kafka → exporteur backend → APM Server. Les métriques
+Collecteur Edge → Kafka → exporteur backend → APM Server. Les métriques
 applicatives Micrometer, notamment les métriques Kafka client, sont exportées
-directement en OTLP toutes les 15 secondes vers le Gateway Kubernetes, puis
+directement en OTLP toutes les 15 secondes vers le Collecteur Edge, puis
 vers Elasticsearch. L'export métrique de l'agent Java reste désactivé dans l’architecture
 pour éviter un double envoi.
 Ce data stream est séparé des métriques APM natives pour éviter un conflit de

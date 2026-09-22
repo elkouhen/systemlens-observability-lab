@@ -30,7 +30,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	elk-deploy kibana-fleet-config-deploy apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
 	observability-policies-validate observability-policies-deploy ansible-deploy \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-elasticsearch-credentials-apply otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
-	otel-validation kubernetes-observability-deploy \
+	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
 	otel-edge-vm-provision elastic-agent-vm-provision \
 	vms-up deploy elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify kubernetes-otel-dashboards-deploy kubernetes-otel-dashboards-verify apm-report-api-key-create \
@@ -216,12 +216,12 @@ elk-deploy: elastic-stack-deploy ## Déployer la plateforme d'observabilité Ela
 	@$(MAKE) postgresql-credentials-apply
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) otel-elasticsearch-credentials-apply
-	@$(MAKE) otel-gateway-vm-provision
 	@$(MAKE) otel-edge-vm-provision
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-gateway --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart daemonset/otel-kubernetes
+	@$(MAKE) otel-gateway-kubernetes-remove
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 	@$(MAKE) kibana-ready
 	@SKIP_KUBERNETES_APPLY=1 $(MAKE) kibana-fleet-config-deploy
 	@$(MAKE) ilm-deploy
@@ -371,19 +371,21 @@ otel-edge-vm-provision: ## Provisionner le Collecteur EDOT Edge sur otel-edge-01
 otel-gateway-vm-status: ## Vérifier HAProxy et le Collecteur EDOT Edge
 	@set -euo pipefail; $(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo systemctl is-active observability-otel-edge && curl --fail --silent http://127.0.0.1:13135/'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka-exporter && curl --fail --silent http://127.0.0.1:13134/'
 
-otel-gateway-kubernetes-bascule: ## Déployer le Gateway OTLP et les applications dans Kubernetes
+otel-gateway-kubernetes-remove: ## Supprimer les anciens objets de la gateway OTLP Kubernetes
+	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service,serviceaccount,configmap otel-gateway --ignore-not-found
+
+otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove ## Déployer les collecteurs Kubernetes et les applications avec Edge comme endpoint OTLP
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway daemonset/otel-kubernetes
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-gateway --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/default
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
 
-kubernetes-observability-deploy: ## Appliquer et vérifier les Collectors Kubernetes déclarés par Kustomize
+kubernetes-observability-deploy: otel-gateway-kubernetes-remove ## Appliquer et vérifier les Collectors Kubernetes déclarés par Kustomize
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-gateway deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-gateway --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 

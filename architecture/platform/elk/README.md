@@ -21,11 +21,11 @@ OTLP vers le Collecteur Edge.
 
 ## Modèle mental
 
-`applications Java → Gateway OTel Kubernetes → Collecteur Edge otel-edge-01 → Kafka poc-01 → exporteur OTel otel-backend-01 → APM Server elk-01 → Kibana` pour les traces ; les métriques et logs suivent l'export Elasticsearch.
+`applications Java → Collecteur Edge otel-edge-01 → Kafka poc-01 → exporteur OTel otel-backend-01 → APM Server elk-01 → Kibana` pour les traces ; les métriques et logs suivent l'export Elasticsearch.
 
 Les trois services embarquent l'agent Java OpenTelemetry dans leurs images et
-exportent leurs traces et métriques en OTLP/HTTP vers le Gateway Kubernetes.
-Le Collector DaemonSet, le collecteur cluster et le Gateway sont des collecteurs
+exportent leurs traces et métriques en OTLP/HTTP vers le Collecteur Edge.
+Le Collector DaemonSet et le collecteur cluster sont des collecteurs
 EDOT configurés par Kustomize. Le Collector DaemonSet lit les logs stdout et les métriques hôte, puis les
 signaux sont envoyés au Collecteur Edge, puis dans les topics Kafka OTLP par
 signal (`otel-traces`, `otel-metrics`, `otel-logs`). L'exporteur de sortie sur `otel-backend-01`
@@ -34,8 +34,8 @@ métriques et les logs sont exportés vers Elasticsearch.
 
 Chaque VM active exécute l’Elastic Agent installé par Ansible en mode EDOT
 standalone. Il lit les logs locaux et les métriques hôte, puis publie en OTLP
-vers le Collecteur Edge. Les VM ne passent pas par le Gateway OTLP Kubernetes,
-mais partagent le chemin Edge, Kafka et Backend.
+vers le Collecteur Edge. Les VM partagent le chemin Edge, Kafka et Backend,
+sans passer par un collecteur Kubernetes.
 
 Lors d'un déploiement initial, `make elk-deploy` provisionne le stack Quadlet,
 incluant APM Server sur `elk-01`,
@@ -56,7 +56,7 @@ mélangés dans un même topic ; les séparer évite les erreurs de décodage et
 conserve le même flux otel-edge → Kafka → backend → Elasticsearch.
 
 Les règles de collecte Kubernetes et de buffer Kafka sont dans
-`../kubernetes/base/observability/otel-kafka.yaml`. Le Gateway OTLP VM,
+`../kubernetes/base/observability/otel-kafka.yaml`. Le Collecteur Edge OTLP VM,
 l'exporteur Kafka et l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
 La collecte filelog est limitée au namespace applicatif, conserve ses offsets
 sur le nœud et ignore les événements Kafka répétitifs de désérialisation. Les

@@ -1,26 +1,51 @@
-direction: down
+direction: right
+
 classes: {
-  source: {style.fill: "#eef2ff"; style.stroke: "#6366f1"; style.border-radius: 12}
-  gateway: {style.fill: "#eff6ff"; style.stroke: "#2563eb"; style.border-radius: 12}
-  transport: {style.fill: "#fff7ed"; style.stroke: "#ea8b2d"; style.border-radius: 12}
-  store: {style.fill: "#ecfdf5"; style.stroke: "#16a34a"; style.border-radius: 12}
+  lane: {
+    style.fill: "#f8fafc"
+    style.stroke: "#94a3b8"
+    style.border-radius: 14
+    style.font-size: 18
+  }
+  source: {style.fill: "#eef2ff"; style.stroke: "#6366f1"; style.border-radius: 10}
+  gateway: {style.fill: "#eff6ff"; style.stroke: "#2563eb"; style.border-radius: 10}
+  transport: {style.fill: "#fff7ed"; style.stroke: "#ea8b2d"; style.border-radius: 10}
+  store: {style.fill: "#ecfdf5"; style.stroke: "#16a34a"; style.border-radius: 10}
 }
 
-app: "Micrometer\nApplications Java" {class: source}
-k8s: "kubeletstats · k8s_cluster\nKubernetes" {class: source}
-host: "hostmetrics\nCPU · mémoire · disque" {class: source}
-db: "Receivers EDOT\nKafka · MongoDB · PostgreSQL" {class: source}
-gateway: "Gateway OTLP" {class: gateway}
-edge: "Gateway Edge" {class: gateway}
-kafka: "Kafka\notel-metrics" {class: transport}
-backend: "Gateway Backend" {class: gateway}
-elastic: "Elasticsearch\nmetrics-*" {class: store}
+sources: "Sources métriques" {
+  class: lane
+  direction: down
+  app: "Micrometer\nApplications Java" {class: source}
+  k8s: "kubeletstats · k8s_cluster\nKubernetes" {class: source}
+  host: "hostmetrics\nCPU · mémoire · disque" {class: source}
+  db: "Receivers EDOT\nKafka · MongoDB · PostgreSQL" {class: source}
+}
 
-app -> gateway
-k8s -> gateway
-host -> gateway
-db -> edge
-gateway -> edge: "OTLP"
-edge -> kafka: "publication"
-kafka -> backend: "consommation"
-backend -> elastic: "export"
+collect: "Collecte" {
+  class: lane
+  direction: down
+  gateway: "Gateway OTLP" {class: gateway}
+  edge: "Gateway Edge" {class: gateway}
+}
+
+transport: "Transport Kafka" {
+  class: lane
+  direction: down
+  kafka: "Kafka\notel-metrics" {class: transport}
+  backend: "Gateway Backend\nexport EDOT" {class: gateway}
+}
+
+storage: "Stockage" {
+  class: lane
+  elastic: "Elasticsearch\nmetrics-*" {class: store}
+}
+
+sources.app -> collect.gateway
+sources.k8s -> collect.gateway
+sources.host -> collect.gateway
+sources.db -> collect.edge
+collect.gateway -> collect.edge: "OTLP"
+collect.edge -> transport.kafka: "publication"
+transport.kafka -> transport.backend: "consommation"
+transport.backend -> storage.elastic: "export"

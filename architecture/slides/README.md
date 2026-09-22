@@ -27,14 +27,20 @@ Depuis la racine du dépôt, `make slides` délègue à cette installation.
 
 Le contenu est aligné sur `architecture/README.md`, `architecture/platform/elk/README.md`, les
 manifests Kustomize de l’architecture et les templates Ansible du Gateway OTLP et de
-l’exporteur Kafka. Les diagrammes D2 sont versionnés dans `diagrams/`. Les captures PNG du support
-sont générées dans `screenshots/` pour contrôler la lisibilité avant diffusion.
+l’exporteur Kafka. Les sources D2 et leurs rendus PNG haute résolution sont versionnés dans
+`diagrams/`. Les captures PNG du support sont générées dans `screenshots/` pour contrôler la
+lisibilité avant diffusion.
 
 Pour reconstruire le support et ses captures :
 
 ```bash
 npm run build
-npx slidev export slides.md --output screenshots
+d2 --scale 2 diagrams/topology.d2 diagrams/topology.png
+d2 --scale 2 diagrams/logs.d2 diagrams/logs.png
+d2 --scale 2 diagrams/metrics.d2 diagrams/metrics.png
+d2 --scale 2 diagrams/traces.d2 diagrams/traces.png
+npx slidev export slides.md --format png --output screenshots --scale 2
+npx slidev export slides.md --output screenshots.pdf
 ```
 
 La commande d’export nécessite un navigateur Chromium disponible localement.

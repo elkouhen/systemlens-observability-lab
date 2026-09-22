@@ -9,7 +9,7 @@ mdc: true
 ---
 
 <style>
-.d2 { display: block; width: 100%; height: 62vh; max-height: 620px; margin: 0.6rem auto 0; object-fit: contain; }
+.d2 { display: block; width: 100%; height: 500px; margin: 0.4rem auto 0; object-fit: contain; }
 </style>
 
 # Topologie et flux d’observabilité
@@ -24,16 +24,16 @@ Applications · Kubernetes · VM · Kafka · MongoDB · PostgreSQL
 
 # Architecture cible
 
-<img class="d2" src="./diagrams/topology.svg" />
+<img class="d2" src="./diagrams/topology.png" />
 
 Le chemin commun est explicite : source, collecte, buffer Kafka, export et
-consultation. Les rôles Ansible apparaissent comme les unités de déploiement.
+consultation. Chaque étape regroupe les composants qui portent cette responsabilité.
 
 ---
 
 # Flux des logs
 
-<img class="d2" src="./diagrams/logs.svg" />
+<img class="d2" src="./diagrams/logs.png" />
 
 Les logs applicatifs et Kubernetes sont enrichis au plus près de la collecte.
 Les logs des VM et des services de données suivent le même buffer avant
@@ -43,7 +43,7 @@ indexation dans Elasticsearch.
 
 # Flux des métriques
 
-<img class="d2" src="./diagrams/metrics.svg" />
+<img class="d2" src="./diagrams/metrics.png" />
 
 Les métriques applicatives, Kubernetes, système et bases de données convergent
 vers les data streams OTel vérifiés par les dashboards.
@@ -52,20 +52,10 @@ vers les data streams OTel vérifiés par les dashboards.
 
 # Flux des traces et de l’APM
 
-<img class="d2" src="./diagrams/traces.svg" />
+<img class="d2" src="./diagrams/traces.png" />
 
 Les identifiants `trace.id`, `span.id`, `service.name` et `host.name` permettent
 de relier une transaction à ses logs et à son contexte d’infrastructure.
-
----
-
-# Rôles Ansible et services
-
-<img class="d2" src="./diagrams/ansible.svg" />
-
-Les rôles transverses `common`, `elastic_agent` et `retention` s’appliquent à
-toutes les machines. Les rôles spécialisés portent les services de la
-topologie.
 
 ---
 

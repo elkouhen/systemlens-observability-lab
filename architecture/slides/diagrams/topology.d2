@@ -1,74 +1,58 @@
-direction: down
+direction: right
 
 classes: {
-  role: {
-    style.fill: "#e8f0fe"
-    style.stroke: "#356ae6"
+  lane: {
+    style.fill: "#f8fafc"
+    style.stroke: "#94a3b8"
     style.border-radius: 14
-    style.font-color: "#172554"
+    style.font-size: 18
   }
-  service: {
-    style.fill: "#ffffff"
-    style.stroke: "#93a4c7"
-    style.border-radius: 10
-    style.font-size: 15
-  }
-  transport: {
-    style.fill: "#fff7ed"
-    style.stroke: "#ea8b2d"
-    style.border-radius: 14
-    style.font-color: "#7c2d12"
-  }
-  storage: {
-    style.fill: "#ecfdf5"
-    style.stroke: "#1f9d68"
-    style.border-radius: 14
-    style.font-color: "#064e3b"
-  }
+  source: {style.fill: "#eef2ff"; style.stroke: "#6366f1"; style.border-radius: 10}
+  gateway: {style.fill: "#eff6ff"; style.stroke: "#2563eb"; style.border-radius: 10}
+  transport: {style.fill: "#fff7ed"; style.stroke: "#ea8b2d"; style.border-radius: 10}
+  store: {style.fill: "#ecfdf5"; style.stroke: "#16a34a"; style.border-radius: 10}
 }
 
-kubernetes: Kubernetes {
-  shape: cloud
-  style.fill: "#f8fbff"
-  style.stroke: "#7aa2e3"
-  app: "Applications Java" {class: service}
-  node: "EDOT node collector\nlogs · hostmetrics · kubeletstats" {class: service}
-  cluster: "EDOT cluster collector\nk8s_cluster" {class: service}
-  gateway: "Gateway OTLP\n4317 / 4318" {class: role}
-  app -> gateway: "traces · metrics"
+kubernetes: "Kubernetes" {
+  class: lane
+  direction: down
+  app: "Applications Java" {class: source}
+  node: "EDOT node collector\nlogs · hostmetrics · kubeletstats" {class: gateway}
+  cluster: "EDOT cluster collector\nk8s_cluster" {class: gateway}
+  gateway: "Gateway OTLP\n4317 / 4318" {class: gateway}
   app -> node: "stdout logs"
-  node -> gateway
+  app -> gateway: "traces · metrics"
   cluster -> gateway: "cluster metrics"
+  node -> gateway
 }
 
-poc: "role: poc" {
-  class: role
+edge: "Collecte Edge" {
+  class: lane
+  direction: down
+  gateway: "Gateway Edge\nHAProxy · OTLP" {class: gateway}
+  databases: "PostgreSQL · MongoDB" {class: source}
+  databases -> gateway: "logs · metrics"
+}
+
+transport: "Transport" {
+  class: lane
+  direction: down
   kafka: "Kafka\notel-traces · otel-metrics · otel-logs" {class: transport}
-  databases: "PostgreSQL · MongoDB" {class: service}
+  backend: "Gateway Backend\nKafka exporter EDOT" {class: gateway}
+  kafka -> backend: "consume"
 }
 
-edge: "role: otel_edge" {
-  class: role
-  gateway: "Gateway Edge\nHAProxy · OTLP" {class: service}
-}
-
-backend: "role: otel_backend" {
-  class: role
-  gateway: "Gateway Backend\nKafka exporter EDOT" {class: service}
-}
-
-elk: "role: elk" {
-  class: role
-  elasticsearch: "Elasticsearch" {class: storage}
-  apm: "APM Server" {class: storage}
-  kibana: "Kibana\ndashboards · APM" {class: storage}
+elastic: "Elastic" {
+  class: lane
+  direction: down
+  elasticsearch: "Elasticsearch\nmetrics · logs" {class: store}
+  apm: "APM Server\ntraces" {class: store}
+  kibana: "Kibana\ndashboards · APM" {class: store}
+  elasticsearch -> kibana
+  apm -> kibana
 }
 
 kubernetes.gateway -> edge.gateway: "OTLP"
-poc.databases -> edge.gateway: "logs · metrics"
-edge.gateway -> poc.kafka: "publish by signal"
-poc.kafka -> backend.gateway: "consume"
-backend.gateway -> elk.elasticsearch: "metrics · logs"
-backend.gateway -> elk.apm: "traces"
-elk.elasticsearch -> elk.kibana
-elk.apm -> elk.kibana
+edge.gateway -> transport.kafka: "publish by signal"
+transport.backend -> elastic.elasticsearch: "metrics · logs"
+transport.backend -> elastic.apm: "traces"

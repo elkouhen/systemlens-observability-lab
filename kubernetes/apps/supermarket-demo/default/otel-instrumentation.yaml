@@ -14,7 +14,7 @@ spec:
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-gateway.elastic-stack.svc.cluster.local:4318/v1/metrics
+              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
@@ -59,7 +59,7 @@ spec:
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-gateway.elastic-stack.svc.cluster.local:4318/v1/metrics
+              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
@@ -104,7 +104,7 @@ spec:
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-gateway.elastic-stack.svc.cluster.local:4318/v1/metrics
+              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
