@@ -9,6 +9,11 @@ Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
 et métriques locaux et les envoie en OTLP au Collecteur Edge. Kafka est le
 buffer commun des signaux Kubernetes et VM.
 
+La cible `make fleet-vm-monitoring` active en plus le monitoring Fleet OpAMP
+des agents EDOT vers Fleet Server sur `elk-01`. Les agents restent standalone :
+leurs logs et métriques continuent vers `otel-edge-01` en OTLP et aucune
+intégration Fleet concurrente n'est activée.
+
 Le receiver `hostmetrics` active explicitement `system.cpu.utilization` et
 `system.memory.utilization`. Ces métriques alimentent la vue Infrastructure
 Inventory avec les champs `host.name` et `data_stream.dataset:
@@ -22,7 +27,9 @@ chemin OTLP → Kafka → Elasticsearch.
 Le mode EDOT standalone est idempotent : la présence de
 `/opt/Elastic/Agent/elastic-agent` et du marqueur
 `/etc/observability/elastic-agent-otel.mode` conserve l'installation après un
-redémarrage ou un reprovisionnement. Les VM ne sont pas enrôlées dans Fleet.
+redémarrage ou un reprovisionnement. Les VM ne sont pas enrôlées comme agents
+Fleet classiques ; elles peuvent être visibles dans Fleet comme collecteurs
+OTel monitorés par OpAMP.
 Une réinstallation doit être demandée explicitement avec la variable Ansible
 `fleet_agent_reinstall=true` ; elle ne fait pas partie du chemin normal de
 démarrage.
@@ -71,14 +78,13 @@ Le playbook `site.yml` applique les rôles dans cet ordre :
 `site.yml`. Chaque rôle possède ses propres templates afin que la tâche et la
 configuration déployée restent au même endroit.
 
-Le playbook `fleet-agent.yml` est conservé comme point d'entrée de compatibilité,
-mais le rôle `elastic_agent` configure désormais le mode EDOT standalone. Il ne
-crée pas d'enrôlement Fleet pour les VM.
+Le playbook `fleet-agent.yml` est le point d'entrée du monitoring OpAMP. Il
+réapplique la configuration EDOT avec un jeton fourni temporairement par la
+cible `make fleet-vm-monitoring`, sans écrire ce jeton dans le dépôt.
 
-Le script d'enrôlement vérifie d'abord l'inventaire Fleet et réutilise chaque
-agent actif par nom d'hôte ; il ne crée donc pas une nouvelle instance lors
-d'un second lancement. Les anciens enregistrements `uninstalled` restent
-historiques et ne correspondent pas à un service actif.
+Le script de monitoring réutilise un jeton OpAMP stable par VM ; il ne crée
+donc pas une nouvelle clé lors d'un second lancement. L'identifiant OpAMP est
+persisté sur la VM pour éviter les doublons dans Fleet.
 
 Le téléchargement de l'Elastic Agent utilise un délai de 120 secondes et est
 réessayé cinq fois, avec 15 secondes entre les tentatives. Ces valeurs peuvent

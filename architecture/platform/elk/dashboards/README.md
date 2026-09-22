@@ -53,6 +53,20 @@ présentée comme un pourcentage sans métrique de capacité de référence.
 
 ## Déploiement et vérification
 
+Avant un déploiement ou une réconciliation, conserver l’état réellement
+présent dans Kibana :
+
+```bash
+make dashboards-backup
+```
+
+La sauvegarde est écrite dans
+[`backups/`](backups/) : `kibana-dashboards.ndjson` contient les dashboards et
+leurs objets référencés, tandis que `manifest.json` permet de retrouver les
+IDs, titres, types de références et le hash de l’export. Elle sert de référence
+pour identifier les axes de réconciliation manquants lorsqu’un script ne
+couvre pas encore un panneau ou un objet sauvegardé.
+
 Déployer la configuration déclarative des intégrations Fleet :
 
 ```bash

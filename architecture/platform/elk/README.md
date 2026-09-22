@@ -38,12 +38,16 @@ vers le Collecteur Edge. Les VM partagent le chemin Edge, Kafka et Backend,
 sans passer par un collecteur Kubernetes.
 
 Lors d'un déploiement initial, `make elk-deploy` provisionne le stack Quadlet,
-incluant APM Server sur `elk-01`,
+incluant APM Server et Fleet Server sur `elk-01`,
 applique le routage Traefik et crée ou réconcilie la clé
 d'API Elasticsearch du Collector backend avant de démarrer les workloads.
 Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
 d'enrôlement Fleet. Les VM utilisent exclusivement l'Elastic Agent EDOT
 afin d'éviter une double collecte.
+
+La cible `make fleet-vm-monitoring` ajoute le monitoring OpAMP des agents EDOT
+des quatre VM. Elle ne transforme pas ces agents en agents Fleet classiques :
+les données continuent vers `otel-edge-01` en OTLP.
 
 La cible `elastic-disk-ensure`, appelée par `make elk-deploy`, garantit le
 disque système de `elk-01` à 30 GiB avant le démarrage d'Elasticsearch. Le
@@ -57,7 +61,8 @@ conserve le même flux otel-edge → Kafka → backend → Elasticsearch.
 
 Les règles de collecte Kubernetes et de buffer Kafka sont dans
 `../kubernetes/base/observability/otel-kafka.yaml`. Le Collecteur Edge OTLP VM,
-l'exporteur Kafka et l'enrôlement Fleet sont décrits dans `../../ansible/site.yml`.
+l'exporteur Kafka et le monitoring Fleet OpAMP sont décrits dans
+`../../ansible/site.yml`.
 La collecte filelog est limitée au namespace applicatif, conserve ses offsets
 sur le nœud et ignore les événements Kafka répétitifs de désérialisation. Les
 logs sont regroupés par lots de 50 toutes les 5 secondes ; les topics OTLP

@@ -20,7 +20,7 @@
     otel_elasticsearch_api_key: ""
     fleet_enrollment_token: ""
     zscaler_ca_cert_content: ""
-    fleet_url: "http://{{ otel_edge_ip }}:8220"
+    fleet_url: "http://{{ elk_ip }}:8220"
 
   roles:
     - role: common

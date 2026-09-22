@@ -8,6 +8,20 @@ extensions:
   file_storage:
     directory: /var/lib/observability/elastic-agent-otel
     create_directory: true
+{% if fleet_enrollment_token | default('') | length > 0 %}
+  opamp:
+    server:
+      http:
+        endpoint: http://{{ elk_ip }}:8220/v1/opamp
+        headers:
+          Authorization: ApiKey {{ fleet_enrollment_token }}
+    instance_uid: "{{ opamp_instance_uid }}"
+    agent_description:
+      non_identifying_attributes:
+        elastic.collector.group_name: "SystemLens VM"
+        elastic.collector.group: "systemlens-vm"
+        elastic.display.name: "{{ inventory_hostname }}"
+{% endif %}
 
 receivers:
   filelog/system:
@@ -102,7 +116,7 @@ exporters:
     endpoint: http://{{ otel_edge_ip }}:4318
 
 service:
-  extensions: [health_check, file_storage]
+  extensions: [health_check, file_storage{% if fleet_enrollment_token | default('') | length > 0 %}, opamp{% endif %}]
   pipelines:
     logs:
       receivers: [filelog/system]

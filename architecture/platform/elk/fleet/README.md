@@ -23,10 +23,15 @@ Elasticsearch reçoit ensuite les signaux via Kafka et l'exporteur backend.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
 préconfigurer les assets Fleet sur un nouveau Kibana, puis
-`make elastic-agent-vm-provision` pour déployer la configuration EDOT standalone
-des VM. Le flux OTel des applications, de Kubernetes et des VM converge vers
-les topics déclarés dans `otel-kafka.yaml` ; aucun enrôlement Fleet des VM n'est
-requis.
+`make fleet-vm-monitoring` pour activer le monitoring OpAMP des VM sans modifier
+la configuration EDOT standalone. Le flux OTel des applications, de Kubernetes
+et des VM converge vers les topics déclarés dans `otel-kafka.yaml`. Les VM ne
+sont pas enrôlées comme agents Fleet classiques afin de conserver l'export OTLP
+vers `otel-edge-01`.
+
+La cible attend d'abord un Fleet Server `HEALTHY`, puis échoue si les quatre
+agents VM ne sont pas `online` dans Fleet. Une exécution réussie constitue donc
+la preuve de réconciliation du plan de contrôle.
 
 Le bootstrap utilise exclusivement l'API Fleet pour créer ou mettre à jour les
 agent policies. Il migre automatiquement une ancienne policy

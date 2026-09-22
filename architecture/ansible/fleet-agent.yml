@@ -6,9 +6,11 @@
   vars:
     elastic_agent_version: 9.4.3
     otel_edge_ip: 192.168.33.30
+    elk_ip: 192.168.33.40
     postgresql_database: observability_test
     postgresql_user: observability
     postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+    fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
 
   roles:
     - role: elastic_agent

@@ -80,12 +80,44 @@
   no_log: true
 
 - name: Déployer la configuration EDOT de l’agent
-  ansible.builtin.template:
-    src: elastic-agent.yml.j2
-    dest: /opt/Elastic/Agent/elastic-agent.yml
-    owner: root
-    mode: '0600'
-  register: elastic_agent_configuration
+  block:
+    - name: Lire l’identifiant OpAMP persistant
+      ansible.builtin.slurp:
+        src: /var/lib/observability/elastic-agent-otel/opamp-instance-uid
+      register: opamp_instance_uid_file
+      when: fleet_enrollment_token | default('') | length > 0
+      failed_when: false
+
+    - name: Générer un identifiant OpAMP pour la VM
+      ansible.builtin.command: uuidgen
+      register: opamp_instance_uid_generated
+      changed_when: true
+      when:
+        - fleet_enrollment_token | default('') | length > 0
+        - opamp_instance_uid_file.content is not defined
+
+    - name: Conserver l’identifiant OpAMP de la VM
+      ansible.builtin.copy:
+        content: "{{ opamp_instance_uid_generated.stdout | default(opamp_instance_uid_file.content | b64decode | trim) }}\n"
+        dest: /var/lib/observability/elastic-agent-otel/opamp-instance-uid
+        owner: root
+        mode: '0600'
+      when:
+        - fleet_enrollment_token | default('') | length > 0
+        - opamp_instance_uid_generated.stdout is defined
+
+    - name: Définir l’identifiant OpAMP utilisé par l’agent
+      ansible.builtin.set_fact:
+        opamp_instance_uid: "{{ opamp_instance_uid_generated.stdout | default(opamp_instance_uid_file.content | b64decode | trim) }}"
+      when: fleet_enrollment_token | default('') | length > 0
+
+    - name: Déployer la configuration EDOT de l’agent
+      ansible.builtin.template:
+        src: elastic-agent.yml.j2
+        dest: /opt/Elastic/Agent/elastic-agent.yml
+        owner: root
+        mode: '0600'
+      register: elastic_agent_configuration
 
 - name: Déclarer le mode EDOT actif
   ansible.builtin.copy:

@@ -1,0 +1,769 @@
+{
+  "schema_version": 1,
+  "exported_at": "2026-09-22T13:31:35Z",
+  "source": {
+    "kibana_url": "http://kibana.observability.test:5601",
+    "api": "/api/saved_objects/_export",
+    "include_references_deep": true
+  },
+  "export_sha256": "1e7f00351e363b20b329578db8dad14dd941f486b69e0191fbcff316563a753e",
+  "dashboard_count": 79,
+  "dashboards": [
+    {
+      "id": "apm-fab02b1d-fdd4-4c42-8ea9-a2be32f8cf61",
+      "title": "[APM] Monitoring Overview",
+      "description": "",
+      "references": [
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "business-metrics-dashboard",
+      "title": "Métriques métier — Supermarket Demo",
+      "description": "Parcours golden signals : Métier (commandes, réassort, stock) → Traffic → Latency → Errors → Saturation. Les métriques techniques des microservices sont représentées par des courbes temporelles, avec une série et une légende par microservice lorsque la dimension est disponible.",
+      "references": []
+    },
+    {
+      "id": "elastic_agent-02117980-6082-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Entity Analytics Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-0600ffa0-6b5e-11ed-98de-67bdecd21824",
+      "title": "[Elastic Agent] Concerning Agents",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-077f7390-6087-11f0-b451-cd284a6efe62",
+      "title": "[Elastic Agent] Lumberjack Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-0f79f070-6082-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Azure Eventhub Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-1a4e7280-6b5e-11ed-98de-67bdecd21824",
+      "title": "[Elastic Agent] Integrations",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-1badd650-d136-11ed-b85f-4be0157fc90c",
+      "title": "[Elastic Agent] Winlog Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-3718c2f0-6082-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Azure Blob Storage Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-77cdb1c0-cd45-11ed-869d-e7dc1b551cd2",
+      "title": "[Elastic Agent] S3 Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-7986a100-9817-11ee-80a4-550241a842c0",
+      "title": "[Elastic Agent] HTTP Endpoint Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-7d110ba0-cd45-11ed-869d-e7dc1b551cd2",
+      "title": "[Elastic Agent] TCP Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-86203230-6081-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Unix Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-87ad4330-cd45-11ed-869d-e7dc1b551cd2",
+      "title": "[Elastic Agent] UDP Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-92846340-95ab-11ee-8ec1-093013efb0e3",
+      "title": "[Elastic Agent] Httpjson Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-9eab2fa0-5e7c-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Unified Logs Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-a148dc70-6b3c-11ed-98de-67bdecd21824",
+      "title": "[Elastic Agent] Overview",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-a7b5e7a0-cd44-11ed-869d-e7dc1b551cd2",
+      "title": "[Elastic Agent] CloudWatch Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-a8192f90-cd3f-11ed-869d-e7dc1b551cd2",
+      "title": "[Elastic Agent] Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-b7719f90-6081-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Streaming Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-ddcc3240-6081-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] Google Cloud Storage Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-ea44c820-95cb-11ee-b517-0550321b54cc",
+      "title": "[Elastic Agent] Filestream Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-ea7a59e0-6081-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] GCP Pub/Sub Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-f16b4870-9811-11ee-80a4-550241a842c0",
+      "title": "[Elastic Agent] CEL Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-f47f18cc-9c7d-4278-b2ea-a6dee816d395",
+      "title": "[Elastic Agent] Agent metrics",
+      "description": "Elastic Agent metrics dashboard",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "elastic_agent-f704cce0-6081-11f0-89d2-bb7ceae5af7f",
+      "title": "[Elastic Agent] ETW Input Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kafka-943caca0-87ee-11e7-ad9c-db80de0bf8d3",
+      "title": "[Logs Kafka] Overview",
+      "description": "Logs Kafka integration dashboard",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "kafka-ea488d90-8e63-11e8-8fa2-3d5f811fbd0f",
+      "title": "[Metrics Kafka] Overview",
+      "description": "Kafka analysis of topics and consumer groups",
+      "references": [
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "kafka_otel-consumer-groups",
+      "title": "[Kafka OTel] Consumer Groups",
+      "description": "Granular consumer group analysis: lag by group, topic, and partition; member counts; offset progression. Drill-down for lag troubleshooting.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "kafka_otel-overview",
+      "title": "[Kafka OTel] Overview",
+      "description": "High-level Kafka cluster health: broker count, consumer lag, replication status, and consumer group membership. For ES superusers and administrators of production Kafka clusters.",
+      "references": [
+        "dashboard"
+      ]
+    },
+    {
+      "id": "kafka_otel-replication",
+      "title": "[Kafka OTel] Replication Health",
+      "description": "Partition replication status: under-replicated partitions, replicas vs in-sync replicas. Critical for durability and failover readiness.",
+      "references": [
+        "dashboard"
+      ]
+    },
+    {
+      "id": "kafka_otel-topics-partitions",
+      "title": "[Kafka OTel] Topics & Partitions",
+      "description": "Topic and partition topology: partition counts, current/oldest offsets, retained message volume. Capacity and throughput-inference views.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-0b70c6de-4d53-47c4-9844-5f964ba04a6f",
+      "title": "[Kubernetes OTel] Workloads",
+      "description": "Workload monitoring with Deployments, DaemonSets, StatefulSets, Jobs, container restart trends, and deployment drilldowns.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-0c88decf-de83-47a4-a5df-0a79dc8daff5",
+      "title": "[Kubernetes OTel] Nodes",
+      "description": "Node listing with controls-based filtering for cluster and node selection.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-286af595-d3df-4b11-a127-bb096d86db62",
+      "title": "[Kubernetes OTel] Namespace Detail",
+      "description": "Single namespace deep dive with CPU/memory trends, pod resource usage, container restart tracking, memory composition, and network I/O.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-2a4e0bbf-43c9-4a02-b97d-87a4d05270fd",
+      "title": "[Kubernetes OTel] Pod Detail",
+      "description": "Single-pod deep dive with memory decomposition, OOM risk thresholds, per-container resource breakdown, and network I/O.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-7b103a47-6eda-47e5-a949-9855bd58aa13",
+      "title": "[Kubernetes OTel] Cluster Detail",
+      "description": "Single cluster deep dive with health summary, resource usage & capacity, node health, and top consumers.",
+      "references": [
+        "dashboard",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-7b1ac87f-60ea-477f-b506-8a248026afbb",
+      "title": "[Kubernetes OTel] Overview",
+      "description": "Kubernetes overview with resource counts. Start here to navigate your Kubernetes resources.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-8c71876b-ee61-4bdf-b3a4-1abc848d9c33",
+      "title": "[Kubernetes OTel] Node Detail",
+      "description": "Single node deep dive with memory decomposition, working set utilization, network I/O, and eviction risk thresholds.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-8cf34def-60de-4bf3-9b06-d4ffc6cb4236",
+      "title": "[Kubernetes OTel] Deployment Detail",
+      "description": "Single deployment deep dive with replica availability, pod resource usage, container restart trends, and network I/O.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-aa37d8f8-56ca-4452-96ad-456b5154e23d",
+      "title": "[Kubernetes OTel] Pods",
+      "description": "Pod monitoring with memory decomposition, OOM risk thresholds, container restart trends, and network I/O.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-c0765efe-f172-42c4-a2ea-f4552b6f42dc",
+      "title": "[Kubernetes OTel] Namespaces",
+      "description": "Namespace resource usage overview with CPU/memory trends, pod counts, container restarts, and namespace drilldowns.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-cluster-overview",
+      "title": "[Deprecated] [Kubernetes OTel] Cluster Overview",
+      "description": "",
+      "references": [
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "kubernetes_otel-fe68e0e9-0506-4ad7-96be-070cf7592a7e",
+      "title": "[Kubernetes OTel] Clusters",
+      "description": "Cluster listing with resource utilization, and node/pod counts.",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "mongodb-Metrics-MongoDB",
+      "title": "[Metrics MongoDB] Overview",
+      "description": "Overview of MongoDB server status",
+      "references": [
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "mongodb-abcf35b0-0a82-11e8-bffe-ff7d4f68cf94",
+      "title": "[Logs MongoDB] Overview",
+      "description": "Logs MongoDB integration overview",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "mongodb_otel-capacity",
+      "title": "[MongoDB OTel] Capacity",
+      "description": "Connection utilization, memory usage, storage, and resource saturation signals.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "mongodb_otel-operations",
+      "title": "[MongoDB OTel] Operations",
+      "description": "Traffic, latency, and operation breakdown for MongoDB.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "mongodb_otel-overview",
+      "title": "[MongoDB OTel] Overview",
+      "description": "At-a-glance MongoDB health, throughput, cache efficiency, and connection status.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql-158be870-87f4-11e7-ad9c-db80de0bf8d3",
+      "title": "[Logs PostgreSQL] Overview",
+      "description": "Overview dashboard for the Logs PostgreSQL integration",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "postgresql-4288b790-b79f-11e9-a579-f5c0a5d81340",
+      "title": "[Metrics PostgreSQL] Database Overview",
+      "description": "This PostgreSQL dashboard shows the most important database related metrics.\n\n",
+      "references": [
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "postgresql-e4c5f230-87f3-11e7-ad9c-db80de0bf8d3",
+      "title": "[Logs PostgreSQL] Query Duration Overview",
+      "description": "Dashboard for analyzing the query durations of the Logs PostgreSQL integration",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "postgresql_otel-active-queries",
+      "title": "[PostgreSQL OTel] Active Queries",
+      "description": "Real-time snapshots of active queries from pg_stat_activity. Shows wait events, execution time, and state.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql_otel-connections",
+      "title": "[PostgreSQL OTel] Connections",
+      "description": "Connection capacity, utilization, and backend distribution per database.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql_otel-io-health",
+      "title": "[PostgreSQL OTel] I/O Health",
+      "description": "Buffer cache hit ratio, checkpoint duration, background writer efficiency, and buffer writes by source.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql_otel-locks",
+      "title": "[PostgreSQL OTel] Locks",
+      "description": "Database locks by type, mode, and relation. High exclusive lock counts indicate contention.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql_otel-overview",
+      "title": "[PostgreSQL OTel] Overview",
+      "description": "Overview of PostgreSQL health and golden signals - connection capacity, transaction throughput, errors, buffer cache efficiency, and capacity.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql_otel-query-performance",
+      "title": "[PostgreSQL OTel] Query Performance",
+      "description": "Query execution times, top queries from pg_stat_statements, temp file usage, and sequential scan rates.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "postgresql_otel-workload",
+      "title": "[PostgreSQL OTel] Workload",
+      "description": "Transaction throughput, tuple operations, and function call rates.",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "system-01c54730-fee6-11e9-8405-516218e3d268",
+      "title": "[System Windows Security] Group Management Events - Simple Metrics",
+      "description": "Group management activity with TSVB metrics.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-035846a0-a249-11e9-a422-d144027429da",
+      "title": "[System Windows Security] User Logons - Simple Metrics",
+      "description": "User logon activity dashboard with TSVB metrics.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-0d3f2380-fa78-11e6-ae9b-81e5311e8cab",
+      "title": "[Logs System] New users and groups",
+      "description": "New users and groups dashboard for the System integration in Logs",
+      "references": [
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-277876d0-fa2c-11e6-bbd3-29c986c96e5a",
+      "title": "[Logs System] Sudo commands",
+      "description": "Sudo commands dashboard from the Logs System integration",
+      "references": [
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-5517a150-f9ce-11e6-8115-a7c18106d86a",
+      "title": "[Logs System] SSH login attempts",
+      "description": "SSH dashboard for the System integration in Logs",
+      "references": [
+        "index-pattern",
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-71f720f0-ff18-11e9-8405-516218e3d268",
+      "title": "[System Windows Security] User Management Events",
+      "description": "User management activity.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-79ffd6e0-faa0-11e6-947f-177f697178b8",
+      "title": "[Metrics System] Host overview",
+      "description": "Overview of host metrics",
+      "references": [
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "system-8223bed0-b9e9-11e9-b6a2-c9b4015c4baf",
+      "title": "[System Windows Security] User Management Events - Simple Metric",
+      "description": "User management activity with TSVB metrics.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-Logs-syslog-dashboard",
+      "title": "[Logs System] Syslog dashboard",
+      "description": "Syslog dashboard from the Logs System integration",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-Metrics-system-overview",
+      "title": "[Metrics System] Overview",
+      "description": "Overview of system metrics",
+      "references": [
+        "dashboard",
+        "index-pattern",
+        "tag"
+      ]
+    },
+    {
+      "id": "system-Windows-Dashboard",
+      "title": "[System] Windows Overview",
+      "description": "Overview of all Windows Event Logs.",
+      "references": [
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-bae11b00-9bfc-11ea-87e4-49f31ec44891",
+      "title": "[System Windows Security] User Logons",
+      "description": "User logon activity dashboard.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-bb858830-f412-11e9-8405-516218e3d268",
+      "title": "[System Windows Security] Group Management Events",
+      "description": "Group management activity.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-d401ef40-a7d5-11e9-a422-d144027429da",
+      "title": "[System Windows Security] Failed and Blocked Accounts",
+      "description": "Failed and blocked accounts with TSVB metrics.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system-f49f3170-9ffc-11ea-87e4-49f31ec44891",
+      "title": "[System Windows Security] Failed and Blocked Accounts - Simple Metrics",
+      "description": "Failed and blocked accounts.",
+      "references": [
+        "search",
+        "tag",
+        "visualization"
+      ]
+    },
+    {
+      "id": "system_otel-329ee135-f301-4dab-91f4-af52cd58cb88",
+      "title": "[OTel] Host Details - Overview",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "system_otel-8905d3c2-508b-4b43-a0eb-f03864dd64f6",
+      "title": "[OTel] Hosts Overview",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "system_otel-c2749107-6de5-49b5-b007-582a88de8d7c",
+      "title": "[OTel] Host Details - Metadata",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "system_otel-c505790f-b3ef-4ca8-81a6-3554be676272",
+      "title": "[OTel] Host Details - Metrics",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    },
+    {
+      "id": "system_otel-e21fc868-3857-47f8-88b0-7ff94a1eb8a9",
+      "title": "[OTel] Host Details - Logs",
+      "description": "",
+      "references": [
+        "dashboard",
+        "index-pattern"
+      ]
+    }
+  ]
+}

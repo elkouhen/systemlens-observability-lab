@@ -31,9 +31,9 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	observability-policies-validate observability-policies-deploy ansible-deploy \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-elasticsearch-credentials-apply otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
-	otel-edge-vm-provision elastic-agent-vm-provision \
+	otel-edge-vm-provision elastic-agent-vm-provision fleet-vm-monitoring \
 	vms-up deploy elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-verify kubernetes-otel-dashboards-deploy kubernetes-otel-dashboards-verify apm-report-api-key-create \
+	dashboards-backup dashboards-verify kubernetes-otel-dashboards-deploy kubernetes-otel-dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
@@ -351,10 +351,17 @@ kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur poc
 mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
 	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
-fleet-vms-provision: elk-deploy ## Compatibilité historique : déployer sans enrôler les VM dans Fleet
-	@echo "Les VM utilisent Elastic Agent EDOT standalone ; aucun enrôlement Fleet n’est effectué."
+fleet-vm-monitoring: elastic-stack-deploy ## Activer le monitoring Fleet OpAMP des agents EDOT des VM
+	@$(MAKE) kibana-ready
+	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-password}"; postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
 
-vm-provision: fleet-vms-provision ## Provisionner les VM avec Elastic Agent Fleet
+fleet-vms-provision: fleet-vm-monitoring ## Alias historique du monitoring Fleet des VM
+
+vm-provision: fleet-vm-monitoring ## Provisionner le monitoring Fleet des agents EDOT des VM
 
 otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01 avec la clé API Kubernetes existante
 	@$(VAGRANT) up otel-backend-01 --no-provision
@@ -413,6 +420,12 @@ otel-kafka-exporter-kubernetes-bascule: ## Retirer l'exporteur Kubernetes après
 otel-kafka-exporter-relocate: otel-kafka-exporter-vm-provision otel-kafka-exporter-kubernetes-bascule ## Basculer l'exporteur Kafka OTel vers le backend OTEL
 
 ##@ Dashboards et consultation
+
+dashboards-backup: ## Sauvegarder tous les dashboards Kibana et leurs références
+	@kibana_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )"; \
+	test -n "$$kibana_password" || { echo 'Mot de passe Kibana requis pour la sauvegarde.' >&2; exit 1; }; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/backup-kibana-dashboards.sh
 
 dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboards sont récents
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \

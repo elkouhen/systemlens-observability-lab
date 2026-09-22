@@ -5,3 +5,11 @@ elasticsearch.hosts: ["http://127.0.0.1:9200"]
 xpack.encryptedSavedObjects.encryptionKey: "{{ kibana_encryption_key }}"
 xpack.security.encryptionKey: "{{ kibana_security_key }}"
 xpack.reporting.encryptionKey: "{{ kibana_reporting_key }}"
+xpack.fleet.agents.enabled: true
+xpack.fleet.agents.fleet_server.hosts: ["http://fleet.observability.test:8220"]
+xpack.fleet.registryUrl: https://epr.elastic.co
+xpack.fleet.packages:
+  - name: fleet_server
+    version: 1.2.0
+  - name: system
+    version: 1.20.4
