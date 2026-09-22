@@ -20,7 +20,7 @@ ELASTICSEARCH_URL ?= http://elasticsearch.observability.test:9200
 KIBANA_URL ?= http://kibana.observability.test:5601
 KIBANA_HOST ?= kibana.observability.test
 KIBANA_CURL_RESOLVE ?= kibana.observability.test:5601:192.168.33.30
-ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:9200:192.168.33.40
+ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:9200:192.168.33.30
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
