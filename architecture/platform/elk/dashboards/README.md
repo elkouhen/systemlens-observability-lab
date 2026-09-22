@@ -13,14 +13,14 @@ EDOT standalone → Edge → Kafka → backend.
 
 | Besoin | Dashboard Kibana | Jeux de données attendus | Indicateurs à suivre |
 | --- | --- | --- | --- |
-| Santé des hôtes | Vue OTel System / Discover | `metrics-hostmetricsreceiver.otel-*` | CPU (`system.cpu.utilization`), mémoire (`system.memory.utilization`), disque et réseau. |
+| Santé des hôtes | Vue OTel System / Infrastructure Inventory / Discover | `metrics-hostmetricsreceiver.otel-*` | CPU (`system.cpu.utilization`), mémoire (`system.memory.utilization`), disque et réseau. |
 | Santé du cluster | **[Kubernetes OTel] Overview**, **Nodes**, **Workloads**, **Pods** | `kubeletstatsreceiver.otel`, `k8sclusterreceiver.otel` | CPU/mémoire par pod et nœud, état du cluster, déploiements, conteneurs, volumes et capacité observée par `kubeletstats`/`k8s_cluster`. |
 | Brokers et consommateurs | Vue OTel Kafka / Discover | `metrics-kafkametricsreceiver.otel-*` | Brokers, partitions, réplication, lag et consumer groups. |
 | Logs Kafka | Discover | `logs-generic-*` | Logs Kafka collectés par `filelog/system`, avec hôte et chemin source. |
 | MongoDB | Vue OTel MongoDB / Discover | `metrics-mongodbreceiver.otel-*` | Connexions, opérations, mémoire, cache et stockage ; les indicateurs de réplication nécessitent un replica set, alors que le POC utilise un MongoDB standalone. |
 | Logs MongoDB | Discover | `logs-generic-*` | Logs `mongod`, erreurs, démarrage et événements du serveur. |
-| Base PostgreSQL | Vue OTel PostgreSQL / Discover | `metrics-postgresqlreceiver.otel-*` | Sessions, taille, cache, checkpoints et requêtes. |
-| Logs PostgreSQL | Discover | `logs-generic-*` | Logs PostgreSQL et durée des requêtes ; `pg_stat_statements` doit être chargé dans PostgreSQL. |
+| Base PostgreSQL | Vues OTel PostgreSQL / Discover | `metrics-postgresqlreceiver.otel-*` | Sessions, transactions, taille des bases et activité du bgwriter. |
+| Logs PostgreSQL | Discover | `logs-generic-*` | Logs PostgreSQL et événements du serveur ; les statistiques de requêtes nécessitent une collecte dédiée. |
 | Services applicatifs | Observability > APM > Services et Discover | `apm.service_transaction.1m`, `apm.transaction.1m`, `apm.app.*`, `metrics-prometheusreceiver.otel-*`, traces APM/OTLP | Débit, latence p50/p95/p99, taux d'erreur, dépendances, traces et métriques Actuator scrappées. |
 | Métriques métier | **Métriques métier — Supermarket Demo** | `metrics-prometheusreceiver.otel-*` | Commandes finalisées, réassorts demandés/terminés et ventilation des commandes par canal. |
 | SLA pains achetés | **Observability > SLOs** et **Alerts and Insights > Rules** | `logs-*` | SLO à 99 % de périodes de 24 heures conformes sur 30 jours, avec au moins 10 pains `BREAD-WHOLE` achetés par période ; alerte sur les dernières 24 heures. |
@@ -46,6 +46,11 @@ service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.
 Pour ce POC, PostgreSQL est attendu uniquement sur `poc-01`; le dashboard ne
 doit afficher les métriques PostgreSQL de `poc-01`.
 
+Le panneau `Connection Utilization Gauge` des vues PostgreSQL affiche un
+pourcentage calculé par `postgresql.backends / postgresql.connection.max`, borné
+entre 0 et 1. `postgresql.db_size` reste une taille absolue et ne doit pas être
+présentée comme un pourcentage sans métrique de capacité de référence.
+
 ## Déploiement et vérification
 
 Déployer la configuration déclarative des intégrations Fleet :
@@ -63,14 +68,17 @@ documents sur les quinze dernières minutes :
 ```bash
 make dashboards-verify
 make otel-dashboards-reconcile
+make postgresql-otel-dashboards-verify
 ```
 
 La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
-les métriques clés ci-dessus. Elle vérifie aussi les onze dashboards Kubernetes
+les métriques clés ci-dessus. Elle vérifie aussi les sept dashboards PostgreSQL
+OTel, leurs champs réellement mappés et leurs références de data streams. Elle
+vérifie enfin les onze dashboards Kubernetes
 OTel et leurs références de champs. Elle permet de distinguer un dashboard vide
 d'un problème de collecte.
 
-Les dashboards OTel System, Kafka, MongoDB et PostgreSQL partagent un filtre
+Les dashboards OTel System, Kafka, MongoDB et tous les dashboards PostgreSQL OTel partagent un filtre
 `Hôte` basé sur `resource.attributes.host.name`. Les anciens filtres propres
 aux intégrations classiques (`attributes.mongodb.instance` ou un nom de base
 non présent dans les documents OTel) ne doivent pas être réintroduits : ils
@@ -81,6 +89,10 @@ des bases et compteurs du bgwriter. Il n’expose pas les statistiques de requê
 les verrous, `pg_stat_statements`, les deadlocks ou les compteurs de tuples : les
 vues PostgreSQL correspondantes ne doivent donc pas être présentées comme des
 métriques OTel disponibles.
+
+Les scripts de réconciliation recherchent tous les dashboards dont le titre
+contient `PostgreSQL` et `OTel`. Ils appliquent le filtre d’hôte, les requêtes
+ES|QL et les libellés à chaque dashboard trouvé, sans dépendre d’un ID particulier.
 
 Le dashboard versionné est réconcilié de manière non destructive par
 `make business-dashboard-deploy` (ou automatiquement par `make elk-deploy`). Le script

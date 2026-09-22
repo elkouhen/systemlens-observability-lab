@@ -1,0 +1,19 @@
+[Unit]
+Description=Collecteur EDOT Edge du POC
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+ContainerName=observability-otel-edge
+Network=host
+Volume=/etc/observability/otel-edge.yaml:/etc/otel/collector.yaml:ro,Z
+Volume=/var/lib/observability/otel-edge:/var/lib/otel-edge:Z
+Memory=768m
+Exec=--config=/etc/otel/collector.yaml
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -6,7 +6,7 @@ command -v curl >/dev/null || { printf 'curl est requis.\n' >&2; exit 2; }
 command -v jq >/dev/null || { printf 'jq est requis.\n' >&2; exit 2; }
 
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant la vérification des dashboards Kubernetes OTel}"
 
 response="$(curl --fail --silent --show-error --insecure --resolve "${kibana_resolve}" \

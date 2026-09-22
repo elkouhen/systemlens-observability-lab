@@ -33,8 +33,17 @@ expected_metrics=(
   'metrics-mongodbreceiver.otel-*|mongodb.operation.count'
   'metrics-mongodbreceiver.otel-*|mongodb.storage.size'
   'metrics-postgresqlreceiver.otel-*|postgresql.backends'
+  'metrics-postgresqlreceiver.otel-*|postgresql.connection.max'
   'metrics-postgresqlreceiver.otel-*|postgresql.commits'
+  'metrics-postgresqlreceiver.otel-*|postgresql.rollbacks'
+  'metrics-postgresqlreceiver.otel-*|postgresql.database.count'
+  'metrics-postgresqlreceiver.otel-*|postgresql.table.count'
   'metrics-postgresqlreceiver.otel-*|postgresql.db_size'
+  'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.maxwritten'
+  'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.buffers.allocated'
+  'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.buffers.writes'
+  'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.checkpoint.count'
+  'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.duration'
 )
 expected_apm_fields=(
   service.name
@@ -45,6 +54,7 @@ expected_apm_fields=(
 )
 
 missing=0
+ko_metrics=()
 for dataset in "${expected_datasets[@]}"; do
   count="$(jq -r --arg dataset "${dataset}" \
     '[.aggregations.datasets.buckets[] | select(.key == $dataset) | .doc_count] | first // 0' <<<"${response}")"
@@ -69,7 +79,26 @@ for expectation in "${expected_metrics[@]}"; do
   if (( count > 0 )); then
     printf 'OK      métrique %-24s %s occurrence(s) sur %s\n' "${metric}" "${count}" "${window}"
   else
-    printf 'ABSENT  métrique %-24s aucune occurrence sur %s\n' "${metric}" "${window}" >&2
+    printf 'KO      métrique %-24s aucune occurrence sur %s\n' "${metric}" "${window}" >&2
+    ko_metrics+=("${metric}")
+    missing=1
+  fi
+done
+
+hostmetrics_response="$(curl --fail --silent --show-error --insecure \
+  --resolve "${elasticsearch_resolve}" \
+  -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
+  -H 'Content-Type: application/json' \
+  -X POST "${elasticsearch_url}/metrics-hostmetricsreceiver.otel-*/_search" \
+  --data "{\"size\":0,\"query\":{\"bool\":{\"filter\":[{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},{\"term\":{\"data_stream.dataset\":\"hostmetricsreceiver.otel\"}},{\"exists\":{\"field\":\"host.name\"}},{\"exists\":{\"field\":\"system.cpu.utilization\"}}]}},\"aggs\":{\"hosts\":{\"terms\":{\"field\":\"host.name\",\"size\":20}}}}")"
+expected_hostmetrics_hosts=(poc-01 otel-backend-01 otel-edge-01 elk-01)
+for host in "${expected_hostmetrics_hosts[@]}"; do
+  host_count="$(jq -r --arg host "${host}" \
+    '[.aggregations.hosts.buckets[] | select(.key == $host) | .doc_count] | first // 0' <<<"${hostmetrics_response}")"
+  if (( host_count > 0 )); then
+    printf 'OK      hôte Inventory %-18s %s document(s) sur %s\n' "${host}" "${host_count}" "${window}"
+  else
+    printf 'ABSENT  hôte Inventory %-18s aucun document CPU sur %s\n' "${host}" "${window}" >&2
     missing=1
   fi
 done
@@ -91,6 +120,9 @@ for field in "${expected_apm_fields[@]}"; do
 done
 
 if (( missing )); then
+  if (( ${#ko_metrics[@]} > 0 )); then
+    printf 'Métriques KO détectées : %s\n' "${ko_metrics[*]}" >&2
+  fi
   printf 'Au moins une source, métrique ou corrélation APM attendue est absente : consulter Fleet, les logs du collecteur et le mapping OTLP.\n' >&2
   exit 1
 fi

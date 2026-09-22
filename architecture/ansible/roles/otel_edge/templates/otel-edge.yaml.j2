@@ -1,0 +1,59 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13135
+  file_storage:
+    directory: /var/lib/otel-edge
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:14317
+      http:
+        endpoint: 127.0.0.1:14318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 500
+    spike_limit_mib: 100
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+  batch/logs:
+    timeout: 5s
+    send_batch_size: 50
+    send_batch_max_size: 50
+
+exporters:
+  kafka/otlp:
+    brokers: ["{{ poc_ip }}:9092"]
+    traces:
+      topic: otel-traces
+      encoding: otlp_proto
+    metrics:
+      topic: otel-metrics
+      encoding: otlp_proto
+    logs:
+      topic: otel-logs
+      encoding: otlp_proto
+
+service:
+  extensions: [health_check, file_storage]
+  telemetry:
+    resource:
+      service.name: otel-edge
+      deployment.environment.name: homologation
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/otlp]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/otlp]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch/logs]
+      exporters: [kafka/otlp]

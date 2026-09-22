@@ -19,7 +19,7 @@ SKIP_KUBERNETES_APPLY ?= 0
 ELASTICSEARCH_URL ?= http://elasticsearch.observability.test:9200
 KIBANA_URL ?= http://kibana.observability.test:5601
 KIBANA_HOST ?= kibana.observability.test
-KIBANA_CURL_RESOLVE ?= kibana.observability.test:5601:192.168.33.40
+KIBANA_CURL_RESOLVE ?= kibana.observability.test:5601:192.168.33.30
 ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:9200:192.168.33.40
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
@@ -134,8 +134,7 @@ kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarat
 	 test -n "$$kibana_password" && test -n "$$postgresql_password" || { echo 'Identifiants Kibana/PostgreSQL absents' >&2; exit 1; }; \
 	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh; \
 	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kubernetes-otel-dashboards.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-controls.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-queries.sh
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ELASTICSEARCH_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboards.sh
 
 kubernetes-otel-dashboards-deploy: ## Réconcilier les dashboards Kubernetes OTel du package Fleet
 	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
@@ -146,7 +145,8 @@ otel-dashboards-reconcile: ## Corriger les filtres des dashboards OTel System, K
 	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
 	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-controls.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-queries.sh
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ELASTICSEARCH_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-queries.sh; \
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-labels.sh
 
 elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk-01 via Quadlet
 	@password="$${ELASTIC_PASSWORD:-password}"; \
@@ -180,12 +180,26 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 		--resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 		-H "Authorization: ApiKey $$current_api_key" \
 		'$(ELASTICSEARCH_URL)/_security/_authenticate' >/dev/null; then \
-		echo "Clé API otel-elasticsearch-credentials valide"; \
+		password="$${ELASTIC_PASSWORD:-password}"; \
+		key_id="$$(printf '%s' "$$current_api_key" | base64 --decode 2>/dev/null | cut -d: -f1)"; \
+		key_has_metadata_privilege="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+			-u "elastic:$$password" '$(ELASTICSEARCH_URL)/_security/api_key?id='"$$key_id" \
+			| jq -r '([.api_keys[0].role_descriptors[]?.indices[]?.privileges[]?] | index("view_index_metadata")) != null')"; \
+		if test "$$key_has_metadata_privilege" != true; then \
+			curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+				-u "elastic:$$password" -H 'Content-Type: application/json' \
+				-X PUT "$(ELASTICSEARCH_URL)/_security/api_key/$$key_id" \
+				--data '{"role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}' \
+				| jq -e '.updated == true' >/dev/null; \
+			echo "Clé API otel-elasticsearch-credentials mise à jour"; \
+		else \
+			echo "Clé API otel-elasticsearch-credentials valide"; \
+		fi; \
 	else \
 		password="$${ELASTIC_PASSWORD:-password}"; \
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
-			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc"]}]}}}' \
+			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}' \
 			| jq -er '.encoded')"; \
 		$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic otel-elasticsearch-credentials \
 			--from-literal=api-key="$$api_key" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
@@ -403,8 +417,18 @@ dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboar
 		test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la stack Elastic Quadlet.' >&2; exit 1; }; \
 	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/verify-dashboard-data.sh; \
+	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$es_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/verify-postgresql-otel-dashboards.sh; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$es_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/verify-kubernetes-otel-dashboards.sh
+
+postgresql-otel-dashboards-verify: ## Vérifier les métriques et requêtes des dashboards PostgreSQL OTel
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+		test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
+	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$es_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/verify-postgresql-otel-dashboards.sh
 
 kubernetes-otel-dashboards-verify: ## Vérifier les requêtes des dashboards Kubernetes OTel
 	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \

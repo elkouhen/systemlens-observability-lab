@@ -9,6 +9,11 @@ Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
 et métriques locaux et les envoie en OTLP au Collecteur Edge. Kafka est le
 buffer commun des signaux Kubernetes et VM.
 
+Le receiver `hostmetrics` active explicitement `system.cpu.utilization` et
+`system.memory.utilization`. Ces métriques alimentent la vue Infrastructure
+Inventory avec les champs `host.name` et `data_stream.dataset:
+hostmetricsreceiver.otel`.
+
 Le rôle `common` configure chrony avec `makestep 1.0 3` afin de corriger
 automatiquement l’horloge après un redémarrage ou une reprise de VM. Cette
 synchronisation est nécessaire aux fenêtres temporelles des dashboards et au

@@ -7,7 +7,7 @@ elk_dir="$(cd "${script_dir}/.." && pwd)"
 dashboard_file="${1:?Usage : $0 <export.ndjson>}"
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
 
 [[ -r "${dashboard_file}" ]] || {
   printf 'Fichier dashboard introuvable ou illisible : %s\n' "${dashboard_file}" >&2

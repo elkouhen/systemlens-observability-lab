@@ -78,10 +78,11 @@
 - name: Configurer des sources NTP accessibles en IPv4
   ansible.builtin.replace:
     path: /etc/chrony.conf
-    regexp: '^pool 2\.rocky\.pool\.ntp\.org iburst$'
+    regexp: '^(pool 2\.rocky\.pool\.ntp\.org|server time\.cloudflare\.com|server time\.google\.com) iburst$'
     replace: |-
-      server time.cloudflare.com iburst
-      server time.google.com iburst
+      server 162.159.200.1 iburst
+      server 162.159.200.123 iburst
+      server 216.239.35.12 iburst
   register: chrony_configuration
 
 - name: Autoriser chrony à corriger automatiquement un décalage après un redémarrage

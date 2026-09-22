@@ -1,0 +1,114 @@
+agent:
+  grpc:
+    port: 6790
+
+extensions:
+  health_check:
+    endpoint: 127.0.0.1:13136
+  file_storage:
+    directory: /var/lib/observability/elastic-agent-otel
+    create_directory: true
+
+receivers:
+  filelog/system:
+    include:
+      - /var/log/messages
+      - /var/log/secure
+      - /var/log/*.log
+{% if node_role == 'poc' %}
+      - /var/log/mongodb/mongod.log
+      - /var/log/kafka/*.log
+      - /var/log/postgresql/*.log
+{% endif %}
+    start_at: end
+    include_file_path: true
+    operators:
+      - type: move
+        from: body
+        to: attributes.message
+
+  hostmetrics/system:
+    root_path: /
+    collection_interval: 30s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      load:
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      disk:
+      filesystem:
+      network:
+      paging:
+      processes:
+
+{% if node_role == 'poc' %}
+  kafka_metrics/poc:
+    brokers:
+      - 127.0.0.1:9092
+    protocol_version: 3.9.0
+    scrapers:
+      - brokers
+      - topics
+      - consumers
+    collection_interval: 60s
+
+  mongodb/poc:
+    hosts:
+      - endpoint: 127.0.0.1:27017
+    collection_interval: 60s
+    initial_delay: 5s
+    tls:
+      insecure: true
+
+  postgresql/poc:
+    endpoint: 127.0.0.1:5432
+    username: {{ postgresql_user }}
+    password: {{ postgresql_password }}
+    databases:
+      - {{ postgresql_database }}
+    collection_interval: 30s
+    initial_delay: 5s
+    tls:
+      insecure: true
+{% endif %}
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 300
+    spike_limit_mib: 75
+  batch:
+    timeout: 5s
+    send_batch_size: 256
+  resource/agent:
+    attributes:
+      - key: service.name
+        value: elastic-agent-otel
+        action: upsert
+      - key: deployment.environment.name
+        value: homologation
+        action: upsert
+      - key: host.name
+        value: {{ inventory_hostname }}
+        action: upsert
+
+exporters:
+  otlphttp/edge:
+    endpoint: http://{{ otel_edge_ip }}:4318
+
+service:
+  extensions: [health_check, file_storage]
+  pipelines:
+    logs:
+      receivers: [filelog/system]
+      processors: [memory_limiter, resource/agent, batch]
+      exporters: [otlphttp/edge]
+    metrics:
+      receivers: [hostmetrics/system{% if node_role == 'poc' %}, kafka_metrics/poc, mongodb/poc, postgresql/poc{% endif %}]
+      processors: [memory_limiter, resource/agent, batch]
+      exporters: [otlphttp/edge]

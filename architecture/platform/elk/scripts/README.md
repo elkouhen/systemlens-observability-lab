@@ -32,6 +32,15 @@ ne stockent aucun mot de passe dans le dépôt.
    embarqués du package `kubernetes_otel` avec les champs réellement produits par les
    Collectors OTel ; `verify-kubernetes-otel-dashboards.sh` contrôle qu'aucune
    référence au schéma absent ne reste dans leurs requêtes ES|QL.
+   `verify-dashboard-data.sh` contrôle également l’ensemble des métriques
+   PostgreSQL utilisées par les sept dashboards et liste explicitement les
+   métriques KO lorsqu’une source n’est plus alimentée.
+   `verify-postgresql-otel-dashboards.sh` contrôle le mapping, la présence
+   récente des métriques PostgreSQL, les références ES|QL et la cohérence des
+   colonnes Lens avec les résultats. Utiliser
+   `make postgresql-otel-dashboards-verify` pour l’exécuter séparément.
+   `make otel-dashboards-reconcile` réconcilie aussi le filtre Serveur des
+   dashboards MongoDB OTel sur `resource.attributes.server.address`.
 4. `apply-apm-kibana-role.sh` crée ou met à jour un compte Kibana natif en
    lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
    identifiants et le certificat CA restent hors Git.
