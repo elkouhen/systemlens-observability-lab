@@ -35,7 +35,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 
 .PHONY: help architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apm-logstash-credentials-apply apm-logstash-deploy apps-deploy apm-token-sync fleet-sync fleet-vms-provision vm-provision \
-	observability-policies-validate observability-policies-deploy ansible-deploy \
+	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-elasticsearch-credentials-apply otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
 	otel-edge-vm-provision elastic-agent-vm-provision fleet-vm-monitoring \
@@ -69,6 +69,16 @@ kubernetes-status: ## Afficher l’état Elastic et applications
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POC_VM_NAME='poc-01' ../scripts/cluster-status.sh
+
+time-sync-verify: ## Vérifier la synchronisation chrony des quatre VM
+	@set -euo pipefail; for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
+		echo "--- $$node ---"; \
+		output="$$($(VAGRANT) ssh "$$node" -c 'sudo chronyc tracking; sudo chronyc sources -n' 2>/dev/null)"; \
+		echo "$$output" | grep -E '^(Reference ID|Stratum|System time|Leap status)' || { echo "État chrony incomplet sur $$node" >&2; exit 1; }; \
+		echo "$$output" | grep -Eq '^Leap status[[:space:]]*:[[:space:]]*Normal' || { echo "Horloge non synchronisée sur $$node" >&2; exit 1; }; \
+		echo "$$output" | grep -Eq '^\^([*+])' || { echo "Aucune source NTP sélectionnée sur $$node" >&2; exit 1; }; \
+	done
+	@echo 'Les quatre VM sont synchronisées par chrony.'
 
 ##@ Construction et préparation locale
 

@@ -95,11 +95,22 @@
     insertafter: EOF
   register: chrony_makestep_configuration
 
+- name: Synchroniser l'horloge matérielle avec l'horloge système
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^rtcsync$'
+    line: rtcsync
+    insertafter: '^makestep '
+  register: chrony_rtcsync_configuration
+
 - name: Redémarrer chrony après modification de sa configuration
   ansible.builtin.systemd_service:
     name: chronyd
     state: restarted
-  when: chrony_configuration.changed or chrony_makestep_configuration.changed
+  when: >-
+    chrony_configuration.changed or
+    chrony_makestep_configuration.changed or
+    chrony_rtcsync_configuration.changed
 
 - name: Activer la synchronisation NTP
   ansible.builtin.systemd_service:

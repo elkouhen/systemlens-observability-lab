@@ -21,8 +21,11 @@ hostmetricsreceiver.otel`.
 
 Le rôle `common` configure chrony avec `makestep 1.0 3` afin de corriger
 automatiquement l’horloge après un redémarrage ou une reprise de VM. Cette
-synchronisation est nécessaire aux fenêtres temporelles des dashboards et au
-chemin OTLP → Kafka → Elasticsearch.
+synchronisation continue est nécessaire aux fenêtres temporelles des dashboards
+et au chemin OTLP → Kafka → Elasticsearch. `rtcsync` maintient également
+l’horloge matérielle alignée sur l’horloge système. Vérifier les quatre VM avec
+`make time-sync-verify` ; la commande attend une source NTP sélectionnée et un
+état `Leap status : Normal` sur chaque nœud.
 
 Le mode EDOT standalone est idempotent : la présence de
 `/opt/Elastic/Agent/elastic-agent` et du marqueur
