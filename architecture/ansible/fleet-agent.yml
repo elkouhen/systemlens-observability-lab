@@ -10,6 +10,11 @@
     postgresql_database: observability_test
     postgresql_user: observability
     postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+    postgresql_otel_user: otel
+    postgresql_otel_password: "{{ postgresql_password }}"
+    mongodb_otel_user: otel_monitor
+    mongodb_password: "{{ lookup('env', 'MONGODB_PASSWORD') | default(lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true), true) }}"
+    mongodb_otel_password: "{{ mongodb_password }}"
     fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
 
   roles:

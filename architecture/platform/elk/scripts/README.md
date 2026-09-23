@@ -13,6 +13,11 @@ ne stockent aucun mot de passe dans le dépôt.
    En architecture, aucun Secret APM n'est requis : les applications utilisent
    OpenTelemetry et le Gateway EDOT. Le script doit être *sourcé* :
    `source ./platform/elk/scripts/load-credentials.sh`.
+   `bootstrap-fleet-policies.sh` installe également le package Fleet
+   `kubernetes_otel` `2.6.0`, `kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0`
+   et `mongodb_otel` `0.3.1`, versions compatibles avec Kibana `9.4.3`. Ces
+   packages fournissent les assets Kibana des dashboards OTel correspondants.
+   Les Collectors restent autonomes et ne sont pas enrôlés comme agents Fleet.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et applique les
    correctifs de compatibilité encore nécessaires au POC. Il ne configure pas
    le chemin actif de télémétrie EDOT, qui est déclaré dans Ansible et dans les
@@ -28,10 +33,8 @@ ne stockent aucun mot de passe dans le dépôt.
    `kafka.consumergroup`, `mongodb.status`, `mongodb.metrics`,
    `mongodb.dbstats` et `postgresql.database` ; les champs contrôlés restent
    ceux des intégrations (`kafka.*`, `mongodb.*` et `postgresql.*`).
-   `reconcile-kubernetes-otel-dashboards.sh` réconcilie les onze dashboards
-   embarqués du package `kubernetes_otel` avec les champs réellement produits par les
-   Collectors OTel ; `verify-kubernetes-otel-dashboards.sh` contrôle qu'aucune
-   référence au schéma absent ne reste dans leurs requêtes ES|QL.
+   `verify-kubernetes-otel-dashboards.sh` contrôle les références des dashboards
+   Kubernetes OTel aux champs réellement produits par les Collectors OTel.
    `verify-dashboard-data.sh` contrôle également l’ensemble des métriques
    PostgreSQL utilisées par les sept dashboards et liste explicitement les
    métriques KO lorsqu’une source n’est plus alimentée.
@@ -39,8 +42,6 @@ ne stockent aucun mot de passe dans le dépôt.
    récente des métriques PostgreSQL, les références ES|QL et la cohérence des
    colonnes Lens avec les résultats. Utiliser
    `make postgresql-otel-dashboards-verify` pour l’exécuter séparément.
-   `make otel-dashboards-reconcile` réconcilie aussi le filtre Serveur des
-   dashboards MongoDB OTel sur `resource.attributes.server.address`.
 4. `apply-apm-kibana-role.sh` crée ou met à jour un compte Kibana natif en
    lecture seule (`viewer`) et le Secret utilisé par `kibanaRef`. Les
    identifiants et le certificat CA restent hors Git.

@@ -79,6 +79,7 @@ et Kubernetes uniquement.
 ## Documentation officielle
 
 - [Intégration Kafka Elastic](https://www.elastic.co/docs/reference/integrations/kafka)
+- [Assets Kafka OpenTelemetry](https://www.elastic.co/docs/reference/integrations/kafka_otel)
 - [Créer ou mettre à jour une package policy Fleet](https://www.elastic.co/docs/api/doc/kibana/group/endpoint-fleet-package-policies)
 - [Pipelines d'ingestion Elasticsearch](https://www.elastic.co/docs/manage-data/ingest/transform-enrich/ingest-pipelines)
 - [Documentation Apache Kafka KRaft](https://kafka.apache.org/documentation/#kraft)

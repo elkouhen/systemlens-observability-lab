@@ -25,8 +25,11 @@ MongoDB. `host.name` distingue ce membre des autres profils de collecte.
    localement sur la VM, sans enrôlement Fleet.
 2. Le receiver `filelog/system` collecte les logs MongoDB locaux, sans Filebeat
    concurrent.
-3. Le receiver `mongodb` utilise `localhost:27017` et un intervalle de
-   60 secondes pour chaque stream.
+3. Le receiver `mongodb` utilise `localhost:27017`, le compte `otel_monitor`,
+   le rôle `clusterMonitor`, la connexion directe requise par un MongoDB
+   standalone et un intervalle de 60 secondes pour chaque stream. Le mot de
+   passe vient de `MONGODB_PASSWORD` hors du dépôt ; à défaut, le POC réutilise
+   `POSTGRESQL_PASSWORD`.
 4. `ssl.enabled: false` convient seulement au POC local. Ce réglage doit être
    revu dès que MongoDB expose TLS.
 
@@ -58,10 +61,11 @@ pour isoler le membre.
 | Moins de charge | augmenter `period` au-delà de `60s` |
 | Logs via Fleet | collectés par l'intégration `system`, sans Filebeat concurrent |
 
-L'utilisateur MongoDB doit disposer des droits nécessaires aux commandes de
-supervision. Le rôle intégré `clusterMonitor` couvre notamment les commandes
-utilisées par les streams de métriques ; `dbstats` et `replstatus` demandent en
-plus les droits détaillés par l'intégration officielle.
+Ansible crée l'utilisateur `otel_monitor` dans la base `admin` avec le rôle
+intégré `clusterMonitor`. Ce rôle couvre les commandes utilisées par les streams
+de métriques. Le POC conserve MongoDB sans authentification obligatoire, mais le
+collecteur utilise ce compte de supervision. Pour un environnement partagé,
+activer l'authentification MongoDB et fournir un mot de passe distinct.
 
 ## Vérification et dépannage
 
@@ -75,4 +79,5 @@ plus les droits détaillés par l'intégration officielle.
 
 - [Intégration MongoDB Elastic](https://www.elastic.co/docs/reference/integrations/mongodb)
 - [Métrique MongoDB `replstatus`](https://www.elastic.co/docs/reference/beats/metricbeat/metricbeat-metricset-mongodb-replstatus)
+- [Assets MongoDB OpenTelemetry](https://www.elastic.co/docs/reference/integrations/mongodb_otel)
 - [Policies Elastic Agent](https://www.elastic.co/docs/reference/fleet/agent-policy)

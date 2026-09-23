@@ -26,12 +26,15 @@ chemin OTLP → Kafka → Elasticsearch.
 
 Le mode EDOT standalone est idempotent : la présence de
 `/opt/Elastic/Agent/elastic-agent` et du marqueur
-`/etc/observability/elastic-agent-otel.mode` conserve l'installation après un
-redémarrage ou un reprovisionnement. Les VM ne sont pas enrôlées comme agents
+`/etc/observability/elastic-agent-otel.mode`, ainsi que la correspondance avec
+`elastic_agent_version`, conserve l'installation après un redémarrage ou un
+reprovisionnement. Une installation n'est relancée que si l'agent est absent,
+que le mode EDOT est absent, que la version diffère ou qu'une réinstallation
+explicite est demandée. Les VM ne sont pas enrôlées comme agents
 Fleet classiques ; elles peuvent être visibles dans Fleet comme collecteurs
 OTel monitorés par OpAMP.
 Une réinstallation doit être demandée explicitement avec la variable Ansible
-`fleet_agent_reinstall=true` ; elle ne fait pas partie du chemin normal de
+`elastic_agent_reinstall=true` ; elle ne fait pas partie du chemin normal de
 démarrage.
 
 Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
@@ -91,6 +94,15 @@ réessayé cinq fois, avec 15 secondes entre les tentatives. Ces valeurs peuvent
 être adaptées ponctuellement avec `-e` si le réseau est particulièrement lent,
 par exemple `-e elastic_agent_download_retries=8 elastic_agent_download_delay=30`.
 
+Le rôle `elk` attend l'allocation des index primaires Elasticsearch avant de
+réinitialiser le token de service Kibana. Une réponse 200 sur `GET /` ne suffit
+pas toujours lors du premier démarrage : l'API des tokens écrit dans l'index
+`.security`, qui peut encore être indisponible et répondre 503. La suppression
+du token réessaie également les réponses 503 transitoires. Voir la
+[documentation Elastic sur les comptes de service](https://www.elastic.co/docs/deploy-manage/users-roles/cluster-or-deployment-auth/service-accounts)
+pour le stockage des tokens et la [documentation de l'API de santé du cluster](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-health)
+pour le mécanisme d'attente.
+
 Exécuter les playbooks depuis la racine du dépôt, avec l'inventaire Vagrant.
 
 Pour démarrer et provisionner les VM, utiliser :
@@ -106,9 +118,10 @@ Après vérification des services, déployer le reste de l'architecture avec :
 make deploy
 ```
 
-Les mots de passe restent dans `ELASTIC_PASSWORD` et `POSTGRESQL_PASSWORD` hors
-du dépôt. La cible `ansible-deploy` reste disponible pour l'orchestrateur
-Ansible complet.
+Les mots de passe restent dans `ELASTIC_PASSWORD`, `POSTGRESQL_PASSWORD` et
+`MONGODB_PASSWORD` hors du dépôt. Si `MONGODB_PASSWORD` n'est pas défini, le
+POC réutilise la valeur de `POSTGRESQL_PASSWORD`. La cible `ansible-deploy`
+reste disponible pour l'orchestrateur Ansible complet.
 
 ## Documentation externe
 

@@ -74,19 +74,48 @@ receivers:
   mongodb/poc:
     hosts:
       - endpoint: 127.0.0.1:27017
+    username: {{ mongodb_otel_user }}
+    password: {{ mongodb_otel_password }}
     collection_interval: 60s
     initial_delay: 5s
+    direct_connection: true
     tls:
       insecure: true
 
   postgresql/poc:
     endpoint: 127.0.0.1:5432
-    username: {{ postgresql_user }}
-    password: {{ postgresql_password }}
+    username: {{ postgresql_otel_user }}
+    password: {{ postgresql_otel_password }}
     databases:
       - {{ postgresql_database }}
     collection_interval: 30s
     initial_delay: 5s
+    metrics:
+      postgresql.blks_hit: {enabled: true}
+      postgresql.blks_read: {enabled: true}
+      postgresql.database.locks: {enabled: true}
+      postgresql.deadlocks: {enabled: true}
+      postgresql.sequential_scans: {enabled: true}
+      postgresql.temp_files: {enabled: true}
+      postgresql.temp.io: {enabled: true}
+      postgresql.tup_deleted: {enabled: true}
+      postgresql.tup_fetched: {enabled: true}
+      postgresql.tup_inserted: {enabled: true}
+      postgresql.tup_returned: {enabled: true}
+      postgresql.tup_updated: {enabled: true}
+      postgresql.wal.delay: {enabled: true}
+      postgresql.function.calls: {enabled: true}
+    events:
+      db.server.query_sample: {enabled: true}
+      db.server.top_query: {enabled: true}
+    query_sample_collection:
+      max_rows_per_query: 100
+    top_query_collection:
+      max_rows_per_query: 100
+      top_n_query: 200
+      max_explain_each_interval: 1000
+      query_plan_cache_size: 1000
+      query_plan_cache_ttl: 1h
     tls:
       insecure: true
 {% endif %}
@@ -110,6 +139,11 @@ processors:
       - key: host.name
         value: {{ inventory_hostname }}
         action: upsert
+  attributes/mongodb:
+    actions:
+      - key: mongodb.instance
+        value: 127.0.0.1:27017
+        action: upsert
 
 exporters:
   otlphttp/edge:
@@ -123,6 +157,16 @@ service:
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
     metrics:
-      receivers: [hostmetrics/system{% if node_role == 'poc' %}, kafka_metrics/poc, mongodb/poc, postgresql/poc{% endif %}]
+      receivers: [hostmetrics/system{% if node_role == 'poc' %}, kafka_metrics/poc, postgresql/poc{% endif %}]
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
+{% if node_role == 'poc' %}
+    metrics/mongodb:
+      receivers: [mongodb/poc]
+      processors: [memory_limiter, resource/agent, attributes/mongodb, batch]
+      exporters: [otlphttp/edge]
+    logs/postgresql:
+      receivers: [postgresql/poc]
+      processors: [memory_limiter, resource/agent, batch]
+      exporters: [otlphttp/edge]
+{% endif %}

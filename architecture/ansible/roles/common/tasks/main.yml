@@ -6,8 +6,10 @@
 
 - name: Vérifier les secrets nécessaires au POC
   ansible.builtin.assert:
-    that: postgresql_password | length > 0
-    fail_msg: Définir POSTGRESQL_PASSWORD hors Git.
+    that:
+      - postgresql_password | length > 0
+      - mongodb_otel_password | length > 0
+    fail_msg: Définir POSTGRESQL_PASSWORD et MONGODB_PASSWORD hors Git.
   when: node_role == 'poc'
 
 - name: Identifier l'interface du réseau privé

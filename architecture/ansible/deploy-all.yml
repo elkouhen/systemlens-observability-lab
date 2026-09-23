@@ -24,11 +24,17 @@
       environment:
         DEPLOYMENT_PROFILE: "{{ lookup('env', 'DEPLOYMENT_PROFILE') | default('minimal', true) }}"
         POSTGRESQL_PASSWORD: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+        MONGODB_PASSWORD: "{{ lookup('env', 'MONGODB_PASSWORD') | default(lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true), true) }}"
         ELASTIC_PASSWORD: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
 
 - import_playbook: site.yml
   vars:
     postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
+    mongodb_password: "{{ lookup('env', 'MONGODB_PASSWORD') | default(lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true), true) }}"
+    mongodb_otel_user: otel_monitor
+    mongodb_otel_password: "{{ mongodb_password }}"
+    postgresql_otel_user: otel
+    postgresql_otel_password: "{{ postgresql_password }}"
     elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
     fleet_enrollment_token: ""
 

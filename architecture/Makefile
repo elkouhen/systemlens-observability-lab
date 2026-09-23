@@ -14,6 +14,11 @@ OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
 ELASTIC_STACK_VERSION ?= 9.4.3
+KUBERNETES_OTEL_PACKAGE_VERSION ?= 2.6.0
+KAFKA_OTEL_PACKAGE_VERSION ?= 0.3.1
+POSTGRESQL_OTEL_PACKAGE_VERSION ?= 0.5.0
+MONGODB_OTEL_PACKAGE_VERSION ?= 0.3.1
+SYSTEM_OTEL_PACKAGE_VERSION ?= 0.3.0
 SKIP_ELK_VM_PROVISION ?= 0
 SKIP_KUBERNETES_APPLY ?= 0
 ELASTICSEARCH_URL ?= http://elasticsearch.observability.test:9200
@@ -33,7 +38,7 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
 	otel-edge-vm-provision elastic-agent-vm-provision fleet-vm-monitoring \
 	vms-up deploy elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-backup dashboards-verify kubernetes-otel-dashboards-deploy kubernetes-otel-dashboards-verify apm-report-api-key-create \
+	dashboards-verify kubernetes-otel-dashboards-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
@@ -132,21 +137,7 @@ kibana-fleet-config-deploy: ## Appliquer la configuration Kibana/Fleet déclarat
 	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-password}"; \
 	 postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
 	 test -n "$$kibana_password" && test -n "$$postgresql_password" || { echo 'Identifiants Kibana/PostgreSQL absents' >&2; exit 1; }; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kubernetes-otel-dashboards.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ELASTICSEARCH_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboards.sh
-
-kubernetes-otel-dashboards-deploy: ## Réconcilier les dashboards Kubernetes OTel du package Fleet
-	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
-	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kubernetes-otel-dashboards.sh
-
-otel-dashboards-reconcile: ## Corriger les filtres des dashboards OTel System, Kafka, MongoDB et PostgreSQL
-	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
-	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-controls.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ELASTICSEARCH_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-queries.sh; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-otel-dashboard-labels.sh
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" KIBANA_VERSION='$(ELASTIC_STACK_VERSION)' KUBERNETES_OTEL_PACKAGE_VERSION='$(KUBERNETES_OTEL_PACKAGE_VERSION)' KAFKA_OTEL_PACKAGE_VERSION='$(KAFKA_OTEL_PACKAGE_VERSION)' POSTGRESQL_OTEL_PACKAGE_VERSION='$(POSTGRESQL_OTEL_PACKAGE_VERSION)' MONGODB_OTEL_PACKAGE_VERSION='$(MONGODB_OTEL_PACKAGE_VERSION)' SYSTEM_OTEL_PACKAGE_VERSION='$(SYSTEM_OTEL_PACKAGE_VERSION)' ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh
 
 elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk-01 via Quadlet
 	@password="$${ELASTIC_PASSWORD:-password}"; \
@@ -303,13 +294,13 @@ slides: ## Démarrer le support Slidev de l'architecture
 
 vms-up: ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
 	@set -euo pipefail; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" $(VAGRANT) up poc-01 otel-backend-01 otel-edge-01 elk-01 --provision-with ansible
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:-$${POSTGRESQL_PASSWORD:-password}}" $(VAGRANT) up poc-01 otel-backend-01 otel-edge-01 elk-01 --provision-with ansible
 
 elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des agents VM
 	@set -euo pipefail; \
 	for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
-	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" $(VAGRANT) provision "$$node" --provision-with ansible; \
+	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:-$${POSTGRESQL_PASSWORD:-password}}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
 
 deploy: ## Déployer Elastic, Fleet, Kubernetes et les applications après vms-up
@@ -420,12 +411,6 @@ otel-kafka-exporter-kubernetes-bascule: ## Retirer l'exporteur Kubernetes après
 otel-kafka-exporter-relocate: otel-kafka-exporter-vm-provision otel-kafka-exporter-kubernetes-bascule ## Basculer l'exporteur Kafka OTel vers le backend OTEL
 
 ##@ Dashboards et consultation
-
-dashboards-backup: ## Sauvegarder tous les dashboards Kibana et leurs références
-	@kibana_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )"; \
-	test -n "$$kibana_password" || { echo 'Mot de passe Kibana requis pour la sauvegarde.' >&2; exit 1; }; \
-	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/backup-kibana-dashboards.sh
 
 dashboards-verify: ## Vérifier que les jeux de données alimentant les dashboards sont récents
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \

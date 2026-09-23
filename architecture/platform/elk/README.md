@@ -73,9 +73,11 @@ Pour migrer l'exporteur depuis Kubernetes, exécuter
 `make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
 
 La configuration Kibana Quadlet installe les packages Elastic `system`,
-`kubernetes`, `mongodb`, `kafka` et `postgresql`, puis la cible
-`make kibana-fleet-config-deploy` réconcilie la configuration Fleet et les
-assets nécessaires au plan de contrôle. Les policies classiques de collecte VM
+`system_otel`, `kubernetes_otel`, `mongodb_otel`, `kafka_otel` et
+`postgresql_otel`, puis la cible
+`make kibana-fleet-config-deploy` applique la configuration Fleet et les
+packages nécessaires au plan de contrôle. Les corrections des dashboards OTel
+restent des cibles Make explicites. Les policies classiques de collecte VM
 ne doivent pas être activées en parallèle du mode EDOT standalone.
 Les données Elasticsearch ne sont pas copiées par Ansible : restaurer un
 snapshot ou réindexer les données sur la nouvelle VM avant de considérer la

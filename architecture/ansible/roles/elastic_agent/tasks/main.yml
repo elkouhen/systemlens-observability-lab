@@ -11,13 +11,24 @@
     - /etc/observability/elastic-agent-otel.mode
   register: elastic_agent_state
 
+- name: Vérifier la version de l’agent déjà installé
+  ansible.builtin.command:
+    argv: [/opt/Elastic/Agent/elastic-agent, version]
+  register: elastic_agent_version_state
+  changed_when: false
+  failed_when: false
+  when: elastic_agent_state.results[0].stat.exists
+
 - name: Déterminer la transition depuis Fleet classique
   ansible.builtin.set_fact:
     elastic_agent_binary_exists: "{{ elastic_agent_state.results[0].stat.exists }}"
     elastic_agent_otel_configured: "{{ elastic_agent_state.results[1].stat.exists }}"
+    elastic_agent_version_matches: >-
+      {{ elastic_agent_version_state.stdout | default('') is search('Version:\s*' ~ elastic_agent_version) }}
     elastic_agent_otel_install_required: >-
       {{ not elastic_agent_state.results[0].stat.exists or
          (elastic_agent_state.results[0].stat.exists and not elastic_agent_state.results[1].stat.exists) or
+         not (elastic_agent_version_state.stdout | default('') is search('Version:\s*' ~ elastic_agent_version)) or
          (elastic_agent_reinstall | default(false) | bool) }}
 
 - name: Créer le répertoire d’état de l’agent EDOT
@@ -34,7 +45,7 @@
     enabled: false
   when:
     - elastic_agent_binary_exists
-    - not elastic_agent_otel_configured or elastic_agent_reinstall | default(false) | bool
+    - not elastic_agent_otel_configured or not elastic_agent_version_matches or elastic_agent_reinstall | default(false) | bool
   failed_when: false
 
 - name: Désinstaller l’agent Fleet avant sa conversion en mode EDOT
@@ -45,7 +56,7 @@
       - --force
   when:
     - elastic_agent_binary_exists
-    - not elastic_agent_otel_configured or elastic_agent_reinstall | default(false) | bool
+    - not elastic_agent_otel_configured or not elastic_agent_version_matches or elastic_agent_reinstall | default(false) | bool
   no_log: true
   failed_when: false
 

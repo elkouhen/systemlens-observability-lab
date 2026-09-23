@@ -53,20 +53,6 @@ présentée comme un pourcentage sans métrique de capacité de référence.
 
 ## Déploiement et vérification
 
-Avant un déploiement ou une réconciliation, conserver l’état réellement
-présent dans Kibana :
-
-```bash
-make dashboards-backup
-```
-
-La sauvegarde est écrite dans
-[`backups/`](backups/) : `kibana-dashboards.ndjson` contient les dashboards et
-leurs objets référencés, tandis que `manifest.json` permet de retrouver les
-IDs, titres, types de références et le hash de l’export. Elle sert de référence
-pour identifier les axes de réconciliation manquants lorsqu’un script ne
-couvre pas encore un panneau ou un objet sauvegardé.
-
 Déployer la configuration déclarative des intégrations Fleet :
 
 ```bash
@@ -81,7 +67,6 @@ documents sur les quinze dernières minutes :
 
 ```bash
 make dashboards-verify
-make otel-dashboards-reconcile
 make postgresql-otel-dashboards-verify
 ```
 
@@ -99,14 +84,10 @@ non présent dans les documents OTel) ne doivent pas être réintroduits : ils
 produisent un sélecteur vide ou en erreur.
 
 Le receiver PostgreSQL OTel de ce POC expose les sessions, transactions, taille
-des bases et compteurs du bgwriter. Il n’expose pas les statistiques de requêtes,
-les verrous, `pg_stat_statements`, les deadlocks ou les compteurs de tuples : les
-vues PostgreSQL correspondantes ne doivent donc pas être présentées comme des
-métriques OTel disponibles.
-
-Les scripts de réconciliation recherchent tous les dashboards dont le titre
-contient `PostgreSQL` et `OTel`. Ils appliquent le filtre d’hôte, les requêtes
-ES|QL et les libellés à chaque dashboard trouvé, sans dépendre d’un ID particulier.
+des bases, compteurs du bgwriter, verrous, deadlocks et compteurs de tuples. Les
+événements `db.server.query_sample` et `db.server.top_query` sont activés grâce
+à `pg_stat_activity` et `pg_stat_statements`. Leur disponibilité dépend des
+droits de l’utilisateur `otel` créés par Ansible.
 
 Le dashboard versionné est réconcilié de manière non destructive par
 `make business-dashboard-deploy` (ou automatiquement par `make elk-deploy`). Le script

@@ -4,6 +4,7 @@ set -euo pipefail
 
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
+kibana_version="${KIBANA_VERSION:-9.4.3}"
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de configurer Fleet}"
 : "${POSTGRESQL_PASSWORD:?Définir POSTGRESQL_PASSWORD avant de configurer Fleet}"
 
@@ -67,6 +68,60 @@ ensure_agent_policy data-fleet \
   '{"name":"Data — Elastic Agent","namespace":"default","monitoring_enabled":["logs","metrics"],"is_default":true}'
 ensure_agent_policy otel-fleet \
   '{"name":"OTel — Elastic Agent","namespace":"default","monitoring_enabled":["logs","metrics"]}'
+
+install_package_from_registry() {
+  local package_name="$1"
+  local package_version="$2"
+  local package_info install_status installed_version attempt
+
+  # Les packages *_otel fournissent les dashboards et les assets Kibana pour
+  # les métriques produites par les Collectors OTel. Les Collectors restent
+  # autonomes et ne sont pas enrôlés comme agents Fleet.
+  package_info="$(curl "${curl_args[@]}" \
+    "${kibana_url}/api/fleet/epm/packages/${package_name}?withMetadata=true" 2>/dev/null || true)"
+  install_status="$(jq -r '.item.install_status // .item.status // empty' <<<"${package_info}")"
+  installed_version="$(jq -r '.item.version // empty' <<<"${package_info}")"
+  if [[ "${install_status}" != 'installed' || "${installed_version}" != "${package_version}" ]]; then
+    curl "${curl_args[@]}" -X POST \
+      "${kibana_url}/api/fleet/epm/packages/${package_name}/${package_version}" \
+      --data '{"ignore_constraints":false}' >/dev/null
+  fi
+
+  for attempt in $(seq 1 60); do
+    package_info="$(curl "${curl_args[@]}" \
+      "${kibana_url}/api/fleet/epm/packages/${package_name}?withMetadata=true")"
+    install_status="$(jq -r '.item.install_status // .item.status // empty' <<<"${package_info}")"
+    installed_version="$(jq -r '.item.version // empty' <<<"${package_info}")"
+    case "${install_status}" in
+      installed)
+        [[ "${installed_version}" == "${package_version}" ]] || {
+          printf 'Version inattendue pour %s : %s (attendu %s, Kibana %s)\n' \
+            "${package_name}" "${installed_version:-inconnue}" "${package_version}" "${kibana_version}" >&2
+          return 1
+        }
+        printf 'Intégration Fleet %s installée (version %s)\n' \
+          "${package_name}" "${installed_version}"
+        return 0
+        ;;
+      install_failed)
+        printf 'Échec de l’installation de l’intégration Fleet %s : %s\n' \
+          "${package_name}" "$(jq -r '.item.installationInfo.latest_install_failed_attempts[-1].error.message // "erreur inconnue"' <<<"${package_info}")" >&2
+        return 1
+        ;;
+    esac
+    sleep 2
+  done
+
+  printf 'Délai dépassé pour l’installation de l’intégration Fleet %s (état : %s)\n' \
+    "${package_name}" "${install_status:-inconnu}" >&2
+  return 1
+}
+
+install_package_from_registry kubernetes_otel "${KUBERNETES_OTEL_PACKAGE_VERSION:-2.6.0}"
+install_package_from_registry kafka_otel "${KAFKA_OTEL_PACKAGE_VERSION:-0.3.1}"
+install_package_from_registry postgresql_otel "${POSTGRESQL_OTEL_PACKAGE_VERSION:-0.5.0}"
+install_package_from_registry mongodb_otel "${MONGODB_OTEL_PACKAGE_VERSION:-0.3.1}"
+install_package_from_registry system_otel "${SYSTEM_OTEL_PACKAGE_VERSION:-0.3.0}"
 
 # Un redémarrage ou une réinitialisation historique du Fleet Server peut
 # laisser plusieurs enregistrements actifs pour le même hôte. L'architecture

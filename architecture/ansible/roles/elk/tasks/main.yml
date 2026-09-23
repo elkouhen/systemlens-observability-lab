@@ -94,6 +94,20 @@
   delay: 2
   until: elasticsearch_ready.status == 200
 
+- name: Attendre l'allocation des index système Elasticsearch
+  ansible.builtin.uri:
+    url: http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&wait_for_no_initializing_shards=true&timeout=60s
+    user: elastic
+    password: "{{ elastic_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: elasticsearch_cluster_ready
+  retries: 30
+  delay: 2
+  until:
+    - elasticsearch_cluster_ready.status == 200
+    - elasticsearch_cluster_ready.json.status | default('red') in ['yellow', 'green']
+
 - name: Réinitialiser le token de service Kibana
   ansible.builtin.uri:
     url: http://127.0.0.1:9200/_security/service/elastic/kibana/credential/token/kibana
@@ -102,6 +116,10 @@
     password: "{{ elastic_password }}"
     force_basic_auth: true
     status_code: [200, 404]
+  register: kibana_token_delete
+  retries: 15
+  delay: 2
+  until: kibana_token_delete.status in [200, 404]
   no_log: true
 
 - name: Créer le token de service Kibana

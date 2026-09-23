@@ -21,6 +21,7 @@ Vagrant.configure("2") do |config|
   # Valeur volontairement faible pour le POC ; une variable d'environnement
   # reste prioritaire pour tout environnement partagé.
   postgresql_password = ENV.fetch("POSTGRESQL_PASSWORD", "password")
+  mongodb_password = ENV.fetch("MONGODB_PASSWORD", postgresql_password)
   otel_elasticsearch_api_key = ENV["OTEL_ELASTICSEARCH_API_KEY"]
   elastic_password = ENV.fetch("ELASTIC_PASSWORD", "password")
   fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
@@ -60,6 +61,7 @@ Vagrant.configure("2") do |config|
         "node_role" => node_config[:role].to_s,
         "kafka_controller_voters" => KAFKA_CONTROLLER_VOTERS,
         "postgresql_password" => postgresql_password || "",
+        "mongodb_password" => mongodb_password || "",
         "otel_elasticsearch_api_key" => otel_elasticsearch_api_key || "",
         "elastic_password" => elastic_password || "",
         "fleet_enrollment_token" => fleet_enrollment_token || "",

@@ -10,6 +10,8 @@ Kibana, Fleet Server ou ECK n'est déployé dans Kubernetes.
 - [`MONGODB.md`](MONGODB.md) : fonctionnement de l'intégration MongoDB.
 - [`KAFKA.md`](KAFKA.md) : fonctionnement de l'intégration Kafka et de
   Jolokia.
+- La collecte PostgreSQL OTel et les droits de supervision sont déclarés dans
+  le rôle Ansible `poc` et dans le template EDOT de l'agent.
 - [`ADR-001-choix-elastic-agent-otel.md`](../../../docs/ADR-001-choix-elastic-agent-otel.md) :
   choix de collecte par type de composant.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
@@ -22,7 +24,10 @@ système ainsi que les logs, puis les envoient au Collecteur Edge.
 Elasticsearch reçoit ensuite les signaux via Kafka et l'exporteur backend.
 
 Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
-préconfigurer les assets Fleet sur un nouveau Kibana, puis
+installer les packages `system_otel` `0.3.0`, `kubernetes_otel` `2.6.0`,
+`kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0` et `mongodb_otel` `0.3.1`,
+compatibles avec Kibana `9.4.3`, puis préconfigurer les
+assets Fleet sur un nouveau Kibana, puis
 `make fleet-vm-monitoring` pour activer le monitoring OpAMP des VM sans modifier
 la configuration EDOT standalone. Le flux OTel des applications, de Kubernetes
 et des VM converge vers les topics déclarés dans `otel-kafka.yaml`. Les VM ne
@@ -45,3 +50,5 @@ bloquante : elle ne doit pas être interprétée comme une policy absente.
 - [Créer des ingest pipelines](https://www.elastic.co/docs/manage-data/ingest/transform-enrich/ingest-pipelines)
 - [Intégration MongoDB](https://www.elastic.co/docs/reference/integrations/mongodb)
 - [Intégration Kafka](https://www.elastic.co/docs/reference/integrations/kafka)
+- [Assets Kafka OpenTelemetry](https://www.elastic.co/docs/reference/integrations/kafka_otel)
+- [Assets PostgreSQL OpenTelemetry](https://www.elastic.co/docs/reference/integrations/postgresql_otel)
