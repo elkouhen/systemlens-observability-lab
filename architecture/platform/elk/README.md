@@ -45,7 +45,7 @@ Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
 d'enrôlement Fleet. Les VM utilisent exclusivement l'Elastic Agent EDOT
 afin d'éviter une double collecte.
 
-La cible `make fleet-vm-monitoring` ajoute le monitoring OpAMP des agents EDOT
+La cible `make fleet-opamp-enable` ajoute le monitoring OpAMP des agents EDOT
 des quatre VM. Elle ne transforme pas ces agents en agents Fleet classiques :
 les données continuent vers `otel-edge-01` en OTLP.
 
@@ -72,12 +72,12 @@ la volumétrie du POC sans modifier le chemin de collecte.
 Pour migrer l'exporteur depuis Kubernetes, exécuter
 `make otel-kafka-exporter-relocate`, puis `make otel-kafka-exporter-vm-status`.
 
-La configuration Kibana Quadlet installe les packages Elastic `system`,
+La cible Fleet installe les packages Elastic `system`,
 `system_otel`, `kubernetes_otel`, `mongodb_otel`, `kafka_otel` et
 `postgresql_otel`, puis la cible
-`make kibana-fleet-config-deploy` applique la configuration Fleet et les
-packages nécessaires au plan de contrôle. Les corrections des dashboards OTel
-restent des cibles Make explicites. Les policies classiques de collecte VM
+`make fleet-assets-deploy` applique la configuration Fleet et les
+packages nécessaires au plan de contrôle. Les dashboards OTel ne sont pas
+réécrits automatiquement. Les policies classiques de collecte VM
 ne doivent pas être activées en parallèle du mode EDOT standalone.
 Les données Elasticsearch ne sont pas copiées par Ansible : restaurer un
 snapshot ou réindexer les données sur la nouvelle VM avant de considérer la

@@ -9,7 +9,7 @@ Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
 et métriques locaux et les envoie en OTLP au Collecteur Edge. Kafka est le
 buffer commun des signaux Kubernetes et VM.
 
-La cible `make fleet-vm-monitoring` active en plus le monitoring Fleet OpAMP
+La cible `make fleet-opamp-enable` active en plus le monitoring Fleet OpAMP
 des agents EDOT vers Fleet Server sur `elk-01`. Les agents restent standalone :
 leurs logs et métriques continuent vers `otel-edge-01` en OTLP et aucune
 intégration Fleet concurrente n'est activée.
@@ -83,7 +83,7 @@ configuration déployée restent au même endroit.
 
 Le playbook `fleet-agent.yml` est le point d'entrée du monitoring OpAMP. Il
 réapplique la configuration EDOT avec un jeton fourni temporairement par la
-cible `make fleet-vm-monitoring`, sans écrire ce jeton dans le dépôt.
+cible `make fleet-opamp-enable`, sans écrire ce jeton dans le dépôt.
 
 Le script de monitoring réutilise un jeton OpAMP stable par VM ; il ne crée
 donc pas une nouvelle clé lors d'un second lancement. L'identifiant OpAMP est

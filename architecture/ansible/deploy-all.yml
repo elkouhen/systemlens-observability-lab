@@ -36,6 +36,7 @@
     postgresql_otel_user: otel
     postgresql_otel_password: "{{ postgresql_password }}"
     elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
+    apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"
     fleet_enrollment_token: ""
 
 - name: Déployer Kubernetes, Elastic, Fleet et l'application
@@ -114,7 +115,7 @@
         ANSIBLE_LOCAL_TEMP: /tmp
       no_log: true
 
-    - name: Attendre Kibana et réconcilier Fleet et les dashboards
+    - name: Attendre Kibana et appliquer les assets Fleet
       ansible.builtin.command:
         argv: [make, kibana-ready, kibana-fleet-config-deploy]
         chdir: "{{ repo_root }}"
@@ -123,9 +124,9 @@
         POSTGRESQL_PASSWORD: "{{ postgresql_password }}"
       no_log: true
 
-    - name: Importer les objets Kibana versionnés
+    - name: Importer la data view APM et les policies d’observabilité
       ansible.builtin.command:
-        argv: [make, apm-data-view-deploy, business-dashboard-deploy, observability-policies-deploy]
+        argv: [make, apm-data-view-deploy, observability-policies-deploy]
         chdir: "{{ repo_root }}"
       environment:
         KIBANA_PASSWORD: "{{ elastic_password }}"

@@ -2,10 +2,11 @@
 
 Les fichiers `.ndjson` sont des exports d'objets sauvegardés Kibana. Le fichier
 `business-metrics-dashboard.json` est une définition inline de l'API Dashboard
-Kibana, avec des visualisations ES|QL. La collecte des VM est assurée par Elastic Agent EDOT standalone et envoyée au
-Elasticsearch. Les packages Fleet sont installés par la configuration Quadlet
-de `elk-01` puis réconciliés par le script de bootstrap Fleet. Les dashboards
-Fleet classiques restent des assets de compatibilité ; les contrôles
+Kibana, avec des visualisations ES|QL. La collecte des VM est assurée par Elastic Agent EDOT standalone et envoyée à
+Elasticsearch. Les packages Fleet sont installés par la cible
+`make fleet-assets-deploy`. L’installation fournit les dashboards natifs des
+packages ; aucun script ne les réécrit ensuite. Les dashboards Fleet classiques
+restent des assets de compatibilité ; les contrôles
 ci-dessous ciblent les data streams OTel réellement produits par le chemin
 EDOT standalone → Edge → Kafka → backend.
 
@@ -35,11 +36,9 @@ attendent le schéma de l’Elastic Agent Kubernetes autonome et ne sont pas ali
 le flux `kubeletstats` de cette architecture.
 
 Le package Fleet `kubernetes_otel` installe onze dashboards Kubernetes OTel avec des requêtes ES|QL
-embarquées. `make kibana-fleet-config-deploy` les réconcilie avec le schéma de l’architecture :
-les panneaux de redémarrages, utilisation mémoire et utilisation des limites sont
-calculés à partir des champs réellement indexés par `kubeletstats` et `k8s_cluster`.
-La revue peut être rejouée séparément avec `make kubernetes-otel-dashboards-deploy`,
-puis contrôlée avec `make kubernetes-otel-dashboards-verify`.
+embarquées. Le plan conserve ces dashboards natifs sans réécriture automatique.
+La cible `make kubernetes-otel-dashboards-verify` contrôle leurs références de
+data streams et de champs lorsque les données sont présentes.
 
 Les métriques doivent être filtrées par environnement (`deployment.environment.name`),
 service (`service.name`) et hôte (`host.name`) avant d'interpréter une alerte.
@@ -57,7 +56,7 @@ Déployer la configuration déclarative des intégrations Fleet :
 
 ```bash
 make kubernetes-validate
-make kibana-fleet-config-deploy
+make fleet-assets-deploy
 make business-dashboard-deploy
 make observability-policies-deploy
 ```
@@ -71,11 +70,12 @@ make postgresql-otel-dashboards-verify
 ```
 
 La cible n'affiche aucun secret et vérifie les data streams attendus ainsi que
-les métriques clés ci-dessus. Elle vérifie aussi les sept dashboards PostgreSQL
-OTel, leurs champs réellement mappés et leurs références de data streams. Elle
-vérifie enfin les onze dashboards Kubernetes
-OTel et leurs références de champs. Elle permet de distinguer un dashboard vide
-d'un problème de collecte.
+les métriques clés ci-dessus. Les audits détaillés des dashboards de package
+restent explicites avec `make postgresql-otel-dashboards-verify` et
+`make kubernetes-otel-dashboards-verify`. Ils peuvent signaler des panneaux
+optionnels incompatibles avec les métriques réellement exposées ; ils ne
+réécrivent pas les dashboards et ne sont pas inclus dans le contrôle de santé
+des data streams.
 
 Les dashboards OTel System, Kafka, MongoDB et tous les dashboards PostgreSQL OTel partagent un filtre
 `Hôte` basé sur `resource.attributes.host.name`. Les anciens filtres propres
@@ -89,8 +89,9 @@ des bases, compteurs du bgwriter, verrous, deadlocks et compteurs de tuples. Les
 à `pg_stat_activity` et `pg_stat_statements`. Leur disponibilité dépend des
 droits de l’utilisateur `otel` créés par Ansible.
 
-Le dashboard versionné est réconcilié de manière non destructive par
-`make business-dashboard-deploy` (ou automatiquement par `make elk-deploy`). Le script
+Le dashboard métier versionné est importé explicitement par
+`make business-dashboard-deploy`. Il n’est pas importé automatiquement par
+`make elk-deploy`. Le script
 `platform/elk/scripts/replace-kibana-dashboard.sh` délègue à l'API `PUT` de Kibana :
 l'ancien objet reste disponible si la nouvelle définition est refusée ;
 `make business-dashboard-replace` fournit un alias explicite. Il apparaît dans Kibana sous

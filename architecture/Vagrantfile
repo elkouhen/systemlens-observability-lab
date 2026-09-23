@@ -24,6 +24,7 @@ Vagrant.configure("2") do |config|
   mongodb_password = ENV.fetch("MONGODB_PASSWORD", postgresql_password)
   otel_elasticsearch_api_key = ENV["OTEL_ELASTICSEARCH_API_KEY"]
   elastic_password = ENV.fetch("ELASTIC_PASSWORD", "password")
+  apm_server_secret_token = ENV.fetch("APM_SERVER_SECRET_TOKEN", "")
   fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
 
   # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent), optionnel.
@@ -64,6 +65,7 @@ Vagrant.configure("2") do |config|
         "mongodb_password" => mongodb_password || "",
         "otel_elasticsearch_api_key" => otel_elasticsearch_api_key || "",
         "elastic_password" => elastic_password || "",
+        "apm_server_secret_token" => apm_server_secret_token || "",
         "fleet_enrollment_token" => fleet_enrollment_token || "",
         "zscaler_ca_cert_content" => zscaler_ca_cert_content
       }

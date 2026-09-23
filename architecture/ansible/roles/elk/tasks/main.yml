@@ -54,7 +54,7 @@
     content: |
       ELASTICSEARCH_USERNAME=elastic
       ELASTICSEARCH_PASSWORD={{ elastic_password }}
-      APM_SERVER_SECRET_TOKEN={{ elastic_password | hash('sha256') }}
+      APM_SERVER_SECRET_TOKEN={{ apm_server_secret_token | default(elastic_password | hash('sha256'), true) }}
     dest: /etc/observability/apm-server.env
     mode: '0600'
   no_log: true

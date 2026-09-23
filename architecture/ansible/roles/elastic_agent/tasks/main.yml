@@ -24,11 +24,11 @@
     elastic_agent_binary_exists: "{{ elastic_agent_state.results[0].stat.exists }}"
     elastic_agent_otel_configured: "{{ elastic_agent_state.results[1].stat.exists }}"
     elastic_agent_version_matches: >-
-      {{ elastic_agent_version_state.stdout | default('') is search('Version:\s*' ~ elastic_agent_version) }}
+      {{ elastic_agent_version_state.stdout | default('') is search('Binary:\s*' ~ elastic_agent_version) }}
     elastic_agent_otel_install_required: >-
       {{ not elastic_agent_state.results[0].stat.exists or
          (elastic_agent_state.results[0].stat.exists and not elastic_agent_state.results[1].stat.exists) or
-         not (elastic_agent_version_state.stdout | default('') is search('Version:\s*' ~ elastic_agent_version)) or
+         not (elastic_agent_version_state.stdout | default('') is search('Binary:\s*' ~ elastic_agent_version)) or
          (elastic_agent_reinstall | default(false) | bool) }}
 
 - name: Créer le répertoire d’état de l’agent EDOT

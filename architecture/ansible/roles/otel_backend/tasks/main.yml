@@ -31,7 +31,7 @@
   ansible.builtin.copy:
     content: |
       ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}
-      APM_SERVER_SECRET_TOKEN={{ elastic_password | hash('sha256') }}
+      APM_SERVER_SECRET_TOKEN={{ apm_server_secret_token | default(elastic_password | hash('sha256'), true) }}
     dest: /etc/observability/otel-kafka-exporter.env
     mode: '0600'
   no_log: true

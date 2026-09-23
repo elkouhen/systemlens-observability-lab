@@ -22,6 +22,7 @@
     elastic_agent_version: 9.4.3
     apm_server_version: 9.4.3
     elastic_password: ""
+    apm_server_secret_token: ""
     otel_elasticsearch_api_key: ""
     fleet_enrollment_token: ""
     zscaler_ca_cert_content: ""

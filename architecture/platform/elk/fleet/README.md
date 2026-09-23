@@ -23,20 +23,21 @@ les receivers locaux collectent les métriques Kafka, MongoDB, PostgreSQL et
 système ainsi que les logs, puis les envoient au Collecteur Edge.
 Elasticsearch reçoit ensuite les signaux via Kafka et l'exporteur backend.
 
-Appliquer `make kibana-fleet-config-deploy` (inclus dans `make elk-deploy`) pour
+Appliquer `make fleet-assets-deploy` (inclus dans `make elk-deploy`) pour
 installer les packages `system_otel` `0.3.0`, `kubernetes_otel` `2.6.0`,
 `kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0` et `mongodb_otel` `0.3.1`,
-compatibles avec Kibana `9.4.3`, puis préconfigurer les
-assets Fleet sur un nouveau Kibana, puis
-`make fleet-vm-monitoring` pour activer le monitoring OpAMP des VM sans modifier
+compatibles avec Kibana `9.4.3`, puis préconfigurer les assets Fleet sur un
+nouveau Kibana. Utiliser ensuite `make fleet-opamp-enable` pour activer le
+monitoring OpAMP des VM sans modifier
 la configuration EDOT standalone. Le flux OTel des applications, de Kubernetes
 et des VM converge vers les topics déclarés dans `otel-kafka.yaml`. Les VM ne
 sont pas enrôlées comme agents Fleet classiques afin de conserver l'export OTLP
 vers `otel-edge-01`.
 
-La cible attend d'abord un Fleet Server `HEALTHY`, puis échoue si les quatre
-agents VM ne sont pas `online` dans Fleet. Une exécution réussie constitue donc
-la preuve de réconciliation du plan de contrôle.
+La cible `fleet-prerequisites` vérifie les credentials Elasticsearch, l’API
+Kibana et un Fleet Server `HEALTHY`. La cible `fleet-opamp-enable` échoue si les
+quatre agents VM ne sont pas `online` dans Fleet. Une exécution réussie constitue
+la preuve du plan de contrôle, sans réinstaller `elk-01`.
 
 Le bootstrap utilise exclusivement l'API Fleet pour créer ou mettre à jour les
 agent policies. Il migre automatiquement une ancienne policy
