@@ -4,7 +4,7 @@
 
 | Stockage | Règle déclarée | Suppression |
 | --- | --- | --- |
-| Kafka, broker et topics métier/OTLP existants | 24 h ; 512 MiB par partition ; segments de 64 MiB ou 1 h | `delete`, vérification toutes les 5 minutes |
+| Kafka métier et Kafka OTel, avec leurs topics existants | 24 h ; 512 MiB par partition ; segments de 64 MiB ou 1 h | `delete`, vérification toutes les 5 minutes |
 | Elasticsearch `logs-*`, `metrics-*`, `traces-*` | ILM `poc-observability-24h` : rollover à 6 h ou 512 MiB par shard primaire | Suppression 24 h après rollover |
 | journald, dont stdout Podman | 24 h, segments de 1 h, plafond persistant 256 MiB et volatile 128 MiB | Suppression automatique des anciens journaux |
 | MongoDB, PostgreSQL, logs actifs Kafka | logrotate quotidien, `rotate 0` | Troncature sans archive |
@@ -60,8 +60,8 @@ make retention-verify
 
 La validation contrôle les playbooks, Python et JSON sans mutation. Le plan
 lit Elasticsearch et affiche les politiques et le nombre de data streams et
-d'indices concernés. Le déploiement applique les règles des VM, redémarre
-Kafka seulement si sa déclaration change, puis applique et vérifie ILM.
+d'indices concernés. Le déploiement applique les règles des VM, redémarre les
+brokers Kafka seulement si leur déclaration change, puis applique et vérifie ILM.
 Il exécute le nettoyage des archives expirées après modification des règles et
 renouvelle les segments journald avant leur purge. Il ne force pas la
 troncature des logs actifs par logrotate et ne lance pas de provisionnement complet.

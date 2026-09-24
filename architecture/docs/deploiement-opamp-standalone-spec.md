@@ -97,9 +97,12 @@ Les variables principales sont :
 | `POSTGRESQL_PASSWORD` | Accès PostgreSQL des services et de l’intégration | `password` dans les cibles de développement |
 | `KIBANA_URL` | API Kibana | `http://kibana.observability.test:5601` |
 | `ELASTICSEARCH_URL` | API Elasticsearch | `http://elasticsearch.observability.test:9200` |
-| `KIBANA_CURL_RESOLVE` | Résolution locale de Kibana | `kibana.observability.test:5601:192.168.33.30` |
-| `ELASTICSEARCH_CURL_RESOLVE` | Résolution locale d’Elasticsearch | `elasticsearch.observability.test:9200:192.168.33.30` |
+| `KIBANA_CURL_RESOLVE` | Résolution locale de Kibana | `kibana.observability.test:5601:192.168.33.40` |
+| `ELASTICSEARCH_CURL_RESOLVE` | Résolution locale d’Elasticsearch | `elasticsearch.observability.test:9200:192.168.33.40` |
 | `APM_SERVER_SECRET_TOKEN` | Secret partagé entre APM Server et l’exporteur OTel backend | dérivé de `ELASTIC_PASSWORD` si absent |
+
+Les noms DNS Elastic doivent résoudre vers `elk-01` (`192.168.33.40`). Le relais
+HAProxy de `otel-edge-01` est réservé aux endpoints OTLP `4317` et `4318`.
 
 Un opérateur ne doit pas utiliser la valeur par défaut en dehors d’un environnement de développement contrôlé.
 

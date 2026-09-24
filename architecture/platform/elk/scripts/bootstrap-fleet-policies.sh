@@ -3,7 +3,7 @@
 set -euo pipefail
 
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 kibana_version="${KIBANA_VERSION:-9.4.3}"
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de configurer Fleet}"
 : "${POSTGRESQL_PASSWORD:?Définir POSTGRESQL_PASSWORD avant de configurer Fleet}"
@@ -144,16 +144,17 @@ ensure_data_package_policy() {
         }')"
       ;;
     kafka)
-      package_policy_payload="$(jq -n --arg package_version "${package_version}" '
+      local kafka_host="127.0.0.1:9092"
+      package_policy_payload="$(jq -n --arg package_version "${package_version}" --arg policy_name "${policy_name}" --arg kafka_host "${kafka_host}" '
         {
-          name: "kafka-poc-01",
+          name: $policy_name,
           namespace: "default",
           policy_ids: ["data-fleet"],
           package: {name: "kafka", version: $package_version},
           inputs: {
             "kafka-kafka/metrics": {
               enabled: true,
-              vars: {hosts: ["127.0.0.1:9092"]}
+              vars: {hosts: [$kafka_host]}
             },
             "kafka-logfile": {
               enabled: true,
@@ -183,6 +184,7 @@ ensure_data_package_policy() {
 
 ensure_data_package_policy mongodb mongodb-poc-01
 ensure_data_package_policy kafka kafka-poc-01
+ensure_data_package_policy kafka kafka-otel-backend-01
 
 postgresql_policy_id="$(curl "${curl_args[@]}" "${kibana_url}/api/fleet/package_policies?perPage=1000" |
   jq -r '.items[] | select(.name == "postgresql-poc-01") | .id' | head -n 1)"

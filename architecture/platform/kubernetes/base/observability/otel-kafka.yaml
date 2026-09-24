@@ -379,12 +379,12 @@ spec:
               done;
               for topic in otel-traces otel-metrics otel-logs; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.10:9092 --create --if-not-exists --topic "$topic"
+              192.168.33.20:9092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1
               --config min.insync.replicas=1
               --config retention.ms=86400000
               --config retention.bytes=536870912;
               /opt/kafka/bin/kafka-configs.sh --bootstrap-server
-              192.168.33.10:9092 --entity-type topics --entity-name "$topic"
+              192.168.33.20:9092 --entity-type topics --entity-name "$topic"
               --alter --add-config retention.ms=86400000,retention.bytes=536870912;
               done

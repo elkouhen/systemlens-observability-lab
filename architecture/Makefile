@@ -25,16 +25,17 @@ SKIP_KUBERNETES_APPLY ?= 0
 ELASTICSEARCH_URL ?= http://elasticsearch.observability.test:9200
 KIBANA_URL ?= http://kibana.observability.test:5601
 KIBANA_HOST ?= kibana.observability.test
-KIBANA_CURL_RESOLVE ?= kibana.observability.test:5601:192.168.33.30
-ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:9200:192.168.33.30
+KIBANA_CURL_RESOLVE ?= kibana.observability.test:5601:192.168.33.40
+ELASTICSEARCH_CURL_RESOLVE ?= elasticsearch.observability.test:9200:192.168.33.40
 FLEET_URL ?= http://fleet.observability.test:8220
 FLEET_CURL_RESOLVE ?= fleet.observability.test:8220:192.168.33.40
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
+C4_PAGES_BASE ?= ./
 
-.PHONY: help architecture-status credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: help architecture-status c4-pages-build credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy apm-token-sync fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
@@ -59,6 +60,9 @@ help: ## Afficher les tâches disponibles
 architecture-status: ## Afficher la configuration de l'architecture
 	@printf 'ARCH_NAME=%s\nELASTIC_STACK_VERSION=%s\nARCH_ROOT=%s\n' '$(ARCH_NAME)' '$(ELASTIC_STACK_VERSION)' '$(ARCH_ROOT)'
 
+c4-pages-build: ## Construire le site LikeC4 destiné à GitHub Pages
+	@npx --yes likec4@1.53.0 build -o dist/c4 --base '$(C4_PAGES_BASE)' docs
+
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh\n'
 
@@ -76,6 +80,7 @@ kubernetes-status: ## Afficher l’état Elastic et applications
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
 	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POC_VM_NAME='poc-01' ../scripts/cluster-status.sh
+	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka observability-otel-kafka-exporter && sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status'
 
 time-sync-verify: ## Vérifier la synchronisation chrony des quatre VM
 	@set -euo pipefail; for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
@@ -395,6 +400,16 @@ otel-validation:
 	@inventory="$${INVENTORY:-validation/otel/inventory/hosts.yml}"; \
 	validation_tags="$${VALIDATION_TAGS:-}"; \
 	case "$$inventory" in /*|../*) ;; *) inventory="../$$inventory";; esac; \
+	if [ -z "$${INVENTORY:-}" ]; then \
+	  ssh_port="$$( $(VAGRANT) ssh-config otel-edge-01 | awk '$$1 == "Port" {print $$2; exit}' )"; \
+	  ssh_key="$$( $(VAGRANT) ssh-config otel-edge-01 | awk '$$1 == "IdentityFile" {print $$2; exit}' )"; \
+	  test -n "$$ssh_port" || { echo 'Port SSH Vagrant introuvable pour otel-edge-01.' >&2; exit 1; }; \
+	  test -f "$$ssh_key" || { echo 'Clé SSH Vagrant introuvable pour otel-edge-01.' >&2; exit 1; }; \
+	  inventory_tmp="$$(mktemp /tmp/otel-validation-inventory.XXXXXX.yml)"; \
+	  trap 'rm -f "$$inventory_tmp"' EXIT; \
+	  sed -e "s/ansible_port: 22/ansible_port: $$ssh_port/" -e "s#ansible_ssh_private_key_file:.*#ansible_ssh_private_key_file: $$ssh_key#" "$$inventory" > "$$inventory_tmp"; \
+	  inventory="$$inventory_tmp"; \
+	fi; \
 	if [ -n "$$validation_tags" ]; then tag_args=(--tags "$$validation_tags"); else tag_args=(); fi; \
 	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook "$${tag_args[@]}" -i "$$inventory" ../validation/otel/playbook.yml
 
@@ -410,8 +425,8 @@ fleet-sync: ## Synchroniser les pipelines et la policy Fleet
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' \
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
-kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur poc-01
-	@$(VAGRANT) ssh poc-01 -c 'curl --fail --silent http://127.0.0.1:8778/jolokia >/dev/null'
+kafka-jolokia-verify: ## Vérifier les MBeans des brokers Kafka exposés par Jolokia
+	@set -euo pipefail; for node in poc-01 otel-backend-01; do $(VAGRANT) ssh "$$node" -c 'curl --fail --silent http://127.0.0.1:8778/jolokia >/dev/null'; done
 
 mongodb-workload:
 	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
@@ -464,10 +479,12 @@ otel-kafka-exporter-vm-provision: ## Provisionner l'exporteur Kafka OTel sur ote
 	@$(VAGRANT) up otel-backend-01 --no-provision
 	@api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	apm_token="$$( $(VAGRANT) ssh elk-01 -c 'sudo grep APM_SERVER_SECRET_TOKEN= /etc/observability/apm-server.env | cut -d= -f2-' | tr -d '\r' )"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01
-	@set -euo pipefail; { printf '%s' 'ELASTICSEARCH_API_KEY='; $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' | base64 --decode; printf '\n'; } | \
+	test -n "$$apm_token" || { echo 'Token APM absent sur elk-01.' >&2; exit 1; }; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" APM_SERVER_SECRET_TOKEN="$$apm_token" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01
+	@set -euo pipefail; { printf '%s' 'ELASTICSEARCH_API_KEY='; $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' | base64 --decode; printf '\nAPM_SERVER_SECRET_TOKEN='; $(VAGRANT) ssh elk-01 -c 'sudo grep APM_SERVER_SECRET_TOKEN= /etc/observability/apm-server.env | cut -d= -f2-'; printf '\n'; } | \
 		$(VAGRANT) ssh otel-backend-01 -c 'sudo tee /etc/observability/otel-kafka-exporter.env >/dev/null && sudo chmod 600 /etc/observability/otel-kafka-exporter.env && sudo systemctl restart observability-otel-kafka-exporter'
 
 otel-kafka-exporter-vm-status: ## Vérifier l'exporteur Kafka OTel exécuté sur otel-backend-01

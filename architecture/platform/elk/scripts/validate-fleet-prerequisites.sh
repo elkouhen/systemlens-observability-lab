@@ -3,7 +3,7 @@
 set -euo pipefail
 
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:9200}"
 elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"
 fleet_url="${FLEET_URL:-http://fleet.observability.test:8220}"

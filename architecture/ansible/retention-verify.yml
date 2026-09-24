@@ -41,7 +41,7 @@
       ansible.builtin.debug:
         var: retention_usage.stdout
 
-- name: Vérifier les paramètres effectifs du broker et des topics
+- name: Vérifier les paramètres effectifs du broker métier et des topics
   hosts: poc_nodes
   become: true
   gather_facts: false
@@ -86,5 +86,53 @@
           - "'segment.ms=3600000 ' in item.stdout"
           - "'cleanup.policy=delete ' in item.stdout"
       loop: "{{ retention_configs.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+- name: Vérifier les paramètres effectifs du broker Kafka OTel et des topics
+  hosts: otel_backend_nodes
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Lire la configuration effective du broker Kafka OTel
+      ansible.builtin.command: >-
+        podman exec --env KAFKA_OPTS= observability-otel-kafka
+        /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092
+        --entity-type brokers --entity-name 2 --describe --all
+      register: retention_otel_broker
+      changed_when: false
+
+    - name: Vérifier la rétention effective du broker Kafka OTel
+      ansible.builtin.assert:
+        that:
+          - "'log.retention.hours=24 ' in retention_otel_broker.stdout"
+          - "'log.retention.bytes=536870912 ' in retention_otel_broker.stdout"
+          - "'log.cleanup.policy=delete ' in retention_otel_broker.stdout"
+          - "'log.roll.hours=1 ' in retention_otel_broker.stdout"
+
+    - name: Lire les topics Kafka OTel
+      ansible.builtin.command: >-
+        podman exec --env KAFKA_OPTS= observability-otel-kafka
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+      register: retention_otel_topics
+      changed_when: false
+
+    - name: Lire les rétentions effectives des topics Kafka OTel
+      ansible.builtin.command: >-
+        podman exec --env KAFKA_OPTS= observability-otel-kafka
+        /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092
+        --entity-type topics --entity-name {{ item }} --describe --all
+      loop: "{{ retention_otel_topics.stdout_lines | select('match', '^otel-') | list }}"
+      register: retention_otel_configs
+      changed_when: false
+
+    - name: Vérifier la rétention des topics Kafka OTel
+      ansible.builtin.assert:
+        that:
+          - "'retention.ms=86400000 ' in item.stdout"
+          - "'retention.bytes=536870912 ' in item.stdout"
+          - "'segment.ms=3600000 ' in item.stdout"
+          - "'cleanup.policy=delete ' in item.stdout"
+      loop: "{{ retention_otel_configs.results }}"
       loop_control:
         label: "{{ item.item }}"

@@ -5,7 +5,7 @@ set -euo pipefail
 policy_file="${1:?Usage : $0 <observability-policies.json>}"
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 
 [[ -r "${policy_file}" ]] || { printf 'Manifest introuvable : %s\n' "${policy_file}" >&2; exit 1; }
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de synchroniser les politiques}"

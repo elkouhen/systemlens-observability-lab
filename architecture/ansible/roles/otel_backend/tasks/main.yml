@@ -5,6 +5,45 @@
     state: directory
     mode: '0777'
 
+- name: Créer les répertoires du broker Kafka OTel
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /var/log/kafka, mode: '0777'}
+
+- name: Télécharger l'agent Jolokia du broker Kafka OTel
+  ansible.builtin.get_url:
+    url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
+    dest: /opt/observability/jolokia-agent.jar
+    mode: '0644'
+
+- name: Déployer le broker Kafka dédié aux signaux OTel
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/kafka.container.j2"
+    dest: /etc/containers/systemd/observability-otel-kafka.container
+    mode: '0644'
+  register: otel_kafka_template
+
+- name: Démarrer le broker Kafka OTel
+  ansible.builtin.systemd_service:
+    name: observability-otel-kafka.service
+    daemon_reload: true
+    enabled: true
+    state: restarted
+  when: otel_kafka_template.changed
+
+- name: Recharger systemd après le déploiement du broker Kafka OTel
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: S'assurer que le broker Kafka OTel est actif
+  ansible.builtin.systemd_service:
+    name: observability-otel-kafka.service
+    enabled: true
+    state: started
+
 - name: Arrêter l’ancien Gateway OTEL du backend
   ansible.builtin.systemd_service:
     name: observability-otel-gateway.service
@@ -23,7 +62,7 @@
     dest: /etc/observability/otel-kafka-exporter.yaml
     mode: '0644'
   vars:
-    otel_kafka_broker: "{{ poc_ip }}:9092"
+    otel_kafka_broker: "127.0.0.1:9092"
     elasticsearch_url: "http://{{ elk_ip }}:9200"
     apm_server_url: "http://{{ elk_ip }}:8200"
 

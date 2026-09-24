@@ -18,7 +18,7 @@ elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.observability.test:9200:192.168.33.40
   -u "elastic:${ELASTICSEARCH_PASSWORD}" -H 'Content-Type: application/json')
 kibana_args=(--fail --silent --show-error --insecure
-  --resolve "${KIBANA_HOST:-kibana.observability.test}:5601:192.168.33.30"
+  --resolve "${KIBANA_HOST:-kibana.observability.test}:5601:192.168.33.40"
   -u "elastic:${kibana_password}" -H 'Content-Type: application/json'
   -H 'kbn-xsrf: systemlens-fleet-sync')
 

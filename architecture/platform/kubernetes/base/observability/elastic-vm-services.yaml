@@ -21,7 +21,7 @@ ports:
   - name: http
     port: 9200
 endpoints:
-  - addresses: [192.168.33.30]
+  - addresses: [192.168.33.40]
     conditions:
       ready: true
 ---
@@ -80,6 +80,6 @@ ports:
   - name: http
     port: 5601
 endpoints:
-  - addresses: [192.168.33.30]
+  - addresses: [192.168.33.40]
     conditions:
       ready: true

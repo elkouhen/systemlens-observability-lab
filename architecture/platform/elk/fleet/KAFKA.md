@@ -5,13 +5,14 @@ Ce guide explique la package policy Kafka déclarée dans
 et le pipeline [`kafka-topic-ingest-pipeline.json`](kafka-topic-ingest-pipeline.json).
 La policy Kafka est conservée comme asset de compatibilité dans Kibana. La
 collecte active est déclarée dans le template EDOT Ansible et déployée par
-`make elastic-agent-vm-provision`. Chaque hôte de données héberge un
-broker/controller Kafka KRaft dans Podman.
+`make elastic-agent-vm-provision`. Chaque hôte Kafka héberge un
+broker/controller Kafka KRaft dans Podman : le broker métier sur `poc-01` et
+le broker OTel sur `otel-backend-01`.
 
 ## Chemin de collecte architecture
 
 ```text
-Elastic Agent EDOT standalone de poc-01
+Elastic Agent EDOT standalone de chaque broker
   └─ receiver kafka_metrics : localhost:9092
        └─ brokers, topics, partitions, consumer groups
             ↓
@@ -26,7 +27,7 @@ Jolokia est historique et n'est pas requis par le chemin architecture.
 
 ## Lire la policy
 
-1. La collecte est assurée par l'agent EDOT standalone de `poc-01`.
+1. La collecte est assurée par l'agent EDOT standalone local à chaque broker.
 2. Le receiver `filelog/system` collecte les logs locaux et le receiver
    `hostmetrics/system` les métriques hôte.
 3. Le receiver Kafka utilise `localhost:9092` toutes les 60 secondes et produit

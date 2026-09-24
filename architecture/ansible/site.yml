@@ -18,7 +18,9 @@
     mongodb_otel_password: "{{ mongodb_password }}"
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093
-    otel_gateway_kafka_broker: 192.168.33.10:9092
+    otel_kafka_cluster_id: otelQ1Sh-9_ISia_zwGINzRvyQ
+    otel_kafka_controller_voters: 2@192.168.33.20:9093
+    otel_gateway_kafka_broker: 192.168.33.20:9092
     elastic_agent_version: 9.4.3
     apm_server_version: 9.4.3
     elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('', true) }}"

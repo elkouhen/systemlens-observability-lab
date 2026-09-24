@@ -51,7 +51,7 @@ processors:
 exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
   kafka/otlp:
-    brokers: ["{{ poc_ip }}:9092"]
+    brokers: ["{{ otel_gateway_kafka_broker }}"]
     traces:
       topic: otel-traces
       encoding: otlp_proto

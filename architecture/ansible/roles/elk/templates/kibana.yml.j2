@@ -107,6 +107,24 @@ xpack.fleet.agentPolicies:
                 vars:
                   kafka_home: /var/log/kafka
                   paths: ["/controller.log*", "/server.log*", "/state-change.log*", "/kafka-*.log*"]
+      - id: kafka-otel-backend-01
+        name: kafka-otel-backend-01
+        namespace: default
+        package:
+          name: kafka
+        inputs:
+          kafka-kafka/metrics:
+            enabled: true
+            vars:
+              hosts: ["127.0.0.1:9092"]
+          kafka-logfile:
+            enabled: true
+            streams:
+              '[kafka.log]':
+                enabled: true
+                vars:
+                  kafka_home: /var/log/kafka
+                  paths: ["/controller.log*", "/server.log*", "/state-change.log*", "/kafka-*.log*"]
       - id: postgresql-poc-01
         name: postgresql-poc-01
         namespace: default

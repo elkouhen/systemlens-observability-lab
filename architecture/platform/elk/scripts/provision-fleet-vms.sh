@@ -4,7 +4,7 @@ set -euo pipefail
 
 readonly kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 readonly kibana_user="${KIBANA_USERNAME:-elastic}"
-readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
+readonly kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 readonly fleet_url="${FLEET_URL:-http://fleet.observability.test:8220}"
 readonly fleet_resolve="${FLEET_CURL_RESOLVE:-fleet.observability.test:8220:192.168.33.40}"
 readonly fleet_vm_nodes="poc-01 otel-backend-01 otel-edge-01 elk-01"

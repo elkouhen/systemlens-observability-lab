@@ -21,13 +21,13 @@ OTLP vers le Collecteur Edge.
 
 ## Modèle mental
 
-`applications Java → Collecteur Edge otel-edge-01 → Kafka poc-01 → exporteur OTel otel-backend-01 → APM Server elk-01 → Kibana` pour les traces ; les métriques et logs suivent l'export Elasticsearch.
+`applications Java → Collecteur Edge otel-edge-01 → Kafka OTel otel-backend-01 → exporteur OTel otel-backend-01 → APM Server elk-01 → Kibana` pour les traces ; les métriques et logs suivent l'export Elasticsearch.
 
 Les trois services embarquent l'agent Java OpenTelemetry dans leurs images et
 exportent leurs traces et métriques en OTLP/HTTP vers le Collecteur Edge.
 Le Collector DaemonSet et le collecteur cluster sont des collecteurs
 EDOT configurés par Kustomize. Le Collector DaemonSet lit les logs stdout et les métriques hôte, puis les
-signaux sont envoyés au Collecteur Edge, puis dans les topics Kafka OTLP par
+signaux sont envoyés au Collecteur Edge, puis dans les topics du Kafka OTel par
 signal (`otel-traces`, `otel-metrics`, `otel-logs`). L'exporteur de sortie sur `otel-backend-01`
 consomme ces topics et envoie les traces à APM Server sur `elk-01` ; les
 métriques et les logs sont exportés vers Elasticsearch.
@@ -39,7 +39,7 @@ sans passer par un collecteur Kubernetes.
 
 Lors d'un déploiement initial, `make elk-deploy` provisionne le stack Quadlet,
 incluant APM Server et Fleet Server sur `elk-01`,
-applique le routage Traefik et crée ou réconcilie la clé
+applique les services Kubernetes OTLP et crée ou réconcilie la clé
 d'API Elasticsearch du Collector backend avant de démarrer les workloads.
 Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
 d'enrôlement Fleet. Les VM utilisent exclusivement l'Elastic Agent EDOT

@@ -6,11 +6,11 @@
   vars:
     otel_service_name: otel-validation
     otel_deployment_environment: homologation
-    kibana_url: https://kibana.observability.test
-    elasticsearch_url: https://elasticsearch.observability.test:443
+    kibana_url: http://kibana.observability.test:5601
+    elasticsearch_url: http://elasticsearch.observability.test:9200
     elasticsearch_username: elastic
     elasticsearch_password: "{{ lookup('ansible.builtin.env', 'ELASTICSEARCH_PASSWORD') }}"
-    elasticsearch_validate_certs: false
+    elasticsearch_validate_certs: true
     validation_index_pattern: metrics-*
     validation_timeout_seconds: 90
     validation_poll_delay_seconds: 3

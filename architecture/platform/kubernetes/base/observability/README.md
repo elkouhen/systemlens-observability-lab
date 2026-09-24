@@ -1,8 +1,8 @@
 # Observabilité Kubernetes : base
 
 Les manifests de ce dossier constituent la base de la couche d'observabilité Kubernetes.
-Ils routent les URL publiques vers le stack Elastic de `elk-01` via `otel-edge-01` et déploient
-les collecteurs OTel dans Kubernetes. Les collecteurs EDOT Kubernetes sont
+Ils publient les services Elastic de `elk-01` directement et déploient les
+collecteurs OTel dans Kubernetes. Les collecteurs EDOT Kubernetes sont
 configurés par des ConfigMaps versionnées ; Fleet Server n'intervient pas dans
 leur plan de contrôle.
 
@@ -11,7 +11,7 @@ leur plan de contrôle.
 1. `../../ansible/roles/elk/templates/` : unités Quadlet Elasticsearch, APM
    Server, Kibana et Fleet Server déployées sur `elk-01`.
 2. `elastic-vm-services.yaml` et `elastic-ingress.yaml` : services externes et
-   exposition TLS via Traefik vers la VM.
+   exposition TLS optionnelle via Traefik vers `elk-01`.
 3. `otel-kafka.yaml` : collecte OTel Kubernetes, buffer Kafka et export OTLP
    vers Elasticsearch.
 
@@ -50,7 +50,7 @@ OTLP backend.
 Pour appliquer le socle initial, utiliser `make elk-deploy`. Les applications
 envoient traces et métriques en OTLP au Collecteur Edge. Le DaemonSet EDOT lit les logs
 et métriques Kubernetes, puis les signaux applicatifs et Kubernetes sont
-bufferisés dans Kafka avant leur export OTLP vers Elasticsearch. Les Elastic Agents
+bufferisés dans le Kafka OTel de `otel-backend-01` avant leur export OTLP vers Elasticsearch. Les Elastic Agents
 des VM publient quant à eux en OTLP vers le Collecteur Edge. Les identités Kubernetes sont
 enrichies par `k8sattributes`; le Collector backend utilise le mapping ECS
 pour conserver la compatibilité avec les vues APM et les dashboards

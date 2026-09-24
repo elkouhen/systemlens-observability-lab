@@ -27,21 +27,3 @@ backend otel_backend_http
   mode http
   option tcp-check
   server otel_edge_collector 127.0.0.1:14318 check
-
-frontend elasticsearch
-  bind :9200
-  mode http
-  default_backend elasticsearch_backend
-
-backend elasticsearch_backend
-  mode http
-  server elk {{ elk_ip }}:9200 check
-
-frontend kibana
-  bind :5601
-  mode http
-  default_backend kibana_backend
-
-backend kibana_backend
-  mode http
-  server elk {{ elk_ip }}:5601 check

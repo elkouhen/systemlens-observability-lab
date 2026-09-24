@@ -41,9 +41,11 @@ receivers:
       - /var/log/messages
       - /var/log/secure
       - /var/log/*.log
+{% if node_role in ['poc', 'otel_backend'] %}
+      - /var/log/kafka/*.log
+{% endif %}
 {% if node_role == 'poc' %}
       - /var/log/mongodb/mongod.log
-      - /var/log/kafka/*.log
       - /var/log/postgresql/*.log
 {% endif %}
     start_at: end
@@ -73,9 +75,9 @@ receivers:
       paging:
       processes:
 
-{% if node_role == 'poc' %}
+{% if node_role in ['poc', 'otel_backend'] %}
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver
-  kafka_metrics/poc:
+  kafka_metrics/local:
     brokers:
       - 127.0.0.1:9092
     protocol_version: 3.9.0
@@ -85,6 +87,8 @@ receivers:
       - consumers
     collection_interval: 60s
 
+{% endif %}
+{% if node_role == 'poc' %}
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/mongodbreceiver
   mongodb/poc:
     hosts:
@@ -248,7 +252,7 @@ service:
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
     metrics:
-      receivers: [hostmetrics/system{% if node_role == 'poc' %}, kafka_metrics/poc, postgresql/poc{% endif %}]
+      receivers: [hostmetrics/system{% if node_role in ['poc', 'otel_backend'] %}, kafka_metrics/local{% endif %}{% if node_role == 'poc' %}, postgresql/poc{% endif %}]
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
 {% if node_role == 'poc' %}

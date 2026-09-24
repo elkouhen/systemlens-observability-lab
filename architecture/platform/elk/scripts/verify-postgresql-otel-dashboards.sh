@@ -10,7 +10,7 @@ elasticsearch_user="${ELASTICSEARCH_USERNAME:-elastic}"
 elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_user="${KIBANA_USERNAME:-elastic}"
-kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.30}"
+kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
 window="${DASHBOARDS_VERIFY_WINDOW:-15m}"
 end_time="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 if date -u -v-15M '+%Y-%m-%dT%H:%M:%SZ' >/dev/null 2>&1; then

@@ -1,13 +1,14 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
-L’architecture crée quatre VM séparées : `poc-01` pour MongoDB, Kafka et PostgreSQL,
-`otel-backend-01` pour l’exporteur EDOT Kafka, `otel-edge-01` pour HAProxy et le
+L’architecture crée quatre VM séparées : `poc-01` pour MongoDB, Kafka métier et PostgreSQL,
+`otel-backend-01` pour le broker Kafka dédié OTel et l’exporteur EDOT Kafka, `otel-edge-01` pour HAProxy et le
 Collecteur EDOT Edge et
 `elk-01` pour Elasticsearch, Kibana et Fleet Server.
 Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
-et métriques locaux et les envoie en OTLP au Collecteur Edge. Kafka est le
-buffer commun des signaux Kubernetes et VM.
+et métriques locaux et les envoie en OTLP au Collecteur Edge. Le Kafka OTel du
+backend est le buffer commun des signaux Kubernetes et VM ; le Kafka de
+`poc-01` reste réservé aux événements métier.
 
 La cible `make fleet-opamp-enable` active en plus le monitoring Fleet OpAMP
 des agents EDOT vers Fleet Server sur `elk-01`. Les agents restent standalone :
@@ -76,9 +77,9 @@ une rotation de clé ou une modification de configuration.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| `poc-01` | MongoDB, Kafka, PostgreSQL | Middlewares du scénario applicatif |
-| `otel-backend-01` | Exporteur Kafka EDOT | Kafka `poc-01` → APM Server / Elasticsearch |
-| `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka ; point d’entrée Kibana, Elasticsearch et Fleet |
+| `poc-01` | MongoDB, Kafka métier, PostgreSQL | Middlewares du scénario applicatif |
+| `otel-backend-01` | Kafka OTel, exporteur Kafka EDOT | Kafka OTel local → APM Server / Elasticsearch |
+| `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 
 ## Ordre de lecture
