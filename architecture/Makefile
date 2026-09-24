@@ -41,9 +41,13 @@ K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
 	otel-edge-vm-provision elastic-agent-vm-provision \
 	vms-up vms-destroy deploy deploy-post elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-verify kubernetes-otel-dashboards-verify apm-report-api-key-create \
+	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
+
+.PHONY: cluster-show elasticsearch-wait kibana-wait fleet-prerequisites-validate fleet-registry-wait \
+	vms-start architecture-deploy deployment-finalize otel-validate ci-run stock-show slides-start \
+	otel-gateway-kubernetes-switch otel-kafka-exporter-kubernetes-switch
 
 ##@ Informations et diagnostic
 
@@ -58,9 +62,11 @@ architecture-status: ## Afficher la configuration de l'architecture
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh\n'
 
-cluster-info: ## Afficher les URL et identifiants de l'environnement ELK local
+cluster-info:
 	@printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\n' \
 		'$(KIBANA_URL)' '$(ELASTICSEARCH_URL)' 'https://fleet.observability.test'
+
+cluster-show: cluster-info ## Afficher les URL et identifiants de l'environnement ELK local
 
 platform-status: kubernetes-status vm-status ## Vérifier Kubernetes et les VM
 
@@ -126,13 +132,15 @@ public-tls-apply: ## Créer ou réparer le certificat TLS public local du POC
 		echo "Secret TLS public elastic-public-tls créé ou réparé"; \
 	fi
 
-elasticsearch-ready: ## Attendre qu'Elasticsearch Quadlet rende son endpoint joignable
+elasticsearch-ready:
 	@password="$${ELASTIC_PASSWORD:-password}"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent' >&2; exit 1; }; \
 	for attempt in $$(seq 1 60); do curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' -u "elastic:$$password" '$(ELASTICSEARCH_URL)' >/dev/null && exit 0; sleep 2; done; \
 	echo 'Elasticsearch Quadlet inaccessible après 120s' >&2; exit 1
 
-kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
+elasticsearch-wait: elasticsearch-ready ## Attendre qu'Elasticsearch rende son endpoint joignable
+
+kibana-ready:
 	@for attempt in $$(seq 1 60); do \
 		status="$$(curl --silent --show-error --insecure \
 			--resolve '$(KIBANA_CURL_RESOLVE)' -o /dev/null -w '%{http_code}' \
@@ -144,7 +152,9 @@ kibana-ready: ## Attendre que Kibana soit prêt avant l'import de ses objets
 	done; \
 	echo "Ingress Kibana inaccessible après 300s" >&2; exit 1
 
-kibana-fleet-config-deploy: elasticsearch-ready kibana-ready fleet-registry-ready ## Amorcer puis appliquer la configuration Kibana/Fleet déclarative
+kibana-wait: kibana-ready ## Attendre que Kibana soit prêt avant l'import de ses objets
+
+kibana-fleet-config-deploy: elasticsearch-wait kibana-wait fleet-registry-wait ## Amorcer puis appliquer la configuration Kibana/Fleet déclarative
 	@if test '$(SKIP_KUBERNETES_APPLY)' != 1; then $(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local; fi
 	@$(MAKE) kibana-ready
 	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-password}"; \
@@ -154,13 +164,17 @@ kibana-fleet-config-deploy: elasticsearch-ready kibana-ready fleet-registry-read
 	@$(MAKE) fleet-server-start
 	@$(MAKE) fleet-prerequisites
 
-fleet-prerequisites: ## Vérifier Elasticsearch, Kibana et Fleet Server avant les opérations Fleet
+fleet-prerequisites:
 	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-$${ELASTICSEARCH_PASSWORD:-}}"; elasticsearch_password="$${ELASTICSEARCH_PASSWORD:-$$kibana_password}"; \
 	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou ELASTICSEARCH_PASSWORD requis' >&2; exit 1; }; \
 	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' FLEET_URL='$(FLEET_URL)' FLEET_CURL_RESOLVE='$(FLEET_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ELASTICSEARCH_PASSWORD="$$elasticsearch_password" ./$(ARCH_ROOT)/platform/elk/scripts/validate-fleet-prerequisites.sh
 
-fleet-registry-ready: ## Vérifier l'accès de elk-01 au registre public des packages Fleet
+fleet-prerequisites-validate: fleet-prerequisites ## Vérifier Elasticsearch, Kibana et Fleet Server avant les opérations Fleet
+
+fleet-registry-ready:
 	@$(VAGRANT) ssh elk-01 -c 'getent hosts epr.elastic.co >/dev/null || { echo "epr.elastic.co introuvable depuis elk-01" >&2; exit 1; }; curl --fail --silent --show-error --max-time 15 https://epr.elastic.co/ >/dev/null || { echo "Registre Fleet inaccessible depuis elk-01" >&2; exit 1; }; echo "Registre Fleet accessible"'
+
+fleet-registry-wait: fleet-registry-ready ## Vérifier l'accès de elk-01 au registre public des packages Fleet
 
 fleet-server-start: ## Démarrer Fleet Server après la création de sa policy et de son package
 	@$(VAGRANT) ssh elk-01 -c 'sudo systemctl start observability-fleet-server.service'
@@ -323,12 +337,21 @@ order-service-command: application-data-verify ## Envoyer une commande REST (ORD
 
 ##@ Déploiement complet et validation
 
-slides: ## Démarrer le support Slidev de l'architecture
+slides:
 	@npm --prefix slides run dev
 
-vms-up: ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
+slides-start: slides ## Démarrer le support Slidev de l'architecture
+
+vms-up:
 	@set -euo pipefail; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:-$${POSTGRESQL_PASSWORD:-password}}" $(VAGRANT) up poc-01 otel-backend-01 otel-edge-01 elk-01 --provision-with ansible
+	postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
+	mongodb_password="$${MONGODB_PASSWORD:-$$postgresql_password}"; \
+	zscaler_ca_cert_content=''; \
+	if test -n "$${ZSCALER_CA_CERT:-}"; then test -f "$$ZSCALER_CA_CERT" || { echo "Certificat Zscaler introuvable : $$ZSCALER_CA_CERT" >&2; exit 1; }; zscaler_ca_cert_content="$$(< "$$ZSCALER_CA_CERT")"; fi; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:-password}" $(VAGRANT) up --parallel poc-01 otel-backend-01 otel-edge-01 elk-01 --no-provision; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:-password}" ZSCALER_CA_CERT_CONTENT="$$zscaler_ca_cert_content" ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
+
+vms-start: vms-up ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
 
 vms-destroy: ## Détruire les quatre VM Vagrant et leurs disques locaux (DESTRUCTIF)
 	@$(VAGRANT) destroy -f poc-01 otel-backend-01 otel-edge-01 elk-01
@@ -340,7 +363,7 @@ elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des ag
 	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:-$${POSTGRESQL_PASSWORD:-password}}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
 
-deploy: ## Déployer Elastic, Fleet, Kubernetes et les applications après vms-up
+deploy:
 	@set -euo pipefail; \
 	SKIP_ELK_VM_PROVISION=1 $(MAKE) elk-deploy; \
 	$(MAKE) apps-build; \
@@ -348,10 +371,14 @@ deploy: ## Déployer Elastic, Fleet, Kubernetes et les applications après vms-u
 	$(MAKE) apps-deploy; \
 	$(MAKE) deploy-post
 
-deploy-post: ## Finaliser le déploiement des services VM et du monitoring OpAMP
+architecture-deploy: deploy ## Déployer Elastic, Fleet, Kubernetes et les applications
+
+deploy-post:
 	@set -euo pipefail; \
 	$(MAKE) otel-kafka-exporter-vm-provision; \
 	$(MAKE) fleet-opamp-enable
+
+deployment-finalize: deploy-post ## Finaliser les services VM et le monitoring OpAMP
 
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
@@ -364,14 +391,18 @@ ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 ansible-deploy: ## Déployer toute l'architecture via un seul orchestrateur Ansible
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
-otel-validation: ## Valider OTLP (VALIDATION_TAGS=host|direct ; vide = les deux)
+otel-validation:
 	@inventory="$${INVENTORY:-validation/otel/inventory/hosts.yml}"; \
 	validation_tags="$${VALIDATION_TAGS:-}"; \
 	case "$$inventory" in /*|../*) ;; *) inventory="../$$inventory";; esac; \
 	if [ -n "$$validation_tags" ]; then tag_args=(--tags "$$validation_tags"); else tag_args=(); fi; \
 	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook "$${tag_args[@]}" -i "$$inventory" ../validation/otel/playbook.yml
 
-ci: kubernetes-validate ansible-validate apps-test ## Exécuter les validations reproductibles du dépôt
+otel-validate: otel-validation ## Valider OTLP (VALIDATION_TAGS=host|direct ; vide = les deux)
+
+ci: kubernetes-validate ansible-validate apps-test
+
+ci-run: ci ## Exécuter les validations reproductibles du dépôt
 
 ##@ Provisionnement des VM et Fleet
 
@@ -382,8 +413,10 @@ fleet-sync: ## Synchroniser les pipelines et la policy Fleet
 kafka-jolokia-verify: ## Vérifier les MBeans Kafka exposés par Jolokia sur poc-01
 	@$(VAGRANT) ssh poc-01 -c 'curl --fail --silent http://127.0.0.1:8778/jolokia >/dev/null'
 
-mongodb-workload: ## Générer une charge MongoDB courte pour valider la collecte
+mongodb-workload:
 	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
+
+mongodb-workload-generate: mongodb-workload ## Générer une charge MongoDB courte pour valider la collecte
 
 fleet-opamp-enable: fleet-assets-deploy ## Activer le monitoring Fleet OpAMP des agents EDOT des VM sans redéployer la plateforme
 	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-password}"; \
@@ -408,7 +441,7 @@ otel-gateway-vm-status: ## Vérifier HAProxy et le Collecteur EDOT Edge
 otel-gateway-kubernetes-remove: ## Supprimer les anciens objets de la gateway OTLP Kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service,serviceaccount,configmap otel-gateway --ignore-not-found
 
-otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove ## Déployer les collecteurs Kubernetes et les applications avec Edge comme endpoint OTLP
+otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
@@ -416,6 +449,8 @@ otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove ## Déployer les
 	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/default
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
+
+otel-gateway-kubernetes-switch: otel-gateway-kubernetes-bascule ## Déployer les collecteurs Kubernetes et les applications avec Edge comme endpoint OTLP
 
 kubernetes-observability-deploy: otel-gateway-kubernetes-remove ## Appliquer et vérifier les Collectors Kubernetes déclarés par Kustomize
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
@@ -438,11 +473,13 @@ otel-kafka-exporter-vm-provision: ## Provisionner l'exporteur Kafka OTel sur ote
 otel-kafka-exporter-vm-status: ## Vérifier l'exporteur Kafka OTel exécuté sur otel-backend-01
 	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka-exporter && curl --fail --silent http://127.0.0.1:13134/'
 
-otel-kafka-exporter-kubernetes-bascule: ## Retirer l'exporteur Kubernetes après validation du backend OTEL
+otel-kafka-exporter-kubernetes-bascule:
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service otel-kafka-exporter --ignore-not-found
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
 	@$(MAKE) otel-kafka-exporter-vm-status
+
+otel-kafka-exporter-kubernetes-switch: otel-kafka-exporter-kubernetes-bascule ## Retirer l'exporteur Kubernetes après validation du backend OTel
 
 otel-kafka-exporter-relocate: otel-kafka-exporter-vm-provision otel-kafka-exporter-kubernetes-bascule ## Basculer l'exporteur Kafka OTel vers le backend OTEL
 
@@ -465,6 +502,16 @@ kubernetes-otel-dashboards-verify: ## Vérifier les requêtes des dashboards Kub
 	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
 	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-kubernetes-otel-dashboards.sh
+
+trace-context-verify: ## Vérifier la propagation W3C jusqu’à Kafka et les logs corrélés
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
+	 ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-observability-contracts.sh trace-context
+
+observability-schema-verify: ## Vérifier le contrat ECS/OTel des événements indexés
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
+	 ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-observability-contracts.sh schema
 
 ##@ Identifiants et clés d'accès
 
@@ -498,10 +545,12 @@ elasticsearch-api-key-create: ## Créer une clé API Base64 pour les rapports AP
 		| jq -er '.id + ":" + .api_key')"; \
 	printf '%s' "$$api_key" | base64 | tr -d '\n'; echo
 
-##@ Logs applicatifs
+##@ Consultation locale
 
-stock-view: ## Afficher le stock courant du catalogue PostgreSQL
+stock-view:
 	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -P pager=off -c "SELECT id, name, stock_quantity AS stock FROM products ORDER BY id;"'
+
+stock-show: stock-view ## Afficher le stock courant du catalogue PostgreSQL
 
 order-service-logs-follow: ## Suivre les logs de order-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/order-service
@@ -511,6 +560,8 @@ inventory-service-logs-follow: ## Suivre les logs de inventory-service
 
 restock-service-logs-follow: ## Suivre les logs de restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) logs -f deployment/restock-service
+
+##@ Rétention et cycle de vie
 
 .PHONY: retention-validate retention-plan retention-deploy retention-verify ilm-deploy
 

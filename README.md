@@ -12,13 +12,14 @@ Pour déployer l’environnement local :
 make architecture-status
 make kubernetes-validate
 export POSTGRESQL_PASSWORD='...'
-make vms-up
+make vms-start
 make vm-status
-make deploy
+make architecture-deploy
 ```
 
-`make vms-up` démarre et provisionne les quatre VM, puis s'arrête. Après le
-contrôle `make vm-status`, `make deploy` déploie la plateforme Elastic, Fleet,
+`make vms-start` démarre les quatre VM en parallèle, puis provisionne leurs rôles
+avec un seul playbook Ansible parallèle. Après le contrôle `make vm-status`,
+`make architecture-deploy` déploie la plateforme Elastic, Fleet,
 Kubernetes et l'application.
 
 Le [guide de déploiement et d’exploitation](docs/deploiement-et-exploitation.md)
@@ -66,7 +67,7 @@ certs/                 # certificats locaux et prérequis TLS
 ## Validation sans déploiement
 
 ```bash
-make ci
+make ci-run
 ```
 
 Cette cible valide le rendu Kustomize, la syntaxe Ansible et les tests Maven.

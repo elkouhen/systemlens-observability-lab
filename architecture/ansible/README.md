@@ -60,8 +60,9 @@ miroirs de paquets.
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `poc-01`.
 
-La cible `make vms-up` démarre et provisionne les quatre VM avant le déploiement
-de la plateforme. Les données Kafka sont conservées dans le volume Podman
+La cible `make vms-up` démarre les quatre VM en parallèle, puis exécute un seul
+playbook Ansible sur les quatre hôtes. Les rôles restent parallèles par hôte et
+les variables sensibles viennent de l’environnement. Les données Kafka sont conservées dans le volume Podman
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
 
 Pour supprimer les quatre VM et leurs disques locaux, exécuter la cible

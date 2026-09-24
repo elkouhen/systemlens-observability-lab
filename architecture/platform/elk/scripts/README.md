@@ -67,3 +67,22 @@ puis migre les indices existants. Il préserve les autres paramètres des
 composants et vérifie les templates résolus. Utiliser `make retention-plan`,
 `make ilm-deploy` et `make retention-verify` ; voir le
 [guide de rétention](../retention/README.md).
+
+`verify-observability-contracts.sh` contrôle deux contrats sur une fenêtre
+temporelle récente. Le mode `trace-context` vérifie les propagateurs W3C,
+cherche un même `trace.id` sur `order-service`, `inventory-service` et un span
+Kafka, puis vérifie la présence d’un log corrélé. Le mode `schema` vérifie
+`@timestamp`, `data_stream.dataset`, `service.name`, les identifiants de span
+et `ecs.version` sur les flux applicatifs. Les deux modes exigent
+`ELASTICSEARCH_PASSWORD` et acceptent `OBSERVABILITY_VERIFY_WINDOW`.
+
+Depuis la racine du dépôt, exécuter :
+
+```bash
+make trace-context-verify
+make observability-schema-verify
+```
+
+Ces contrôles nécessitent des données récentes. Générer une commande avec
+`make order-service-command` avant le contrôle de propagation si aucun flux
+applicatif n’a été produit dans la fenêtre choisie.

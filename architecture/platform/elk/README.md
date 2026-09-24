@@ -45,12 +45,13 @@ Cette clé sert à l'export Kafka → Elasticsearch ; elle n'est pas une clé
 d'enrôlement Fleet. Les VM utilisent exclusivement l'Elastic Agent EDOT
 afin d'éviter une double collecte.
 
-La cible `make deploy` exécute ensuite automatiquement `make deploy-post`.
+La cible `make architecture-deploy` exécute ensuite automatiquement
+`make deployment-finalize`.
 Cette phase reprovisionne `otel-backend-01` avec la clé API créée par
 `elk-deploy`, puis active le monitoring OpAMP des quatre agents VM avec
 `make fleet-opamp-enable`. Pour rejouer uniquement cette phase après une
 rotation de clé ou une modification de configuration, exécuter
-`make deploy-post`.
+`make deployment-finalize`.
 
 La cible `make fleet-opamp-enable` ajoute le monitoring OpAMP des agents EDOT
 des quatre VM. Elle ne transforme pas ces agents en agents Fleet classiques :

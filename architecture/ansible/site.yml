@@ -10,22 +10,22 @@
     elk_ip: 192.168.33.40
     postgresql_database: observability_test
     postgresql_user: observability
-    postgresql_password: ""
+    postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('', true) }}"
     postgresql_otel_user: otel
     postgresql_otel_password: "{{ postgresql_password }}"
     mongodb_otel_user: otel_monitor
-    mongodb_password: ""
+    mongodb_password: "{{ lookup('env', 'MONGODB_PASSWORD') | default(lookup('env', 'POSTGRESQL_PASSWORD') | default('', true), true) }}"
     mongodb_otel_password: "{{ mongodb_password }}"
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093
     otel_gateway_kafka_broker: 192.168.33.10:9092
     elastic_agent_version: 9.4.3
     apm_server_version: 9.4.3
-    elastic_password: ""
-    apm_server_secret_token: ""
-    otel_elasticsearch_api_key: ""
-    fleet_enrollment_token: ""
-    zscaler_ca_cert_content: ""
+    elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('', true) }}"
+    apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"
+    otel_elasticsearch_api_key: "{{ lookup('env', 'OTEL_ELASTICSEARCH_API_KEY') | default('', true) }}"
+    fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
+    zscaler_ca_cert_content: "{{ lookup('env', 'ZSCALER_CA_CERT_CONTENT') | default('', true) }}"
     fleet_url: "http://{{ elk_ip }}:8220"
 
   roles:
