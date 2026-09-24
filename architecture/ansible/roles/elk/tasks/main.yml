@@ -206,7 +206,7 @@
   ansible.builtin.systemd_service:
     name: observability-fleet-server.service
     enabled: true
-    state: started
+    state: stopped
 
 - name: Attendre APM Server sur elk-01
   ansible.builtin.uri:

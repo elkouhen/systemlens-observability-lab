@@ -5,10 +5,10 @@ métriques vers Elastic.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP → Gateway K8S → Edge → Kafka `otel-traces` | Collector backend → APM Server |
-| Logs applicatifs/Kubernetes | EDOT DaemonSet `filelog` | OTLP → Gateway K8S → Edge → Kafka `otel-logs` | Collector backend → Elasticsearch |
-| Métriques applicatives | Micrometer OTLP | OTLP → Gateway K8S → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet `hostmetrics` | OTLP → Gateway K8S → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces` | Collector backend → APM Server |
+| Logs applicatifs/Kubernetes | EDOT DaemonSet `filelog` | OTLP → Edge → Kafka `otel-logs` | Collector backend → Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
+| Métriques Kubernetes | EDOT DaemonSet `hostmetrics` | OTLP → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
 | Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka par signal | Collector backend → Elasticsearch |
 
 Kafka absorbe les pics entre les producteurs et le Collector backend. Les

@@ -9,16 +9,16 @@ couvre pas les métriques des brokers Kafka ni celles des serveurs MongoDB.
 ```text
 client Kafka/MongoDB
     → Micrometer
-    → Spring Boot Actuator
-    → /actuator/prometheus
-    → Elastic Agent Prometheus
+    → export OTLP Micrometer
+    → Collecteur Edge
+    → Kafka `otel-metrics`
+    → Collector backend
     → Elasticsearch
     → Kibana
 ```
 
 Le dataset applicatif doit rester distinct des datasets APM natifs. Dans ce
-POC, les métriques sont envoyées vers un data stream de la forme
-`metrics-app.prometheus.<plateforme>-<environnement>`.
+POC, les métriques sont envoyées vers `metrics-generic.otel-*`.
 
 ## Kafka côté client
 
@@ -93,7 +93,8 @@ Documentation :
 Le cas d'usage de réservation expose également la métrique métier
 `business.orders.completed`. Elle est incrémentée après les écritures MongoDB et
 PostgreSQL réussies, avec le tag de faible cardinalité `channel` (`rest` ou
-`kafka`). Dans l’architecture active, le Gateway scrappe cette métrique via `/actuator/prometheus`.
+`kafka`). Dans l’architecture active, les métriques Micrometer sont exportées
+en OTLP vers le Collecteur Edge.
 
 Le flux de réassort expose deux compteurs complémentaires :
 `business.stock.restock.requested` pour les demandes émises par
@@ -101,7 +102,8 @@ Le flux de réassort expose deux compteurs complémentaires :
 appliquées avec succès par `inventory-service`. Ils permettent de comparer les
 réassorts demandés et effectivement réalisés.
 
-L'application doit exposer uniquement les endpoints utiles :
+L'application peut conserver uniquement les endpoints Actuator utiles au
+diagnostic local :
 
 ```yaml
 management:
@@ -118,14 +120,13 @@ curl --fail --silent http://localhost:8080/actuator/prometheus \
   | grep -E 'kafka_|spring_kafka|mongodb_|mongo_'
 ```
 
-Le Service Kubernetes utilisé par l'Elastic Agent doit cibler le port HTTP
-de l'application. Le scrape doit être exécuté à intervalle régulier, par
-exemple toutes les 15 secondes.
+Les métriques destinées à Elastic ne dépendent pas d'un scrape Prometheus.
+L'application les exporte périodiquement en OTLP vers le Service
+`otel-edge-vm`.
 
-## Elastic Agent et Kibana
+## Export OTLP et Kibana
 
-L'Elastic Agent utilise l'intégration Prometheus pour appeler
-`/actuator/prometheus`. Il doit ajouter au minimum :
+L'instrumentation applicative doit ajouter au minimum :
 
 - `service.name` ;
 - l'environnement de déploiement ;
@@ -135,36 +136,33 @@ Dans Kibana Discover, filtrer par exemple :
 
 ```kql
 data_stream.type:metrics
-and data_stream.dataset:"app.prometheus.*"
+and data_stream.dataset:"generic.otel"
 and service.name:"inventory-service"
 ```
 
-Les métriques sont stockées sous `prometheus.metrics.*` pour la collecte Elastic
-Agent. Pour la collecte Prometheus du Gateway, elles sont disponibles dans
-le data stream `metrics-prometheusreceiver.otel-*`, sous `metrics.*`.
+Les métriques applicatives sont stockées dans le data stream
+`metrics-generic.otel-*`, sous `metrics.*`.
 Elles sont consultables dans Discover et dans les dashboards métriques, pas
 uniquement dans l'interface APM.
 
-Dans Kibana Discover, sélectionner `metrics-prometheusreceiver.otel-*` et
-utiliser le filtre :
+Dans Kibana Discover, sélectionner `metrics-generic.otel-*` et utiliser le
+filtre :
 
 ```kql
-data_stream.dataset:"prometheusreceiver.otel"
-and resource.attributes.service.name:"supermarket-applications"
-and metrics.business_orders_completed_total:*
+data_stream.dataset:"generic.otel"
+and metrics.business.orders.completed:*
 ```
 
 Pour visualiser les réassorts appliqués par `inventory-service` :
 
 ```kql
-data_stream.dataset:"prometheusreceiver.otel"
-and resource.attributes.server.address:"inventory-service.h0tl-supermarche-app.svc.cluster.local"
-and metrics.business_stock_restock_completed_total:*
+data_stream.dataset:"generic.otel"
+and metrics.business.stock.restock.completed:*
 ```
 
 La valeur est un compteur cumulatif par instance. Pour une série temporelle,
-utiliser `metrics.business_orders_completed_total` avec `attributes.channel`
-comme dimension et calculer un taux ou une variation selon le besoin.
+utiliser `metrics.business.orders.completed` avec `attributes.channel` comme
+dimension et calculer un taux ou une variation selon le besoin.
 
 ## Cardinalité et sécurité
 
@@ -193,13 +191,13 @@ variable d'environnement.
 
 1. Le client Kafka réel est lié au `MeterRegistry`.
 2. Le `MongoClient` utilise le listener de commandes prévu.
-3. `/actuator/prometheus` retourne des métriques Kafka et MongoDB.
-4. L'Elastic Agent atteint le Service Kubernetes de l'application.
-5. Elasticsearch reçoit des documents dans le data stream applicatif.
+3. L'application exporte les métriques en OTLP vers `otel-edge-vm`.
+4. Kafka reçoit les événements dans `otel-metrics`.
+5. Elasticsearch reçoit des documents dans `metrics-generic.otel-*`.
 6. Kibana utilise une fenêtre temporelle adaptée et le data view couvre
-   `metrics-app.prometheus.*`.
+   `metrics-generic.otel-*`.
 7. Les métriques ne contiennent pas de tags à forte cardinalité.
 
 Une absence de métrique dans Kibana doit être diagnostiquée dans cet ordre :
-endpoint Actuator, scrape Elastic Agent, sortie d'ingestion, data stream,
-data view et fenêtre temporelle.
+export OTLP de l'application, réception Edge, topic Kafka, sortie du backend,
+data stream, data view et fenêtre temporelle.

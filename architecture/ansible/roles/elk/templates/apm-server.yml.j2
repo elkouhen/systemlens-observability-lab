@@ -1,8 +1,11 @@
+# Documentation : https://www.elastic.co/docs/solutions/observability/apm/apm-server/configure
 apm-server:
   host: "0.0.0.0:8200"
+  # Documentation : https://www.elastic.co/docs/solutions/observability/apm/secret-token
   auth:
     secret_token: "${APM_SERVER_SECRET_TOKEN}"
 
+# Documentation : https://www.elastic.co/docs/solutions/observability/apm/apm-server/configure-elasticsearch-output
 output.elasticsearch:
   hosts: ["http://127.0.0.1:9200"]
   username: "${ELASTICSEARCH_USERNAME}"

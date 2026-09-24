@@ -36,7 +36,7 @@ Les objectifs fonctionnels sont les suivants :
 | Responsable observabilité | Consulter les signaux dans Elastic et contrôler les dashboards |
 | Application Java | Émettre des traces et exposer ses métriques applicatives |
 | Workload Kubernetes | Produire des logs et être couvert par la collecte de la plateforme |
-| VM et services de données | Fournir les logs et métriques collectés par Fleet |
+| VM et services de données | Fournir les logs et métriques collectés par Elastic Agent EDOT standalone |
 
 Le périmètre ne comprend pas la définition métier des services Java, la
 conservation d’un historique de production ou la gestion d’un cluster Elastic
@@ -47,10 +47,10 @@ externe au POC.
 ### 3.1 Collecte des applications
 
 **SF-APP-01.** La plateforme doit recevoir les traces applicatives au format
-OTLP via le Gateway exposé dans Kubernetes.
+OTLP via le Collecteur Edge exposé par le Service `otel-edge-vm`.
 
 **SF-APP-02.** La plateforme doit collecter les métriques applicatives
-exposées par `/actuator/prometheus`.
+exportées par Micrometer en OTLP vers le Collecteur Edge.
 
 **SF-APP-03.** Les signaux applicatifs doivent conserver leur contexte de
 service et d’environnement afin de permettre leur filtrage dans Elastic.
@@ -68,17 +68,20 @@ signaux VM.
 
 ### 3.3 Collecte des VM
 
-**SF-VM-01.** Chaque VM active doit être enrôlée dans Fleet avec un agent
-identifiable par son nom d’hôte.
+**SF-VM-01.** Chaque VM active doit exécuter un Elastic Agent EDOT standalone
+identifiable par son nom d’hôte. Le monitoring Fleet OpAMP peut être activé
+séparément.
 
-**SF-VM-02.** Fleet doit collecter les logs et métriques système des VM.
+**SF-VM-02.** Elastic Agent EDOT standalone doit collecter les logs et
+métriques système des VM.
 
-**SF-VM-03.** Fleet doit collecter les métriques des services Kafka, MongoDB et
-PostgreSQL lorsque l’intégration correspondante est activée.
+**SF-VM-03.** Elastic Agent EDOT standalone doit collecter les métriques des
+services Kafka, MongoDB et PostgreSQL lorsque l’intégration correspondante est
+activée.
 
 **SF-VM-04.** La télémétrie VM doit être envoyée vers le Collecteur Edge, puis
-Kafka, le Collector backend et Elasticsearch
-sans passer par le Gateway OTLP Kubernetes ni par Kafka.
+Kafka, le Collector backend et Elasticsearch, sans passer par un collecteur
+Kubernetes intermédiaire.
 
 ### 3.4 Transport et consultation
 
@@ -113,7 +116,7 @@ chaîne de collecte.
 | AC-02 | L’opérateur exécute `make ansible-validate` | Les playbooks Ansible sont syntaxiquement valides sans provisioning |
 | AC-03 | Une application émet une trace et expose ses métriques | Les signaux sont transportés par la chaîne OTLP puis visibles dans Elastic |
 | AC-04 | Un pod couvert écrit sur stdout | Le log est collecté et consultable avec son contexte Kubernetes |
-| AC-05 | L’agent Fleet de `poc-01` est actif | Les logs et métriques de la VM sont visibles sans apparaître dans les topics OTLP |
+| AC-05 | L’agent EDOT standalone de `poc-01` est actif | Les logs et métriques de la VM sont visibles après leur passage par Edge et Kafka |
 | AC-06 | L’opérateur exécute `make otel-validation` | La validation OTLP retourne un résultat exploitable |
 | AC-07 | L’opérateur exécute `make dashboards-verify` | Les jeux de données attendus par les dashboards sont récents |
 

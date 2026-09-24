@@ -4,14 +4,18 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
+# Documentation : https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-with-docker
 Image=docker.elastic.co/elasticsearch/elasticsearch:9.4.3
 ContainerName=observability-elasticsearch
 Network=host
 EnvironmentFile=/etc/observability/elasticsearch.env
 Volume=/var/lib/observability/elasticsearch:/usr/share/elasticsearch/data:Z
 Memory=1536m
+# Documentation : https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-with-docker
 Environment=discovery.type=single-node
+# Documentation : https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/security-settings
 Environment=xpack.security.enabled=true
+# Documentation : https://www.elastic.co/docs/reference/elasticsearch/jvm-settings
 Environment=ES_JAVA_OPTS=-Xms768m -Xmx768m
 
 [Service]

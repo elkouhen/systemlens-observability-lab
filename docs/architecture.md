@@ -1,8 +1,9 @@
 # Architecture : Hybride Fleet
 
 L’architecture active du POC utilise Elastic
-Stack `9.4.3`, OpenTelemetry et EDOT pour les applications et Kubernetes, puis
-Elastic Agent Fleet pour les VM.
+Stack `9.4.3`, OpenTelemetry et EDOT pour les applications, Kubernetes et les
+VM. Les agents des VM sont installés en mode EDOT standalone ; leur supervision
+Fleet OpAMP est optionnelle.
 
 ## Périmètre
 
@@ -19,9 +20,6 @@ du dépôt. Les manifests Kubernetes et le provisionnement des VM sont propres
 
 ```text
 Applications Java et pods Kubernetes
-                 |
-                 v
-       otel-gateway dans Kubernetes
                  |
                  v
        Collecteur Edge sur otel-edge-01
@@ -63,10 +61,10 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP, Gateway, Edge, Kafka `otel-traces` | EDOT backend, APM Server |
-| Logs applicatifs et Kubernetes | EDOT DaemonSet `filelog` | OTLP, Gateway, Edge, Kafka `otel-logs` | EDOT backend, Elasticsearch |
-| Métriques applicatives | Micrometer OTLP | OTLP, Gateway, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet | OTLP, Gateway, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces` | EDOT backend, APM Server |
+| Logs applicatifs et Kubernetes | EDOT DaemonSet `filelog` | OTLP, Edge, Kafka `otel-logs` | EDOT backend, Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
+| Métriques Kubernetes | EDOT DaemonSet | OTLP, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka par signal | EDOT backend, Elasticsearch |
 
 Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
@@ -77,7 +75,6 @@ l’export vers Elastic.
 
 | Composant | Responsabilité | Source de configuration |
 | --- | --- | --- |
-| `otel-gateway` | Recevoir les signaux OTLP et les transmettre au Collecteur Edge | `architecture/platform/kubernetes/` |
 | `otel-edge-01` | Recevoir l’OTLP Kubernetes et VM puis publier dans Kafka | `architecture/ansible/roles/otel_edge/` |
 | EDOT DaemonSet | Collecter les logs et métriques Kubernetes | `architecture/platform/kubernetes/base/observability/` |
 | `poc-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
@@ -86,8 +83,10 @@ l’export vers Elastic.
 | `elk-01` | Fournir Elasticsearch, Kibana et Fleet Server | `architecture/ansible/` |
 | Elastic Agent EDOT | Collecter les logs et métriques des VM et les exporter en OTLP | `architecture/ansible/roles/elastic_agent/` |
 
-La collecte VM ne passe pas par le Gateway OTLP Kubernetes. Elle rejoint le
-Collecteur Edge, puis Kafka et le backend comme les flux du cluster.
+Les collecteurs Kubernetes et les applications envoient leurs signaux au
+Collecteur Edge via le Service `otel-edge-vm`. Les agents EDOT standalone des
+VM utilisent directement l’adresse OTLP de ce même collecteur. Tous les flux
+suivent ensuite Kafka et le backend.
 
 ## Invariants d’architecture
 

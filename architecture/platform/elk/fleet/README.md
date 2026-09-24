@@ -1,8 +1,10 @@
 # Policies Fleet et Elastic Agent
 
-La configuration Fleet de référence est déclarée dans
+La configuration Fleet de référence est déclarée dans le template Kibana
+[`../../../ansible/roles/elk/templates/kibana.yml.j2`](../../../ansible/roles/elk/templates/kibana.yml.j2)
+avec `xpack.fleet.packages` et `xpack.fleet.agentPolicies`. Le script
 [`../scripts/bootstrap-fleet-policies.sh`](../scripts/bootstrap-fleet-policies.sh)
-et appliquée au Kibana Quadlet de `elk-01` par l'API Fleet. Aucun composant
+ne conserve que les opérations dynamiques. Aucun composant
 Kibana, Fleet Server ou ECK n'est déployé dans Kubernetes.
 
 ## Parcours de lecture
@@ -25,7 +27,8 @@ Elasticsearch reçoit ensuite les signaux via Kafka et l'exporteur backend.
 
 Appliquer `make fleet-assets-deploy` (inclus dans `make elk-deploy`) pour
 installer les packages `system_otel` `0.3.0`, `kubernetes_otel` `2.6.0`,
-`kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0` et `mongodb_otel` `0.3.1`,
+`kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0`, `mongodb_otel` `0.3.1` et
+`otel_collector_internal_telemetry` `1.2.3`,
 compatibles avec Kibana `9.4.3`, puis préconfigurer les assets Fleet sur un
 nouveau Kibana. Utiliser ensuite `make fleet-opamp-enable` pour activer le
 monitoring OpAMP des VM sans modifier
@@ -35,15 +38,32 @@ sont pas enrôlées comme agents Fleet classiques afin de conserver l'export OTL
 vers `otel-edge-01`.
 
 La cible `fleet-prerequisites` vérifie les credentials Elasticsearch, l’API
-Kibana et un Fleet Server `HEALTHY`. La cible `fleet-opamp-enable` échoue si les
-quatre agents VM ne sont pas `online` dans Fleet. Une exécution réussie constitue
-la preuve du plan de contrôle, sans réinstaller `elk-01`.
+Kibana et un Fleet Server `HEALTHY`. La cible `kibana-fleet-config-deploy`
+vérifie d’abord l’accès de `elk-01` à `epr.elastic.co`, amorce la policy native
+`eck-fleet-server` avec Elasticsearch et Kibana disponibles, installe les
+packages Fleet, puis démarre Fleet Server et attend son état `HEALTHY`. Cette
+séquence évite de démarrer Fleet Server tant que sa policy ne contient pas
+l’intégration Fleet Server. La cible
+`fleet-opamp-enable` échoue si les quatre agents VM ne sont pas `online` dans
+Fleet. Une exécution réussie constitue la preuve du plan de contrôle, sans
+réinstaller `elk-01`.
 
-Le bootstrap utilise exclusivement l'API Fleet pour créer ou mettre à jour les
-agent policies. Il migre automatiquement une ancienne policy
-`eck-fleet-server` créée comme saved object sans `revision`, car cette forme
-laisse Fleet Server bloqué en `STARTING`. Une erreur de lecture de Kibana est
-bloquante : elle ne doit pas être interprétée comme une policy absente.
+Les agents EDOT standalone et les collecteurs EDOT des VM exportent leur
+télémétrie interne par OTLP vers un receiver local, puis la routent dans le
+dataset `collectortelemetry`. Le flux comprend les métriques, logs et traces
+internes. Les agents et Edge envoient ces signaux vers Kafka ; le backend les
+écrit dans Elasticsearch. Fleet peut ainsi afficher les colonnes CPU et
+mémoire des agents OpAMP dans `Fleet > Agents`, tandis que les dashboards
+dédiés suivent les erreurs et la performance des pipelines. Les traces
+internes restent conditionnées à la production effective de spans par la
+distribution du Collector. Cette télémétrie est distincte du flux de données
+métier envoyé vers `otel-edge-01`.
+
+Kibana préconfigure les agent policies et les package policies à son démarrage.
+Le bootstrap installe les packages manquants, injecte le mot de passe PostgreSQL
+dans la package policy préconfigurée et crée les clés d'enrôlement Fleet Server.
+Une erreur de lecture de Kibana est bloquante : elle ne doit pas être interprétée
+comme une policy absente.
 
 ## Documentation externe
 

@@ -26,7 +26,9 @@ Elasticsearch sur `elk-01`.
 
 Kibana utilise le registre public Elastic (`https://epr.elastic.co`) pour les
 packages Fleet. Le cluster doit donc autoriser les connexions HTTPS sortantes
-vers ce registre avant d’exécuter `make elk-deploy`.
+vers ce registre avant d’exécuter `make elk-deploy`. La cible
+`fleet-registry-ready` vérifie cette connectivité depuis `elk-01` avant
+l’installation des packages.
 
 Le Collecteur EDOT Edge est référencé dans Kubernetes par le Service `otel-edge-vm`,
 exposé sur les ports `4317` et `4318`. Les applications, le DaemonSet Kubernetes

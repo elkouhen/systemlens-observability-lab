@@ -29,23 +29,23 @@ Définir un budget par signal et mesurer ce budget après enrichissement :
 
 | Signal | Budget à définir | Réaction au dépassement |
 | --- | --- | --- |
-| Traces | spans par seconde et par service | sampling, puis limitation au Gateway |
+| Traces | spans par seconde et par service | sampling, puis limitation au Collecteur Edge |
 | Logs | événements par seconde et par namespace ou VM | filtrage des logs verbeux, puis ralentissement |
 | Métriques | séries actives et points par seconde | augmenter l’intervalle ou désactiver une famille |
 
 ## Traces applicatives
 
 ```text
-Agent Java OpenTelemetry -> Gateway EDOT -> Kafka otel-traces
+Agent Java OpenTelemetry -> Collecteur Edge -> Kafka otel-traces
 -> Collector backend -> Elasticsearch
 ```
 
-- Appliquer le sampling dans l’agent ou au Gateway.
+- Appliquer le sampling dans l’agent ou au Collecteur Edge.
 - Conserver une priorité plus élevée pour les erreurs et les transactions
   lentes afin de préserver leur valeur de diagnostic.
 - Compléter toute limite réseau par le sampling, car une requête OTLP peut
   contenir un nombre variable de spans.
-- Conserver `memory_limiter` et `batch` dans le Gateway et le Collector
+- Conserver `memory_limiter` et `batch` dans le Collecteur Edge et le Collector
   backend.
 - Surveiller le débit du topic `otel-traces`, le consumer lag et les erreurs
   d’export.
@@ -66,13 +66,13 @@ stdout des pods -> EDOT DaemonSet -> Kafka otel-logs
 - Surveiller le débit du topic `otel-logs`, le consumer lag et les rejets du
   backend.
 
-Les logs VM suivent un chemin séparé avec Elastic Agent Fleet. Ils ne sont pas
-publiés dans `otel-logs`.
+Les logs VM suivent le même chemin Edge et Kafka avec Elastic Agent EDOT
+standalone. Ils sont publiés dans `otel-logs`.
 
 ## Métriques applicatives et Kubernetes
 
 ```text
-Receiver Prometheus du Gateway -> Kafka otel-metrics
+Micrometer OTLP et collecteurs EDOT -> Collecteur Edge -> Kafka otel-metrics
 -> Collector backend -> Elasticsearch
 ```
 
@@ -92,7 +92,8 @@ les composants EDOT prévus dans les manifests.
 ## Logs et métriques des VM
 
 ```text
-Elastic Agent Fleet -> Elasticsearch
+Elastic Agent EDOT standalone -> Collecteur Edge -> Kafka -> Collector backend
+-> Elasticsearch
 ```
 
 - Régler les périodes des inputs System, Kafka, MongoDB et PostgreSQL dans la
@@ -113,7 +114,7 @@ par VM ou par réseau et compléter par le filtrage.
 
 Créer des alertes sur les signaux suivants :
 
-- taux de rejet ou d’erreur de l’agent, du Gateway et du Collector backend ;
+- taux de rejet ou d’erreur de l’agent, du Collecteur Edge et du Collector backend ;
 - remplissage des queues locales ;
 - consumer lag des topics `otel-traces`, `otel-logs` et `otel-metrics` ;
 - taux de réponse `429` et erreurs d’indexation Elasticsearch ;

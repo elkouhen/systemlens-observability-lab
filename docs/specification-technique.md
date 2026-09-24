@@ -28,15 +28,15 @@ sont provisionnés par Ansible en mode EDOT standalone.
 
 | Composant | Déploiement | Fonction technique |
 | --- | --- | --- |
-| `otel-gateway` | Kubernetes, namespace `elastic-stack` | Recevoir les signaux OTLP sur les ports `4317` et `4318` et les publier dans Kafka |
+| Service `otel-edge-vm` | Kubernetes, namespace `elastic-stack` | Exposer le Collecteur Edge sur les ports `4317` et `4318` |
 | EDOT DaemonSet | Kubernetes | Lire les logs stdout et les métriques Kubernetes prévues par la configuration |
-| Kafka | `poc-01` | Tamponner les signaux applicatifs et Kubernetes dans trois topics dédiés |
+| Kafka | `poc-01` | Tamponner les signaux applicatifs, Kubernetes et VM dans trois topics dédiés |
 | Collector backend EDOT | `otel-backend-01` | Consommer Kafka, traiter les signaux et les exporter vers Elastic |
 | HAProxy et routage TLS | `otel-edge-01` | Exposer les points d’entrée OTLP, Elasticsearch, Kibana et Fleet |
 | Elasticsearch | `elk-01` | Stocker les signaux et fournir les API d’ingestion et de recherche |
 | Kibana | `elk-01` | Fournir Discover, APM, Fleet et les dashboards |
-| Fleet Server | `elk-01` | Fournir les interfaces Fleet conservées pour le stack Elastic ; aucun agent de cette chaîne n’est enrôlé |
-| Elastic Agent | Chaque VM active | Collecter les logs et métriques des VM et des services intégrés |
+| Fleet Server | `elk-01` | Fournir le plan de contrôle Fleet et le monitoring OpAMP optionnel |
+| Elastic Agent EDOT standalone | Chaque VM active | Collecter les logs et métriques des VM et des services intégrés |
 
 Les workloads applicatifs utilisent le namespace `h0tl-supermarche-app`. Les
 ressources de plateforme utilisent `elastic-stack`.
@@ -45,9 +45,9 @@ ressources de plateforme utilisent `elastic-stack`.
 
 ### 3.1 Interfaces Kubernetes
 
-Le Service `otel-gateway` expose les ports OTLP `4317` et `4318`. Les
-applications et les collecteurs Kubernetes utilisent ce Service comme point
-d’entrée OTLP.
+Le Service `otel-edge-vm` expose le Collecteur Edge sur les ports OTLP `4317`
+et `4318`. Les applications et les collecteurs Kubernetes utilisent ce Service
+comme point d’entrée OTLP.
 
 Le routage externe s’appuie sur Traefik et les hôtes suivants :
 
@@ -64,9 +64,9 @@ Les topics OTLP sont séparés par type de signal :
 
 | Topic | Producteurs principaux | Consommateur |
 | --- | --- | --- |
-| `otel-traces` | Gateway OTLP et collecte de traces | Collector backend |
-| `otel-logs` | Gateway OTLP et collecte filelog | Collector backend |
-| `otel-metrics` | Gateway OTLP et collecte des métriques | Collector backend |
+| `otel-traces` | Collecteur Edge et collecte de traces | Collector backend |
+| `otel-logs` | Collecteur Edge et collecte filelog | Collector backend |
+| `otel-metrics` | Collecteur Edge et collecte des métriques | Collector backend |
 
 Le groupe de consommation du backend est `otel-backend`. La séparation des
 topics évite de décoder des payloads de types différents dans un même flux.
@@ -104,9 +104,9 @@ rester idempotents.
 
 ### 5.2 Administration Fleet
 
-Les collecteurs EDOT Kubernetes et les agents EDOT des VM sont configurés par
-les sources IaC correspondantes. OpAMP et l’enrôlement Fleet ne font pas partie
-du chemin de collecte.
+Les collecteurs EDOT Kubernetes et les agents EDOT standalone des VM sont
+configurés par les sources IaC correspondantes. Le monitoring Fleet OpAMP est
+optionnel et ne fait pas partie du chemin de collecte.
 
 ### 5.3 Sécurité des secrets
 
@@ -117,9 +117,9 @@ documentation.
 
 ### 5.4 Transport des signaux
 
-Kafka fournit le tampon des flux applicatifs et Kubernetes. Le Collector
-backend applique le traitement et l’export vers Elastic. La chaîne VM reste
-directe afin de ne pas ajouter Kafka au chemin de collecte Fleet.
+Kafka fournit le tampon des flux applicatifs, Kubernetes et VM. Le Collector
+backend applique le traitement et l’export vers Elastic. Les VM ne passent pas
+par un collecteur Kubernetes intermédiaire.
 
 ## 6. Déploiement et validation
 

@@ -5,6 +5,7 @@ Wants=network-online.target
 Requires=observability-elasticsearch.service
 
 [Container]
+# Documentation : https://www.elastic.co/docs/solutions/observability/apm/apm-server/binary
 Image=docker.elastic.co/apm/apm-server:{{ apm_server_version }}
 ContainerName=observability-apm-server
 Network=host

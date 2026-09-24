@@ -2,13 +2,18 @@ agent:
   grpc:
     port: 6790
 
+{% set internal_telemetry_port = 4320 if node_role == 'otel_edge' else 4317 %}
+
 extensions:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/healthcheckextension
   health_check:
     endpoint: 127.0.0.1:13136
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/storage/filestorage
   file_storage:
     directory: /var/lib/observability/elastic-agent-otel
     create_directory: true
 {% if fleet_enrollment_token | default('') | length > 0 %}
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/opampextension
   opamp:
     server:
       http:
@@ -24,6 +29,13 @@ extensions:
 {% endif %}
 
 receivers:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
+  otlp/internal:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:{{ internal_telemetry_port }}
+
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver
   filelog/system:
     include:
       - /var/log/messages
@@ -41,6 +53,7 @@ receivers:
         from: body
         to: attributes.message
 
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver
   hostmetrics/system:
     root_path: /
     collection_interval: 30s
@@ -61,6 +74,7 @@ receivers:
       processes:
 
 {% if node_role == 'poc' %}
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver
   kafka_metrics/poc:
     brokers:
       - 127.0.0.1:9092
@@ -71,6 +85,7 @@ receivers:
       - consumers
     collection_interval: 60s
 
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/mongodbreceiver
   mongodb/poc:
     hosts:
       - endpoint: 127.0.0.1:27017
@@ -82,6 +97,7 @@ receivers:
     tls:
       insecure: true
 
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/postgresqlreceiver
   postgresql/poc:
     endpoint: 127.0.0.1:5432
     username: {{ postgresql_otel_user }}
@@ -139,6 +155,32 @@ processors:
       - key: host.name
         value: {{ inventory_hostname }}
         action: upsert
+  resource/internal-telemetry:
+    attributes:
+      - key: data_stream.dataset
+        value: collectortelemetry
+        action: upsert
+      - key: service.name
+        value: elastic-otel-collector
+        action: upsert
+      - key: service.version
+        value: {{ elastic_agent_version }}
+        action: upsert
+      - key: service.instance.id
+        value: "{{ opamp_instance_uid | default(inventory_hostname) }}"
+        action: upsert
+      - key: service.namespace
+        value: systemlens-vm
+        action: upsert
+      - key: elastic.collector.group_name
+        value: SystemLens VM
+        action: upsert
+      - key: elastic.collector.group
+        value: systemlens-vm
+        action: upsert
+      - key: elastic.display.name
+        value: {{ inventory_hostname }}
+        action: upsert
   attributes/mongodb:
     actions:
       - key: mongodb.instance
@@ -146,12 +188,61 @@ processors:
         action: upsert
 
 exporters:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
   otlphttp/edge:
     endpoint: http://{{ otel_edge_ip }}:4318
 
 service:
   extensions: [health_check, file_storage{% if fleet_enrollment_token | default('') | length > 0 %}, opamp{% endif %}]
+  telemetry:
+    metrics:
+      level: detailed
+      readers:
+        - periodic:
+            interval: 3000
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:{{ internal_telemetry_port }}
+    logs:
+      processors:
+        - batch:
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:{{ internal_telemetry_port }}
+    traces:
+      processors:
+        - batch:
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:{{ internal_telemetry_port }}
+    resource:
+      data_stream.dataset: collectortelemetry
+      service.name: elastic-otel-collector
+      service.version: "{{ elastic_agent_version }}"
+      service.instance.id: "{{ opamp_instance_uid | default(inventory_hostname) }}"
+      service.namespace: systemlens-vm
+      elastic.collector.group_name: SystemLens VM
+      elastic.collector.group: systemlens-vm
+      elastic.display.name: {{ inventory_hostname }}
   pipelines:
+    metrics/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [otlphttp/edge]
+    logs/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [otlphttp/edge]
+    traces/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [otlphttp/edge]
     logs:
       receivers: [filelog/system]
       processors: [memory_limiter, resource/agent, batch]

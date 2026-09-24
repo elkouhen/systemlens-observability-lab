@@ -1,16 +1,25 @@
 extensions:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/healthcheckextension
   health_check:
     endpoint: 0.0.0.0:13135
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/storage/filestorage
   file_storage:
     directory: /var/lib/otel-edge
 
 receivers:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
   otlp:
     protocols:
       grpc:
         endpoint: 127.0.0.1:14317
       http:
         endpoint: 127.0.0.1:14318
+
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
+  otlp/internal:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:14319
 
 processors:
   memory_limiter:
@@ -24,8 +33,23 @@ processors:
     timeout: 1s
     send_batch_size: 50
     send_batch_max_size: 50
+  resource/internal-telemetry:
+    attributes:
+      - key: data_stream.dataset
+        value: collectortelemetry
+        action: upsert
+      - key: service.name
+        value: otel-edge
+        action: upsert
+      - key: service.version
+        value: "{{ elastic_agent_version }}"
+        action: upsert
+      - key: service.instance.id
+        value: "{{ inventory_hostname }}"
+        action: upsert
 
 exporters:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
   kafka/otlp:
     brokers: ["{{ poc_ip }}:9092"]
     traces:
@@ -41,10 +65,48 @@ exporters:
 service:
   extensions: [health_check, file_storage]
   telemetry:
+    metrics:
+      level: detailed
+      readers:
+        - periodic:
+            interval: 3000
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:14319
+    logs:
+      processors:
+        - batch:
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:14319
+    traces:
+      processors:
+        - batch:
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:14319
     resource:
       service.name: otel-edge
       deployment.environment.name: homologation
   pipelines:
+    metrics/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [kafka/otlp]
+    logs/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch/logs]
+      exporters: [kafka/otlp]
+    traces/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [kafka/otlp]
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]

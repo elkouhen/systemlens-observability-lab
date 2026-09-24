@@ -11,12 +11,13 @@ ne stockent aucun mot de passe dans le dépôt.
    La clé API Elasticsearch déjà exportée est vérifiée contre le cluster ; si
    elle appartient à un ancien cluster, elle est automatiquement remplacée.
    En architecture, aucun Secret APM n'est requis : les applications utilisent
-   OpenTelemetry et le Gateway EDOT. Le script doit être *sourcé* :
+   OpenTelemetry et le Collecteur EDOT Edge. Le script doit être *sourcé* :
    `source ./platform/elk/scripts/load-credentials.sh`.
-   `bootstrap-fleet-policies.sh` installe également le package Fleet
-   `kubernetes_otel` `2.6.0`, `kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0`
-   et `mongodb_otel` `0.3.1`, versions compatibles avec Kibana `9.4.3`. Ces
-   packages fournissent les assets Kibana des dashboards OTel correspondants.
+   Le template Kibana préconfigure les packages Fleet et les package policies ;
+   `bootstrap-fleet-policies.sh` vérifie leur installation et réconcilie le
+   secret PostgreSQL dynamique. Les packages `kubernetes_otel` `2.6.0`,
+   `kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0` et `mongodb_otel` `0.3.1`
+   fournissent les assets Kibana des dashboards OTel correspondants.
    Les Collectors restent autonomes et ne sont pas enrôlés comme agents Fleet.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et applique les
    correctifs de compatibilité encore nécessaires au POC. Il ne configure pas

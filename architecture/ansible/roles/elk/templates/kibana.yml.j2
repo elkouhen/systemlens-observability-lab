@@ -1,15 +1,180 @@
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/general-settings
 server.host: 0.0.0.0
 server.port: 5601
-server.publicBaseUrl: https://kibana.observability.test
+server.publicBaseUrl: http://kibana.observability.test:5601
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/general-settings
 elasticsearch.hosts: ["http://127.0.0.1:9200"]
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/security-settings
 xpack.encryptedSavedObjects.encryptionKey: "{{ kibana_encryption_key }}"
 xpack.security.encryptionKey: "{{ kibana_security_key }}"
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/reporting-settings
 xpack.reporting.encryptionKey: "{{ kibana_reporting_key }}"
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/fleet-settings
 xpack.fleet.agents.enabled: true
 xpack.fleet.agents.fleet_server.hosts: ["http://fleet.observability.test:8220"]
 xpack.fleet.registryUrl: https://epr.elastic.co
+# Documentation : https://www.elastic.co/docs/reference/fleet/install-uninstall-integration-assets
 xpack.fleet.packages:
   - name: fleet_server
     version: 1.2.0
   - name: system
     version: 1.20.4
+  - name: mongodb
+    version: 1.5.0
+  - name: kafka
+    version: 1.3.0
+  - name: postgresql
+    version: 1.5.0
+  - name: kubernetes_otel
+    version: 2.6.0
+  - name: kafka_otel
+    version: 0.3.1
+  - name: postgresql_otel
+    version: 0.5.0
+  - name: mongodb_otel
+    version: 0.3.1
+  - name: system_otel
+    version: 0.3.0
+  - name: otel_collector_internal_telemetry
+    version: 1.2.3
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/fleet-settings
+# Les package policies sont attachées à la policy de l'agent qui les exécute.
+# Le mot de passe PostgreSQL est injecté ensuite par le bootstrap Fleet.
+xpack.fleet.agentPolicies:
+  - id: eck-fleet-server
+    name: Fleet Server
+    namespace: default
+    monitoring_enabled: [logs, metrics]
+    is_default_fleet_server: true
+    package_policies:
+      - id: fleet-server-1
+        name: fleet-server-1
+        namespace: default
+        package:
+          name: fleet_server
+        inputs:
+          fleet_server-fleet-server:
+            enabled: true
+  - id: data-fleet
+    name: Data — Elastic Agent
+    namespace: default
+    monitoring_enabled: [logs, metrics]
+    is_default: true
+    package_policies:
+      - id: system-poc-01
+        name: system-poc-01
+        namespace: default
+        package:
+          name: system
+        inputs:
+          system-system/metrics:
+            enabled: true
+      - id: mongodb-poc-01
+        name: mongodb-poc-01
+        namespace: default
+        package:
+          name: mongodb
+        inputs:
+          mongodb-mongodb/metrics:
+            enabled: true
+            streams:
+              mongodb.replstatus:
+                enabled: true
+            vars:
+              hosts: ["mongodb://127.0.0.1:27017"]
+          mongodb-logfile:
+            enabled: true
+            streams:
+              mongodb.log:
+                enabled: true
+                vars:
+                  paths: ["/var/log/mongodb/mongod.log"]
+      - id: kafka-poc-01
+        name: kafka-poc-01
+        namespace: default
+        package:
+          name: kafka
+        inputs:
+          kafka-kafka/metrics:
+            enabled: true
+            vars:
+              hosts: ["127.0.0.1:9092"]
+          kafka-logfile:
+            enabled: true
+            streams:
+              kafka.log:
+                enabled: true
+                vars:
+                  kafka_home: /var/log/kafka
+                  paths: ["/controller.log*", "/server.log*", "/state-change.log*", "/kafka-*.log*"]
+      - id: postgresql-poc-01
+        name: postgresql-poc-01
+        namespace: default
+        package:
+          name: postgresql
+        inputs:
+          postgresql-postgresql/metrics:
+            enabled: true
+            streams:
+              postgresql.statement:
+                enabled: true
+            vars:
+              hosts: ["postgres://127.0.0.1:5432/observability_test?sslmode=disable"]
+              username: observability
+          postgresql-logfile:
+            enabled: true
+            streams:
+              postgresql.log:
+                enabled: true
+                vars:
+                  paths: ["/var/log/postgresql/postgresql.log"]
+  - id: otel-fleet
+    name: OTel — Elastic Agent
+    namespace: default
+    monitoring_enabled: [logs, metrics]
+    package_policies:
+      - id: system-otel-backend-01
+        name: system-otel-backend-01
+        namespace: default
+        package:
+          name: system
+        inputs:
+          system-system/metrics:
+            enabled: true
+      - id: system-otel-edge-01
+        name: system-otel-edge-01
+        namespace: default
+        package:
+          name: system
+        inputs:
+          system-system/metrics:
+            enabled: true
+      - id: system-elk-01
+        name: system-elk-01
+        namespace: default
+        package:
+          name: system
+        inputs:
+          system-system/metrics:
+            enabled: true
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/telemetry-settings
+telemetry.optIn: false
+telemetry.allowChangingOptInStatus: false
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/logging-settings
+logging:
+  appenders:
+    json:
+      type: console
+      layout:
+        type: json
+  root:
+    appenders: [json]
+    level: info
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/security-settings
+xpack.security.audit.enabled: true
+xpack.security.audit.appender:
+  type: console
+  layout:
+    type: json
+# Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/task-manager-settings
+xpack.task_manager.monitored_stats_health_verbose_log.enabled: true

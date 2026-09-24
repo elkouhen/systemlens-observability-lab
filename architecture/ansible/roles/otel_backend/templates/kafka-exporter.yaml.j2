@@ -1,10 +1,13 @@
 extensions:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/storage/filestorage
   file_storage:
     directory: /var/lib/otel
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/healthcheckextension
   health_check:
     endpoint: 0.0.0.0:13134
 
 receivers:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver
   kafka/otlp:
     brokers: ["{{ otel_kafka_broker }}"]
     protocol_version: 3.9.0
@@ -18,6 +21,12 @@ receivers:
     logs:
       topics: [otel-logs]
       encoding: otlp_proto
+
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
+  otlp/internal:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4322
 
 processors:
   memory_limiter:
@@ -44,12 +53,28 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 512
+  resource/internal-telemetry:
+    attributes:
+      - key: data_stream.dataset
+        value: collectortelemetry
+        action: upsert
+      - key: service.name
+        value: otel-kafka-exporter
+        action: upsert
+      - key: service.version
+        value: "{{ elastic_agent_version }}"
+        action: upsert
+      - key: service.instance.id
+        value: "{{ inventory_hostname }}"
+        action: upsert
 
 exporters:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
   otlphttp/apm-server:
     endpoint: "{{ apm_server_url }}"
     headers:
       Authorization: "Bearer ${env:APM_SERVER_SECRET_TOKEN}"
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter
   elasticsearch/otel:
     endpoints: ["{{ elasticsearch_url }}"]
     api_key: ${env:ELASTICSEARCH_API_KEY}
@@ -67,12 +92,48 @@ service:
     metrics:
       level: detailed
       readers:
+        - periodic:
+            interval: 3000
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:4322
         - pull:
             exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/prometheusexporter
               prometheus:
                 host: 0.0.0.0
                 port: 8889
+    logs:
+      processors:
+        - batch:
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:4322
+    traces:
+      processors:
+        - batch:
+            exporter:
+              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:4322
   pipelines:
+    metrics/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [elasticsearch/otel]
+    logs/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [elasticsearch/otel]
+    traces/internal-telemetry:
+      receivers: [otlp/internal]
+      processors: [memory_limiter, resource/internal-telemetry, batch]
+      exporters: [elasticsearch/otel]
     traces:
       receivers: [kafka/otlp]
       processors: [memory_limiter, batch]

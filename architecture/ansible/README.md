@@ -14,6 +14,17 @@ des agents EDOT vers Fleet Server sur `elk-01`. Les agents restent standalone :
 leurs logs et métriques continuent vers `otel-edge-01` en OTLP et aucune
 intégration Fleet concurrente n'est activée.
 
+La télémétrie interne des agents EDOT standalone et des collecteurs EDOT
+exécutés sur les VM est exportée périodiquement par OTLP vers un receiver local,
+puis routée dans le dataset `collectortelemetry`. Elle comprend les métriques,
+logs et traces du Collector. Chaque composant conserve la sortie propre à son
+rôle : les agents et Edge envoient leurs signaux vers Kafka, tandis que le
+backend les écrit dans Elasticsearch. Fleet peut ainsi afficher la
+consommation CPU et mémoire des agents dans la liste des collecteurs OpAMP et
+les dashboards peuvent suivre les erreurs et la performance des pipelines. Les
+traces internes dépendent de la production effective de spans par la
+distribution du Collector.
+
 Le receiver `hostmetrics` active explicitement `system.cpu.utilization` et
 `system.memory.utilization`. Ces métriques alimentent la vue Infrastructure
 Inventory avec les champs `host.name` et `data_stream.dataset:
@@ -52,6 +63,15 @@ sur `poc-01`.
 La cible `make vms-up` démarre et provisionne les quatre VM avant le déploiement
 de la plateforme. Les données Kafka sont conservées dans le volume Podman
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
+
+Pour supprimer les quatre VM et leurs disques locaux, exécuter la cible
+destructive `make vms-destroy`. Cette opération ne supprime pas les ressources
+Kubernetes ni les données persistées en dehors des VM.
+
+Après `make deploy`, la phase `deploy-post` reprovisionne l’exporteur Kafka
+avec la clé API Elasticsearch courante et active le monitoring OpAMP des
+agents VM. Cette phase peut être rejouée seule avec `make deploy-post` après
+une rotation de clé ou une modification de configuration.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |

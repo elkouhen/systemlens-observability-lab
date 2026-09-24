@@ -16,6 +16,8 @@ target/
 .agent/
 .agents/
 **/.systemlens/findings.db
+# Métadonnées et bases locales SystemLens générées par les agents.
+**/.systemlens/
 
 # Rapport APM Elastic généré localement.
 /apm.html
