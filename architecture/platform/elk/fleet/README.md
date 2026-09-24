@@ -60,8 +60,10 @@ distribution du Collector. Cette télémétrie est distincte du flux de données
 métier envoyé vers `otel-edge-01`.
 
 Kibana préconfigure les agent policies et les package policies à son démarrage.
-Le bootstrap installe les packages manquants, injecte le mot de passe PostgreSQL
-dans la package policy préconfigurée et crée les clés d'enrôlement Fleet Server.
+Le bootstrap installe les packages manquants, crée les package policies MongoDB,
+Kafka et PostgreSQL sous `data-fleet` si Kibana ne les a pas créées, injecte le
+mot de passe PostgreSQL dans la package policy et crée les clés d'enrôlement
+Fleet Server.
 Une erreur de lecture de Kibana est bloquante : elle ne doit pas être interprétée
 comme une policy absente.
 

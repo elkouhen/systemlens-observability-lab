@@ -102,16 +102,142 @@ if [[ "${fleet_server_enrollment_keys}" == '0' ]]; then
     --data '{"name":"systemlens-fleet-server-bootstrap","policy_id":"eck-fleet-server"}' >/dev/null
 fi
 
+ensure_data_package_policy() {
+  local package_name="$1"
+  local policy_name="$2"
+  local package_version policy_id package_policy_payload
+
+  policy_id="$(curl "${curl_args[@]}" \
+    "${kibana_url}/api/fleet/package_policies?perPage=1000" |
+    jq -r --arg policy_name "${policy_name}" \
+      '.items[] | select(.name == $policy_name and (.policy_ids | index("data-fleet"))) | .id' |
+    head -n 1)"
+  [[ -n "${policy_id}" && "${policy_id}" != "null" ]] && return 0
+
+  package_version="$(curl "${curl_args[@]}" \
+    "${kibana_url}/api/fleet/epm/packages/${package_name}?withMetadata=true" |
+    jq -er '.item.version')"
+  case "${package_name}" in
+    mongodb)
+      package_policy_payload="$(jq -n --arg package_version "${package_version}" '
+        {
+          name: "mongodb-poc-01",
+          namespace: "default",
+          policy_ids: ["data-fleet"],
+          package: {name: "mongodb", version: $package_version},
+          inputs: {
+            "mongodb-mongodb/metrics": {
+              enabled: true,
+              streams: {"mongodb.replstatus": {enabled: true}},
+              vars: {hosts: ["mongodb://127.0.0.1:27017"]}
+            },
+            "mongodb-logfile": {
+              enabled: true,
+              streams: {
+                "mongodb.log": {
+                  enabled: true,
+                  vars: {paths: ["/var/log/mongodb/mongod.log"]}
+                }
+              }
+            }
+          }
+        }')"
+      ;;
+    kafka)
+      package_policy_payload="$(jq -n --arg package_version "${package_version}" '
+        {
+          name: "kafka-poc-01",
+          namespace: "default",
+          policy_ids: ["data-fleet"],
+          package: {name: "kafka", version: $package_version},
+          inputs: {
+            "kafka-kafka/metrics": {
+              enabled: true,
+              vars: {hosts: ["127.0.0.1:9092"]}
+            },
+            "kafka-logfile": {
+              enabled: true,
+              streams: {
+                "kafka.log": {
+                  enabled: true,
+                  vars: {
+                    kafka_home: "/var/log/kafka",
+                    paths: ["/controller.log*", "/server.log*", "/state-change.log*", "/kafka-*.log*"]
+                  }
+                }
+              }
+            }
+          }
+        }')"
+      ;;
+    *)
+      printf 'Package Fleet non supporté : %s\n' "${package_name}" >&2
+      return 1
+      ;;
+  esac
+
+  curl "${curl_args[@]}" -X POST "${kibana_url}/api/fleet/package_policies" \
+    --data "${package_policy_payload}" >/dev/null
+  printf 'Package policy %s créée sous data-fleet\n' "${policy_name}"
+}
+
+ensure_data_package_policy mongodb mongodb-poc-01
+ensure_data_package_policy kafka kafka-poc-01
+
 postgresql_policy_id="$(curl "${curl_args[@]}" "${kibana_url}/api/fleet/package_policies?perPage=1000" |
   jq -r '.items[] | select(.name == "postgresql-poc-01") | .id' | head -n 1)"
+if [[ -z "${postgresql_policy_id}" || "${postgresql_policy_id}" == "null" ]]; then
+  postgresql_fleet_package_version="$(curl "${curl_args[@]}" \
+    "${kibana_url}/api/fleet/epm/packages/postgresql?withMetadata=true" |
+    jq -r '.item.version // empty')"
+  [[ -n "${postgresql_fleet_package_version}" ]] || {
+    printf 'Version de l’intégration PostgreSQL Fleet introuvable.\n' >&2
+    exit 1
+  }
+  postgresql_policy_payload="$(jq -n --arg package_version "${postgresql_fleet_package_version}" '
+    {
+      name: "postgresql-poc-01",
+      namespace: "default",
+      policy_ids: ["data-fleet"],
+      package: {name: "postgresql", version: $package_version},
+      inputs: {
+        "postgresql-postgresql/metrics": {
+          enabled: true,
+          streams: {"postgresql.statement": {enabled: true}},
+          vars: {
+            hosts: ["postgres://127.0.0.1:5432/observability_test?sslmode=disable"],
+            username: "observability"
+          }
+        },
+        "postgresql-logfile": {
+          enabled: true,
+          streams: {
+            "postgresql.log": {
+              enabled: true,
+              vars: {paths: ["/var/log/postgresql/postgresql.log"]}
+            }
+          }
+        }
+      }
+    }')"
+  curl "${curl_args[@]}" -X POST "${kibana_url}/api/fleet/package_policies" \
+    --data "${postgresql_policy_payload}" >/dev/null
+  postgresql_policy_id="$(curl "${curl_args[@]}" "${kibana_url}/api/fleet/package_policies?perPage=1000" |
+    jq -r '.items[] | select(.name == "postgresql-poc-01") | .id' | head -n 1)"
+fi
 [[ -n "${postgresql_policy_id}" && "${postgresql_policy_id}" != "null" ]] || {
-  printf 'La package policy PostgreSQL préconfigurée est introuvable.\n' >&2
+  printf 'La package policy PostgreSQL est introuvable après sa création.\n' >&2
   exit 1
 }
-postgresql_policy="$(curl "${curl_args[@]}" "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}")"
+postgresql_policy="$(curl "${curl_args[@]}" "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}" |
+  jq -er '.item')"
 postgresql_policy="$(jq --arg password "${POSTGRESQL_PASSWORD}" \
-  'del(.id, .revision, .created_at, .updated_at, .created_by, .updated_by)
-   | .inputs["postgresql-postgresql/metrics"].vars.password = $password' <<<"${postgresql_policy}")"
+  'del(.id, .revision, .created_at, .updated_at, .created_by, .updated_by, .spaceIds, .version)
+   | .inputs |= map(
+       if .type == "postgresql/metrics" then
+         .vars.password = {value: $password, type: "password"}
+       else . end
+     )' <<<"${postgresql_policy}")"
 curl "${curl_args[@]}" -X PUT "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}" \
   --data "${postgresql_policy}" >/dev/null
 
