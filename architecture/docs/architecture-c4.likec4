@@ -1,0 +1,232 @@
+specification {
+  element person {
+    style {
+      shape person
+    }
+  }
+
+  element zone {
+    style {
+      shape rectangle
+      color muted
+    }
+  }
+
+  element system
+  element container
+
+  element database {
+    style {
+      shape cylinder
+    }
+  }
+
+  element queue {
+    style {
+      shape queue
+    }
+  }
+
+  relationship otlp {
+    technology 'OTLP'
+    color blue
+  }
+
+  relationship kafka {
+    technology 'Kafka'
+    color amber
+    line dotted
+  }
+
+  relationship storage {
+    color green
+  }
+
+  relationship control {
+    technology 'OpAMP'
+    color red
+    line dotted
+  }
+
+  relationship administration {
+    technology 'HTTP'
+    color red
+    line dotted
+  }
+
+  relationship business {
+    technology 'HTTP / Kafka métier'
+    color gray
+  }
+
+  relationship logs {
+    technology 'Logs'
+    color amber
+  }
+
+  relationship metrics {
+    technology 'Métriques'
+    color green
+  }
+
+  relationship traces {
+    technology 'Traces'
+    color blue
+  }
+}
+
+model {
+  business_user = person 'Utilisateur métier' 'Utilise les APIs de l’application pour consulter ou modifier les données métier'
+  operator = person 'Opérateur plateforme' 'Consulte Kibana, vérifie les signaux et administre la plateforme'
+
+  zone1 = zone 'Zone 1 - applications, Kubernetes, poc et Edge' {
+    kubernetes = system 'Cluster Kubernetes' {
+      applications = container 'Applications métier' 'Spring Boot / Java' 'Produisent logs, métriques et traces OTLP'
+      k8s_collectors = container 'Collectors Kubernetes' 'EDOT Collector' 'Collectent les logs Kubernetes et les métriques du cluster'
+      traefik = container 'Traefik' 'Ingress' 'Expose les points d’accès Kubernetes'
+    }
+
+    poc = system 'poc-01' {
+      poc_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux et les envoie vers Edge'
+      kafka = queue 'Kafka métier' 'Topics des applications'
+      poc_data = container 'Services de données' 'MongoDB / PostgreSQL' 'Services observés par l’agent EDOT'
+    }
+
+    edge = system 'otel-edge-01' {
+      edge_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux'
+      edge_collector = container 'Collector Edge' 'EDOT Collector' 'Reçoit OTLP et publie dans Kafka'
+      edge_proxy = container 'Relais OTLP' 'HAProxy' 'Expose uniquement les endpoints OTLP'
+    }
+  }
+
+  zone2 = zone 'Zone 2 - traitement' {
+    backend = system 'otel-backend-01' {
+      backend_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux'
+      backend_gateway = container 'Gateway OTel' 'EDOT Collector' 'Point d’entrée OTLP secondaire et télémétrie interne'
+      backend_exporter = container 'Exporteur Kafka' 'EDOT Collector' 'Consomme le Kafka OTel et exporte vers ELK'
+      otel_kafka = queue 'Kafka OTel' 'Topics otel-traces, otel-metrics et otel-logs'
+    }
+  }
+
+  zone3 = zone 'Zone 3 - plateforme Elastic' {
+    elk = system 'elk-01' 'VM Elastic qui porte le stockage, la supervision et la consultation' {
+      elasticsearch = database 'Elasticsearch' 'Stocke les logs et métriques'
+      apm = container 'APM Server' 'Elastic APM' 'Reçoit les traces applicatives'
+      fleet = container 'Fleet Server' 'Fleet / OpAMP' 'Supervise les agents EDOT'
+      kibana = container 'Kibana' 'Kibana' 'Consultation et administration'
+    }
+  }
+
+  business_user .business zone1.kubernetes.traefik 'Utilise les APIs métier'
+  zone1.kubernetes.traefik .business zone1.kubernetes.applications 'Achemine les requêtes métier'
+  zone1.kubernetes.applications .business zone1.poc.kafka 'Publie et consomme les événements métier'
+
+  zone1.kubernetes.applications .traces zone1.edge.edge_proxy 'Envoie les traces applicatives'
+  zone1.kubernetes.applications .metrics zone1.edge.edge_proxy 'Envoie les métriques applicatives'
+  zone1.kubernetes.k8s_collectors .logs zone1.edge.edge_proxy 'Envoie les logs stdout Kubernetes'
+  zone1.kubernetes.k8s_collectors .metrics zone1.edge.edge_proxy 'Envoie les métriques Kubernetes'
+  zone1.edge.edge_proxy .otlp zone1.edge.edge_collector 'Relaye OTLP'
+  zone1.poc.poc_agent .logs zone1.edge.edge_collector 'Envoie les logs VM'
+  zone1.poc.poc_agent .metrics zone1.edge.edge_collector 'Envoie les métriques VM'
+  zone1.edge.edge_agent .logs zone1.edge.edge_collector 'Envoie les logs Edge'
+  zone1.edge.edge_agent .metrics zone1.edge.edge_collector 'Envoie les métriques Edge'
+  zone2.backend.backend_agent .logs zone1.edge.edge_collector 'Envoie les logs backend'
+  zone2.backend.backend_agent .metrics zone1.edge.edge_collector 'Envoie les métriques backend'
+
+  zone1.edge.edge_collector .logs zone2.backend.otel_kafka 'Publie otel-logs'
+  zone1.edge.edge_collector .metrics zone2.backend.otel_kafka 'Publie otel-metrics'
+  zone1.edge.edge_collector .traces zone2.backend.otel_kafka 'Publie otel-traces'
+  zone2.backend.otel_kafka .logs zone2.backend.backend_exporter 'Consomme otel-logs'
+  zone2.backend.otel_kafka .metrics zone2.backend.backend_exporter 'Consomme otel-metrics'
+  zone2.backend.otel_kafka .traces zone2.backend.backend_exporter 'Consomme otel-traces'
+  zone2.backend.backend_exporter .logs zone3.elk.elasticsearch 'Indexe les logs dans les data streams'
+  zone2.backend.backend_exporter .metrics zone3.elk.elasticsearch 'Indexe les métriques dans les data streams'
+  zone2.backend.backend_exporter .traces zone3.elk.apm 'Envoie les traces à APM Server'
+  zone3.elk.apm .traces zone3.elk.elasticsearch 'Indexe les traces APM'
+
+  zone1.poc.poc_data .storage zone1.poc.poc_agent 'Expose les logs et métriques locales'
+  operator .administration zone3.elk.elasticsearch 'Accède directement à Elasticsearch'
+  operator .administration zone3.elk.kibana 'Accède directement à Kibana'
+  operator .administration zone3.elk.fleet 'Supervise les agents via Fleet'
+
+  zone1.poc.poc_agent .control zone3.elk.fleet 'Supervision OpAMP'
+  zone1.edge.edge_agent .control zone3.elk.fleet 'Supervision OpAMP'
+  zone2.backend.backend_agent .control zone3.elk.fleet 'Supervision OpAMP'
+}
+
+views {
+  view architecture {
+    title 'Architecture observabilité SystemLens'
+    description '''
+      Vue C4 conteneurs organisée en trois zones réseau.
+
+      Le flux métier part de l’utilisateur vers Traefik et les applications,
+      puis les événements métier sont publiés dans Kafka métier.
+
+      Le flux d’observabilité part des applications, des collecteurs Kubernetes
+      et des agents EDOT, traverse OTLP puis Kafka OTel, et se termine dans les
+      data streams Elasticsearch ou APM avant consultation dans Kibana.
+
+      Les flux rouges représentent le plan d’administration et de contrôle.
+
+      Règle cible : Zone 1 vers Zone 2 autorisée.
+
+      Règle cible : Zone 1 vers Zone 3 interdite.
+
+      Les relations rouges représentent les accès Zone 1 vers Zone 3 actuellement présents et à traiter si la segmentation doit être stricte.
+    '''
+    include operator
+    include zone1.**
+    include zone2.**
+    include zone3.**
+  }
+
+  view business-flow {
+    title 'Flux métier'
+    description 'Un utilisateur appelle les APIs exposées par Traefik ; les applications échangent ensuite les événements métier via Kafka.'
+    include business_user
+    include zone1.kubernetes.traefik
+    include zone1.kubernetes.applications
+    include zone1.poc.kafka
+  }
+
+  view observability-flow {
+    title 'Flux de télémétrie'
+    description 'Les signaux sont collectés en OTLP, bufferisés dans Kafka OTel, exportés vers Elasticsearch ou APM, puis consultés dans Kibana.'
+    include zone1.kubernetes.applications
+    include zone1.kubernetes.k8s_collectors
+    include zone1.poc.poc_agent
+    include zone1.edge.edge_agent
+    include zone1.edge.edge_proxy
+    include zone1.edge.edge_collector
+    include zone2.backend.backend_agent
+    include zone2.backend.otel_kafka
+    include zone2.backend.backend_exporter
+    include zone3.elk.elasticsearch
+    include zone3.elk.apm
+    include operator
+    include zone3.elk.kibana
+  }
+
+  view signals-flow {
+    title 'Remontée des logs, métriques et traces'
+    description '''
+      Les trois signaux suivent le même chemin de collecte et de bufferisation
+      jusqu’au backend OTel. Les logs et métriques sont indexés directement dans
+      Elasticsearch ; les traces passent par APM Server avant leur indexation et
+      leur consultation dans Kibana.
+
+      Orange : logs. Vert : métriques. Bleu : traces.
+    '''
+    include zone1.kubernetes.applications
+    include zone1.kubernetes.k8s_collectors
+    include zone1.poc.poc_agent
+    include zone1.edge.edge_proxy
+    include zone1.edge.edge_collector
+    include zone2.backend.otel_kafka
+    include zone2.backend.backend_exporter
+    include zone3.elk.apm
+    include zone3.elk.elasticsearch
+    include zone3.elk.kibana
+  }
+}
