@@ -114,7 +114,7 @@ apps-test: java-version-verify ## Exécuter les tests unitaires et d'intégratio
 	@mvn --batch-mode verify -f ../apps/supermarket-demo/pom.xml
 
 elastic-version-validate: ## Vérifier l'alignement des versions Elastic déclarées
-	@set -euo pipefail; expected='$(ELASTIC_STACK_VERSION)'; files='Makefile ansible/site.yml ansible/fleet-agent.yml ansible/roles/elk/templates ansible/roles/otel_backend/templates ansible/roles/otel_edge/templates platform/kubernetes platform/elk/dashboards'; versions="$$(rg -o '9\.[0-9]+\.[0-9]+' $$files --glob '*.j2' --glob '*.yml' --glob '*.yaml' --glob '*.json' --glob 'Makefile' || true)"; versions="$$(printf '%s\n' "$$versions" | sed -E 's/.*(9\.[0-9]+\.[0-9]+).*/\1/' | sort -u)"; \
+	@set -euo pipefail; expected='$(ELASTIC_STACK_VERSION)'; files='Makefile ansible/site.yml ansible/fleet-agent.yml ansible/roles/elk/templates ansible/roles/otel_backend/templates ansible/roles/otel_edge/templates platform/kubernetes platform/elk/dashboards'; versions="$$(find $$files -type f \( -name '*.j2' -o -name '*.yml' -o -name '*.yaml' -o -name '*.json' -o -name 'Makefile' \) -exec grep -Eho '9\.[0-9]+\.[0-9]+' {} + || true)"; versions="$$(printf '%s\n' "$$versions" | sed -E 's/.*(9\.[0-9]+\.[0-9]+).*/\1/' | sort -u)"; \
 	test "$$versions" = "$$expected" || { echo "Versions Elastic incohérentes (attendu $$expected) : $$versions" >&2; exit 1; }; \
 	echo "Versions Elastic alignées sur $$expected"
 
