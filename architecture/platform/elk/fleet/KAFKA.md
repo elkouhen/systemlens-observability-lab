@@ -13,13 +13,13 @@ le broker OTel sur `otel-backend-01`.
 
 ```text
 Elastic Agent EDOT standalone de chaque broker
-  └─ receiver kafka_metrics : localhost:9092
+  └─ receiver kafkametrics/local : localhost:9092
        └─ brokers, topics, partitions, consumer groups
             ↓
        métriques Kafka → Elasticsearch
 ```
 
-Le receiver `kafka_metrics` active les scrapers `brokers`, `topics` et
+Le receiver `kafkametricsreceiver` active les scrapers `brokers`, `topics` et
 `consumers`. Les documents sont routés vers
 `metrics-kafkametricsreceiver.otel-default`; les métriques principales sont
 `kafka.brokers`, `kafka.topic.partitions` et `kafka.consumer_group.lag`.

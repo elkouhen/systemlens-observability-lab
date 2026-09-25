@@ -18,8 +18,10 @@ Kibana, Fleet Server ou ECK n'est déployé dans Kubernetes.
   choix de collecte par type de composant.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
 
-Les package policies et l'objet `data-fleet` restent versionnés pour les assets
-Kibana et une éventuelle migration, mais ne constituent pas le chemin actif de
+Les packages `*_otel` fournissent les assets Kibana. Les package policies
+classiques `kafka`, `mongodb` et `postgresql` restent versionnées pour la
+compatibilité et une éventuelle migration, mais ne doivent pas être assignées
+aux agents EDOT standalone. Elles ne constituent pas le chemin actif de
 télémétrie des VM. Chaque VM active exécute un Elastic Agent EDOT standalone :
 les receivers locaux collectent les métriques Kafka, MongoDB, PostgreSQL et
 système ainsi que les logs, puis les envoient au Collecteur Edge.

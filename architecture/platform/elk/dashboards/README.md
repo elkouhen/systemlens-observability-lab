@@ -83,11 +83,6 @@ aux intégrations classiques (`attributes.mongodb.instance` ou un nom de base
 non présent dans les documents OTel) ne doivent pas être réintroduits : ils
 produisent un sélecteur vide ou en erreur.
 
-Le panneau **Broker Count Over Time** regroupe d'abord la dernière valeur
-`kafka.brokers` par hôte, puis additionne les valeurs par intervalle. Un
-`MAX` global compterait seulement le broker le plus élevé lorsque plusieurs
-clusters Kafka indépendants sont collectés dans le même data stream.
-
 Le receiver PostgreSQL OTel de ce POC expose les sessions, transactions, taille
 des bases, compteurs du bgwriter, verrous, deadlocks et compteurs de tuples. Les
 événements `db.server.query_sample` et `db.server.top_query` sont activés grâce

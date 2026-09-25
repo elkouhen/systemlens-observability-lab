@@ -45,8 +45,8 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
    `inventory-service/.../inventory`, `restock-service/.../restock`).
 
 Construire les images applicatives avec `make apps-build`, puis déployer uniquement
-l'application avec `make apps-deploy`. Cette cible sélectionne l'overlay v1 ou
-v2 sous `kubernetes/apps/supermarket-demo/`. Le code Java, les POM, le
+l'application avec `make apps-deploy`. Cette cible applique l'overlay `default`
+sous `kubernetes/apps/supermarket-demo/`. Le code Java, les POM, le
 Dockerfile et le socle des manifests restent communs aux deux architectures.
 
 Pour déclencher une commande de recette via le service Kubernetes, exécuter
@@ -78,15 +78,15 @@ Pods. Sa configuration est embarquée dans `otel/*.properties` et chargée par
 `MANAGEMENT_OTLP_*` restent dans Kubernetes car elles configurent l'exporteur
 Micrometer de Spring Boot, distinct de l'agent Java.
 
-Le tag des images Docker (`order-service:1.1.2` / `inventory-service:1.1.2` /
-`restock-service:1.1.2`,
+Le tag des images Docker (`order-service:1.1.4` / `inventory-service:1.1.4` /
+`restock-service:1.1.4`,
 fixé dans `Makefile` et le manifest Kubernetes de `architecture/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag
 Docker est immuable : choisir un nouveau `APP_IMAGE_TAG` à chaque image. Par
-exemple, `make apps-build APP_IMAGE_TAG=1.1.2`, puis
-`make images-import apps-deploy APP_IMAGE_TAG=1.1.2`. La cible de déploiement
+exemple, `make apps-build APP_IMAGE_TAG=1.1.4`, puis
+`make images-import apps-deploy APP_IMAGE_TAG=1.1.4`. La cible de déploiement
 met explicitement à jour l'image des Deployments et attend leur rollout.
 
 ## Graphe d'architecture Java

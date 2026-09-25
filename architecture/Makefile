@@ -9,7 +9,7 @@ ARCH_NAME := Hybride Fleet
 ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
-APP_IMAGE_TAG ?= 1.1.3
+APP_IMAGE_TAG ?= 1.1.4
 OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
@@ -35,14 +35,14 @@ ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 C4_PAGES_BASE ?= ./
 
-.PHONY: help architecture-status c4-pages-build credentials-show cluster-info platform-status kubernetes-status apps-build apps-test images-import kubernetes-validate ansible-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: help architecture-status c4-pages-build credentials-show cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy apm-token-sync fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
 	otel-edge-vm-provision elastic-agent-vm-provision \
 	vms-up vms-backup vms-restore-latest vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-verify kafka-otel-dashboard-deploy kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
+	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
@@ -104,8 +104,17 @@ apps-build: ## Construire les images applicatives avec les agents Elastic APM et
 	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
 	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target restock-service -t restock-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo
 
-apps-test: ## Exécuter les tests unitaires et d'intégration Maven des applications
+java-version-verify: ## Vérifier que Maven utilise Java 21
+	@major="$$(java -version 2>&1 | sed -n 's/.*version "\([0-9][0-9]*\).*/\1/p' | head -n 1)"; \
+	test "$$major" = 21 || { echo "Java 21 requis pour les tests Maven, version détectée : $${major:-inconnue}" >&2; exit 1; }
+
+apps-test: java-version-verify ## Exécuter les tests unitaires et d'intégration Maven des applications
 	@mvn --batch-mode verify -f ../apps/supermarket-demo/pom.xml
+
+elastic-version-validate: ## Vérifier l'alignement des versions Elastic déclarées
+	@set -euo pipefail; expected='$(ELASTIC_STACK_VERSION)'; files='Makefile ansible/site.yml ansible/fleet-agent.yml ansible/roles/elk/templates ansible/roles/otel_backend/templates ansible/roles/otel_edge/templates platform/kubernetes platform/elk/dashboards'; versions="$$(rg -o '9\.[0-9]+\.[0-9]+' $$files --glob '*.j2' --glob '*.yml' --glob '*.yaml' --glob '*.json' --glob 'Makefile' || true)"; versions="$$(printf '%s\n' "$$versions" | sed -E 's/.*(9\.[0-9]+\.[0-9]+).*/\1/' | sort -u)"; \
+	test "$$versions" = "$$expected" || { echo "Versions Elastic incohérentes (attendu $$expected) : $$versions" >&2; exit 1; }; \
+	echo "Versions Elastic alignées sur $$expected"
 
 images-import: ## Importer les images dans le cluster k3d
 	@k3d image import -c $(K3D_CLUSTER) order-service:$(APP_IMAGE_TAG) inventory-service:$(APP_IMAGE_TAG) restock-service:$(APP_IMAGE_TAG)
@@ -166,7 +175,6 @@ kibana-fleet-config-deploy: elasticsearch-wait kibana-wait fleet-registry-wait #
 	 postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
 	 test -n "$$kibana_password" && test -n "$$postgresql_password" || { echo 'Identifiants Kibana/PostgreSQL absents' >&2; exit 1; }; \
 		 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" KIBANA_VERSION='$(ELASTIC_STACK_VERSION)' KUBERNETES_OTEL_PACKAGE_VERSION='$(KUBERNETES_OTEL_PACKAGE_VERSION)' KAFKA_OTEL_PACKAGE_VERSION='$(KAFKA_OTEL_PACKAGE_VERSION)' POSTGRESQL_OTEL_PACKAGE_VERSION='$(POSTGRESQL_OTEL_PACKAGE_VERSION)' MONGODB_OTEL_PACKAGE_VERSION='$(MONGODB_OTEL_PACKAGE_VERSION)' SYSTEM_OTEL_PACKAGE_VERSION='$(SYSTEM_OTEL_PACKAGE_VERSION)' OTEL_COLLECTOR_INTERNAL_TELEMETRY_PACKAGE_VERSION='$(OTEL_COLLECTOR_INTERNAL_TELEMETRY_PACKAGE_VERSION)' ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh
-	@$(MAKE) kafka-otel-dashboard-deploy
 	@$(MAKE) fleet-server-start
 	@$(MAKE) fleet-prerequisites
 
@@ -193,11 +201,6 @@ fleet-server-start: ## Démarrer Fleet Server après la création de sa policy e
 
 fleet-assets-deploy: ## Installer les packages et policies Fleet sans redéployer les VM ou Kubernetes
 	@SKIP_KUBERNETES_APPLY=1 $(MAKE) kibana-fleet-config-deploy
-
-kafka-otel-dashboard-deploy: kibana-ready ## Réconcilier le comptage des brokers du dashboard Kafka OTel
-	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-$${ELASTICSEARCH_PASSWORD:-}}"; \
-	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou ELASTICSEARCH_PASSWORD requis' >&2; exit 1; }; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kafka-otel-dashboard.sh
 
 elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk-01 via Quadlet
 	@password="$${ELASTIC_PASSWORD:-password}"; \
@@ -329,10 +332,11 @@ apps-deploy: ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/restock-service --timeout=180s
 
 application-data-verify: ## Vérifier le schéma et le catalogue avant une charge de test
-	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
-	@count="$$( $(VAGRANT) ssh poc-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) FROM public.products;"' | tr -d '[:space:]' )"; \
-	 test "$$count" -gt 0 || { echo 'Le catalogue PostgreSQL est absent ou vide : exécuter les migrations et le chargement des produits.' >&2; exit 1; }; \
-	 echo "Catalogue applicatif prêt ($$count produits)"
+	@set -euo pipefail; \
+	$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s; \
+	count="$$( $(VAGRANT) ssh poc-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) FROM public.products;"' | tr -d '[:space:]' )"; \
+	test "$$count" -ge 1 || { echo 'Le catalogue PostgreSQL est absent ou vide : exécuter les migrations et le chargement des produits.' >&2; exit 1; }; \
+	echo "Catalogue applicatif prêt ($$count produits)"
 
 order-service-command: application-data-verify ## Envoyer une commande REST (ORDER_PRODUCT_ID, ORDER_QUANTITY) à order-service
 	@pod_name="order-service-command-$$(date +%s)"; \
@@ -423,7 +427,7 @@ otel-validation:
 
 otel-validate: otel-validation ## Valider OTLP (VALIDATION_TAGS=host|direct ; vide = les deux)
 
-ci: kubernetes-validate ansible-validate apps-test
+ci: kubernetes-validate ansible-validate elastic-version-validate apps-test
 
 ci-run: ci ## Exécuter les validations reproductibles du dépôt
 

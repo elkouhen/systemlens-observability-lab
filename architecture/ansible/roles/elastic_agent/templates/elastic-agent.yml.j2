@@ -76,8 +76,8 @@ receivers:
       processes:
 
 {% if node_role in ['poc', 'otel_backend'] %}
-  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver
-  kafka_metrics/local:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkametricsreceiver
+  kafkametrics/local:
     brokers:
       - 127.0.0.1:9092
     protocol_version: 3.9.0
@@ -252,7 +252,7 @@ service:
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
     metrics:
-      receivers: [hostmetrics/system{% if node_role in ['poc', 'otel_backend'] %}, kafka_metrics/local{% endif %}{% if node_role == 'poc' %}, postgresql/poc{% endif %}]
+      receivers: [hostmetrics/system{% if node_role in ['poc', 'otel_backend'] %}, kafkametrics/local{% endif %}{% if node_role == 'poc' %}, postgresql/poc{% endif %}]
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
 {% if node_role == 'poc' %}
