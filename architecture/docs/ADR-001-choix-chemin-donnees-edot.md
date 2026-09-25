@@ -16,6 +16,11 @@ décrit déjà un Collecteur Edge sur `otel-edge-01`, un Kafka OTel sur
 `otel-backend-01`, un exporteur Kafka EDOT sur le backend et Elasticsearch sur
 `elk-01`.
 
+L'architecture doit découpler les clients afin de contrôler séparément les
+données remontées par chacun d'eux. Elle doit également bufferiser les signaux
+pour absorber les fortes charges et les écarts temporaires entre leur émission
+et leur écriture dans Elasticsearch.
+
 Le tampon Kafka sépare l'émission des signaux et leur écriture dans
 Elasticsearch. Les topics sont séparés par signal afin que les logs, métriques
 et traces soient décodés par le receiver Kafka avec leur format attendu.
@@ -41,22 +46,17 @@ des agents EDOT, qui est traité dans [ADR-002](ADR-002-edot-standalone-ou-manag
 
 ### Export direct vers Elasticsearch
 
-Cette option réduit le nombre de composants intermédiaires, mais couple les
-émetteurs à Elasticsearch et supprime le tampon Kafka commun aux signaux
-Kubernetes et VM. Elle est écartée pour l'architecture de référence.
+Cette option est écartée parce que l'architecture doit rester découplée entre
+la collecte des signaux et leur écriture dans Elasticsearch.
 
 ### Export direct vers Elasticsearch depuis le Collecteur Edge
 
-Cette option conserve un point d'entrée OTLP, mais ne fournit pas le tampon
-Kafka partagé ni la séparation explicite des topics par signal. Elle est
-écartée pour le chemin de référence.
-
-### Un topic Kafka partagé pour tous les signaux
-
-Cette option simplifie le nombre de topics, mais le receiver Kafka EDOT utilisé
-par le dépôt ne route pas automatiquement des payloads de logs, métriques et
-traces mélangés dans un même topic. Elle est écartée pour éviter les erreurs de
-décodage.
+C'est l'Edge qui porte la responsabilité de la collecte côté client. Un export
+direct depuis l'Edge vers Elasticsearch supprimerait le découplage par client
+apporté par Kafka et limiterait le contrôle des données remontées par chaque
+client. Il serait également plus difficile d'arrêter sélectivement l'acheminement
+d'un client sans modifier la collecte des autres. Cette option est écartée pour
+conserver un contrôle indépendant par client et un chemin de données découplé.
 
 ## Conséquences
 
@@ -73,6 +73,8 @@ décodage.
 ### Coûts et limites
 
 - le chemin ajoute Kafka, un exporteur backend et des contrôles de santé ;
+- Kafka fournit le découplage et le buffering attendus dans l'architecture de
+  référence Elastic ;
 - une panne du backend ou de Kafka peut retarder l'apparition des données dans
   Elasticsearch ;
 - les limites de rétention et de capacité Kafka bornent la période pendant

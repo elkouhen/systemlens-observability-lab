@@ -18,13 +18,20 @@ la collecte reste déclarée localement.
 
 Le dépôt utilise déjà Ansible comme source de vérité pour la configuration EDOT
 des VM. Il doit éviter qu'une policy Fleet de collecte concurrente modifie ou
-double le chemin `EDOT standalone → OTLP → otel-edge-01`.
+double le chemin `EDOT standalone → OTLP → otel-edge-01`. La configuration
+standalone déclare aussi l'exporteur `otlphttp/edge` vers le Collecteur Edge et
+l'utilise dans les pipelines de logs, métriques et traces. Cet exporteur est
+nécessaire à l'acheminement des trois signaux vers la gateway OTLP.
 
 ## Décision
 
 Les VM utilisent EDOT standalone pour la collecte et l'export des signaux. La
 configuration est installée et maintenue par Ansible. Fleet utilise OpAMP pour
 superviser ces agents, sans devenir la source de vérité de leur collecte.
+
+Cette décision compare deux modes de gestion d'EDOT. Elle ne remet pas en
+concurrence EDOT avec une autre distribution OpenTelemetry : le POC reste sur
+la distribution Elastic, sélectionnée, testée et supportée par Elastic.
 
 La séparation est donc la suivante :
 
@@ -41,27 +48,22 @@ données défini dans [ADR-001](ADR-001-choix-chemin-donnees-edot.md).
 
 ## Alternatives considérées
 
-### EDOT managed by Fleet
+### Elastic Agent EDOT managé par Fleet
 
 Fleet deviendrait la source de vérité de la collecte et distribuerait la
-configuration aux agents. Cette option centralise la gestion, mais introduit
-une seconde source de vérité par rapport aux templates EDOT versionnés et peut
-modifier le chemin OTLP local des VM. Elle est écartée pour l'architecture de
-référence.
+configuration des intégrations aux agents. Cette option centralise la gestion,
+mais la configuration de l'agent managé ne permet pas de déclarer l'exporteur
+OTLP personnalisé `otlphttp/edge` vers `otel-edge-01`. Les logs, métriques et
+traces ne peuvent donc pas être acheminés vers la gateway OTLP. Cette
+contrainte bloque le chemin de données défini dans [ADR-001](ADR-001-choix-chemin-donnees-edot.md)
+et écarte cette option pour l'architecture de référence.
 
 ### EDOT standalone sans supervision OpAMP
 
 Les agents conserveraient leur configuration locale sans rattachement à Fleet.
-Cette option réduit la dépendance au plan de contrôle, mais supprime la
-visibilité centralisée de l'état et de la télémétrie interne des agents. Elle
-est écartée pour le fonctionnement normal, mais reste un mode de repli si
-Fleet est temporairement indisponible.
-
-### Collecte Fleet classique en parallèle d'EDOT standalone
-
-Cette option activerait simultanément la collecte Fleet et la collecte EDOT
-locale. Elle peut créer une double collecte et rendre le routage des signaux
-ambigu. Elle est exclue.
+Cette option a été envisagée, mais elle ne permettrait pas de voir directement
+l'état de l'agent dans Kibana. Elle est écartée pour le fonctionnement normal ;
+elle reste un mode de repli si Fleet est temporairement indisponible.
 
 ## Conséquences
 
@@ -80,6 +82,9 @@ ambigu. Elle est exclue.
   supervision et les assets ;
 - l'état Fleet peut être sain alors que le chemin EDOT vers Elasticsearch est
   interrompu, ou l'inverse ;
+- le choix standalone est nécessaire pour conserver l'exporteur
+  `otlphttp/edge` et l'acheminement des logs, métriques et traces vers
+  `otel-edge-01` ;
 - la recette doit contrôler séparément l'état OpAMP et la présence récente des
   logs, métriques et traces ;
 - une modification durable de la collecte doit être faite dans Ansible, puis
@@ -90,4 +95,7 @@ ambigu. Elle est exclue.
 - [`ansible/README.md`](../ansible/README.md)
 - [`platform/elk/README.md`](../platform/elk/README.md)
 - [`platform/elk/fleet/README.md`](../platform/elk/fleet/README.md)
+- [`ansible/roles/elastic_agent/templates/elastic-agent.yml.j2`](../ansible/roles/elastic_agent/templates/elastic-agent.yml.j2)
 - [`docs/deploiement-opamp-standalone-spec.md`](deploiement-opamp-standalone-spec.md)
+- [Sorties supportées par Elastic Agent](https://www.elastic.co/docs/reference/fleet/beats-agent-comparison)
+- [Comparaison EDOT et OpenTelemetry upstream](https://www.elastic.co/docs/reference/opentelemetry/compatibility/edot-vs-upstream)
