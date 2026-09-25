@@ -14,8 +14,10 @@ Kibana, Fleet Server ou ECK n'est déployé dans Kubernetes.
   Jolokia.
 - La collecte PostgreSQL OTel et les droits de supervision sont déclarés dans
   le rôle Ansible `poc` et dans le template EDOT de l'agent.
-- [`ADR-001-choix-elastic-agent-otel.md`](../../../docs/ADR-001-choix-elastic-agent-otel.md) :
+- [`ADR-001-choix-chemin-donnees-edot.md`](../../../docs/ADR-001-choix-chemin-donnees-edot.md) :
   choix du plan de données OTLP et de la gateway.
+- [`ADR-002-edot-standalone-ou-managed-by-fleet.md`](../../../docs/ADR-002-edot-standalone-ou-managed-by-fleet.md) :
+  choix du mode EDOT standalone supervisé par Fleet via OpAMP.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
 
 Les packages `*_otel` fournissent les assets Kibana. Les package policies
