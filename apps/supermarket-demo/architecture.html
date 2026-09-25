@@ -124,6 +124,7 @@
     #graph-groups { position: absolute; inset: 0; pointer-events: none; z-index: auto; overflow: visible; }
     #graph-port-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
     .graph-port-path { fill: none; stroke: #7c3aed; stroke-width: 2; stroke-linecap: round; opacity: .9; pointer-events: stroke; }
+    .graph-dependency-hit-area { fill: none; stroke: transparent; stroke-width: 24px; stroke-linecap: round; pointer-events: stroke; cursor: help; }
     .graph-arc-hit-area { fill: none; stroke: transparent !important; stroke-width: 14px !important; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
     .graph-arc-hit-area.is-keyboard-selected { stroke: #dc2626 !important; stroke-width: 5px !important; opacity: .95; filter: drop-shadow(0 0 5px #dc2626); }
     .graph-port-path.is-kafka { stroke: #009e73; }
@@ -1023,6 +1024,147 @@
       .legend { right: 10px; bottom: 10px; }
       .inspector-modal { padding: 10px; }
       .inspector-dialog { border-radius: 16px; }
+    }
+
+    /* Modern console layer: clearer hierarchy, softer surfaces and a quieter canvas. */
+    :root {
+      --panel-radius: 22px;
+      --ui-shadow: 0 24px 70px rgba(15, 23, 42, .16), 0 4px 14px rgba(15, 23, 42, .08);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 18% 0%, rgba(129, 140, 248, .15), transparent 30%),
+        #eef3f8;
+    }
+
+    #graph {
+      background:
+        radial-gradient(circle at 76% 14%, rgba(129, 140, 248, .16), transparent 28%),
+        radial-gradient(circle at 38% 82%, rgba(34, 211, 238, .10), transparent 32%),
+        linear-gradient(135deg, #f8fbff 0%, #edf3f9 100%);
+    }
+
+    .toolbar {
+      top: 18px;
+      left: 18px;
+      width: min(380px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      padding: 14px;
+      gap: 10px;
+      border: 1px solid rgba(255, 255, 255, .78);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, .78);
+      box-shadow: var(--ui-shadow);
+      backdrop-filter: blur(22px) saturate(1.25);
+    }
+
+    .toolbar-header { padding: 2px 2px 4px; }
+    .brand { grid-template-columns: 38px 1fr; column-gap: 10px; }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      font-size: 16px;
+      box-shadow: 0 8px 18px rgba(63, 81, 181, .22);
+    }
+    .brand strong { font-size: 15px; letter-spacing: -.015em; }
+    .brand-subtitle { font-size: 11px; letter-spacing: .01em; }
+    .theme-toggle { width: 34px !important; height: 34px; padding: 0 !important; border-radius: 11px !important; }
+
+    .toolbar-tab-groups { gap: 10px; }
+    .toolbar-tab-group { gap: 6px; }
+    .toolbar-tab-group-title {
+      margin: 0 2px;
+      color: #72819a;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .toolbar-tabs {
+      padding: 4px;
+      border: 1px solid rgba(148, 163, 184, .18);
+      border-radius: 14px;
+      background: rgba(226, 232, 240, .68);
+    }
+    .toolbar-tab { min-height: 32px; padding: 0 10px; font-size: 11px; font-weight: 700; }
+    .toolbar-tab.is-active,
+    .toolbar-tab[aria-selected="true"] {
+      border-radius: 10px !important;
+      background: linear-gradient(135deg, #5267e8, #3550c9) !important;
+      box-shadow: 0 5px 12px rgba(63, 81, 181, .25);
+    }
+
+    .quick-search {
+      padding: 12px;
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 16px;
+      background: rgba(248, 250, 252, .66);
+    }
+    .explore-search-label {
+      color: #63718a;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    .toolbar input:not([type="checkbox"]) { height: 40px; border-radius: 12px; }
+    .graph-context,
+    .display-controls,
+    .advanced-controls {
+      border-radius: 16px;
+      border-color: rgba(148, 163, 184, .22);
+      background: rgba(248, 250, 252, .55);
+    }
+    .graph-control-group { border-radius: 12px; }
+    .graph-summary-item { border-radius: 999px; }
+    .reference-item,
+    .indexing-issue,
+    .service-kafka-item,
+    .details-section,
+    .dto-section { border-radius: 14px; }
+    .legend {
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .78);
+      box-shadow: 0 14px 36px rgba(15, 23, 42, .12);
+      backdrop-filter: blur(18px);
+    }
+
+    :root[data-theme="dark"] body { background: #09111f; }
+    :root[data-theme="dark"] #graph {
+      background:
+        radial-gradient(circle at 76% 14%, rgba(99, 102, 241, .18), transparent 28%),
+        radial-gradient(circle at 38% 82%, rgba(6, 182, 212, .10), transparent 32%),
+        linear-gradient(135deg, #0b1424 0%, #101b2d 100%);
+    }
+    :root[data-theme="dark"] .toolbar {
+      border-color: rgba(148, 163, 184, .22);
+      background: rgba(15, 27, 46, .84);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .28), 0 4px 14px rgba(0, 0, 0, .18);
+    }
+    :root[data-theme="dark"] .toolbar-tabs,
+    :root[data-theme="dark"] .quick-search,
+    :root[data-theme="dark"] .graph-context,
+    :root[data-theme="dark"] .display-controls,
+    :root[data-theme="dark"] .advanced-controls {
+      border-color: rgba(148, 163, 184, .18);
+      background: rgba(30, 41, 59, .62);
+    }
+    :root[data-theme="dark"] .legend {
+      border-color: rgba(148, 163, 184, .22);
+      background: rgba(15, 27, 46, .84);
+    }
+
+    @media (max-width: 700px) {
+      .toolbar {
+        top: 10px;
+        left: 10px;
+        width: calc(100vw - 20px);
+        max-height: calc(62vh - 18px);
+        border-radius: 18px;
+      }
     }
 </style>
 </head>
@@ -2055,7 +2197,7 @@
       );
       const callGraphPortLabel = (port, direction) => {
         const globalLabel = String(port?.label || "").match(direction === "out" ? /O\d+/ : /I\d+/)?.[0];
-        if (!callGraphOnly || !port?.endpoint_id) return globalLabel || (direction === "out" ? "O?" : "I?");
+        if (!callGraphOnly || !port?.endpoint_id) return globalLabel || (direction === "out" ? "OUT" : "IN");
         if (!callGraphPortLabels.has(port.endpoint_id)) {
           const counterKey = `${portNodeIdByEndpoint.get(port.endpoint_id) || "unknown"}:${direction}`;
           const next = (callGraphPortCounters.get(counterKey) || 0) + 1;
@@ -2102,6 +2244,39 @@
         if (className) line.className = className;
         line.textContent = text;
         tooltip.append(line);
+      };
+      const showDependencyTooltip = (link, clientX, clientY) => {
+        const source = nodeDataById.get(link.source);
+        const target = nodeDataById.get(link.target);
+        const tooltip = document.createElement("span");
+        tooltip.className = "graph-edge-tooltip";
+        const sourceIsTopic = ["kafka_topic", "message_channel"].includes(source?.kind);
+        const targetIsTopic = ["kafka_topic", "message_channel"].includes(target?.kind);
+        if (sourceIsTopic !== targetIsTopic) {
+          const topic = sourceIsTopic ? source : target;
+          const service = sourceIsTopic ? target : source;
+          const action = sourceIsTopic ? "Consomme" : "Publie";
+          const title = document.createElement("strong");
+          title.textContent = service?.name || topic?.name || "Relation";
+          tooltip.append(title);
+          const details = [action, topic?.name].filter(Boolean).join(" · ");
+          if (details) addTooltipLine(tooltip, details, "graph-edge-tooltip-kind");
+        } else {
+          const title = document.createElement("strong");
+          title.textContent = [source?.name, target?.name].filter(Boolean).join(" → ") || "Relation";
+          tooltip.append(title);
+          const details = [
+            link.kind === "kafka" ? "Kafka" : link.kind === "rest" ? "HTTP" : link.kind,
+            link.label,
+          ].filter(Boolean).join(" · ");
+          if (details) addTooltipLine(tooltip, details, "graph-edge-tooltip-kind");
+        }
+        placeGraphTooltip(
+          tooltip,
+          { left: clientX, right: clientX, top: clientY, bottom: clientY, width: 0, height: 0 },
+          clientX,
+          clientY,
+        );
       };
       const showNodeTooltip = (node, element, event) => {
         const tooltip = document.createElement("span");
@@ -2927,6 +3102,25 @@
         // than from graph nodes. This keeps its endpoints attached to the
         // readable port anchors through every pan, zoom, and card scale.
         portPathOverlay.replaceChildren();
+        if (graphState.renderMode !== "symbols" && !graphState.selectedCodeFlowId) {
+          const svgNamespace = "http://www.w3.org/2000/svg";
+          visibleLinks.forEach(link => {
+            const source = nodePoints.get(link.source);
+            const target = nodePoints.get(link.target);
+            if (!source || !target) return;
+            const hitArea = document.createElementNS(svgNamespace, "path");
+            hitArea.classList.add("graph-dependency-hit-area");
+            hitArea.setAttribute("d", `M ${source.x} ${source.y} L ${target.x} ${target.y}`);
+            hitArea.addEventListener("pointerenter", event => {
+              showDependencyTooltip(link, event.clientX, event.clientY);
+            });
+            hitArea.addEventListener("pointermove", event => {
+              showDependencyTooltip(link, event.clientX, event.clientY);
+            });
+            hitArea.addEventListener("pointerleave", () => flowTooltipOverlay.replaceChildren());
+            portPathOverlay.append(hitArea);
+          });
+        }
         if (graphState.renderMode === "symbols" || !graphState.selectedCodeFlowId) return;
         const svgNamespace = "http://www.w3.org/2000/svg";
         const marker = document.createElementNS(svgNamespace, "marker");
@@ -3417,34 +3611,16 @@
             const tooltip = document.createElement("span");
             tooltip.className = "graph-arc-tooltip";
             const title = document.createElement("strong");
-            title.textContent = `${shortPortLabel(sourcePort, "out")} → ${shortPortLabel(targetPort, "in")}`;
+            const sourceName = nodeDataById.get(link.source)?.name;
+            const targetName = nodeDataById.get(link.target)?.name;
+            title.textContent = [sourceName, targetName].filter(Boolean).join(" → ") || "Relation";
             const relation = document.createElement("span");
             relation.className = "graph-arc-tooltip-relation";
             const order = link.order ? `Arc #${link.order} · ` : "";
-            relation.textContent = `${order}${link.kind === "kafka" ? "Kafka" : link.kind === "rest" ? "HTTP" : link.kind || "Relation"} · ${link.label || sourcePort?.name || targetPort?.name || "Endpoint"}`;
+            const protocol = link.kind === "kafka" ? "Kafka" : link.kind === "rest" ? "HTTP" : link.kind;
+            const relationText = [protocol, link.label].filter(Boolean).join(" · ");
+            relation.textContent = `${order}${relationText || "Relation"}`;
             tooltip.append(title, relation);
-            const portBlock = (port, direction, serviceId) => {
-              const block = document.createElement("span");
-              block.className = "graph-arc-tooltip-port";
-              const heading = document.createElement("strong");
-              heading.textContent = `Port ${direction} · ${shortPortLabel(port, direction === "OUT" ? "out" : "in")}`;
-              const service = document.createElement("span");
-              service.textContent = `Microservice : ${serviceId?.replace(/^microservice:/, "") || "inconnu"}`;
-              const method = document.createElement("span");
-              method.textContent = `Méthode : ${port?.method || "Méthode inconnue"}`;
-              block.append(heading, service, method);
-              return block;
-            };
-            tooltip.append(
-              portBlock(sourcePort, "OUT", link.source),
-              portBlock(targetPort, "IN", link.target),
-            );
-            if (sourcePort?.message_type || targetPort?.message_type) {
-              const type = document.createElement("span");
-              type.className = "graph-arc-tooltip-type";
-              type.textContent = `Type : ${sourcePort?.message_type || targetPort?.message_type}`;
-              tooltip.append(type);
-            }
             return tooltip;
         };
         const showArcTooltip = (path, link, sourcePort, targetPort, event = null) => {
@@ -3467,11 +3643,12 @@
           });
         };
         const callGraphArcTooltipLabel = (link, sourcePort, targetPort) => {
-          const source = nodeDataById.get(link.source)?.name || link.source;
-          const target = nodeDataById.get(link.target)?.name || link.target;
+          const source = nodeDataById.get(link.source)?.name;
+          const target = nodeDataById.get(link.target)?.name;
           const ports = `${shortPortLabel(sourcePort, "out")} → ${shortPortLabel(targetPort, "in")}`;
           const relation = link.label || (link.kind === "kafka" ? "Kafka" : link.kind || "Relation");
-          return `Arc #${link.order ?? "?"} · ${source} → ${target} · ${relation} · ${ports}`;
+          const arc = link.order ? `Arc #${link.order} · ` : "";
+          return `${arc}${[source, target].filter(Boolean).join(" → ") || "Relation"} · ${relation} · ${ports}`;
         };
         const addArcHitArea = path => {
           const hitArea = path.cloneNode();
@@ -3666,8 +3843,8 @@
             {
               kind: "internal",
               label: "Flux interne",
-              source: `microservice:${output.closest(".graph-node-card-label")?.dataset.nodeId || "?"}`,
-              target: `microservice:${input.closest(".graph-node-card-label")?.dataset.nodeId || "?"}`,
+              source: `microservice:${output.closest(".graph-node-card-label")?.dataset.nodeId || ""}`,
+              target: `microservice:${input.closest(".graph-node-card-label")?.dataset.nodeId || ""}`,
             },
             portsByEndpointId.get(link.output_endpoint_id),
             portsByEndpointId.get(link.input_endpoint_id),
@@ -3695,8 +3872,8 @@
             {
               kind: link.kind,
               label: link.kind === "kafka" ? source.dataset.endpointId : "HTTP",
-              source: `microservice:${source.closest(".graph-node-card-label")?.dataset.nodeId || "?"}`,
-              target: `microservice:${target.closest(".graph-node-card-label")?.dataset.nodeId || "?"}`,
+              source: `microservice:${source.closest(".graph-node-card-label")?.dataset.nodeId || ""}`,
+              target: `microservice:${target.closest(".graph-node-card-label")?.dataset.nodeId || ""}`,
             },
             portsByEndpointId.get(link.source_endpoint_id),
             portsByEndpointId.get(link.target_endpoint_id),
@@ -3726,33 +3903,11 @@
         const match = String(edge).match(/^edge(?:-hit)?-(\d+)$/);
         const link = match ? visibleLinks[Number(match[1])] : null;
         if (!link) return;
-        const source = nodeDataById.get(link.source);
-        const target = nodeDataById.get(link.target);
-        const tooltip = document.createElement("span");
-        tooltip.className = "graph-edge-tooltip";
-        const sourceIsTopic = ["kafka_topic", "message_channel"].includes(source?.kind);
-        const targetIsTopic = ["kafka_topic", "message_channel"].includes(target?.kind);
-        if (sourceIsTopic !== targetIsTopic) {
-          const topic = sourceIsTopic ? source : target;
-          const service = sourceIsTopic ? target : source;
-          const action = sourceIsTopic ? "Consomme" : "Publie";
-          const title = document.createElement("strong");
-          title.textContent = topic?.name || "Topic inconnu";
-          tooltip.append(title);
-          addTooltipLine(tooltip, `Microservice : ${service?.name || "inconnu"} · ${action}`, "graph-edge-tooltip-kind");
-          addTooltipLine(tooltip, `Topic : ${topic?.name || "inconnu"}`, "graph-edge-tooltip-detail");
-        } else {
-          const title = document.createElement("strong");
-          title.textContent = `${source?.name || link.source} → ${target?.name || link.target}`;
-          tooltip.append(title);
-          const order = link.order ? `Arc #${link.order} · ` : "";
-          addTooltipLine(tooltip, `${order}${link.kind || "Relation"}${link.label ? ` · ${link.label}` : ""}`, "graph-edge-tooltip-kind");
-        }
         const graphBounds = document.getElementById("graph").getBoundingClientRect();
         const pointer = event?.originalEvent || event;
         const clientX = pointer?.clientX ?? graphBounds.left + graphBounds.width / 2;
         const clientY = pointer?.clientY ?? graphBounds.top + graphBounds.height / 2;
-        placeGraphTooltip(tooltip, { left: clientX, right: clientX, top: clientY, bottom: clientY, width: 0, height: 0 }, clientX, clientY);
+        showDependencyTooltip(link, clientX, clientY);
       });
       renderer.on("leaveEdge", () => flowTooltipOverlay.replaceChildren());
       renderer.on("clickNode", ({ node }) => selectNode(node));
@@ -4648,6 +4803,14 @@
       nodesByNormalizedName.set(key, [...(nodesByNormalizedName.get(key) || []), node]);
     });
     function setToolbarTab(tab) {
+      // The two navigation surfaces have different meanings: Graphe is the
+      // static architecture view, while Flux de code only becomes a graph
+      // after the user explicitly selects a flow from its list.
+      if ((tab === "graph" || tab === "flows") && typeof reset === "function") {
+        reset();
+        rebuildGraph();
+        if (tab === "graph") applyLayout(graphState.activeLayout);
+      }
       if (document.querySelector(".toolbar")?.classList.contains("has-details")) {
         setDetailsEmpty("Sélectionnez un nœud pour afficher ses détails.");
       }
