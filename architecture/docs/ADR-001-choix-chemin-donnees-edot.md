@@ -61,6 +61,36 @@ l'arrêt sélectif de l'acheminement d'un client sans modifier la collecte des
 autres. Cette option est écartée pour conserver un contrôle indépendant par
 client et un chemin de données découplé.
 
+### Chaîne applications vers Logstash vers Elasticsearch
+
+Cette option ferait envoyer directement les signaux des applications à
+Logstash, qui les transformerait puis les exporterait vers Elasticsearch. Elle
+ajoute un composant de pipeline, des configurations de filtres et des
+responsabilités d'exploitation propres à Logstash.
+
+Cette option est écartée pour trois raisons :
+
+- elle ne fournit pas, dans la chaîne retenue, le chemin OTLP natif et homogène
+  attendu pour les logs, métriques et traces ; le support OTLP documenté pour
+  Logstash concerne notamment l'export de ses métriques internes, tandis que
+  ses plugins d'entrée ne proposent pas de récepteur OTLP générique pour cette
+  chaîne ([plugins d'entrée Logstash](https://www.elastic.co/docs/reference/logstash/plugins/input-plugins)) ;
+- elle augmente la complexité opérationnelle avec des pipelines, filtres,
+  plugins, mappings et mécanismes de reprise à maintenir ;
+- elle est moins robuste pour le découplage et les fortes charges que la chaîne
+  Collecteur OTel Gateway plus Kafka. Une file persistante Logstash protège
+  contre certaines interruptions, mais elle reste locale au nœud et doit être
+  dimensionnée et répliquée séparément. Une file distribuée devrait alors être
+  ajoutée, ce qui réintroduirait un composant et une complexité supplémentaires
+  ([files persistantes Logstash](https://www.elastic.co/docs/reference/logstash/persistent-queues),
+  [résilience des files Logstash](https://www.elastic.co/docs/reference/logstash/queues-data-resiliency)).
+
+La chaîne OTLP vers une gateway OTel puis Kafka conserve un modèle de collecte
+commun pour les trois signaux, sépare le traitement de l'écriture et fournit
+le buffering distribué attendu. Elastic recommande également une gateway
+Elastic Agent ou OTel comme couche d'ingestion unifiée pour les signaux OTLP
+dans les environnements hôtes et VM ([architecture Elastic OpenTelemetry](https://www.elastic.co/docs/reference/opentelemetry/architecture/hosts_vms)).
+
 ## Conséquences
 
 ### Conséquences positives
@@ -93,3 +123,7 @@ client et un chemin de données découplé.
 - [Exporteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter)
 - [Récepteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver)
 - [Conception de Kafka](https://kafka.apache.org/design/)
+- [Métriques Logstash via OpenTelemetry](https://www.elastic.co/docs/reference/logstash/monitoring-with-opentelemetry)
+- [Plugins d'entrée Logstash](https://www.elastic.co/docs/reference/logstash/plugins/input-plugins)
+- [Files persistantes Logstash](https://www.elastic.co/docs/reference/logstash/persistent-queues)
+- [Architecture Elastic OpenTelemetry pour les hôtes et les VM](https://www.elastic.co/docs/reference/opentelemetry/architecture/hosts_vms)
