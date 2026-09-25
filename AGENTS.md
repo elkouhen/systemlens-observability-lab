@@ -36,6 +36,11 @@ versionnée, reproductible et aussi petite que possible pour le besoin couvert.
 
 - Agir directement dans le périmètre du dépôt sans demander confirmation pour
   les étapes normales.
+- Ne jamais modifier, importer, remplacer ou supprimer un dashboard Kibana
+  actif, ni appliquer une modification sur un système externe, sans demande
+  explicite de l'utilisateur. Un diagnostic peut lire l'état actif ; toute
+  correction doit d'abord être versionnée dans le dépôt et rester non appliquée
+  tant que l'utilisateur n'a pas autorisé le déploiement.
 - Lire le README pertinent avant modification.
 - Modifier les fichiers nécessaires, puis exécuter les validations adaptées.
 - Corriger les erreurs rencontrées et relancer les contrôles.

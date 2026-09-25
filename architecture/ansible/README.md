@@ -137,6 +137,26 @@ make vms-up
 make vm-status
 ```
 
+## Sauvegarde et restauration des VM
+
+La cible `make vms-backup` crée un snapshot Vagrant portant le même identifiant
+temporel pour `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`. Le
+manifeste du dernier backup est conservé dans `.vagrant-backups/latest.env` ;
+les données du snapshot restent gérées par VirtualBox et ne sont pas versionnées.
+
+La restauration écrase l'état actuel des quatre VM. Elle exige une confirmation
+explicite et redémarre les VM sans reprovisionnement. Le démarrage est
+séquentiel afin que Vagrant recalcule les redirections SSH sans collision avec
+une ancienne instance :
+
+```bash
+make vms-restore-latest CONFIRM_RESTORE=YES
+```
+
+Pour laisser les VM arrêtées après la restauration, utiliser
+`START_AFTER_RESTORE=NO`. La restauration s'arrête avant toute modification si
+le snapshot indiqué par le manifeste est absent pour une VM.
+
 Après vérification des services, déployer le reste de l'architecture avec :
 
 ```bash

@@ -41,8 +41,8 @@ C4_PAGES_BASE ?= ./
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove \
 	otel-edge-vm-provision elastic-agent-vm-provision \
-	vms-up vms-destroy deploy deploy-post elastic-disk-ensure elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
+	vms-up vms-backup vms-restore-latest vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
+	dashboards-verify kafka-otel-dashboard-deploy kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
 
@@ -166,6 +166,7 @@ kibana-fleet-config-deploy: elasticsearch-wait kibana-wait fleet-registry-wait #
 	 postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
 	 test -n "$$kibana_password" && test -n "$$postgresql_password" || { echo 'Identifiants Kibana/PostgreSQL absents' >&2; exit 1; }; \
 		 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" POSTGRESQL_PASSWORD="$$postgresql_password" KIBANA_VERSION='$(ELASTIC_STACK_VERSION)' KUBERNETES_OTEL_PACKAGE_VERSION='$(KUBERNETES_OTEL_PACKAGE_VERSION)' KAFKA_OTEL_PACKAGE_VERSION='$(KAFKA_OTEL_PACKAGE_VERSION)' POSTGRESQL_OTEL_PACKAGE_VERSION='$(POSTGRESQL_OTEL_PACKAGE_VERSION)' MONGODB_OTEL_PACKAGE_VERSION='$(MONGODB_OTEL_PACKAGE_VERSION)' SYSTEM_OTEL_PACKAGE_VERSION='$(SYSTEM_OTEL_PACKAGE_VERSION)' OTEL_COLLECTOR_INTERNAL_TELEMETRY_PACKAGE_VERSION='$(OTEL_COLLECTOR_INTERNAL_TELEMETRY_PACKAGE_VERSION)' ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh
+	@$(MAKE) kafka-otel-dashboard-deploy
 	@$(MAKE) fleet-server-start
 	@$(MAKE) fleet-prerequisites
 
@@ -193,21 +194,22 @@ fleet-server-start: ## Démarrer Fleet Server après la création de sa policy e
 fleet-assets-deploy: ## Installer les packages et policies Fleet sans redéployer les VM ou Kubernetes
 	@SKIP_KUBERNETES_APPLY=1 $(MAKE) kibana-fleet-config-deploy
 
+kafka-otel-dashboard-deploy: kibana-ready ## Réconcilier le comptage des brokers du dashboard Kafka OTel
+	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-$${ELASTICSEARCH_PASSWORD:-}}"; \
+	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou ELASTICSEARCH_PASSWORD requis' >&2; exit 1; }; \
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/reconcile-kafka-otel-dashboard.sh
+
 elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk-01 via Quadlet
 	@password="$${ELASTIC_PASSWORD:-password}"; \
 	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent : définir le secret hors Git avant le déplacement.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) up elk-01 --no-provision
-	@$(MAKE) elastic-disk-ensure
 	@if test '$(SKIP_ELK_VM_PROVISION)' = 1; then \
 		echo 'Provisionnement Ansible complet de elk-01 déjà effectué par deploy'; \
 	else \
 		password="$${ELASTIC_PASSWORD:-password}"; api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 		DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision elk-01 --provision-with ansible; \
 	fi
-
-elastic-disk-ensure: ## Dimensionner idempotemment le disque système d'elk-01
-	@VAGRANT='$(VAGRANT)' ./scripts/ensure-vm-disk.sh elk-01 30720
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
 	@$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml
@@ -357,6 +359,12 @@ vms-up:
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:-password}" ZSCALER_CA_CERT_CONTENT="$$zscaler_ca_cert_content" ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 
 vms-start: vms-up ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
+
+vms-backup: ## Créer un snapshot Vagrant des quatre VM
+	@./scripts/vms-backup.sh
+
+vms-restore-latest: ## Restaurer le dernier snapshot Vagrant (CONFIRM_RESTORE=YES requis)
+	@CONFIRM_RESTORE='$(CONFIRM_RESTORE)' START_AFTER_RESTORE='$(START_AFTER_RESTORE)' ./scripts/vms-restore-latest.sh
 
 vms-destroy: ## Détruire les quatre VM Vagrant et leurs disques locaux (DESTRUCTIF)
 	@$(VAGRANT) destroy -f poc-01 otel-backend-01 otel-edge-01 elk-01

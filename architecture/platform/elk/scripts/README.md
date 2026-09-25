@@ -19,6 +19,8 @@ ne stockent aucun mot de passe dans le dépôt.
    `kafka_otel` `0.3.1`, `postgresql_otel` `0.5.0` et `mongodb_otel` `0.3.1`
    fournissent les assets Kibana des dashboards OTel correspondants.
    Les Collectors restent autonomes et ne sont pas enrôlés comme agents Fleet.
+   `reconcile-kafka-otel-dashboard.sh` réconcilie le panneau de comptage des
+   brokers après l'installation du package `kafka_otel`.
 2. `sync-fleet-policies.sh` pousse les pipelines `@custom` et applique les
    correctifs de compatibilité encore nécessaires au POC. Il ne configure pas
    le chemin actif de télémétrie EDOT, qui est déclaré dans Ansible et dans les

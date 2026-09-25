@@ -41,6 +41,7 @@ Vagrant.configure("2") do |config|
     config.vm.define node_config[:name] do |node|
       node.vm.hostname = node_config[:name]
       node.vm.network "private_network", ip: node_config[:ip]
+      node.vm.disk :disk, size: "30GB", primary: true if node_config[:role] == :elk
       if node_config[:role] == :poc
         # Les middlewares sont accessibles par le réseau privé VirtualBox.
       end

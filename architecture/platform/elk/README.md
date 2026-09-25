@@ -57,9 +57,9 @@ La cible `make fleet-opamp-enable` ajoute le monitoring OpAMP des agents EDOT
 des quatre VM. Elle ne transforme pas ces agents en agents Fleet classiques :
 les données continuent vers `otel-edge-01` en OTLP.
 
-La cible `elastic-disk-ensure`, appelée par `make elk-deploy`, garantit le
-disque système de `elk-01` à 30 GiB avant le démarrage d'Elasticsearch. Le
-redimensionnement VirtualBox, la partition et XFS sont idempotents.
+Le `Vagrantfile` configure le disque système primaire de `elk-01` à 30 GiB
+avec la directive native Vagrant `node.vm.disk`. Vagrant applique cette
+configuration lors d'un `vagrant reload` ou à la prochaine création de la VM.
 
 Les topics sont séparés par signal. L'exemple Elastic avec un topic partagé est
 un pattern d'architecture, mais le receiver Kafka embarqué dans EDOT Collector
