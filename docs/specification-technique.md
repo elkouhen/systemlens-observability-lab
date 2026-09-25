@@ -149,7 +149,7 @@ make dashboards-verify
 ```
 
 Les contrôles d’état complémentaires et les procédures de dépannage sont
-décrits dans [Déploiement et exploitation](deploiement-et-exploitation.md).
+déclarés dans le `Makefile` et les README des composants.
 
 ## 7. Critères techniques d’acceptation
 
@@ -169,5 +169,5 @@ décrits dans [Déploiement et exploitation](deploiement-et-exploitation.md).
   capacités et critères fonctionnels ;
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   chaîne détaillée et sources IaC ;
-- [README de la plateforme](../architecture/platform/README.md) : exploitation des
-  composants Elastic et Kubernetes.
+- [README de l'architecture](../architecture/README.md) : flux et composants
+  de la plateforme.

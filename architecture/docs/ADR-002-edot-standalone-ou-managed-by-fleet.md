@@ -52,11 +52,13 @@ données défini dans [ADR-001](ADR-001-choix-chemin-donnees-edot.md).
 
 Fleet deviendrait la source de vérité de la collecte et distribuerait la
 configuration des intégrations aux agents. Cette option centralise la gestion,
-mais la configuration de l'agent managé ne permet pas de déclarer l'exporteur
-OTLP personnalisé `otlphttp/edge` vers `otel-edge-01`. Les logs, métriques et
-traces ne peuvent donc pas être acheminés vers la gateway OTLP. Cette
-contrainte bloque le chemin de données défini dans [ADR-001](ADR-001-choix-chemin-donnees-edot.md)
-et écarte cette option pour l'architecture de référence.
+mais le mode Elastic Agent managé par Fleet et les intégrations retenues ici ne
+permettent pas de déclarer l'exporteur OTLP personnalisé `otlphttp/edge` vers
+`otel-edge-01`. Les logs, métriques et traces ne peuvent donc pas suivre le
+chemin de données défini dans [ADR-001](ADR-001-choix-chemin-donnees-edot.md).
+Cette option est écartée pour l'architecture de référence. Fleet peut
+superviser un Collecteur OTel installé séparément avec OpAMP, mais ce mode ne
+fait pas de Fleet la source de vérité de la collecte.
 
 ### EDOT standalone sans supervision OpAMP
 
@@ -93,9 +95,9 @@ elle reste un mode de repli si Fleet est temporairement indisponible.
 ## Références
 
 - [`ansible/README.md`](../ansible/README.md)
-- [`platform/elk/README.md`](../platform/elk/README.md)
-- [`platform/elk/fleet/README.md`](../platform/elk/fleet/README.md)
 - [`ansible/roles/elastic_agent/templates/elastic-agent.yml.j2`](../ansible/roles/elastic_agent/templates/elastic-agent.yml.j2)
-- [`docs/deploiement-opamp-standalone-spec.md`](deploiement-opamp-standalone-spec.md)
-- [Sorties supportées par Elastic Agent](https://www.elastic.co/docs/reference/fleet/beats-agent-comparison)
-- [Comparaison EDOT et OpenTelemetry upstream](https://www.elastic.co/docs/reference/opentelemetry/compatibility/edot-vs-upstream)
+- [Elastic Agent comme Collecteur OpenTelemetry](https://www.elastic.co/docs/reference/fleet/elastic-agent-as-otel-collector)
+- [Configurer un Elastic Agent standalone](https://www.elastic.co/docs/reference/fleet/configure-standalone-elastic-agents)
+- [Intégrations OpenTelemetry avec Elastic Agent](https://www.elastic.co/docs/reference/fleet/otel-integrations)
+- [Superviser les Collecteurs OpenTelemetry dans Fleet](https://www.elastic.co/docs/reference/fleet/monitor-otel-collectors)
+- [Ajouter un Collecteur OpenTelemetry dans Fleet](https://www.elastic.co/docs/reference/fleet/add-otel-collector)

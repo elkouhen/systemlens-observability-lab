@@ -10,8 +10,8 @@ gérée par les fichiers Ansible versionnés.
 
 Cette spécification décrit la topologie, les flux de télémétrie, les
 responsabilités des composants et les contrôles de l’architecture. Les
-commandes détaillées et les prérequis sont dans le [guide de déploiement et
-d’exploitation](deploiement-et-exploitation.md).
+commandes détaillées et les prérequis sont dans le README Ansible et le
+`Makefile`.
 
 Le code Java et les images applicatives restent partagés entre les composants
 du dépôt. Les manifests Kubernetes et le provisionnement des VM sont propres
@@ -133,7 +133,7 @@ make otel-validation
 make dashboards-verify
 ```
 
-Le [README de l'architecture](../architecture/README.md) renvoie vers les README de la plateforme,
-du provisionnement Ansible et des dashboards. Le [document sur les briques de
+Le [README de l'architecture](../architecture/README.md) renvoie vers le README
+du provisionnement Ansible. Le [document sur les briques de
 télémétrie](briques-remontee-telemetrie.md) fournit le détail des sources
 IaC de chaque flux.

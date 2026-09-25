@@ -181,5 +181,5 @@ puis active le nettoyage horaire des archives de plus de 24 h. Le playbook
 `retention.yml` applique uniquement ces règles et la configuration Kafka ;
 il redémarre le broker si son Quadlet change et réconcilie les topics existants.
 Utiliser `make retention-deploy` et `make retention-verify` depuis la racine.
-Les durées, plafonds, prérequis et limites sont détaillés dans le
-[guide de rétention](../platform/elk/retention/README.md).
+Les durées, plafonds, prérequis et limites sont déclarés dans les fichiers de
+configuration de rétention et vérifiables avec `make retention-verify`.

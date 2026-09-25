@@ -16,10 +16,12 @@ décrit déjà un Collecteur Edge sur `otel-edge-01`, un Kafka OTel sur
 `otel-backend-01`, un exporteur Kafka EDOT sur le backend et Elasticsearch sur
 `elk-01`.
 
-L'architecture doit découpler les clients afin de contrôler séparément les
-données remontées par chacun d'eux. Elle doit également bufferiser les signaux
-pour absorber les fortes charges et les écarts temporaires entre leur émission
-et leur écriture dans Elasticsearch.
+L'architecture doit conserver un contrôle distinct par client au point d'entrée
+Edge, afin de contrôler séparément les données remontées par chacun d'eux. Elle
+doit ensuite découpler l'émission des signaux et leur écriture dans
+Elasticsearch. Elle doit également bufferiser les signaux pour absorber les
+pointes de charge et les écarts temporaires, dans les limites de capacité et de
+rétention du cluster Kafka.
 
 Le tampon Kafka sépare l'émission des signaux et leur écriture dans
 Elasticsearch. Les topics sont séparés par signal afin que les logs, métriques
@@ -52,11 +54,12 @@ la collecte des signaux et leur écriture dans Elasticsearch.
 ### Export direct vers Elasticsearch depuis le Collecteur Edge
 
 C'est l'Edge qui porte la responsabilité de la collecte côté client. Un export
-direct depuis l'Edge vers Elasticsearch supprimerait le découplage par client
-apporté par Kafka et limiterait le contrôle des données remontées par chaque
-client. Il serait également plus difficile d'arrêter sélectivement l'acheminement
-d'un client sans modifier la collecte des autres. Cette option est écartée pour
-conserver un contrôle indépendant par client et un chemin de données découplé.
+direct depuis l'Edge vers Elasticsearch supprimerait le découplage entre la
+collecte côté client et l'écriture dans Elasticsearch. Il limiterait le
+contrôle des données remontées par chaque client et rendrait plus difficile
+l'arrêt sélectif de l'acheminement d'un client sans modifier la collecte des
+autres. Cette option est écartée pour conserver un contrôle indépendant par
+client et un chemin de données découplé.
 
 ## Conséquences
 
@@ -64,8 +67,8 @@ conserver un contrôle indépendant par client et un chemin de données découpl
 
 - le chemin des signaux est identique pour les sources Kubernetes et VM après
   leur entrée OTLP ;
-- Kafka absorbe les écarts temporaires entre la production et l'export vers
-  Elasticsearch ;
+- Kafka peut absorber les écarts temporaires entre la production et l'export
+  vers Elasticsearch, dans les limites de sa capacité et de sa rétention ;
 - les topics séparés rendent le routage et le diagnostic par signal explicites ;
 - le point d'entrée OTLP, le buffer et l'exporteur sont déployables et
   vérifiables séparément.
@@ -84,8 +87,9 @@ conserver un contrôle indépendant par client et un chemin de données découpl
 
 ## Références
 
-- [`platform/elk/README.md`](../platform/elk/README.md)
 - [`ansible/README.md`](../ansible/README.md)
-- [`platform/kubernetes/base/observability/README.md`](../platform/kubernetes/base/observability/README.md)
-- [`platform/elk/fleet/README.md`](../platform/elk/fleet/README.md)
-- [`docs/deploiement-opamp-standalone-spec.md`](deploiement-opamp-standalone-spec.md)
+- [`ansible/roles/otel_edge/templates/otel-edge.yaml.j2`](../ansible/roles/otel_edge/templates/otel-edge.yaml.j2)
+- [`ansible/roles/otel_backend/templates/kafka-exporter.yaml.j2`](../ansible/roles/otel_backend/templates/kafka-exporter.yaml.j2)
+- [Exporteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter)
+- [Récepteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver)
+- [Conception de Kafka](https://kafka.apache.org/design/)

@@ -30,15 +30,12 @@ du scénario et son Kafka métier, et `elk-01` porte
 le stockage et la consultation Elastic.
 
 Le code Java et les images sont partagés avec la plateforme. Le déploiement et
-la recette sont documentés dans le [guide central](../docs/deploiement-et-exploitation.md).
+la recette sont décrits dans le README Ansible et les cibles du `Makefile`.
 
 Documents propres à l'architecture :
 
 - [diagramme C4 interactif](https://elkouhen.github.io/systemlens-observability-lab/c4.html#/) ;
-- [documentation du diagramme C4](docs/architecture-c4.md) ;
-- [plateforme Kubernetes et ELK](platform/README.md) ;
 - [provisionnement des VM `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`](ansible/README.md) ;
-- [dashboards et vérification](platform/elk/dashboards/README.md).
 
-La [rétention des signaux et des logs](platform/elk/retention/README.md) décrit
-les limites du POC et leur vérification avec `make retention-verify`.
+La rétention des signaux et des logs est vérifiable avec
+`make retention-verify`.

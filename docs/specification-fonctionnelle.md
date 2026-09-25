@@ -139,5 +139,3 @@ Ces sujets relèvent des documents applicatifs, de la
 - [Architecture](architecture.md) : topologie et invariants ;
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   sources, transport et destinations ;
-- [Déploiement et exploitation](deploiement-et-exploitation.md) : prérequis,
-  procédures et dépannage.
