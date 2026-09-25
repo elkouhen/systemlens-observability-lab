@@ -61,7 +61,7 @@ architecture-status: ## Afficher la configuration de l'architecture
 	@printf 'ARCH_NAME=%s\nELASTIC_STACK_VERSION=%s\nARCH_ROOT=%s\n' '$(ARCH_NAME)' '$(ELASTIC_STACK_VERSION)' '$(ARCH_ROOT)'
 
 c4-pages-build: ## Construire le site LikeC4 destiné à GitHub Pages
-	@npx --yes likec4@1.53.0 build -o dist/c4 --base '$(C4_PAGES_BASE)' docs
+	@npx --yes likec4@1.53.0 build -o dist/c4 --base '$(C4_PAGES_BASE)' --use-hash-history docs
 	@mv dist/c4/index.html dist/c4/c4.html
 	@cp docs/site/index.html dist/c4/index.html
 
