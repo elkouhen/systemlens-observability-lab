@@ -63,10 +63,6 @@ architecture-status: ## Afficher la configuration de l'architecture
 c4-pages-build: ## Construire le site LikeC4 destiné à GitHub Pages
 	@npx --yes likec4@1.53.0 build -o dist/c4 --base '$(C4_PAGES_BASE)' docs
 	@mv dist/c4/index.html dist/c4/c4.html
-	@awk '1; /<body>/ && !inserted { print "  <script>if (!window.location.hash) window.location.replace(window.location.pathname + window.location.search + \"#/architecture\");</script>"; inserted=1 }' dist/c4/c4.html > dist/c4/c4.html.tmp
-	@mv dist/c4/c4.html.tmp dist/c4/c4.html
-	@awk '1; /<body>/ && !inserted { print "  <script>if (window.location.pathname.endsWith(\"/c4.html/\")) window.location.replace(window.location.pathname.slice(0, -1) + window.location.search + window.location.hash);</script>"; inserted=1 }' dist/c4/404.html > dist/c4/404.html.tmp
-	@mv dist/c4/404.html.tmp dist/c4/404.html
 	@cp docs/site/index.html dist/c4/index.html
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
