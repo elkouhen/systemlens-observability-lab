@@ -34,7 +34,7 @@ la recette sont documentés dans le [guide central](../docs/deploiement-et-explo
 
 Documents propres à l'architecture :
 
-- [diagramme C4 interactif](https://elkouhen.github.io/systemlens-observability-lab/c4.html#/architecture) ;
+- [diagramme C4 interactif](https://elkouhen.github.io/systemlens-observability-lab/c4.html#/) ;
 - [documentation du diagramme C4](docs/architecture-c4.md) ;
 - [plateforme Kubernetes et ELK](platform/README.md) ;
 - [provisionnement des VM `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`](ansible/README.md) ;
