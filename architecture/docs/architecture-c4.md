@@ -1,8 +1,10 @@
 # Diagramme C4
 
-Le diagramme C4 interactif est publié sur [GitHub Pages](https://elkouhen.github.io/systemlens-observability-lab/)
-à partir de la source [LikeC4](architecture-c4.likec4). Il présente les vues
-d'architecture, de flux métier et de télémétrie avec leur navigation native.
+Le [site GitHub Pages](https://elkouhen.github.io/systemlens-observability-lab/)
+présente une page d’accueil qui renvoie vers le diagramme C4 interactif et les
+ADR. Le diagramme est construit à partir de la source [LikeC4](architecture-c4.likec4)
+et présente les vues d'architecture, de flux métier et de télémétrie avec leur
+navigation native.
 
 Le site est reconstruit par GitHub Actions après chaque modification de la
 source LikeC4 sur `main`. La commande locale équivalente est :

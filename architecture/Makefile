@@ -62,6 +62,8 @@ architecture-status: ## Afficher la configuration de l'architecture
 
 c4-pages-build: ## Construire le site LikeC4 destiné à GitHub Pages
 	@npx --yes likec4@1.53.0 build -o dist/c4 --base '$(C4_PAGES_BASE)' docs
+	@mv dist/c4/index.html dist/c4/c4.html
+	@cp docs/site/index.html dist/c4/index.html
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh\n'
