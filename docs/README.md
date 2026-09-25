@@ -23,8 +23,8 @@ leurs commandes détaillées.
   capacités attendues et critères d’acceptation.
 - [Spécification technique](specification-technique.md) : composants,
   interfaces, contraintes et contrôles techniques.
-- [ADR-001 : choix Elastic Agent ou OTel](ADR-001-choix-elastic-agent-otel.md) :
-  décision de collecte par type de composant.
+- [ADR-001 : adopter EDOT et OpenTelemetry](ADR-001-choix-elastic-agent-otel.md) :
+  choix du plan de données OTLP et de la gateway.
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   sources, transport, destinations et fichiers IaC associés.
 - [Gestion du débit de télémétrie](gestion-du-debit-observabilite.md) :

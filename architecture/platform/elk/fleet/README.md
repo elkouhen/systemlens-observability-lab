@@ -15,7 +15,7 @@ Kibana, Fleet Server ou ECK n'est déployé dans Kubernetes.
 - La collecte PostgreSQL OTel et les droits de supervision sont déclarés dans
   le rôle Ansible `poc` et dans le template EDOT de l'agent.
 - [`ADR-001-choix-elastic-agent-otel.md`](../../../docs/ADR-001-choix-elastic-agent-otel.md) :
-  choix de collecte par type de composant.
+  choix du plan de données OTLP et de la gateway.
 - `kafka-topic-ingest-pipeline.json` : enrichissement du data stream Kafka.
 
 Les packages `*_otel` fournissent les assets Kibana. Les package policies
@@ -33,8 +33,9 @@ installer les packages `system_otel` `0.3.0`, `kubernetes_otel` `2.6.0`,
 `otel_collector_internal_telemetry` `1.2.3`,
 compatibles avec Kibana `9.4.3`, puis préconfigurer les assets Fleet sur un
 nouveau Kibana. Utiliser ensuite `make fleet-opamp-enable` pour activer le
-monitoring OpAMP des VM sans modifier
-la configuration EDOT standalone. Le flux OTel des applications, de Kubernetes
+monitoring OpAMP des VM sans modifier la configuration EDOT standalone. OpAMP
+remonte l’état et la télémétrie interne des agents ; les templates Ansible
+restent la source de vérité de leur configuration. Le flux OTel des applications, de Kubernetes
 et des VM converge vers les topics déclarés dans `otel-kafka.yaml`. Les VM ne
 sont pas enrôlées comme agents Fleet classiques afin de conserver l'export OTLP
 vers `otel-edge-01`.

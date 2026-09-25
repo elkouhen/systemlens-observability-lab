@@ -1,7 +1,11 @@
-# ADR-001 : choisir Elastic Agent ou OTel selon le composant
+# ADR-001 : adopter EDOT et OpenTelemetry pour une architecture avec gateway
 
-Cette décision décrit le modèle de collecte de l’architecture et les
-frontières entre Fleet classique et EDOT.
+Cette décision définit le plan de données de l’architecture d’observabilité.
+Le choix principal est d’utiliser EDOT et les composants OpenTelemetry afin de
+conserver une chaîne OTLP commune et de faire transiter les signaux par une
+gateway avant Kafka et le backend Elastic. Fleet reste un plan de contrôle
+disponible, mais ses integrations classiques ne constituent pas le chemin
+actif de collecte décrit ici.
 
 |                |                                            |
 | -------------- | ------------------------------------------ |
@@ -15,32 +19,45 @@ frontières entre Fleet classique et EDOT.
 
 ## 1. Décision
 
-L’architecture utilise Elastic Agent en mode EDOT standalone sur les VM. Elle utilise EDOT et
-OpenTelemetry pour Kubernetes, les applications Java et les collectors qui
-transportent les signaux vers Elastic. Ce choix est conservé pour faire passer
-les logs, les traces et les métriques Kubernetes par le Gateway local avant
-leur mise en tampon et leur export.
+L’architecture utilise EDOT et OpenTelemetry pour le plan de données. EDOT
+apporte les distributions et l’intégration Elastic ; OpenTelemetry fournit le
+modèle de collecte, le protocole OTLP et les composants de pipeline. Les
+producteurs n’exportent pas directement vers Elasticsearch. Ils envoient leurs
+signaux à la gateway OTLP, qui centralise le traitement d’entrée, publie dans
+Kafka, puis laisse le backend EDOT exporter vers Elastic.
 
 | Composant | Collecte retenue | Gestion | Transport et destination |
 | --- | --- | --- | --- |
-| VM actives | Elastic Agent EDOT avec filelog et hostmetrics | Configuration Ansible locale | OTLP vers Edge, Kafka, backend, puis Elastic |
-| Kubernetes | EDOT Collector avec `hostmetrics`, `kubeletstats`, `k8scluster`, `filelog` | Configuration Kustomize locale | OTLP vers Gateway, Edge, Kafka, puis Elasticsearch |
-| Applications Java | EDOT Java, OTLP et Micrometer OTLP | Configuration Kubernetes | Gateway OTLP, Kafka, puis backend EDOT |
-| Gateway et collectors Kubernetes | EDOT Collector | Configuration Kustomize locale | Kafka par signal, puis export Elasticsearch ou APM Server |
-| Fleet Server | Elastic Agent Fleet Server | Fleet classique | Plan de contrôle Fleet |
+| VM actives | Elastic Agent EDOT standalone avec `filelog`, `hostmetrics` et les receivers de données | Configuration Ansible locale | OTLP vers la gateway Edge, Kafka, backend EDOT, puis Elastic |
+| Kubernetes | EDOT Collector avec `hostmetrics`, `kubeletstats`, `k8scluster` et `filelog` | Configuration Kustomize locale | OTLP vers la gateway Edge, Kafka, puis backend EDOT |
+| Applications Java | Agent EDOT Java, OTLP et Micrometer OTLP | Configuration Kubernetes | OTLP vers la gateway Edge, Kafka, puis backend EDOT |
+| Gateway et collectors | EDOT Collector | Configuration Ansible et Kustomize versionnée | Réception OTLP, routage vers Kafka, puis export vers Elasticsearch ou APM Server |
+| Fleet Server | Elastic Agent Fleet Server | Fleet classique | Plan de contrôle optionnel, sans collecte de ces signaux |
 
-Cette décision maintient les data streams ECS des VM et les data streams OTel
-de Kubernetes dans leurs périmètres respectifs. Elle évite de remplacer les
-dashboards VM existants par des dashboards OTel en Technical Preview.
+Ce choix répond à trois contraintes :
 
-### 1.1 Décision complémentaire : utiliser Elastic Agent en mode EDOT sur les VM
+1. conserver une compatibilité avec l’écosystème OpenTelemetry et le protocole
+   OTLP pour les applications, Kubernetes et les VM ;
+2. disposer d’un point de passage unique avec la gateway pour appliquer le
+   traitement commun et contrôler le routage ;
+3. conserver l’intégration Elastic et ses distributions EDOT sans imposer un
+   collector OTel générique séparé pour chaque environnement.
 
-La décision complémentaire du 2026-09-21 remplace le choix Fleet classique
-pour la collecte des logs et métriques des VM. Chaque VM conserve un Elastic
-Agent installé localement, mais l’agent exécute le collector EDOT en mode OTel.
-Les receivers OTel collectent les logs et métriques locaux ainsi que les
-intégrations nécessaires. L’exporteur OTLP envoie ces signaux au Collecteur
-Edge.
+La gateway est donc une conséquence directe de la décision. Elle reçoit les
+signaux OTLP des producteurs, les transmet à Kafka par signal, et évite de
+coupler chaque producteur à Elasticsearch, APM Server ou à la topologie Kafka.
+
+Les data streams ECS historiques et les data streams OTel coexistent selon les
+composants et les dashboards qui les consomment. Cette coexistence ne change
+pas le choix du plan de données : les nouveaux flux décrits par cette ADR
+suivent EDOT, OTLP, gateway, Kafka et backend.
+
+### 1.1 Application du choix aux VM
+
+Chaque VM active utilise Elastic Agent en mode EDOT standalone. L’agent
+exécute les composants de collecte EDOT et exporte en OTLP vers le Collecteur
+Edge. Il ne s’agit pas d’une package policy Fleet classique appliquée à la
+VM.
 
 Le chemin de données devient :
 
@@ -53,21 +70,35 @@ Collecteur Backend
     -> Elasticsearch ou APM Server
 ```
 
-Cette décision s’applique à `poc-01`, `otel-backend-01` et `otel-edge-01`.
-Fleet Server est conservé pour les interfaces Elastic, mais n’est pas utilisé
-comme plan de contrôle de cette chaîne. Les anciennes package policies Fleet
-qui collecteraient les mêmes logs ou métriques doivent être désactivées afin
-d’éviter les doublons.
+Cette décision s’applique à `poc-01`, `otel-backend-01`, `otel-edge-01` et
+`elk-01`. Fleet Server est conservé pour les interfaces Elastic et les usages
+de contrôle, mais il n’est pas utilisé pour collecter les mêmes logs ou
+métriques. Les anciennes package policies Fleet qui collecteraient ces signaux
+doivent rester non assignées afin d’éviter les doublons.
 
-Les sections 3.1 à 3.4 décrivent le choix précédent pour les intégrations VM.
-Elles restent la trace des alternatives évaluées, mais la présente décision
-complémentaire est normative pour la cible de déploiement.
+Les sections 3.1 à 3.4 documentent les alternatives Fleet classiques évaluées.
+Elles ne décrivent pas le chemin actif.
+
+### 1.2 Rôle d’OpAMP
+
+Dans cette architecture, OpAMP sert à superviser les agents et les
+collecteurs EDOT. Il remonte leur état, leur télémétrie interne et les
+indicateurs utiles au suivi dans Fleet. Il ne sert pas à gérer leur
+configuration.
+
+La configuration effective reste déclarée dans le dépôt, principalement dans
+les templates Ansible pour les VM et dans les manifests Kustomize pour
+Kubernetes. Une évolution de configuration doit donc être modifiée dans ces
+fichiers, validée, puis appliquée par le mécanisme de déploiement prévu. La
+présence d’un endpoint OpAMP ou l’activation du monitoring OpAMP ne transforme
+pas les agents EDOT standalone en agents gérés par une policy Fleet.
 
 ## 2. Contexte vérifié
 
-Le dépôt décrit une architecture hybride dans laquelle les VM publient
-directement vers Elasticsearch, tandis que Kubernetes et les applications
-utilisent OTLP et Kafka. Cette topologie est décrite dans
+Le dépôt décrit une architecture hybride dans laquelle les VM, Kubernetes et
+les applications utilisent EDOT et OpenTelemetry. Les producteurs envoient
+leurs signaux en OTLP à la gateway Edge, puis les flux passent par Kafka et le
+backend EDOT avant leur export vers Elastic. Cette topologie est décrite dans
 [`architecture.md`](architecture.md:1) et dans
 [`briques-remontee-telemetrie.md`](briques-remontee-telemetrie.md:1).
 
@@ -98,7 +129,12 @@ consultée le 2026-09-21.
 
 ## 3. Choix par composant
 
-### 3.1 VM et métriques système
+Les quatre premières sections décrivent des alternatives Fleet classiques
+écartées pour le plan de données actif. Les choix normatifs sont la décision
+globale de la section 1, l’application aux VM en section 1.1 et les choix EDOT
+Kubernetes et Java des sections 3.5 et 3.6.
+
+### 3.1 Alternative écartée pour les VM et les métriques système
 
 > **Pourquoi et quoi - conserver System Fleet**
 >
@@ -115,7 +151,7 @@ consultée le 2026-09-21.
 > **Retour arrière :** réactiver la package policy `system` dans
 > `data-fleet` ou `otel-fleet` et arrêter la collecte OTel correspondante.
 
-### 3.2 Kafka
+### 3.2 Alternative écartée pour Kafka
 
 > **Pourquoi et quoi - conserver Kafka Fleet**
 >
@@ -136,7 +172,7 @@ consultée le 2026-09-21.
 > éventuelle policy OTel Kafka uniquement après validation de l’absence de
 > doublons.
 
-### 3.3 MongoDB
+### 3.3 Alternative écartée pour MongoDB
 
 > **Pourquoi et quoi - conserver MongoDB Fleet**
 >
@@ -154,7 +190,7 @@ consultée le 2026-09-21.
 > **Retour arrière :** conserver la policy MongoDB actuelle et retirer le
 > receiver OTel avant toute suppression de data stream historique.
 
-### 3.4 PostgreSQL
+### 3.4 Alternative écartée pour PostgreSQL
 
 > **Pourquoi et quoi - conserver PostgreSQL Fleet**
 >
@@ -225,9 +261,9 @@ Elle impose deux modèles de données dans Elasticsearch. Les opérateurs doiven
 donc choisir les dashboards selon le composant observé et éviter de mélanger
 les data views ECS et OTel dans une même vérification.
 
-Elle conserve Fleet Server comme plan de contrôle commun lorsque le mode EDOT
-est géré par Fleet. Les données des VM suivent toutefois le plan OTel et le
-chemin Edge, Kafka et Backend au lieu de l’output Elasticsearch direct.
+Elle conserve Fleet Server comme point d’observation OpAMP disponible, sans en
+faire le collecteur ni le gestionnaire de configuration du chemin actif. Les
+données des VM suivent le plan OTel et le chemin Edge, Kafka et backend.
 
 Elle conserve le Gateway local comme point de passage des logs, traces et
 métriques Kubernetes. Ce point de passage permet de conserver le traitement

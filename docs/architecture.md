@@ -2,8 +2,9 @@
 
 L’architecture active du POC utilise Elastic
 Stack `9.4.3`, OpenTelemetry et EDOT pour les applications, Kubernetes et les
-VM. Les agents des VM sont installés en mode EDOT standalone ; leur supervision
-Fleet OpAMP est optionnelle.
+VM. Les agents des VM sont installés en mode EDOT standalone. Leur supervision
+Fleet OpAMP est optionnelle et limitée au monitoring ; leur configuration reste
+gérée par les fichiers Ansible versionnés.
 
 ## Périmètre
 
