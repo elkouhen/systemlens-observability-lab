@@ -54,6 +54,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/products/{productId}:
+    get:
+      tags: [Stocks]
+      summary: Retourne le produit et son stock courant
+      operationId: product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Produit trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          description: Produit introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     HealthStatus:
@@ -109,3 +133,14 @@ components:
       properties:
         error:
           type: string
+    ProductResponse:
+      type: object
+      required: [id, name, stockQuantity]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        stockQuantity:
+          type: integer
+          format: int32

@@ -7,6 +7,7 @@ import io.systemlens.supermarket.inventory.generated.api.StocksApi;
 import io.systemlens.supermarket.inventory.generated.model.HealthStatus;
 import io.systemlens.supermarket.inventory.generated.model.OrderPlaced;
 import io.systemlens.supermarket.inventory.generated.model.ReservationResult;
+import io.systemlens.supermarket.inventory.generated.model.ProductResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -17,6 +18,12 @@ public class InventoryController implements StocksApi {
     public InventoryController(InventoryUseCase inventory) { this.inventory=inventory; }
     @Override
     public HealthStatus health() { return new HealthStatus("ok"); }
+
+    @GetMapping("/api/products/{productId}")
+    public ProductResponse product(@PathVariable String productId) {
+        ProductResponseDto dto = ProductResponseDto.from(inventory.findProduct(productId));
+        return new ProductResponse().id(dto.id()).name(dto.name()).stockQuantity(dto.stockQuantity());
+    }
 
     @Override
     public ReservationResult reserve(OrderPlaced order) {

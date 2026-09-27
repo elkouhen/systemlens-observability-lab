@@ -84,6 +84,17 @@ mvn -pl inventory-service -am verify
 
 ## API OpenAPI
 
+Le modèle de données de l'inventaire est volontairement séparé en trois couches :
+
+- `domain/Product.java` est le modèle métier et porte les invariants du stock ;
+- `adapter/out/persistence/jpa/ProductEntity.java` et
+  `StockMovementEntity.java` sont les modèles de stockage ;
+- `adapter/in/web/ProductResponseDto.java` est le modèle de mapping de l'API,
+  tandis que le contrat OpenAPI reste le modèle public de l'API.
+
+L'adapter API convertit le modèle métier vers le modèle d'API. Le domaine ne
+dépend ni de Spring, ni de JPA, ni des classes OpenAPI générées.
+
 Le contrat API First est versionné dans `src/main/resources/static/openapi.yaml`.
 Maven le valide avant la compilation ; toute évolution d'endpoint ou de payload
 commence donc par ce fichier. Avec le service démarré localement, le contrat est

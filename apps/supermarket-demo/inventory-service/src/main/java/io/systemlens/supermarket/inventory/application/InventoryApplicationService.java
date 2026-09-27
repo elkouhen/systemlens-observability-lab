@@ -64,6 +64,11 @@ public class InventoryApplicationService implements InventoryUseCase {
     }
 
     @Override
+    public Product findProduct(String productId) {
+        return products.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
+    }
+
+    @Override
     @Transactional
     public ReservationResult reserve(String orderId, String productId, int quantity, String channel,
                                      Instant requestedAt) {
