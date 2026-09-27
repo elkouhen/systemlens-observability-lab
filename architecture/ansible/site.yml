@@ -1,5 +1,5 @@
 ---
-- name: Provisionner les quatre VM de la plateforme architecture
+- name: Provisionner les VM de la plateforme architecture
   hosts: all
   become: true
   gather_facts: true
@@ -8,6 +8,8 @@
     otel_backend_ip: 192.168.33.20
     otel_edge_ip: 192.168.33.30
     elk_ip: 192.168.33.40
+    k3s_ip: 192.168.33.50
+    k3s_version: v1.31.6+k3s1
     postgresql_database: observability_test
     postgresql_user: observability
     postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('', true) }}"
@@ -34,6 +36,7 @@
     - role: common
     - role: retention
     - role: elastic_agent
+      when: node_role != 'k3s'
     - role: poc
       when: node_role == 'poc'
     - role: otel_backend
@@ -42,3 +45,5 @@
       when: node_role == 'otel_edge'
     - role: elk
       when: node_role == 'elk'
+    - role: k3s
+      when: node_role == 'k3s'

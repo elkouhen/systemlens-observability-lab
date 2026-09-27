@@ -4,6 +4,10 @@ SHELL := /bin/bash
 KUBECTL ?= kubectl
 VAGRANT ?= vagrant
 K3D_CLUSTER ?= elastic
+K3S_VM_NAME ?= k3s-01
+K3S_VM_IP ?= 192.168.33.50
+K3S_KUBECONFIG ?= $(ARCH_ROOT)/.kube/k3s.config
+export KUBECONFIG ?= $(K3S_KUBECONFIG)
 DEPLOYMENT_PROFILE := minimal
 ARCH_NAME := Hybride Fleet
 ARCH_ROOT := .
@@ -44,7 +48,7 @@ C4_PAGES_BASE ?= ./
 	vms-up vms-backup vms-restore-latest vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import public-tls-apply ci
+	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import k3s-vm-up k3s-kubeconfig k3s-migrate public-tls-apply ci
 
 .PHONY: cluster-show elasticsearch-wait kibana-wait fleet-prerequisites-validate fleet-registry-wait \
 	vms-start architecture-deploy deployment-finalize otel-validate ci-run stock-show slides-start \
@@ -120,8 +124,8 @@ elastic-version-validate: ## Vérifier l'alignement des versions Elastic déclar
 	test "$$versions" = "$$expected" || { echo "Versions Elastic incohérentes (attendu $$expected) : $$versions" >&2; exit 1; }; \
 	echo "Versions Elastic alignées sur $$expected"
 
-images-import: ## Importer les images dans le cluster k3d
-	@k3d image import -c $(K3D_CLUSTER) order-service:$(APP_IMAGE_TAG) inventory-service:$(APP_IMAGE_TAG) restock-service:$(APP_IMAGE_TAG)
+images-import: ## Importer les images applicatives dans k3s
+	@docker save order-service:$(APP_IMAGE_TAG) inventory-service:$(APP_IMAGE_TAG) restock-service:$(APP_IMAGE_TAG) | $(VAGRANT) ssh $(K3S_VM_NAME) -c 'sudo /usr/local/bin/k3s ctr images import -'
 
 k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (requiert ZSCALER_CA_CERT, puis redémarrer le cluster)
 	@test -n "$(ZSCALER_CA_CERT)" || { echo "Définir ZSCALER_CA_CERT=chemin/vers/cert.crt" >&2; exit 1; }
@@ -330,6 +334,14 @@ apps-deploy: ## Déployer uniquement l'application de démonstration
 		inventory-service=inventory-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/restock-service \
 		restock-service=restock-service:$(APP_IMAGE_TAG)
+	@for deployment in order-service inventory-service restock-service; do \
+		$(KUBECTL) -n $(APP_NAMESPACE) patch deployment "$$deployment" --type strategic \
+			-p '{"spec":{"template":{"spec":{"containers":[{"name":"'"$$deployment"'","startupProbe":{"failureThreshold":60,"timeoutSeconds":3}}]}}}}'; \
+	done
+	@$(KUBECTL) -n $(APP_NAMESPACE) set env deployment/inventory-service \
+		SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES='io.systemlens.supermarket.contract,io.systemlens.supermarket.contract.generated.event'
+	@$(KUBECTL) -n $(APP_NAMESPACE) set env deployment/restock-service \
+		SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES='io.systemlens.supermarket.contract,io.systemlens.supermarket.contract.generated.event'
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/restock-service --timeout=180s
@@ -362,10 +374,18 @@ vms-up:
 	mongodb_password="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}"; \
 	zscaler_ca_cert_content=''; \
 	if test -n "$${ZSCALER_CA_CERT:-}"; then test -f "$$ZSCALER_CA_CERT" || { echo "Certificat Zscaler introuvable : $$ZSCALER_CA_CERT" >&2; exit 1; }; zscaler_ca_cert_content="$$(< "$$ZSCALER_CA_CERT")"; fi; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" $(VAGRANT) up --parallel poc-01 otel-backend-01 otel-edge-01 elk-01 --no-provision; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" $(VAGRANT) up --parallel poc-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME) --no-provision; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" ZSCALER_CA_CERT_CONTENT="$$zscaler_ca_cert_content" ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 
 vms-start: vms-up ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
+
+k3s-vm-up: ## Créer et provisionner la VM serveur k3s
+	@set -euo pipefail; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' $(VAGRANT) up $(K3S_VM_NAME) --no-provision; \
+	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml --limit $(K3S_VM_NAME)
+
+k3s-kubeconfig: ## Exporter le kubeconfig k3s vers un fichier local non versionné
+	@K3S_KUBECONFIG='$(K3S_KUBECONFIG)' ./scripts/k3s-kubeconfig.sh
 
 vms-backup: ## Créer un snapshot Vagrant des quatre VM
 	@./scripts/vms-backup.sh
@@ -392,6 +412,9 @@ deploy:
 	$(MAKE) deploy-post
 
 architecture-deploy: deploy ## Déployer Elastic, Fleet, Kubernetes et les applications
+
+k3s-migrate: k3s-vm-up k3s-kubeconfig kubernetes-validate ## Migrer le déploiement k3d vers le cluster k3s
+	@$(MAKE) deploy
 
 deploy-post:
 	@set -euo pipefail; \

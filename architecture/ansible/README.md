@@ -1,10 +1,11 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
-L’architecture crée quatre VM séparées : `poc-01` pour MongoDB, Kafka métier et PostgreSQL,
+L’architecture crée cinq VM séparées : `poc-01` pour MongoDB, Kafka métier et PostgreSQL,
 `otel-backend-01` pour le broker Kafka dédié OTel et l’exporteur EDOT Kafka, `otel-edge-01` pour HAProxy et le
 Collecteur EDOT Edge et
-`elk-01` pour Elasticsearch, Kibana et Fleet Server.
+`elk-01` pour Elasticsearch, Kibana et Fleet Server, et `k3s-01` pour le serveur
+k3s et les workloads Kubernetes.
 Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
 et métriques locaux et les envoie en OTLP au Collecteur Edge. Le Kafka OTel du
 backend est le buffer commun des signaux Kubernetes et VM ; le Kafka de
@@ -81,6 +82,7 @@ une rotation de clé ou une modification de configuration.
 | `otel-backend-01` | Kafka OTel, exporteur Kafka EDOT | Kafka OTel local → APM Server / Elasticsearch |
 | `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
+| `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du POC |
 
 ## Ordre de lecture
 
@@ -136,6 +138,17 @@ Pour démarrer et provisionner les VM, utiliser :
 make vms-up
 make vm-status
 ```
+
+Pour migrer le cluster k3d local vers k3s, utiliser :
+
+```bash
+source ./platform/elk/scripts/load-credentials.sh
+make k3s-migrate
+```
+
+La cible crée `k3s-01`, exporte son kubeconfig dans `.kube/k3s.config`,
+importe les images applicatives dans le runtime k3s et réapplique les manifests
+Elastic, OTel et applicatifs. Elle ne détruit pas le cluster k3d.
 
 ## Sauvegarde et restauration des VM
 

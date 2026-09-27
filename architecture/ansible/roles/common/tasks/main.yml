@@ -129,8 +129,18 @@
     permanent: true
     immediate: true
     state: enabled
-  loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([9092, 9093, 8778, 9999, 4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318] if node_role == 'otel_edge' else []) + ([8200, 9200, 5601, 8220] if node_role == 'elk' else []) }}"
+  loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([9092, 9093, 8778, 9999, 4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318] if node_role == 'otel_edge' else []) + ([8200, 9200, 5601, 8220] if node_role == 'elk' else []) + ([6443, 10250] if node_role == 'k3s' else []) }}"
   when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
+
+- name: Autoriser le réseau overlay k3s
+  ansible.posix.firewalld:
+    port: 8472/udp
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - node_role == 'k3s'
+    - ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
 - name: Autoriser HAProxy à écouter ses ports otel-edge sous SELinux
   ansible.builtin.command:
@@ -173,4 +183,5 @@
       {{ otel_backend_ip }} otel-backend-01
       {{ otel_edge_ip }} otel-edge-01
       {{ elk_ip }} elk-01
+      {{ k3s_ip }} k3s-01
       {{ elk_ip }} kibana.observability.test elasticsearch.observability.test fleet.observability.test apm.observability.test

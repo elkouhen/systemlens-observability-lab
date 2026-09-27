@@ -1,7 +1,9 @@
 # Architecture : Hybride Fleet
 
 Architecture de référence avec Elastic Stack `9.4.3`. Les applications,
-Kubernetes et les VM utilisent OpenTelemetry/EDOT avec Kafka comme tampon.
+Kubernetes et les VM utilisent OpenTelemetry/EDOT avec Kafka comme tampon. Le
+cluster Kubernetes de référence est k3s sur `k3s-01` ; k3d reste disponible
+uniquement pour la comparaison pendant la migration.
 Les agents VM restent standalone et sont supervisés par Fleet via OpAMP, sans
 policy Fleet de collecte concurrente.
 
@@ -33,6 +35,8 @@ Elastic.
 
 Le code Java et les images sont partagés avec la plateforme. Le déploiement et
 la recette sont décrits dans le README Ansible et les cibles du `Makefile`.
+Pour migrer le cluster local k3d vers k3s, charger les identifiants puis
+exécuter `make k3s-migrate`. Le kubeconfig généré reste local et non versionné.
 
 Documents propres à l'architecture :
 
