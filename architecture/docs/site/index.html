@@ -92,7 +92,9 @@
       }
 
       section:first-of-type { margin-top: 0; }
+      .model-section { display: grid; grid-template-columns: .62fr 1.38fr; gap: 34px; align-items: center; }
       .model-figure { margin: 24px 0 0; }
+      .model-section .model-figure { margin: 0; }
       .model-figure a { display: block; }
       .model-figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
       .model-figure figcaption { margin-top: 10px; color: var(--muted); font: 11px var(--mono); }
@@ -111,6 +113,7 @@
       @media (max-width: 560px) {
         .site-header { height: auto; align-items: flex-start; flex-direction: column; padding-top: 1.5rem; padding-bottom: 1.5rem; }
         .site-nav a:not(:last-child) { display: none; }
+        .model-section { grid-template-columns: 1fr; gap: 20px; }
         footer { align-items: flex-start; flex-direction: column; }
       }
     </style>
@@ -137,13 +140,15 @@
         </p>
       </header>
 
-      <section>
-        <p class="eyebrow">C4 model</p>
-        <h2>Flux de télémétrie</h2>
-        <p>
-          Les signaux sont collectés en OTLP, bufferisés dans Kafka OTel, puis
-          exportés vers Elasticsearch ou APM avant leur consultation dans Kibana.
-        </p>
+      <section class="model-section">
+        <div>
+          <p class="eyebrow">C4 model</p>
+          <h2>Flux de télémétrie</h2>
+          <p>
+            Les signaux sont collectés en OTLP, bufferisés dans Kafka OTel, puis
+            exportés vers Elasticsearch ou APM avant leur consultation dans Kibana.
+          </p>
+        </div>
         <figure class="model-figure">
           <a href="https://elkouhen.github.io/systemlens-observability-lab/c4.html#/view/observability-flow/">
             <img src="assets/c4-telemetry.png" alt="Modèle C4 du flux de télémétrie, des applications et agents EDOT vers Kafka OTel, Elasticsearch, APM et Kibana">
