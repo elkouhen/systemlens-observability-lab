@@ -1,7 +1,7 @@
 package io.systemlens.supermarket.restock;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import io.systemlens.supermarket.contract.OrderPlaced;
+import io.systemlens.supermarket.contract.generated.event.OrderPlaced;
 import io.systemlens.supermarket.messaging.AbstractKafkaMessageProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -33,6 +33,6 @@ public class OrderPlacedConsumer extends AbstractKafkaMessageProcessor<OrderPlac
     protected void processMessage(OrderPlaced event) {
         meterRegistry().counter("business.orders.observed", "consumer", "restock-service").increment();
         LOGGER.info("Commande observee pour le graphe d'appel: orderId={}, productId={}, quantity={}",
-                event.orderId(), event.productId(), event.quantity());
+                event.getOrderId(), event.getProductId(), event.getQuantity());
     }
 }

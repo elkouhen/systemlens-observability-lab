@@ -127,25 +127,6 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>dev.banking.asyncapi.generator</groupId>
-                <artifactId>asyncapi-generator-maven-plugin</artifactId>
-                <version>${asyncapi.generator.version}</version>
-                <executions>
-                    <execution>
-                        <id>generate-asyncapi-contract</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <generatorName>java</generatorName>
-                            <inputFile>${project.basedir}/src/main/resources/static/asyncapi.yaml</inputFile>
-                            <modelPackage>io.systemlens.supermarket.inventory.generated.event</modelPackage>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>

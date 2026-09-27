@@ -32,7 +32,7 @@ sont provisionnés par Ansible en mode EDOT standalone.
 | EDOT DaemonSet | Kubernetes | Lire les logs stdout et les métriques Kubernetes prévues par la configuration |
 | Kafka | `poc-01` | Tamponner les signaux applicatifs, Kubernetes et VM dans trois topics dédiés |
 | Collector backend EDOT | `otel-backend-01` | Consommer Kafka, traiter les signaux et les exporter vers Elastic |
-| HAProxy et routage TLS | `otel-edge-01` | Exposer les points d’entrée OTLP, Elasticsearch, Kibana et Fleet |
+| HAProxy | `otel-edge-01` | Exposer les points d’entrée OTLP |
 | Elasticsearch | `elk-01` | Stocker les signaux et fournir les API d’ingestion et de recherche |
 | Kibana | `elk-01` | Fournir Discover, APM, Fleet et les dashboards |
 | Fleet Server | `elk-01` | Fournir le plan de contrôle Fleet et le monitoring OpAMP optionnel |

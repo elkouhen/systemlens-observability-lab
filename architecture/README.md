@@ -1,9 +1,9 @@
 # Architecture : Hybride Fleet
 
-Architecture de référence avec Elastic Stack `9.4.3`. Les applications et
-Kubernetes utilisent OpenTelemetry/EDOT avec Kafka comme
-tampon. Les VM utilisent l’Elastic Agent enrôlé dans Fleet et envoient
-directement leurs logs et métriques vers Elasticsearch.
+Architecture de référence avec Elastic Stack `9.4.3`. Les applications,
+Kubernetes et les VM utilisent OpenTelemetry/EDOT avec Kafka comme tampon.
+Les agents VM restent standalone et sont supervisés par Fleet via OpAMP, sans
+policy Fleet de collecte concurrente.
 
 ## Topologie VM
 
@@ -19,15 +19,17 @@ Kubernetes / opérateur
           v
       poc-01  -- Kafka métier + MongoDB + PostgreSQL
 
-      otel-edge-01  ------------------> elk-01
-                                  Elasticsearch + Kibana + Fleet Server
+      poc-01       -- Kafka métier + MongoDB + PostgreSQL
+
+      otel-backend-01  -- Kafka OTel + exporteur backend --> elk-01
+                                                  Elasticsearch + Kibana + Fleet Server
 ```
 
 `otel-edge-01` est le point d’entrée OTLP exposé. Les accès Kibana,
-Elasticsearch, Fleet et APM sont directs vers `elk-01`. `otel-backend-01` héberge le
-Kafka dédié OTel et traite les signaux OTLP, `poc-01` héberge les middlewares
-du scénario et son Kafka métier, et `elk-01` porte
-le stockage et la consultation Elastic.
+Elasticsearch, Fleet et APM sont directs vers `elk-01`. `otel-backend-01` héberge
+le Kafka dédié OTel et le Collector backend, `poc-01` héberge les middlewares du
+scénario et son Kafka métier, et `elk-01` porte le stockage et la consultation
+Elastic.
 
 Le code Java et les images sont partagés avec la plateforme. Le déploiement et
 la recette sont décrits dans le README Ansible et les cibles du `Makefile`.

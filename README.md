@@ -22,8 +22,8 @@ avec un seul playbook Ansible parallèle. Après le contrôle `make vm-status`,
 `make architecture-deploy` déploie la plateforme Elastic, Fleet,
 Kubernetes et l'application.
 
-Le [guide de déploiement et d’exploitation](docs/deploiement-et-exploitation.md)
-décrit les prérequis, l’ordre des opérations et la recette fonctionnelle.
+Le [guide d’architecture et de déploiement](docs/architecture.md) décrit les
+prérequis, l’ordre des opérations et la recette fonctionnelle.
 
 ## Architecture active
 

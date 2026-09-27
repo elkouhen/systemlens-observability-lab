@@ -12,8 +12,6 @@ elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:
 : "${ELASTICSEARCH_PASSWORD:?Definir ELASTICSEARCH_PASSWORD avant de synchroniser les pipelines}"
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_password="${KIBANA_PASSWORD:-${ELASTICSEARCH_PASSWORD}}"
-fleet_nodes=(poc-01 otel-backend-01 otel-edge-01)
-
 elasticsearch_args=(--fail --silent --show-error --insecure
   --resolve elasticsearch.observability.test:9200:192.168.33.40
   -u "elastic:${ELASTICSEARCH_PASSWORD}" -H 'Content-Type: application/json')
@@ -21,26 +19,6 @@ kibana_args=(--fail --silent --show-error --insecure
   --resolve "${KIBANA_HOST:-kibana.observability.test}:5601:192.168.33.40"
   -u "elastic:${kibana_password}" -H 'Content-Type: application/json'
   -H 'kbn-xsrf: systemlens-fleet-sync')
-
-# La policy et ses package policies restent déclarées par Kubernetes. Cette
-# étape ne fait que migrer les Agents déjà enrôlés dans une policy historique.
-fleet_agents="$(curl "${kibana_args[@]}" "${kibana_url}/api/fleet/agents?perPage=100")"
-for node in "${fleet_nodes[@]}"; do
-  if [[ "${node}" == 'poc-01' ]]; then
-    fleet_policy_id='data-fleet'
-  else
-    fleet_policy_id='otel-fleet'
-  fi
-  agent_id="$(jq -r --arg node "${node}" --arg policy "${fleet_policy_id}" '
-    .items[] | select(.local_metadata.host.hostname == $node and .active == true and .status != "offline" and .policy_id != $policy) | .id
-  ' <<<"${fleet_agents}" | head -n 1)"
-  if [[ -n "${agent_id}" ]]; then
-    curl "${kibana_args[@]}" -X POST \
-      "${kibana_url}/api/fleet/agents/${agent_id}/reassign" \
-      --data "$(jq -n --arg policy "${fleet_policy_id}" '{policy_id: $policy}')" >/dev/null
-    printf 'Fleet agent reassigned: %s -> %s\n' "${node}" "${fleet_policy_id}"
-  fi
-done
 
 # Kafka 3.9 peut publier number-of-voters comme chaîne dans le MBean Raft.
 curl "${elasticsearch_args[@]}" -X PUT \
@@ -114,27 +92,4 @@ for dataset in collstats dbstats metrics replstatus status; do
 done
 printf 'MongoDB service.address pipelines updated\n'
 
-# Les package policies préconfigurées par Kibana ne sont créées qu'une fois.
-# Mettre à jour explicitement la policy existante conserve la source de vérité
-# Kubernetes tout en diffusant une correction aux Agents déjà enrôlés.
-postgresql_policy_id="$(curl "${kibana_args[@]}" \
-  "${kibana_url}/api/fleet/package_policies?perPage=1000" |
-  jq -er '.items[] | select(.name == "postgresql-poc-01") | .id' | head -n 1)"
-postgresql_policy="$(curl "${kibana_args[@]}" \
-  "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}")"
-postgresql_payload="$(jq '
-  .item
-  | {name, namespace, policy_id, package, inputs}
-  | .inputs |= map(
-      if .type == "postgresql/metrics" then
-        .vars.condition = {
-          type: "text",
-          value: "${host.name} == '\''poc-01'\''"
-        }
-      else . end
-    )
-' <<<"${postgresql_policy}")"
-curl "${kibana_args[@]}" -X PUT \
-  "${kibana_url}/api/fleet/package_policies/${postgresql_policy_id}" \
-  --data "${postgresql_payload}" >/dev/null
-printf 'PostgreSQL package policy updated for poc-01 only\n'
+printf 'Fleet pipelines synchronisés ; aucune policy de collecte classique n’est modifiée.\n'

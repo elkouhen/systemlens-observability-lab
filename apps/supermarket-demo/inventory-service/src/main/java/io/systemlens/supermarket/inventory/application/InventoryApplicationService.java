@@ -1,5 +1,6 @@
 package io.systemlens.supermarket.inventory.application;
 
+import io.systemlens.supermarket.contract.generated.event.StockDepleted;
 import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
 import io.systemlens.supermarket.inventory.application.port.out.OrderFulfillmentPort;
 import io.systemlens.supermarket.inventory.application.port.out.ProductPort;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -103,7 +105,7 @@ public class InventoryApplicationService implements InventoryUseCase {
                 .log("Reservation effectuee: orderId={}, productId={}, quantity={}, remainingStock={}, channel={}",
                         orderId, productId, quantity, remainingStock, channel);
         if (remainingStock == 0) {
-            stockDepleted.publish(productId, createdAt);
+            stockDepleted.publish(new StockDepleted(productId, createdAt.atOffset(ZoneOffset.UTC)));
             LOGGER.info("Stock epuise: productId={}", productId);
         }
         return new ReservationResult(orderId, reservation.productId(), reservation.productName(),

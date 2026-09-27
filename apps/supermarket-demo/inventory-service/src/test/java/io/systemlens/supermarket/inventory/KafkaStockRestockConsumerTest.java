@@ -2,7 +2,7 @@ package io.systemlens.supermarket.inventory;
 
 import io.systemlens.supermarket.inventory.adapter.in.messaging.KafkaStockRestockConsumer;
 import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
-import io.systemlens.supermarket.inventory.generated.event.StockRestockRequested;
+import io.systemlens.supermarket.contract.generated.event.StockRestockRequested;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;

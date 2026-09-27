@@ -6,14 +6,16 @@
     <title>Architecture du POC d’observabilité</title>
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: dark;
         font-family: Inter, ui-sans-serif, system-ui, sans-serif;
         line-height: 1.5;
-        --background: #f6f7f9;
-        --surface: #ffffff;
-        --text: #17202a;
-        --muted: #52606d;
-        --accent: #087f8c;
+        --background: #091426;
+        --surface: #111d33;
+        --text: #e6edf7;
+        --muted: #aab9ce;
+        --line: #29405f;
+        --accent: #59b4ff;
+        --mint: #4fe0ae;
       }
 
       body {
@@ -31,6 +33,7 @@
 
       section {
         background: var(--surface);
+        border: 1px solid var(--line);
         border-radius: 0.75rem;
         margin-top: 1.5rem;
         padding: 1.5rem;
@@ -41,6 +44,7 @@
       p { max-width: 720px; }
       .muted { color: var(--muted); }
       a { color: var(--accent); font-weight: 650; }
+      li::marker { color: var(--mint); }
       ul { padding-left: 1.25rem; }
       li + li { margin-top: 0.75rem; }
     </style>
@@ -60,8 +64,8 @@
           télémétrie dans le modèle LikeC4.
         </p>
         <ul>
-          <li><a href="./c4.html#/">Ouvrir l’export HTML C4 interactif</a></li>
-          <li><a href="https://github.com/elkouhen/systemlens-observability-lab/blob/main/architecture/docs/architecture-c4.md">Lire la documentation C4</a></li>
+          <li><a href="https://elkouhen.github.io/systemlens-observability-lab/c4.html#/">Ouvrir l’export HTML C4 interactif</a></li>
+          <li><a href="https://github.com/elkouhen/systemlens-observability-lab/blob/main/architecture/docs/architecture-c4.likec4">Lire la documentation C4</a></li>
         </ul>
       </section>
 

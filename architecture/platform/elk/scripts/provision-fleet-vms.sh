@@ -59,11 +59,7 @@ fleet_enrollment_keys="$(curl --fail --silent --show-error --insecure \
   "${kibana_url}/api/fleet/enrollment_api_keys?perPage=1000")"
 
 for node in ${fleet_vm_nodes}; do
-  if [[ "${node}" == 'poc-01' ]]; then
-    policy_id='data-fleet'
-  else
-    policy_id='otel-fleet'
-  fi
+  policy_id='otel-fleet'
   token_name="systemlens-opamp-${node}"
   response="$(jq -c --arg name "${token_name}" --arg policy "${policy_id}" \
     '.items[] | select((.name == $name or (.name | startswith($name + " ("))) and .policy_id == $policy and .active == true)' \

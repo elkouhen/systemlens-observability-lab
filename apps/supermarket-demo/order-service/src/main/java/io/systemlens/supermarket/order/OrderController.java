@@ -4,6 +4,7 @@ import io.systemlens.supermarket.order.generated.api.CommandesApi;
 import io.systemlens.supermarket.order.generated.model.HealthStatus;
 import io.systemlens.supermarket.order.generated.model.OrderRequest;
 import io.systemlens.supermarket.order.generated.model.ReservationResult;
+import io.systemlens.supermarket.contract.generated.event.OrderPlaced;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,8 +40,8 @@ public class OrderController implements CommandesApi {
 
     @Override
     public ReservationResult placeOrder(OrderRequest request) {
-        io.systemlens.supermarket.order.generated.event.OrderPlaced order =
-            new io.systemlens.supermarket.order.generated.event.OrderPlaced(
+        OrderPlaced order =
+            new OrderPlaced(
                 UUID.randomUUID().toString(), request.getProductId(), request.getQuantity(), OffsetDateTime.now());
         LOGGER.info("Commande recue: orderId={}, productId={}, quantity={}",
             order.getOrderId(), order.getProductId(), order.getQuantity());
@@ -56,8 +57,8 @@ public class OrderController implements CommandesApi {
         // Quantité garantie supérieure au stock initial : démontre la
         // propagation d'une rupture de stock d'inventory-service vers
         // order-service (scénario d'erreur contrôlé pour l'observabilité).
-        io.systemlens.supermarket.order.generated.event.OrderPlaced order =
-            new io.systemlens.supermarket.order.generated.event.OrderPlaced(
+        OrderPlaced order =
+            new OrderPlaced(
                 UUID.randomUUID().toString(), "PASTA-500G", 999_999, OffsetDateTime.now());
         try {
             restTemplate.postForObject(inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);

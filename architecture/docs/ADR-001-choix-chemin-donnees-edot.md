@@ -2,7 +2,7 @@
 
 ## Statut
 
-WIP
+Accepted
 
 ## Date
 

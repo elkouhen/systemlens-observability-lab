@@ -22,7 +22,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: io.systemlens.supermarket.contract
+        spring.json.trusted.packages: io.systemlens.supermarket.contract.generated.event
         allow.auto.create.topics: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

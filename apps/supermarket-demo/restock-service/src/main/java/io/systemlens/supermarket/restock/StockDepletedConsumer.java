@@ -1,7 +1,7 @@
 package io.systemlens.supermarket.restock;
 
-import io.systemlens.supermarket.contract.StockDepleted;
-import io.systemlens.supermarket.contract.StockRestockRequested;
+import io.systemlens.supermarket.contract.generated.event.StockDepleted;
+import io.systemlens.supermarket.contract.generated.event.StockRestockRequested;
 import io.systemlens.supermarket.messaging.AbstractKafkaMessageProcessor;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -12,7 +12,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 
 @Component
 public class StockDepletedConsumer extends AbstractKafkaMessageProcessor<StockDepleted> {
@@ -40,10 +40,10 @@ public class StockDepletedConsumer extends AbstractKafkaMessageProcessor<StockDe
     @Override
     protected void processMessage(StockDepleted event) {
         StockRestockRequested request = new StockRestockRequested(
-                event.productId(), RESTOCK_QUANTITY, Instant.now()
+                event.getProductId(), RESTOCK_QUANTITY, OffsetDateTime.now()
         );
-        kafkaTemplate.send("supermarket.stock.restock-requested", request.productId(), request);
+        kafkaTemplate.send("supermarket.stock.restock-requested", request.getProductId(), request);
         restocksRequested.increment();
-        LOGGER.info("Reassort demande: productId={}, quantity={}", request.productId(), request.quantity());
+        LOGGER.info("Reassort demande: productId={}, quantity={}", request.getProductId(), request.getQuantity());
     }
 }

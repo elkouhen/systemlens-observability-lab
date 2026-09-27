@@ -1,7 +1,7 @@
 package io.systemlens.supermarket.inventory.application.port.out;
 
-import java.time.Instant;
+import io.systemlens.supermarket.contract.generated.event.StockDepleted;
 
 public interface StockDepletedPort {
-    void publish(String productId, Instant occurredAt);
+    void publish(StockDepleted event);
 }

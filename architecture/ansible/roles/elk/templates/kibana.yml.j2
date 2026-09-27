@@ -17,6 +17,8 @@ xpack.fleet.registryUrl: https://epr.elastic.co
 xpack.fleet.packages:
   - name: fleet_server
     version: 1.2.0
+  # Packages conservés pour leurs assets Kibana uniquement. Aucune package
+  # policy ne les attache aux agents EDOT standalone.
   - name: system
     version: 1.20.4
   - name: mongodb
@@ -38,8 +40,8 @@ xpack.fleet.packages:
   - name: otel_collector_internal_telemetry
     version: 1.2.3
 # Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/fleet-settings
-# Les package policies sont attachées à la policy de l'agent qui les exécute.
-# Le mot de passe PostgreSQL est injecté ensuite par le bootstrap Fleet.
+# Les agents VM restent standalone. Cette policy ne contient aucune package
+# policy de collecte ; elle sert uniquement à l'enregistrement OpAMP.
 xpack.fleet.agentPolicies:
   - id: eck-fleet-server
     name: Fleet Server
@@ -55,126 +57,10 @@ xpack.fleet.agentPolicies:
         inputs:
           fleet_server-fleet-server:
             enabled: true
-  - id: data-fleet
-    name: Data — Elastic Agent
-    namespace: default
-    monitoring_enabled: [logs, metrics]
-    is_default: true
-    package_policies:
-      - id: system-poc-01
-        name: system-poc-01
-        namespace: default
-        package:
-          name: system
-        inputs:
-          system-system/metrics:
-            enabled: true
-      - id: mongodb-poc-01
-        name: mongodb-poc-01
-        namespace: default
-        package:
-          name: mongodb
-        inputs:
-          mongodb-mongodb/metrics:
-            enabled: true
-            streams:
-              '[mongodb.replstatus]':
-                enabled: true
-            vars:
-              hosts: ["mongodb://127.0.0.1:27017"]
-          mongodb-logfile:
-            enabled: true
-            streams:
-              '[mongodb.log]':
-                enabled: true
-                vars:
-                  paths: ["/var/log/mongodb/mongod.log"]
-      - id: kafka-poc-01
-        name: kafka-poc-01
-        namespace: default
-        package:
-          name: kafka
-        inputs:
-          kafka-kafka/metrics:
-            enabled: true
-            vars:
-              hosts: ["127.0.0.1:9092"]
-          kafka-logfile:
-            enabled: true
-            streams:
-              '[kafka.log]':
-                enabled: true
-                vars:
-                  kafka_home: /var/log/kafka
-                  paths: ["/controller.log*", "/server.log*", "/state-change.log*", "/kafka-*.log*"]
-      - id: kafka-otel-backend-01
-        name: kafka-otel-backend-01
-        namespace: default
-        package:
-          name: kafka
-        inputs:
-          kafka-kafka/metrics:
-            enabled: true
-            vars:
-              hosts: ["127.0.0.1:9092"]
-          kafka-logfile:
-            enabled: true
-            streams:
-              '[kafka.log]':
-                enabled: true
-                vars:
-                  kafka_home: /var/log/kafka
-                  paths: ["/controller.log*", "/server.log*", "/state-change.log*", "/kafka-*.log*"]
-      - id: postgresql-poc-01
-        name: postgresql-poc-01
-        namespace: default
-        package:
-          name: postgresql
-        inputs:
-          postgresql-postgresql/metrics:
-            enabled: true
-            streams:
-              '[postgresql.statement]':
-                enabled: true
-            vars:
-              hosts: ["postgres://127.0.0.1:5432/observability_test?sslmode=disable"]
-              username: observability
-          postgresql-logfile:
-            enabled: true
-            streams:
-              '[postgresql.log]':
-                enabled: true
-                vars:
-                  paths: ["/var/log/postgresql/postgresql.log"]
   - id: otel-fleet
-    name: OTel — Elastic Agent
+    name: OTel standalone — supervision OpAMP
     namespace: default
     monitoring_enabled: [logs, metrics]
-    package_policies:
-      - id: system-otel-backend-01
-        name: system-otel-backend-01
-        namespace: default
-        package:
-          name: system
-        inputs:
-          system-system/metrics:
-            enabled: true
-      - id: system-otel-edge-01
-        name: system-otel-edge-01
-        namespace: default
-        package:
-          name: system
-        inputs:
-          system-system/metrics:
-            enabled: true
-      - id: system-elk-01
-        name: system-elk-01
-        namespace: default
-        package:
-          name: system
-        inputs:
-          system-system/metrics:
-            enabled: true
 # Documentation : https://www.elastic.co/docs/reference/kibana/configuration-reference/telemetry-settings
 telemetry.optIn: false
 telemetry.allowChangingOptInStatus: false

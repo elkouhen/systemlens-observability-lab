@@ -96,8 +96,9 @@ Elastic Agent EDOT standalone -> Collecteur Edge -> Kafka -> Collector backend
 -> Elasticsearch
 ```
 
-- Régler les périodes des inputs System, Kafka, MongoDB et PostgreSQL dans la
-  policy `data-fleet`.
+- Régler les périodes des receivers System, Kafka, MongoDB et PostgreSQL dans
+  la configuration EDOT standalone versionnée sous
+  `architecture/ansible/roles/elastic_agent/`.
 - Désactiver les inputs non nécessaires et limiter les chemins de logs suivis.
 - Utiliser les processeurs de la policy pour supprimer les événements
   répétitifs avant indexation.
@@ -106,9 +107,9 @@ Elastic Agent EDOT standalone -> Collecteur Edge -> Kafka -> Collector backend
 - Surveiller l’état `Healthy` de l’agent, les erreurs d’output et le débit des
   data streams `logs-*` et `metrics-*`.
 
-Fleet fournit la gestion et la supervision de l’agent, mais pas un quota global
-de débit Elasticsearch. Pour un plafond strict, appliquer une limite en amont
-par VM ou par réseau et compléter par le filtrage.
+Fleet fournit la supervision OpAMP de l’agent, mais ne pilote pas sa collecte et
+ne fournit pas de quota global de débit Elasticsearch. Pour un plafond strict,
+appliquer une limite en amont par VM ou par réseau et compléter par le filtrage.
 
 ## Contrôles et alertes
 

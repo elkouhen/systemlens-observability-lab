@@ -26,7 +26,7 @@ Applications Java et pods Kubernetes
        Collecteur Edge sur otel-edge-01
                  |
                  v
-       Kafka sur poc-01
+       Kafka OTel sur otel-backend-01
                  |
                  v
    EDOT backend sur otel-backend-01
@@ -46,10 +46,10 @@ VM de données et VM de plateforme
        Collecteur Edge, Kafka et backend
 ```
 
-`otel-edge-01` fournit le point d’entrée exposé pour OTLP, Elasticsearch,
-Kibana et Fleet. `elk-01` héberge Elasticsearch, Kibana et Fleet Server.
-`otel-backend-01` traite les signaux Kafka. `poc-01` héberge Kafka, MongoDB et
-PostgreSQL.
+`otel-edge-01` fournit le point d’entrée exposé pour OTLP. `elk-01` héberge
+Elasticsearch, Kibana et Fleet Server. `otel-backend-01` héberge le Kafka OTel,
+le Collector backend et l’export vers Elastic. `poc-01` héberge le Kafka métier,
+MongoDB et PostgreSQL.
 
 Les namespaces Kubernetes conservés sont `elastic-stack` pour la plateforme
 et `h0tl-supermarche-app` pour l’application.

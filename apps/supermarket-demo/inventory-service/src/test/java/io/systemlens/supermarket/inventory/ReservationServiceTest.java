@@ -1,5 +1,6 @@
 package io.systemlens.supermarket.inventory;
 
+import io.systemlens.supermarket.contract.generated.event.StockDepleted;
 import io.systemlens.supermarket.inventory.application.InventoryApplicationService;
 import io.systemlens.supermarket.inventory.application.port.out.*;
 import io.systemlens.supermarket.inventory.domain.Product;
@@ -11,7 +12,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -47,7 +47,7 @@ class ReservationServiceTest {
         reservationService.reserve("order-1", "PASTA-500G", 1, "rest", Instant.now());
 
         assertEquals(0, product.stockQuantity());
-        verify(stockDepletedPort).publish(eq("PASTA-500G"), org.mockito.ArgumentMatchers.any());
+        verify(stockDepletedPort).publish(org.mockito.ArgumentMatchers.any(StockDepleted.class));
     }
 
     @Test
