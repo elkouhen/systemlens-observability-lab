@@ -92,6 +92,10 @@
       }
 
       section:first-of-type { margin-top: 0; }
+      .model-figure { margin: 24px 0 0; }
+      .model-figure a { display: block; }
+      .model-figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+      .model-figure figcaption { margin-top: 10px; color: var(--muted); font: 11px var(--mono); }
       h1, h2 { letter-spacing: -.04em; line-height: 1.06; }
       h1 { max-width: 800px; margin: 14px 0 20px; font-size: clamp(2.5rem, 7vw, 5rem); }
       p { max-width: 720px; }
@@ -132,6 +136,21 @@
           structurent la collecte des signaux avec Elastic et OpenTelemetry.
         </p>
       </header>
+
+      <section>
+        <p class="eyebrow">C4 model</p>
+        <h2>Flux de télémétrie</h2>
+        <p>
+          Les signaux sont collectés en OTLP, bufferisés dans Kafka OTel, puis
+          exportés vers Elasticsearch ou APM avant leur consultation dans Kibana.
+        </p>
+        <figure class="model-figure">
+          <a href="https://elkouhen.github.io/systemlens-observability-lab/c4.html#/view/observability-flow/">
+            <img src="assets/c4-telemetry.png" alt="Modèle C4 du flux de télémétrie, des applications et agents EDOT vers Kafka OTel, Elasticsearch, APM et Kibana">
+          </a>
+          <figcaption>Vue C4 du flux de télémétrie. Cliquez sur l’image pour ouvrir le modèle interactif.</figcaption>
+        </figure>
+      </section>
 
       <section>
         <h2>Architecture C4</h2>

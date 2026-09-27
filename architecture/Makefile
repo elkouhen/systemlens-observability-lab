@@ -64,6 +64,8 @@ c4-pages-build: ## Construire le site LikeC4 destiné à GitHub Pages
 	@npx --yes likec4@1.53.0 build -o dist/c4 --base '$(C4_PAGES_BASE)' --use-hash-history docs
 	@mv dist/c4/index.html dist/c4/c4.html
 	@cp docs/site/index.html dist/c4/index.html
+	@mkdir -p dist/c4/assets
+	@cp docs/site/assets/c4-telemetry.png dist/c4/assets/c4-telemetry.png
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
 	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh\n'
