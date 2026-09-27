@@ -53,6 +53,8 @@
         text-decoration: none;
       }
 
+      .brand-muted { color: var(--muted); font-weight: 500; }
+
       .brand-mark { display: inline-flex; gap: 3px; align-items: end; height: 24px; }
       .brand-mark i { width: 5px; border-radius: 2px; background: var(--accent); display: block; }
       .brand-mark i:nth-child(1) { height: 12px; opacity: .55; }
@@ -70,16 +72,28 @@
         padding: 28px 0 64px;
       }
 
+      .hero { margin-bottom: 54px; }
+
+      .eyebrow {
+        margin: 0 0 19px;
+        color: var(--mint);
+        font-size: .78rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+
       section {
         background: var(--surface);
         border: 1px solid var(--line);
-        border-radius: 0.75rem;
+        border-radius: 14px;
         margin-top: 1.5rem;
-        padding: 1.5rem;
+        padding: 24px;
       }
 
-      h1, h2 { line-height: 1.15; }
-      h1 { max-width: 720px; font-size: clamp(2rem, 5vw, 3.5rem); }
+      section:first-of-type { margin-top: 0; }
+      h1, h2 { letter-spacing: -.04em; line-height: 1.06; }
+      h1 { max-width: 800px; margin: 14px 0 20px; font-size: clamp(2.5rem, 7vw, 5rem); }
       p { max-width: 720px; }
       code, pre { font-family: var(--mono); }
       .muted { color: var(--muted); }
@@ -110,11 +124,14 @@
       </nav>
     </header>
     <main>
-      <h1>Architecture du POC d’observabilité</h1>
-      <p class="muted">
-        Consultez la vue interactive de l’architecture et les décisions qui
-        structurent la collecte des signaux avec Elastic et OpenTelemetry.
-      </p>
+      <header class="hero">
+        <p class="eyebrow">Local observability architecture for Java teams</p>
+        <h1>Architecture du POC d’observabilité</h1>
+        <p class="muted">
+          Consultez la vue interactive de l’architecture et les décisions qui
+          structurent la collecte des signaux avec Elastic et OpenTelemetry.
+        </p>
+      </header>
 
       <section>
         <h2>Architecture C4</h2>
