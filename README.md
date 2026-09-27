@@ -25,6 +25,13 @@ Kubernetes et l'application.
 Le [guide d’architecture et de déploiement](docs/architecture.md) décrit les
 prérequis, l’ordre des opérations et la recette fonctionnelle.
 
+## Projets associés
+
+- [SystemLens](https://github.com/elkouhen/systemlens) indexe les faits
+  d’architecture dérivés du code et les expose par CLI, MCP et export HTML.
+- [systemlens-skill](https://github.com/elkouhen/systemlens-skill) guide les
+  analyses complémentaires fondées sur des preuves et révisables.
+
 ## Architecture active
 
 ```text
