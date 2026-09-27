@@ -11,7 +11,7 @@
       :root {
         color-scheme: dark;
         font-family: 'Manrope', system-ui, sans-serif;
-        line-height: 1.5;
+        line-height: 1.55;
         --background: #091426;
         --surface: #111d33;
         --text: #e6edf7;
@@ -31,9 +31,11 @@
 
       .site-header {
         box-sizing: border-box;
-        max-width: 960px;
+        width: min(1160px, calc(100% - 48px));
+        max-width: none;
         margin: 0 auto;
-        padding: 2rem 1.5rem 0;
+        padding: 0;
+        height: 82px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -62,9 +64,10 @@
 
       main {
         box-sizing: border-box;
-        max-width: 960px;
+        width: min(1160px, calc(100% - 48px));
+        max-width: none;
         margin: 0 auto;
-        padding: 3rem 1.5rem 4rem;
+        padding: 28px 0 64px;
       }
 
       section {
@@ -88,7 +91,7 @@
       .footer-brand { display: flex; align-items: center; gap: 9px; color: var(--text); }
       .footer-brand .brand-mark { transform: scale(.72); transform-origin: left center; margin-right: -6px; }
       @media (max-width: 560px) {
-        .site-header { align-items: flex-start; flex-direction: column; padding-top: 1.5rem; }
+        .site-header { height: auto; align-items: flex-start; flex-direction: column; padding-top: 1.5rem; padding-bottom: 1.5rem; }
         .site-nav a:not(:last-child) { display: none; }
         footer { align-items: flex-start; flex-direction: column; }
       }
