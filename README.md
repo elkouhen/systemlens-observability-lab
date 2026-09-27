@@ -25,12 +25,18 @@ Kubernetes et l'application.
 Le [guide d’architecture et de déploiement](docs/architecture.md) décrit les
 prérequis, l’ordre des opérations et la recette fonctionnelle.
 
+## Périmètre
+
+Ce dépôt possède l’environnement exécutable d’observabilité : applications,
+Kubernetes, Elastic, OpenTelemetry, Kafka, bases de données et déploiement.
+Il ne possède ni l’outil SystemLens ni les prompts du skill.
+
 ## Projets associés
 
-- [SystemLens](https://github.com/elkouhen/systemlens) indexe les faits
-  d’architecture dérivés du code et les expose par CLI, MCP et export HTML.
-- [systemlens-skill](https://github.com/elkouhen/systemlens-skill) guide les
-  analyses complémentaires fondées sur des preuves et révisables.
+- [SystemLens](https://github.com/elkouhen/systemlens) fournit l’indexation et
+  l’exploration d’architecture.
+- [systemlens-skill](https://github.com/elkouhen/systemlens-skill) fournit la
+  guidance agent et les descriptions de flows.
 
 ## Architecture active
 
