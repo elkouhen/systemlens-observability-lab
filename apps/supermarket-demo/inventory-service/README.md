@@ -48,6 +48,13 @@ si une écriture de persistance échoue.
 
 ## Architecture hexagonale
 
+Le service est également déclaré comme application Spring Modulith. Les
+packages directs `domain`, `application` et `adapter` constituent les modules
+fonctionnels détectés sous `InventoryServiceApplication`. La vérification
+Spring Modulith est exécutée par `ArchitectureTest` afin de détecter les
+dépendances interdites et les cycles entre ces modules ; elle complète les
+règles ArchUnit de l'architecture hexagonale.
+
 Le module sépare le métier des frameworks et des systèmes externes :
 
 - `domain/` contient les règles métier du stock et ne dépend pas de Spring,
@@ -80,6 +87,18 @@ avec :
 
 ```bash
 mvn -pl inventory-service -am verify
+```
+
+Le plugin Maven `exec-maven-plugin` lance `ModulithC4ModelGenerator` pendant
+`package`. Celui-ci utilise le `Documenter` officiel de Spring Modulith pour
+produire le modèle C4 PlantUML et AsciiDoc dans
+`inventory-service/target/spring-modulith-c4/`. Le plugin
+`asciidoctor-maven-plugin` transforme ensuite `all-docs.adoc` en rapport HTML
+`inventory-service/target/spring-modulith-c4-html/all-docs.html`, avec les
+diagrammes C4 intégrés. La génération complète est incluse dans :
+
+```bash
+mvn -pl inventory-service -am package
 ```
 
 ## API OpenAPI

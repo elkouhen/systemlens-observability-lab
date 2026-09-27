@@ -5,6 +5,7 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import org.junit.jupiter.api.Test;
+import org.springframework.modulith.core.ApplicationModules;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -53,5 +54,10 @@ class ArchitectureTest {
         application_does_not_depend_on_adapters.check(inventoryClasses);
         ports_are_interfaces.check(inventoryClasses);
         domain_types_are_final.check(inventoryClasses);
+    }
+
+    @Test
+    void respectsSpringModulithBoundaries() {
+        ApplicationModules.of(InventoryServiceApplication.class).verify();
     }
 }
