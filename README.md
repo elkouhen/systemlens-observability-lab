@@ -12,6 +12,9 @@ Pour déployer l’environnement local :
 make architecture-status
 make kubernetes-validate
 export POSTGRESQL_PASSWORD='...'
+export MONGODB_PASSWORD='...'
+export ELASTIC_PASSWORD='...'
+export KIBANA_PASSWORD='...'
 make vms-start
 make vm-status
 make architecture-deploy
@@ -21,6 +24,9 @@ make architecture-deploy
 avec un seul playbook Ansible parallèle. Après le contrôle `make vm-status`,
 `make architecture-deploy` déploie la plateforme Elastic, Fleet,
 Kubernetes et l'application.
+
+Les quatre variables de mot de passe doivent être fournies hors Git. Le
+Makefile n'utilise plus de valeur par défaut pour ces secrets.
 
 Le [guide d’architecture et de déploiement](docs/architecture.md) décrit les
 prérequis, l’ordre des opérations et la recette fonctionnelle.

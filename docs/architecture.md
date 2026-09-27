@@ -121,10 +121,16 @@ exécuter :
 
 ```bash
 export POSTGRESQL_PASSWORD='...'
+export MONGODB_PASSWORD='...'
+export ELASTIC_PASSWORD='...'
+export KIBANA_PASSWORD='...'
 make vms-up
 make vm-status
 make deploy
 ```
+
+Les variables de mot de passe doivent être fournies hors Git. Les commandes de
+déploiement échouent si un secret requis est absent.
 
 Les contrôles fonctionnels de la chaîne sont :
 

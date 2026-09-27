@@ -149,7 +149,7 @@ public-tls-apply: ## Créer ou réparer le certificat TLS public local du POC
 	fi
 
 elasticsearch-ready:
-	@password="$${ELASTIC_PASSWORD:-password}"; \
+	@password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent' >&2; exit 1; }; \
 	for attempt in $$(seq 1 60); do curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' -u "elastic:$$password" '$(ELASTICSEARCH_URL)' >/dev/null && exit 0; sleep 2; done; \
 	echo 'Elasticsearch Quadlet inaccessible après 120s' >&2; exit 1
@@ -173,7 +173,7 @@ kibana-wait: kibana-ready ## Attendre que Kibana soit prêt avant l'import de se
 kibana-fleet-config-deploy: elasticsearch-wait kibana-wait fleet-registry-wait ## Amorcer puis appliquer la configuration Kibana/Fleet déclarative
 	@if test '$(SKIP_KUBERNETES_APPLY)' != 1; then $(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local; fi
 	@$(MAKE) kibana-ready
-	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-password}"; \
+	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:?Set KIBANA_PASSWORD outside Git}"; \
 	 test -n "$$kibana_password" || { echo 'Identifiant Kibana absent' >&2; exit 1; }; \
 		 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" KIBANA_VERSION='$(ELASTIC_STACK_VERSION)' KUBERNETES_OTEL_PACKAGE_VERSION='$(KUBERNETES_OTEL_PACKAGE_VERSION)' KAFKA_OTEL_PACKAGE_VERSION='$(KAFKA_OTEL_PACKAGE_VERSION)' POSTGRESQL_OTEL_PACKAGE_VERSION='$(POSTGRESQL_OTEL_PACKAGE_VERSION)' MONGODB_OTEL_PACKAGE_VERSION='$(MONGODB_OTEL_PACKAGE_VERSION)' SYSTEM_OTEL_PACKAGE_VERSION='$(SYSTEM_OTEL_PACKAGE_VERSION)' OTEL_COLLECTOR_INTERNAL_TELEMETRY_PACKAGE_VERSION='$(OTEL_COLLECTOR_INTERNAL_TELEMETRY_PACKAGE_VERSION)' ./$(ARCH_ROOT)/platform/elk/scripts/bootstrap-fleet-policies.sh
 	@$(MAKE) fleet-server-start
@@ -204,20 +204,20 @@ fleet-assets-deploy: ## Installer les packages et policies Fleet sans redéploye
 	@SKIP_KUBERNETES_APPLY=1 $(MAKE) kibana-fleet-config-deploy
 
 elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk-01 via Quadlet
-	@password="$${ELASTIC_PASSWORD:-password}"; \
+	@password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent : définir le secret hors Git avant le déplacement.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) up elk-01 --no-provision
 	@if test '$(SKIP_ELK_VM_PROVISION)' = 1; then \
 		echo 'Provisionnement Ansible complet de elk-01 déjà effectué par deploy'; \
 	else \
-		password="$${ELASTIC_PASSWORD:-password}"; api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
+		password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 		DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision elk-01 --provision-with ansible; \
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
 	@$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml
-	@postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
+	@postgresql_password="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}"; \
 	test -n "$$postgresql_password" || { echo "Définir POSTGRESQL_PASSWORD hors Git (requis au premier déploiement)" >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
 		--from-literal=password="$$postgresql_password" --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
@@ -231,7 +231,7 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 		--resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 		-H "Authorization: ApiKey $$current_api_key" \
 		'$(ELASTICSEARCH_URL)/_security/_authenticate' >/dev/null; then \
-		password="$${ELASTIC_PASSWORD:-password}"; \
+		password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 		key_id="$$(printf '%s' "$$current_api_key" | base64 --decode 2>/dev/null | cut -d: -f1)"; \
 		key_has_metadata_privilege="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" '$(ELASTICSEARCH_URL)/_security/api_key?id='"$$key_id" \
@@ -247,7 +247,7 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 			echo "Clé API otel-elasticsearch-credentials valide"; \
 		fi; \
 	else \
-		password="$${ELASTIC_PASSWORD:-password}"; \
+		password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 		api_key="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 			-u "elastic:$$password" -H 'Content-Type: application/json' -X POST '$(ELASTICSEARCH_URL)/_security/api_key' \
 			--data '{"name":"otel-collector-writer","role_descriptors":{"otel_writer":{"cluster":["monitor"],"indices":[{"names":["traces-*","metrics-*","logs-*"],"privileges":["auto_configure","create_doc","view_index_metadata"]}]}}}' \
@@ -260,7 +260,7 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 elk-deploy: elastic-stack-deploy ## Déployer la plateforme d'observabilité Elastic sur elk-01
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@password="$${ELASTIC_PASSWORD:-password}"; \
+	@password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent' >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic elasticsearch-es-elastic-user --from-literal=elastic="$$password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	@$(MAKE) public-tls-apply
@@ -356,12 +356,12 @@ slides-start: slides ## Démarrer le support Slidev de l'architecture
 
 vms-up:
 	@set -euo pipefail; \
-	postgresql_password="$${POSTGRESQL_PASSWORD:-password}"; \
-	mongodb_password="$${MONGODB_PASSWORD:-$$postgresql_password}"; \
+	postgresql_password="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}"; \
+	mongodb_password="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}"; \
 	zscaler_ca_cert_content=''; \
 	if test -n "$${ZSCALER_CA_CERT:-}"; then test -f "$$ZSCALER_CA_CERT" || { echo "Certificat Zscaler introuvable : $$ZSCALER_CA_CERT" >&2; exit 1; }; zscaler_ca_cert_content="$$(< "$$ZSCALER_CA_CERT")"; fi; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:-password}" $(VAGRANT) up --parallel poc-01 otel-backend-01 otel-edge-01 elk-01 --no-provision; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:-password}" ZSCALER_CA_CERT_CONTENT="$$zscaler_ca_cert_content" ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" $(VAGRANT) up --parallel poc-01 otel-backend-01 otel-edge-01 elk-01 --no-provision; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" ZSCALER_CA_CERT_CONTENT="$$zscaler_ca_cert_content" ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 
 vms-start: vms-up ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
 
@@ -378,7 +378,7 @@ elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des ag
 	@set -euo pipefail; \
 	for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
-	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:-$${POSTGRESQL_PASSWORD:-password}}" $(VAGRANT) provision "$$node" --provision-with ansible; \
+		  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
 
 deploy:
@@ -447,21 +447,21 @@ mongodb-workload:
 mongodb-workload-generate: mongodb-workload ## Générer une charge MongoDB courte pour valider la collecte
 
 fleet-opamp-enable: fleet-assets-deploy ## Activer le monitoring Fleet OpAMP des agents EDOT des VM sans redéployer la plateforme
-	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:-password}"; \
+	@set -euo pipefail; kibana_password="$${KIBANA_PASSWORD:?Set KIBANA_PASSWORD outside Git}"; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/provision-fleet-vms.sh
 
 otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01 avec la clé API Kubernetes existante
 	@$(VAGRANT) up otel-backend-01 --no-provision
 	@api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
-	password="$${ELASTIC_PASSWORD:-password}"; \
+	password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01 --provision-with ansible
 
 otel-edge-vm-provision: ## Provisionner le Collecteur EDOT Edge sur otel-edge-01
 	@$(VAGRANT) up otel-edge-01 --no-provision
-	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:-password}" $(VAGRANT) provision otel-edge-01 --provision-with ansible
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" $(VAGRANT) provision otel-edge-01 --provision-with ansible
 
 otel-gateway-vm-status: ## Vérifier HAProxy et le Collecteur EDOT Edge
 	@set -euo pipefail; $(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo systemctl is-active observability-otel-edge && curl --fail --silent http://127.0.0.1:13135/'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka-exporter && curl --fail --silent http://127.0.0.1:13134/'
