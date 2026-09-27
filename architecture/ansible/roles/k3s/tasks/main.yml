@@ -1,0 +1,96 @@
+---
+- name: Installer les dépendances réseau k3s
+  ansible.builtin.dnf:
+    name: [iptables, conntrack-tools, iproute-tc, kernel-modules, kernel-modules-extra]
+    state: present
+
+- name: Détecter un noyau installé plus récent que le noyau actif
+  ansible.builtin.shell: >-
+    rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' |
+    sort -V | tail -n 1
+  register: latest_kernel
+  changed_when: false
+
+- name: Redémarrer pour charger le noyau et ses modules réseau
+  ansible.builtin.reboot:
+    msg: Redémarrage requis pour charger les modules réseau k3s
+    reboot_timeout: 600
+  when: latest_kernel.stdout | trim != ansible_kernel
+
+- name: Charger les modules noyau réseau requis par k3s
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: [br_netfilter, overlay, nf_conntrack, iptable_filter, iptable_nat]
+
+- name: Configurer les paramètres réseau du cluster
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - {name: net.ipv4.ip_forward, value: '1'}
+    - {name: net.bridge.bridge-nf-call-iptables, value: '1'}
+    - {name: net.bridge.bridge-nf-call-ip6tables, value: '1'}
+
+- name: Désactiver le swap pour k3s
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+
+- name: Désactiver le swap au redémarrage
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\s+swap\s+.*)$'
+    replace: '# \1'
+
+- name: Créer le répertoire de configuration k3s
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: '0755'
+
+- name: Déclarer la configuration du serveur k3s
+  ansible.builtin.copy:
+    dest: /etc/rancher/k3s/config.yaml
+    mode: '0644'
+    content: |
+      write-kubeconfig-mode: "0600"
+      node-name: k3s-01
+      tls-san:
+        - {{ k3s_ip }}
+  register: k3s_configuration
+
+- name: Vérifier la présence du binaire k3s
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Installer k3s serveur avec une version déclarée
+  ansible.builtin.shell: >-
+    curl --fail --silent --show-error https://get.k3s.io |
+    INSTALL_K3S_VERSION={{ k3s_version }} sh -s - server
+  args:
+    executable: /bin/bash
+  when: not k3s_binary.stat.exists
+  notify: Redémarrer k3s
+
+- name: Redémarrer k3s si sa configuration a changé
+  ansible.builtin.systemd_service:
+    name: k3s
+    state: restarted
+  when: k3s_configuration.changed and k3s_binary.stat.exists
+
+- name: Activer et démarrer k3s
+  ansible.builtin.systemd_service:
+    name: k3s
+    enabled: true
+    state: started
+
+- name: Attendre les CRD Traefik embarquées par k3s
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get crd ingressroutes.traefik.io
+  register: traefik_crd
+  changed_when: false
+  retries: 36
+  delay: 5
+  until: traefik_crd.rc == 0
