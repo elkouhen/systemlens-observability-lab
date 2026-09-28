@@ -42,7 +42,7 @@
         var: retention_usage.stdout
 
 - name: Vérifier les paramètres effectifs du broker métier et des topics
-  hosts: poc_nodes
+  hosts: supermarket_middleware_nodes
   become: true
   gather_facts: false
   tasks:

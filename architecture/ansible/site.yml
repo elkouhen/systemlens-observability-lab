@@ -4,7 +4,7 @@
   become: true
   gather_facts: true
   vars:
-    poc_ip: 192.168.33.10
+    supermarket_middleware_ip: 192.168.33.10
     otel_backend_ip: 192.168.33.20
     otel_edge_ip: 192.168.33.30
     elk_ip: 192.168.33.40

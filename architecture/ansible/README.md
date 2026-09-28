@@ -1,18 +1,18 @@
 # Provisionnement Ansible des VM
 
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
-L’architecture crée cinq VM séparées : `poc-01` pour MongoDB, Kafka métier et PostgreSQL,
-`otel-backend-01` pour le broker Kafka dédié OTel et l’exporteur EDOT Kafka, `otel-edge-01` pour HAProxy et le
+L’architecture crée cinq VM séparées : `supermarket-middleware-01` pour MongoDB, Kafka métier et PostgreSQL,
+`otel-backend-01` pour le broker Kafka dédié OTel et le collecteur backend OTel, `otel-edge-01` pour HAProxy et le
 Collecteur EDOT Edge et
 `elk-01` pour Elasticsearch, Kibana et Fleet Server, et `k3s-01` pour le serveur
 k3s et les workloads Kubernetes.
 Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
 et métriques locaux et les envoie en OTLP au Collecteur Edge. Exception :
-`otel-backend-01` publie directement ses métriques locales et sa télémétrie
-interne dans le Kafka OTel local, car cette VM ne dépend pas de l'accès OTLP à
-`otel-edge-01`. Ses logs et traces conservent le chemin Edge. Le Kafka OTel du
-backend reste le buffer des signaux Kubernetes et VM ; le Kafka de `poc-01`
-reste réservé aux événements métier.
+`otel-backend-01` publie directement ses métriques, logs, traces et sa
+télémétrie interne dans le Kafka OTel local, car cette VM ne dépend pas de
+l'accès OTLP à `otel-edge-01`. Aucun signal produit par l'agent EDOT du backend
+ne passe par Edge. Le Kafka OTel du backend reste le buffer des signaux
+Kubernetes et VM ; le Kafka de `supermarket-middleware-01` reste réservé aux événements métier.
 
 La cible `make fleet-opamp-enable` active en plus le monitoring Fleet OpAMP
 des agents EDOT vers Fleet Server sur `elk-01`. Les agents restent standalone :
@@ -63,7 +63,7 @@ peuvent donner la priorité au réseau privé et empêcher la résolution des
 miroirs de paquets.
 
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
-sur `poc-01`.
+sur `supermarket-middleware-01`.
 
 Les redirections SSH Vagrant utilisent `VAGRANT_SSH_PORT_BASE + node_id`, avec
 une base fixée à `2250` par défaut. Si un port est déjà occupé sur l’hôte,
@@ -77,13 +77,13 @@ les variables sensibles viennent de l’environnement. Les données Kafka sont c
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
 
 La cible `make vms-restart` redémarre séquentiellement les cinq VM
-(`poc-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`) sans
+(`supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`) sans
 reprovisionnement. Une VM arrêtée est démarrée avec `--no-provision`. Le script
 affiche l’état Vagrant final pour permettre de vérifier que chaque VM est
 `running`.
 
 La cible `make metrics-chain-restart` redémarre uniquement la chaîne de
-transport des métriques, sans reprovisionnement : exporteur Kafka du backend,
+transport des métriques, sans reprovisionnement : collecteur backend OTel,
 Kafka OTel, collecteur Edge, puis HAProxy OTLP. Elle vérifie les endpoints de
 santé des collecteurs, l’état du broker et sa disponibilité du quorum.
 
@@ -96,15 +96,15 @@ Pour supprimer les quatre VM et leurs disques locaux, exécuter la cible
 destructive `make vms-destroy`. Cette opération ne supprime pas les ressources
 Kubernetes ni les données persistées en dehors des VM.
 
-Après `make deploy`, la phase `deploy-post` reprovisionne l’exporteur Kafka
+Après `make deploy`, la phase `deploy-post` reprovisionne le collecteur backend
 avec la clé API Elasticsearch courante et active le monitoring OpAMP des
 agents VM. Cette phase peut être rejouée seule avec `make deploy-post` après
 une rotation de clé ou une modification de configuration.
 
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
-| `poc-01` | MongoDB, Kafka métier, PostgreSQL | Middlewares du scénario applicatif |
-| `otel-backend-01` | Kafka OTel, exporteur Kafka EDOT | Métriques locales → Kafka OTel local ; logs et traces → Edge → Kafka OTel → APM Server / Elasticsearch |
+| `supermarket-middleware-01` | MongoDB, Kafka métier, PostgreSQL | Middlewares du scénario applicatif |
+| `otel-backend-01` | Kafka OTel, backend OTel | Métriques, logs et traces locales → Kafka OTel local → APM Server / Elasticsearch |
 | `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 | `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du POC |
@@ -178,7 +178,7 @@ Elastic, OTel et applicatifs. Elle ne détruit pas le cluster k3d.
 ## Sauvegarde et restauration des VM
 
 La cible `make vms-backup` crée un snapshot Vagrant portant le même identifiant
-temporel pour `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`. Le
+temporel pour `supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`. Le
 manifeste du dernier backup est conservé dans `.vagrant-backups/latest.env` ;
 les données du snapshot restent gérées par VirtualBox et ne sont pas versionnées.
 

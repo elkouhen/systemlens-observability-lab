@@ -16,7 +16,7 @@
           - vagrant
           - up
           - --parallel
-          - poc-01
+          - supermarket-middleware-01
           - otel-backend-01
           - otel-edge-01
           - elk-01

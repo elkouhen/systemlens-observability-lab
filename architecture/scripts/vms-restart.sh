@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 architecture_root="$(cd -- "${script_dir}/.." && pwd)"
 vagrant_bin="${VAGRANT:-vagrant}"
 k3s_vm_name="${K3S_VM_NAME:-k3s-01}"
-nodes=(poc-01 otel-backend-01 otel-edge-01 elk-01 "${k3s_vm_name}")
+nodes=(supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 "${k3s_vm_name}")
 
 command -v "${vagrant_bin}" >/dev/null || {
   printf 'Vagrant est requis pour redémarrer les VM.\n' >&2

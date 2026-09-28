@@ -119,7 +119,7 @@ dans les environnements hôtes et VM ([architecture Elastic OpenTelemetry](https
 
 - [`ansible/README.md`](../ansible/README.md)
 - [`ansible/roles/otel_edge/templates/otel-edge.yaml.j2`](../ansible/roles/otel_edge/templates/otel-edge.yaml.j2)
-- [`ansible/roles/otel_backend/templates/kafka-exporter.yaml.j2`](../ansible/roles/otel_backend/templates/kafka-exporter.yaml.j2)
+- [`ansible/roles/otel_backend/templates/otel-backend.yaml.j2`](../ansible/roles/otel_backend/templates/otel-backend.yaml.j2)
 - [Exporteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter)
 - [Récepteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver)
 - [Conception de Kafka](https://kafka.apache.org/design/)

@@ -5,7 +5,7 @@ PROFILE = "minimal"
 abort("L’architecture utilise uniquement le profil minimal") unless ENV.fetch("DEPLOYMENT_PROFILE", "minimal") == PROFILE
 
 NODES = [
-  { name: "poc-01", id: 1, ip: "192.168.33.10", role: :poc, memory: 3072 },
+  { name: "supermarket-middleware-01", id: 1, ip: "192.168.33.10", role: :poc, memory: 3072 },
   { name: "otel-backend-01", id: 2, ip: "192.168.33.20", role: :otel_backend, memory: 3072 },
   { name: "otel-edge-01", id: 3, ip: "192.168.33.30", role: :otel_edge, memory: 2048 },
   { name: "elk-01", id: 4, ip: "192.168.33.40", role: :elk, memory: 6144 },

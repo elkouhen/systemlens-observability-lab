@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 architecture_root="$(cd -- "${script_dir}/.." && pwd)"
 backup_dir="${VAGRANT_BACKUP_DIR:-${architecture_root}/.vagrant-backups}"
 vagrant_bin="${VAGRANT:-vagrant}"
-nodes=(poc-01 otel-backend-01 otel-edge-01 elk-01)
+nodes=(supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01)
 manifest="${backup_dir}/latest.env"
 start_after_restore="${START_AFTER_RESTORE:-YES}"
 

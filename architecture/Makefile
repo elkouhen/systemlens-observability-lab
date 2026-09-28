@@ -42,7 +42,7 @@ C4_PAGES_BASE ?= ./
 .PHONY: help architecture-status c4-pages-build credentials-show cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy apm-token-sync fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
-	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
+	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
 	otel-edge-vm-provision elastic-agent-vm-provision elastic-agent-backend-provision \
 	vms-up vms-restart vms-backup vms-restore-latest vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
@@ -52,7 +52,7 @@ C4_PAGES_BASE ?= ./
 
 .PHONY: cluster-show elasticsearch-wait kibana-wait fleet-prerequisites-validate fleet-registry-wait \
 	vms-start architecture-deploy deployment-finalize otel-validate ci-run stock-show slides-start \
-	otel-gateway-kubernetes-switch otel-kafka-exporter-kubernetes-switch
+	otel-gateway-kubernetes-switch otel-backend-kubernetes-switch
 
 ##@ Informations et diagnostic
 
@@ -87,11 +87,11 @@ kubernetes-status: ## Afficher l’état Elastic et applications
 	@$(KUBECTL) -n $(APP_NAMESPACE) get deployment,pods
 
 vm-status: ## Vérifier les conteneurs MongoDB, Kafka et PostgreSQL des VM
-	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POC_VM_NAME='poc-01' ../scripts/cluster-status.sh
-	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka observability-otel-kafka-exporter && sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status'
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POC_VM_NAME='supermarket-middleware-01' ../scripts/cluster-status.sh
+	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka observability-otel-backend && sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status'
 
 time-sync-verify: ## Vérifier la synchronisation chrony des quatre VM
-	@set -euo pipefail; for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
+	@set -euo pipefail; for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
 		echo "--- $$node ---"; \
 		output="$$($(VAGRANT) ssh "$$node" -c 'sudo chronyc tracking; sudo chronyc sources -n' 2>/dev/null)"; \
 		echo "$$output" | grep -E '^(Reference ID|Stratum|System time|Leap status)' || { echo "État chrony incomplet sur $$node" >&2; exit 1; }; \
@@ -345,7 +345,7 @@ apps-deploy: ## Déployer uniquement l'application de démonstration
 application-data-verify: ## Vérifier le schéma et le catalogue avant une charge de test
 	@set -euo pipefail; \
 	$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s; \
-	count="$$( $(VAGRANT) ssh poc-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) FROM public.products;"' | tr -d '[:space:]' )"; \
+	count="$$( $(VAGRANT) ssh supermarket-middleware-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -tAc "SELECT count(*) FROM public.products;"' | tr -d '[:space:]' )"; \
 	test "$$count" -ge 1 || { echo 'Le catalogue PostgreSQL est absent ou vide : exécuter les migrations et le chargement des produits.' >&2; exit 1; }; \
 	echo "Catalogue applicatif prêt ($$count produits)"
 
@@ -370,7 +370,7 @@ vms-up:
 	mongodb_password="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}"; \
 	zscaler_ca_cert_content=''; \
 	if test -n "$${ZSCALER_CA_CERT:-}"; then test -f "$$ZSCALER_CA_CERT" || { echo "Certificat Zscaler introuvable : $$ZSCALER_CA_CERT" >&2; exit 1; }; zscaler_ca_cert_content="$$(< "$$ZSCALER_CA_CERT")"; fi; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" $(VAGRANT) up --parallel poc-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME) --no-provision; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" $(VAGRANT) up --parallel supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME) --no-provision; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$$postgresql_password" MONGODB_PASSWORD="$$mongodb_password" ELASTIC_PASSWORD="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}" ZSCALER_CA_CERT_CONTENT="$$zscaler_ca_cert_content" ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 
 vms-start: vms-up ## Démarrer et provisionner les quatre VM, sans déployer Kubernetes ni l'application
@@ -396,11 +396,11 @@ vms-restore-latest: ## Restaurer le dernier snapshot Vagrant (CONFIRM_RESTORE=YE
 	@CONFIRM_RESTORE='$(CONFIRM_RESTORE)' START_AFTER_RESTORE='$(START_AFTER_RESTORE)' ./scripts/vms-restore-latest.sh
 
 vms-destroy: ## Détruire les quatre VM Vagrant et leurs disques locaux (DESTRUCTIF)
-	@$(VAGRANT) destroy -f poc-01 otel-backend-01 otel-edge-01 elk-01
+	@$(VAGRANT) destroy -f supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01
 
 elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des agents VM
 	@set -euo pipefail; \
-	for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
+	for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
 	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
@@ -423,7 +423,7 @@ k3s-migrate: k3s-vm-up k3s-kubeconfig kubernetes-validate ## Migrer le déploiem
 
 deploy-post:
 	@set -euo pipefail; \
-	$(MAKE) otel-kafka-exporter-vm-provision; \
+	$(MAKE) otel-backend-vm-provision; \
 	$(MAKE) fleet-opamp-enable
 
 deployment-finalize: deploy-post ## Finaliser les services VM et le monitoring OpAMP
@@ -469,10 +469,10 @@ fleet-sync: ## Synchroniser les pipelines et la policy Fleet
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
 kafka-jolokia-verify: ## Vérifier les MBeans des brokers Kafka exposés par Jolokia
-	@set -euo pipefail; for node in poc-01 otel-backend-01; do $(VAGRANT) ssh "$$node" -c 'curl --fail --silent http://127.0.0.1:8778/jolokia >/dev/null'; done
+	@set -euo pipefail; for node in supermarket-middleware-01 otel-backend-01; do $(VAGRANT) ssh "$$node" -c 'curl --fail --silent http://127.0.0.1:8778/jolokia >/dev/null'; done
 
 mongodb-workload:
-	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
+	@$(VAGRANT) ssh supermarket-middleware-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
 mongodb-workload-generate: mongodb-workload ## Générer une charge MongoDB courte pour valider la collecte
 
@@ -493,8 +493,8 @@ otel-edge-vm-provision: ## Provisionner le Collecteur EDOT Edge sur otel-edge-01
 	@$(VAGRANT) up otel-edge-01 --no-provision
 	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" $(VAGRANT) provision otel-edge-01 --provision-with ansible
 
-otel-gateway-vm-status: ## Vérifier HAProxy et le Collecteur EDOT Edge
-	@set -euo pipefail; $(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo systemctl is-active observability-otel-edge && curl --fail --silent http://127.0.0.1:13135/'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka-exporter && curl --fail --silent http://127.0.0.1:13134/'
+otel-gateway-vm-status: ## Vérifier HAProxy, le Collecteur EDOT Edge et le backend OTel
+	@set -euo pipefail; $(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo systemctl is-active observability-otel-edge && curl --fail --silent http://127.0.0.1:13135/'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-backend && curl --fail --silent http://127.0.0.1:13134/'
 
 otel-gateway-kubernetes-remove: ## Supprimer les anciens objets de la gateway OTLP Kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service,serviceaccount,configmap otel-gateway --ignore-not-found
@@ -518,7 +518,7 @@ kubernetes-observability-deploy: otel-gateway-kubernetes-remove ## Appliquer et 
 
 otel-gateway-relocate: otel-gateway-vm-provision otel-gateway-kubernetes-bascule ## Basculer le Gateway OTLP de Kubernetes vers le backend OTEL
 
-otel-kafka-exporter-vm-provision: ## Provisionner l'exporteur Kafka OTel sur otel-backend-01 avec la clé API Kubernetes existante
+otel-backend-vm-provision: ## Provisionner le collecteur backend OTel sur otel-backend-01 avec la clé API Kubernetes existante
 	@$(VAGRANT) up otel-backend-01 --no-provision
 	@api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
@@ -528,20 +528,20 @@ otel-kafka-exporter-vm-provision: ## Provisionner l'exporteur Kafka OTel sur ote
 	test -n "$$apm_token" || { echo 'Token APM absent sur elk-01.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" APM_SERVER_SECRET_TOKEN="$$apm_token" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01
 	@set -euo pipefail; { printf '%s' 'ELASTICSEARCH_API_KEY='; $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' | base64 --decode; printf '\nAPM_SERVER_SECRET_TOKEN='; $(VAGRANT) ssh elk-01 -c 'sudo grep APM_SERVER_SECRET_TOKEN= /etc/observability/apm-server.env | cut -d= -f2-'; printf '\n'; } | \
-		$(VAGRANT) ssh otel-backend-01 -c 'sudo tee /etc/observability/otel-kafka-exporter.env >/dev/null && sudo chmod 600 /etc/observability/otel-kafka-exporter.env && sudo systemctl restart observability-otel-kafka-exporter'
+		$(VAGRANT) ssh otel-backend-01 -c 'sudo tee /etc/observability/otel-backend.env >/dev/null && sudo chmod 600 /etc/observability/otel-backend.env && sudo systemctl restart observability-otel-backend'
 
-otel-kafka-exporter-vm-status: ## Vérifier l'exporteur Kafka OTel exécuté sur otel-backend-01
-	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka-exporter && curl --fail --silent http://127.0.0.1:13134/'
+otel-backend-vm-status: ## Vérifier le collecteur backend OTel exécuté sur otel-backend-01
+	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-backend && curl --fail --silent http://127.0.0.1:13134/'
 
-otel-kafka-exporter-kubernetes-bascule:
+otel-backend-kubernetes-bascule:
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service otel-kafka-exporter --ignore-not-found
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
-	@$(MAKE) otel-kafka-exporter-vm-status
+	@$(MAKE) otel-backend-vm-status
 
-otel-kafka-exporter-kubernetes-switch: otel-kafka-exporter-kubernetes-bascule ## Retirer l'exporteur Kubernetes après validation du backend OTel
+otel-backend-kubernetes-switch: otel-backend-kubernetes-bascule ## Retirer l'ancien exporteur Kubernetes après validation du backend OTel
 
-otel-kafka-exporter-relocate: otel-kafka-exporter-vm-provision otel-kafka-exporter-kubernetes-bascule ## Basculer l'exporteur Kafka OTel vers le backend OTEL
+otel-backend-relocate: otel-backend-vm-provision otel-backend-kubernetes-bascule ## Basculer le traitement OTel vers le backend OTel
 
 ##@ Dashboards et consultation
 
@@ -608,7 +608,7 @@ elasticsearch-api-key-create: ## Créer une clé API Base64 pour les rapports AP
 ##@ Consultation locale
 
 stock-view:
-	@$(VAGRANT) ssh poc-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -P pager=off -c "SELECT id, name, stock_quantity AS stock FROM products ORDER BY id;"'
+	@$(VAGRANT) ssh supermarket-middleware-01 -c 'sudo podman exec observability-postgresql psql -U observability -d observability_test -P pager=off -c "SELECT id, name, stock_quantity AS stock FROM products ORDER BY id;"'
 
 stock-show: stock-view ## Afficher le stock courant du catalogue PostgreSQL
 

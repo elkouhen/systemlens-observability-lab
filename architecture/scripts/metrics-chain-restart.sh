@@ -24,8 +24,8 @@ run_remote() {
 
 # L'ordre limite la durée pendant laquelle les signaux sont acceptés sans
 # consommateur : exporteur, buffer Kafka, puis entrée OTLP.
-run_remote otel-backend-01 'Redémarrage de l’exporteur Kafka OTel' \
-  'sudo systemctl restart observability-otel-kafka-exporter && sudo systemctl is-active observability-otel-kafka-exporter && curl --fail --silent http://127.0.0.1:13134/ >/dev/null'
+run_remote otel-backend-01 'Redémarrage du collecteur backend OTel' \
+  'sudo systemctl restart observability-otel-backend && sudo systemctl is-active observability-otel-backend && curl --fail --silent http://127.0.0.1:13134/ >/dev/null'
 
 run_remote otel-backend-01 'Redémarrage du Kafka OTel' \
   'sudo systemctl restart observability-otel-kafka && sudo systemctl is-active observability-otel-kafka && for attempt in $(seq 1 30); do sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1'

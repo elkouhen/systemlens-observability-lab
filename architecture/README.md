@@ -16,12 +16,12 @@ Kubernetes / opérateur
       otel-edge-01  -- OTLP
           |
           v
-      otel-backend-01  -- Kafka OTel + exporteur Kafka EDOT
+      otel-backend-01  -- Kafka OTel + backend OTel
           |
           v
-      poc-01  -- Kafka métier + MongoDB + PostgreSQL
+      supermarket-middleware-01  -- Kafka métier + MongoDB + PostgreSQL
 
-      poc-01       -- Kafka métier + MongoDB + PostgreSQL
+      supermarket-middleware-01  -- Kafka métier + MongoDB + PostgreSQL
 
       otel-backend-01  -- Kafka OTel + exporteur backend --> elk-01
                                                   Elasticsearch + Kibana + Fleet Server
@@ -29,7 +29,7 @@ Kubernetes / opérateur
 
 `otel-edge-01` est le point d’entrée OTLP exposé. Les accès Kibana,
 Elasticsearch, Fleet et APM sont directs vers `elk-01`. `otel-backend-01` héberge
-le Kafka dédié OTel et le Collector backend, `poc-01` héberge les middlewares du
+le Kafka dédié OTel et le Collector backend, `supermarket-middleware-01` héberge les middlewares du
 scénario et son Kafka métier, et `elk-01` porte le stockage et la consultation
 Elastic.
 
@@ -41,7 +41,7 @@ exécuter `make k3s-migrate`. Le kubeconfig généré reste local et non version
 Documents propres à l'architecture :
 
 - [diagramme C4 interactif](https://elkouhen.github.io/systemlens-observability-lab/c4.html#/) ;
-- [provisionnement des VM `poc-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`](ansible/README.md) ;
+- [provisionnement des VM `supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`](ansible/README.md) ;
 
 La rétention des signaux et des logs est vérifiable avec
 `make retention-verify`.

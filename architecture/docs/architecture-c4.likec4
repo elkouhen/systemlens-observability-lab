@@ -86,7 +86,7 @@ model {
       traefik = container 'Traefik' 'Ingress' 'Expose les points d’accès Kubernetes'
     }
 
-    poc = system 'poc-01' {
+    poc = system 'supermarket-middleware-01' {
       poc_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux et les envoie vers Edge'
       kafka = queue 'Kafka métier' 'Topics des applications'
       poc_data = container 'Services de données' 'MongoDB / PostgreSQL' 'Services observés par l’agent EDOT'
@@ -103,7 +103,7 @@ model {
     backend = system 'otel-backend-01' {
       backend_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux'
       backend_gateway = container 'Gateway OTel' 'EDOT Collector' 'Point d’entrée OTLP secondaire et télémétrie interne'
-      backend_exporter = container 'Exporteur Kafka' 'EDOT Collector' 'Consomme le Kafka OTel et exporte vers ELK'
+      backend_collector = container 'Backend OTel' 'EDOT Collector' 'Consomme le Kafka OTel et exporte vers ELK'
       otel_kafka = queue 'Kafka OTel' 'Topics otel-traces, otel-metrics et otel-logs'
     }
   }
@@ -136,12 +136,12 @@ model {
   zone1.edge.edge_collector .logs zone2.backend.otel_kafka 'Publie otel-logs'
   zone1.edge.edge_collector .metrics zone2.backend.otel_kafka 'Publie otel-metrics'
   zone1.edge.edge_collector .traces zone2.backend.otel_kafka 'Publie otel-traces'
-  zone2.backend.otel_kafka .logs zone2.backend.backend_exporter 'Consomme otel-logs'
-  zone2.backend.otel_kafka .metrics zone2.backend.backend_exporter 'Consomme otel-metrics'
-  zone2.backend.otel_kafka .traces zone2.backend.backend_exporter 'Consomme otel-traces'
-  zone2.backend.backend_exporter .logs zone3.elk.elasticsearch 'Indexe les logs dans les data streams'
-  zone2.backend.backend_exporter .metrics zone3.elk.elasticsearch 'Indexe les métriques dans les data streams'
-  zone2.backend.backend_exporter .traces zone3.elk.apm 'Envoie les traces à APM Server'
+  zone2.backend.otel_kafka .logs zone2.backend.backend_collector 'Consomme otel-logs'
+  zone2.backend.otel_kafka .metrics zone2.backend.backend_collector 'Consomme otel-metrics'
+  zone2.backend.otel_kafka .traces zone2.backend.backend_collector 'Consomme otel-traces'
+  zone2.backend.backend_collector .logs zone3.elk.elasticsearch 'Indexe les logs dans les data streams'
+  zone2.backend.backend_collector .metrics zone3.elk.elasticsearch 'Indexe les métriques dans les data streams'
+  zone2.backend.backend_collector .traces zone3.elk.apm 'Envoie les traces à APM Server'
   zone3.elk.apm .traces zone3.elk.elasticsearch 'Indexe les traces APM'
 
   zone1.poc.poc_data .storage zone1.poc.poc_agent 'Expose les logs et métriques locales'

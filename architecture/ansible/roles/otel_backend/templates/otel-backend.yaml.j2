@@ -59,7 +59,7 @@ processors:
         value: collectortelemetry
         action: upsert
       - key: service.name
-        value: otel-kafka-exporter
+        value: otel-backend
         action: upsert
       - key: service.version
         value: "{{ elastic_agent_version }}"
@@ -87,7 +87,7 @@ service:
   extensions: [health_check, file_storage]
   telemetry:
     resource:
-      service.name: otel-kafka-exporter
+      service.name: otel-backend
       deployment.environment.name: homologation
     metrics:
       level: detailed

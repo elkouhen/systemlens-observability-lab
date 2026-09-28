@@ -71,5 +71,5 @@ d'indexation que les autres métriques OTel.
 ## Références
 
 - [`ansible/roles/elastic_agent/templates/elastic-agent.yml.j2`](../ansible/roles/elastic_agent/templates/elastic-agent.yml.j2)
-- [`ansible/roles/otel_backend/templates/kafka-exporter.yaml.j2`](../ansible/roles/otel_backend/templates/kafka-exporter.yaml.j2)
+- [`ansible/roles/otel_backend/templates/otel-backend.yaml.j2`](../ansible/roles/otel_backend/templates/otel-backend.yaml.j2)
 - [`ansible/README.md`](../ansible/README.md)

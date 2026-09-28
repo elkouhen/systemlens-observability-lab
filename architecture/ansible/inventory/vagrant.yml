@@ -4,12 +4,12 @@ all:
     ansible_user: vagrant
     ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   children:
-    poc_nodes:
+    supermarket_middleware_nodes:
       hosts:
-        poc-01:
+        supermarket-middleware-01:
           ansible_host: 192.168.33.10
           ansible_port: 22
-          ansible_ssh_private_key_file: .vagrant/machines/poc-01/virtualbox/private_key
+          ansible_ssh_private_key_file: .vagrant/machines/supermarket-middleware-01/virtualbox/private_key
           node_id: 1
           node_ip: 192.168.33.10
           node_role: poc

@@ -1,7 +1,7 @@
 ---
-- name: Autoriser le conteneur exporteur OTEL à écrire son file_storage
+- name: Autoriser le collecteur backend OTEL à écrire son file_storage
   ansible.builtin.file:
-    path: /var/lib/observability/otel-kafka-exporter
+    path: /var/lib/observability/otel-backend
     state: directory
     mode: '0777'
 
@@ -56,49 +56,61 @@
     path: /etc/containers/systemd/observability-otel-gateway.container
     state: absent
 
-- name: Déployer la configuration de l'exporteur OTEL backend
+- name: Arrêter l’ancien service exporteur Kafka OTel
+  ansible.builtin.systemd_service:
+    name: observability-otel-kafka-exporter.service
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Retirer l’ancienne unité exporteur Kafka OTel
+  ansible.builtin.file:
+    path: /etc/containers/systemd/observability-otel-kafka-exporter.container
+    state: absent
+
+- name: Déployer la configuration du collecteur backend OTEL
   ansible.builtin.template:
-    src: "{{ role_path }}/templates/kafka-exporter.yaml.j2"
-    dest: /etc/observability/otel-kafka-exporter.yaml
+    src: "{{ role_path }}/templates/otel-backend.yaml.j2"
+    dest: /etc/observability/otel-backend.yaml
     mode: '0644'
   vars:
     otel_kafka_broker: "127.0.0.1:9092"
     elasticsearch_url: "http://{{ elk_ip }}:9200"
     apm_server_url: "http://{{ elk_ip }}:8200"
 
-- name: Déployer la clé API de l'exporteur OTEL backend
+- name: Déployer les identifiants du collecteur backend OTEL
   ansible.builtin.copy:
     content: |
       ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}
       APM_SERVER_SECRET_TOKEN={{ apm_server_secret_token | default(elastic_password | hash('sha256'), true) }}
-    dest: /etc/observability/otel-kafka-exporter.env
+    dest: /etc/observability/otel-backend.env
     mode: '0600'
   no_log: true
 
-- name: Déployer les unités OTEL backend
+- name: Déployer l'unité du collecteur backend OTEL
   ansible.builtin.template:
     src: "{{ role_path }}/templates/{{ item.template }}.container.j2"
     dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
   loop:
-    - {template: kafka-exporter, unit: observability-otel-kafka-exporter}
+    - {template: otel-backend, unit: observability-otel-backend}
 
 - name: Recharger systemd pour les unités OTEL backend
   ansible.builtin.systemd_service:
     daemon_reload: true
 
-- name: Démarrer le backend OTEL
+- name: Démarrer le collecteur backend OTEL
   ansible.builtin.systemd_service:
     name: "{{ item }}.service"
     enabled: true
     state: restarted
-  loop: [observability-otel-kafka-exporter]
+  loop: [observability-otel-backend]
 
-- name: Vérifier la santé de l'exporteur Kafka OTEL
+- name: Vérifier la santé du collecteur backend OTEL
   ansible.builtin.uri:
     url: http://127.0.0.1:13134/
     status_code: 200
-  register: otel_exporter_health
+  register: otel_backend_health
   retries: 30
   delay: 2
-  until: otel_exporter_health.status == 200
+  until: otel_backend_health.status == 200

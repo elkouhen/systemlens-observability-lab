@@ -7,7 +7,7 @@
     - retention
 
 - name: Réconcilier la rétention Kafka métier
-  hosts: poc_nodes
+  hosts: supermarket_middleware_nodes
   become: true
   gather_facts: false
   vars:
