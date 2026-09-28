@@ -83,15 +83,15 @@ l'ancien nom de classe `io.systemlens.supermarket.contract.OrderPlaced`. Les
 messages déjà présents dans `supermarket.order.placed` peuvent ainsi être
 désérialisés avec le contrat généré actuel, sans suppression du topic.
 
-Le tag des images Docker (`order-service:1.1.4` / `inventory-service:1.1.4` /
-`restock-service:1.1.4`,
+Le tag des images Docker (`order-service:1.1.5` / `inventory-service:1.1.5` /
+`restock-service:1.1.5`,
 fixé dans `Makefile` et le manifest Kubernetes de `architecture/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag
 Docker est immuable : choisir un nouveau `APP_IMAGE_TAG` à chaque image. Par
-exemple, `make apps-build APP_IMAGE_TAG=1.1.4`, puis
-`make images-import apps-deploy APP_IMAGE_TAG=1.1.4`. La cible de déploiement
+exemple, `make apps-build APP_IMAGE_TAG=1.1.5`, puis
+`make images-import apps-deploy APP_IMAGE_TAG=1.1.5`. La cible de déploiement
 met explicitement à jour l'image des Deployments et attend leur rollout.
 
 ## Graphe d'architecture Java

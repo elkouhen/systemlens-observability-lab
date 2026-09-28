@@ -5,11 +5,11 @@ resources:
   - ../base
 images:
   - name: order-service
-    newTag: 1.1.4
+    newTag: 1.1.5
   - name: inventory-service
-    newTag: 1.1.4
+    newTag: 1.1.5
   - name: restock-service
-    newTag: 1.1.4
+    newTag: 1.1.5
 generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:

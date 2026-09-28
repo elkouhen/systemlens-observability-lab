@@ -67,6 +67,17 @@ playbook Ansible sur les quatre hôtes. Les rôles restent parallèles par hôte
 les variables sensibles viennent de l’environnement. Les données Kafka sont conservées dans le volume Podman
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
 
+La cible `make vms-restart` redémarre séquentiellement les cinq VM
+(`poc-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`) sans
+reprovisionnement. Une VM arrêtée est démarrée avec `--no-provision`. Le script
+affiche l’état Vagrant final pour permettre de vérifier que chaque VM est
+`running`.
+
+La cible `make metrics-chain-restart` redémarre uniquement la chaîne de
+transport des métriques, sans reprovisionnement : exporteur Kafka du backend,
+Kafka OTel, collecteur Edge, puis HAProxy OTLP. Elle vérifie les endpoints de
+santé des collecteurs, l’état du broker et sa disponibilité du quorum.
+
 Pour supprimer les quatre VM et leurs disques locaux, exécuter la cible
 destructive `make vms-destroy`. Cette opération ne supprime pas les ressources
 Kubernetes ni les données persistées en dehors des VM.
