@@ -14,6 +14,8 @@ NODES = [
 
 VM_MEMORY = 3072
 KAFKA_CONTROLLER_VOTERS = "1@192.168.33.10:9093"
+SSH_PORT_BASE = Integer(ENV.fetch("VAGRANT_SSH_PORT_BASE", "2250"), 10)
+abort("VAGRANT_SSH_PORT_BASE doit laisser les ports SSH dans la plage 1024-65535") unless (1024..65530).cover?(SSH_PORT_BASE)
 
 Vagrant.configure("2") do |config|
   config.vm.box = "cloud-image/rocky-10"
@@ -42,6 +44,11 @@ Vagrant.configure("2") do |config|
     config.vm.define node_config[:name] do |node|
       node.vm.hostname = node_config[:name]
       node.vm.network "private_network", ip: node_config[:ip]
+      node.vm.network "forwarded_port",
+                      guest: 22,
+                      host: SSH_PORT_BASE + node_config[:id],
+                      id: "ssh",
+                      auto_correct: true
       node.vm.disk :disk, size: "30GB", primary: true if node_config[:role] == :elk
       node.vm.disk :disk, size: "60GB", primary: true if node_config[:role] == :k3s
       if node_config[:role] == :poc

@@ -44,7 +44,7 @@ C4_PAGES_BASE ?= ./
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-kafka-exporter-vm-provision otel-kafka-exporter-vm-status otel-kafka-exporter-kubernetes-bascule otel-kafka-exporter-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
-	otel-edge-vm-provision elastic-agent-vm-provision \
+	otel-edge-vm-provision elastic-agent-vm-provision elastic-agent-backend-provision \
 	vms-up vms-restart vms-backup vms-restore-latest vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
@@ -402,8 +402,11 @@ elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des ag
 	@set -euo pipefail; \
 	for node in poc-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
-		  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
+	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
+
+elastic-agent-backend-provision: ## Déployer uniquement la configuration EDOT du backend
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision otel-backend-01 --provision-with ansible
 
 deploy:
 	@set -euo pipefail; \

@@ -195,6 +195,14 @@ exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
   otlphttp/edge:
     endpoint: http://{{ otel_edge_ip }}:4318
+{% if node_role == 'otel_backend' %}
+  # Le backend publie directement ses métriques dans le Kafka OTel local.
+  kafka/backend:
+    brokers: ["127.0.0.1:9092"]
+    metrics:
+      topic: otel-metrics
+      encoding: otlp_proto
+{% endif %}
 
 service:
   extensions: [health_check, file_storage{% if fleet_enrollment_token | default('') | length > 0 %}, opamp{% endif %}]
@@ -238,7 +246,7 @@ service:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
       processors: [memory_limiter, resource/internal-telemetry, batch]
-      exporters: [otlphttp/edge]
+      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
     logs/internal-telemetry:
       receivers: [otlp/internal]
       processors: [memory_limiter, resource/internal-telemetry, batch]
@@ -254,7 +262,7 @@ service:
     metrics:
       receivers: [hostmetrics/system{% if node_role in ['poc', 'otel_backend'] %}, kafkametrics/local{% endif %}{% if node_role == 'poc' %}, postgresql/poc{% endif %}]
       processors: [memory_limiter, resource/agent, batch]
-      exporters: [otlphttp/edge]
+      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
 {% if node_role == 'poc' %}
     metrics/mongodb:
       receivers: [mongodb/poc]
