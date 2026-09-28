@@ -78,6 +78,11 @@ Pods. Sa configuration est embarquée dans `otel/*.properties` et chargée par
 `MANAGEMENT_OTLP_*` restent dans Kubernetes car elles configurent l'exporteur
 Micrometer de Spring Boot, distinct de l'agent Java.
 
+Les consommateurs Kafka conservent aussi un mapping de compatibilité pour
+l'ancien nom de classe `io.systemlens.supermarket.contract.OrderPlaced`. Les
+messages déjà présents dans `supermarket.order.placed` peuvent ainsi être
+désérialisés avec le contrat généré actuel, sans suppression du topic.
+
 Le tag des images Docker (`order-service:1.1.4` / `inventory-service:1.1.4` /
 `restock-service:1.1.4`,
 fixé dans `Makefile` et le manifest Kubernetes de `architecture/`) est géré indépendamment
@@ -90,6 +95,13 @@ exemple, `make apps-build APP_IMAGE_TAG=1.1.4`, puis
 met explicitement à jour l'image des Deployments et attend leur rollout.
 
 ## Graphe d'architecture Java
+
+Cette application est la fixture Java commune au parcours des trois dépôts.
+SystemLens en indexe les preuves statiques et génère le graphe HTML, le skill
+peut ensuite expliquer ou auditer ce modèle, puis le laboratoire permet de
+vérifier le comportement déployé dans Kubernetes et les signaux reçus par
+Elastic. Un résultat d’indexation ou d’enrichissement ne constitue donc pas à
+lui seul une preuve d’exécution.
 
 Le manifeste courant `architecture.ai-java.pass-004.json` enregistre les faits
 relus directement dans les sources Java avec le format

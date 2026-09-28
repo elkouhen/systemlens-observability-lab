@@ -1,1 +1,3 @@
 .kube/
+apps/command-center/node_modules/
+apps/command-center/dist/

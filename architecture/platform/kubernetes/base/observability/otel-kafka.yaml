@@ -158,7 +158,10 @@ data:
       kubeletstats:
         auth_type: serviceAccount
         collection_interval: 15s
-        endpoint: ${env:K8S_NODE_NAME}:10250
+        # Le nom Kubernetes du nœud n'est pas garanti résolvable depuis le
+        # réseau du pod. L'IP fournie par Downward API atteint directement le
+        # kubelet du nœud qui exécute ce DaemonSet.
+        endpoint: https://${env:K8S_NODE_IP}:10250
         insecure_skip_verify: true
         node: ${env:K8S_NODE_NAME}
         k8s_api_config:
@@ -288,6 +291,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: K8S_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             - name: K8S_CLUSTER_NAME
               value: k3s-01
           ports:

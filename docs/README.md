@@ -13,6 +13,21 @@ leurs commandes détaillées.
    [provisionnement](../architecture/ansible/README.md)
    avant de modifier un composant.
 
+Le laboratoire est la troisième étape du parcours SystemLens :
+
+1. [SystemLens](https://github.com/elkouhen/systemlens) indexe et visualise
+   les preuves statiques du code.
+2. [systemlens-skill](https://github.com/elkouhen/systemlens-skill) ajoute des
+   explications IA et des faits complémentaires révisables.
+3. Ce dépôt exécute les applications dans Kubernetes et vérifie les signaux
+   réels dans la chaîne Elastic/OpenTelemetry.
+
+Le modèle statique de l’application de démonstration se génère depuis la
+racine avec `make apps-architecture-graph`. La cible produit le graphe HTML
+et les exports intermédiaires sous `apps/supermarket-demo/`; elle ne déploie
+aucune ressource Kubernetes. Le déploiement complet et la validation de la
+télémétrie suivent les procédures de [l’architecture](architecture.md).
+
 ## Opérer l’environnement
 
 - [Architecture](architecture.md) : topologie, flux et validations.

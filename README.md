@@ -44,6 +44,43 @@ Il ne possède ni l’outil SystemLens ni les prompts du skill.
 - [systemlens-skill](https://github.com/elkouhen/systemlens-skill) fournit la
   guidance agent et les descriptions de flows.
 
+## Parcours des trois dépôts
+
+Les trois dépôts couvrent des responsabilités distinctes et complémentaires :
+
+| Dépôt | Responsabilité | Résultat principal |
+|---|---|---|
+| `systemlens` | Indexer les preuves du code Java/Spring et visualiser le modèle persistant. | Index SQLite, flux, graphes d’appels et export HTML |
+| `systemlens-skill` | Enrichir ce modèle par des descriptions IA et des audits traçables. | Rapports, descriptions de flux et manifests de faits complémentaires |
+| `systemlens-observability-lab` | Fournir les applications de test, le déploiement Kubernetes complet et la chaîne d’observabilité. | Workloads déployés, télémétrie Elastic et validations d’intégration |
+
+Le parcours recommandé est le suivant :
+
+1. Indexer l’application avec SystemLens et exporter son graphe.
+2. Utiliser `systemlens-skill` pour expliquer les flux sélectionnés ou auditer
+   la complexité du modèle, sans remplacer les preuves indexées.
+3. Déployer l’application dans ce laboratoire afin de vérifier les signaux
+   réels, les dépendances d’exécution et la chaîne Kubernetes/Elastic.
+
+Pour indexer et exporter l’application de démonstration depuis ce dépôt :
+
+```bash
+make apps-architecture-graph
+```
+
+Cette cible exécute `doctor`, l’indexation SystemLens, l’export des flux et
+produit `apps/supermarket-demo/architecture.java.html`. Elle constitue le
+contrôle d’intégration entre le produit SystemLens et la fixture Java. La
+validation des dépendances de modules avec CodeQL est disponible avec :
+
+```bash
+make apps-codeql-module-graph
+```
+
+Ces commandes valident le modèle statique. Pour la validation de la plateforme,
+utiliser `make ci` sans déploiement, puis le parcours `make vms-up` et
+`make deploy` après fourniture des secrets hors Git.
+
 ## Architecture active
 
 ```text

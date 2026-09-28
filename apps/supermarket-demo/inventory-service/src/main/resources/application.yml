@@ -23,6 +23,9 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: io.systemlens.supermarket.contract.generated.event
+        # Compatibilité avec les messages publiés avant le déplacement des
+        # contrats vers le package généré.
+        spring.json.type.mapping: io.systemlens.supermarket.contract.OrderPlaced:io.systemlens.supermarket.contract.generated.event.OrderPlaced
         allow.auto.create.topics: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

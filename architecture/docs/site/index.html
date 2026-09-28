@@ -140,6 +140,25 @@
         </p>
       </header>
 
+      <section>
+        <h2>Parcours des trois dépôts</h2>
+        <p>
+          Le modèle d’architecture suit un parcours en trois étapes : indexer
+          le code, l’enrichir avec des explications IA, puis vérifier le
+          comportement déployé et sa télémétrie.
+        </p>
+        <ul>
+          <li><a href="https://elkouhen.github.io/systemlens/">SystemLens</a> indexe et visualise les preuves statiques Java/Spring.</li>
+          <li><a href="https://elkouhen.github.io/systemlens-skill/">systemlens-skill</a> ajoute des descriptions de flux et des audits IA révisables.</li>
+          <li>Ce laboratoire déploie la fixture Java sur Kubernetes et vérifie les signaux avec Elastic et OpenTelemetry.</li>
+        </ul>
+        <p class="muted">
+          L’indexation et l’enrichissement ne remplacent pas une preuve
+          d’exécution : utilisez les validations de télémétrie et les vues
+          Kibana de l’environnement déployé.
+        </p>
+      </section>
+
       <section class="model-section">
         <div>
           <p class="eyebrow">C4 model</p>
