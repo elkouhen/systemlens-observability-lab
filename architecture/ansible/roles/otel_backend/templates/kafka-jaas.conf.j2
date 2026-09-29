@@ -1,0 +1,7 @@
+KafkaServer {
+  org.apache.kafka.common.security.plain.PlainLoginModule required
+  username="{{ otel_kafka_publisher_username }}"
+  password="{{ otel_kafka_publisher_password }}"
+  user_{{ otel_kafka_publisher_username }}="{{ otel_kafka_publisher_password }}"
+  user_{{ otel_kafka_consumer_username }}="{{ otel_kafka_consumer_password }}";
+};

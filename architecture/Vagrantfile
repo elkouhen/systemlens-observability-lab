@@ -29,6 +29,8 @@ Vagrant.configure("2") do |config|
   elastic_password = ENV.fetch("ELASTIC_PASSWORD", "password")
   apm_server_secret_token = ENV.fetch("APM_SERVER_SECRET_TOKEN", "")
   fleet_enrollment_token = ENV["FLEET_ENROLLMENT_TOKEN"]
+  kafka_otel_publisher_password = ENV.fetch("KAFKA_OTEL_PUBLISHER_PASSWORD", "")
+  kafka_otel_consumer_password = ENV.fetch("KAFKA_OTEL_CONSUMER_PASSWORD", "")
 
   # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent), optionnel.
   # Sur une machine sans interception TLS, ne pas définir ZSCALER_CA_CERT :
@@ -77,6 +79,8 @@ Vagrant.configure("2") do |config|
         "elastic_password" => elastic_password || "",
         "apm_server_secret_token" => apm_server_secret_token || "",
         "fleet_enrollment_token" => fleet_enrollment_token || "",
+        "otel_kafka_publisher_password" => kafka_otel_publisher_password,
+        "otel_kafka_consumer_password" => kafka_otel_consumer_password,
         "zscaler_ca_cert_content" => zscaler_ca_cert_content
       }
 

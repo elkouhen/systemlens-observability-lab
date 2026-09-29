@@ -42,3 +42,10 @@ après revue du rendu.
 
 Les secrets restent hors Git. Les modifications durables doivent être faites
 dans les manifests, templates et scripts versionnés avant tout déploiement.
+
+Les collecteurs Kubernetes s'authentifient auprès d'Edge avec deux clés Bearer
+distinctes, une pour `otel-kubernetes` et une pour
+`otel-kubernetes-cluster`. Les fournir hors Git avec
+`OTEL_EDGE_KEY_KUBERNETES` et `OTEL_EDGE_KEY_KUBERNETES_CLUSTER`, puis exécuter
+`make otel-edge-client-keys-apply` avant `make kubernetes-observability-deploy`.
+Les clés sont stockées dans le Secret Kubernetes `otel-edge-client-keys`.

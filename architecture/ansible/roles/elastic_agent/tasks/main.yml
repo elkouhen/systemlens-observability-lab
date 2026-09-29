@@ -92,6 +92,13 @@
 
 - name: Déployer la configuration EDOT de l’agent
   block:
+    - name: Vérifier la clé d'accès Edge de l'agent
+      ansible.builtin.assert:
+        that:
+          - node_role == 'otel_backend' or (otel_edge_client_key | default('') | length > 0)
+        fail_msg: "La clé OTEL_EDGE_KEY du client {{ inventory_hostname }} est absente."
+        quiet: true
+
     - name: Lire l’identifiant OpAMP persistant
       ansible.builtin.slurp:
         src: /var/lib/observability/elastic-agent-otel/opamp-instance-uid

@@ -91,6 +91,36 @@ le buffering distribué attendu. Elastic recommande également une gateway
 Elastic Agent ou OTel comme couche d'ingestion unifiée pour les signaux OTLP
 dans les environnements hôtes et VM ([architecture Elastic OpenTelemetry](https://www.elastic.co/docs/reference/opentelemetry/architecture/hosts_vms)).
 
+### Collecteur OTel vers Kafka vers Kafka Connect vers Elasticsearch
+
+Cette option conserverait le Collecteur OTel et Kafka comme points de collecte
+et de découplage, puis remplacerait le backend OTel par Kafka Connect et un
+connecteur sink Elasticsearch :
+
+```text
+EDOT standalone → OTLP → otel-edge-01 → Kafka OTel → Kafka Connect → Elasticsearch
+```
+
+Kafka Connect fournit un runtime distribué pour les connecteurs sink, la
+gestion des offsets et la répartition des tâches entre workers ([documentation
+Kafka Connect](https://kafka.apache.org/43/kafka-connect/)). Cette solution
+serait adaptée si Kafka devait alimenter plusieurs systèmes cibles ou si les
+connecteurs Kafka constituaient déjà le standard d'intégration de la
+plateforme. Elastic documente également une architecture dans laquelle un
+connecteur Kafka ES Sink lit Kafka et écrit dans Elasticsearch ([architecture
+Elastic avec Kafka ES Sink](https://www.elastic.co/docs/manage-data/ingest/ingest-reference-architectures/agent-kafka-es)).
+
+Cette option est écartée pour le POC, car elle ne correspond pas à
+l'architecture de référence proposée par Elastic. Kafka Connect est moins
+adapté qu'un exporteur OTel pour exporter les signaux EDOT vers
+Elasticsearch. Cette solution ajouterait Kafka Connect et un connecteur à
+exploiter alors que le backend OTel couvre déjà l'export des signaux vers
+Elasticsearch. Cette solution déplacerait également le décodage des messages
+OTLP, le mapping des champs et le routage par signal
+dans la configuration du connecteur et de ses convertisseurs. Le chemin retenu
+garde ces responsabilités dans le backend OTel, avec un contrôle explicite des
+receivers et des exporters pour les logs, métriques et traces.
+
 ## Conséquences
 
 ### Conséquences positives
@@ -123,6 +153,8 @@ dans les environnements hôtes et VM ([architecture Elastic OpenTelemetry](https
 - [Exporteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter)
 - [Récepteur Kafka du Collecteur OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver)
 - [Conception de Kafka](https://kafka.apache.org/design/)
+- [Documentation Kafka Connect](https://kafka.apache.org/43/kafka-connect/)
+- [Architecture Elastic avec Kafka ES Sink](https://www.elastic.co/docs/manage-data/ingest/ingest-reference-architectures/agent-kafka-es)
 - [Métriques Logstash via OpenTelemetry](https://www.elastic.co/docs/reference/logstash/monitoring-with-opentelemetry)
 - [Plugins d'entrée Logstash](https://www.elastic.co/docs/reference/logstash/plugins/input-plugins)
 - [Files persistantes Logstash](https://www.elastic.co/docs/reference/logstash/persistent-queues)

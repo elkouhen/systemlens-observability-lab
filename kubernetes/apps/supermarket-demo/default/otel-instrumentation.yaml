@@ -11,6 +11,13 @@ spec:
           env:
             - name: ELASTIC_APM_ENABLED
               value: "false"
+            - name: OTEL_EDGE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: otel-edge-client-keys
+                  key: otel-kubernetes-cluster
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: Authorization=Bearer $(OTEL_EDGE_KEY)
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -56,6 +63,13 @@ spec:
           env:
             - name: ELASTIC_APM_ENABLED
               value: "false"
+            - name: OTEL_EDGE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: otel-edge-client-keys
+                  key: otel-kubernetes-cluster
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: Authorization=Bearer $(OTEL_EDGE_KEY)
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
@@ -101,6 +115,13 @@ spec:
           env:
             - name: ELASTIC_APM_ENABLED
               value: "false"
+            - name: OTEL_EDGE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: otel-edge-client-keys
+                  key: otel-kubernetes-cluster
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: Authorization=Bearer $(OTEL_EDGE_KEY)
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL

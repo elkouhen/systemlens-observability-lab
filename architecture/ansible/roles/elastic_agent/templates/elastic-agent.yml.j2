@@ -81,6 +81,13 @@ receivers:
     brokers:
       - 127.0.0.1:9092
     protocol_version: 3.9.0
+{% if node_role == 'otel_backend' %}
+    auth:
+      sasl:
+        username: "{{ otel_kafka_consumer_username }}"
+        password: "{{ otel_kafka_consumer_password }}"
+        mechanism: PLAIN
+{% endif %}
     scrapers:
       - brokers
       - topics
@@ -196,11 +203,18 @@ exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
   otlphttp/edge:
     endpoint: http://{{ otel_edge_ip }}:4318
+    headers:
+      Authorization: "Bearer {{ otel_edge_client_key }}"
 {% endif %}
 {% if node_role == 'otel_backend' %}
   # Le backend publie directement tous ses signaux dans le Kafka OTel local.
   kafka/backend:
     brokers: ["127.0.0.1:9092"]
+    auth:
+      sasl:
+        username: "{{ otel_kafka_publisher_username }}"
+        password: "{{ otel_kafka_publisher_password }}"
+        mechanism: PLAIN
     traces:
       topic: otel-traces
       encoding: otlp_proto

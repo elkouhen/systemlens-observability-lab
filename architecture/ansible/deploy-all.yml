@@ -10,7 +10,7 @@
   vars:
     repo_root: "{{ playbook_dir }}/.."
   tasks:
-    - name: Démarrer les quatre VM
+    - name: Démarrer les cinq VM
       ansible.builtin.command:
         argv:
           - vagrant
@@ -20,6 +20,7 @@
           - otel-backend-01
           - otel-edge-01
           - elk-01
+          - k3s-01
           - --no-provision
         chdir: "{{ repo_root }}"
       environment:
@@ -55,6 +56,15 @@
       ansible.builtin.command:
         argv: [kubectl, apply, -k, platform/kubernetes/overlays/local]
         chdir: "{{ repo_root }}"
+
+    - name: Préparer les identifiants Kafka OTel du Job de création des topics
+      ansible.builtin.command:
+        argv: [make, otel-kafka-credentials-apply]
+        chdir: "{{ repo_root }}"
+      environment:
+        KAFKA_OTEL_PUBLISHER_PASSWORD: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') }}"
+        KAFKA_OTEL_CONSUMER_PASSWORD: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') }}"
+      no_log: true
 
     - name: Préparer le secret Elasticsearch utilisé par les jobs Kubernetes
       ansible.builtin.shell: >-

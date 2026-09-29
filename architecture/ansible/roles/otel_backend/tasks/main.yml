@@ -19,6 +19,36 @@
     dest: /opt/observability/jolokia-agent.jar
     mode: '0644'
 
+- name: Vérifier les identifiants Kafka OTel de publication et consommation
+  ansible.builtin.assert:
+    that:
+      - otel_kafka_publisher_password | default('') | length > 0
+      - otel_kafka_consumer_password | default('') | length > 0
+    fail_msg: "Définir KAFKA_OTEL_PUBLISHER_PASSWORD et KAFKA_OTEL_CONSUMER_PASSWORD hors Git."
+    quiet: true
+
+- name: Déployer la configuration JAAS du broker Kafka OTel
+  ansible.builtin.template:
+    src: kafka-jaas.conf.j2
+    dest: /etc/observability/otel-kafka-jaas.conf
+    # Le conteneur Kafka s'exécute avec l'utilisateur non-root appuser (uid 1000).
+    # Le fichier doit donc être lisible après son montage en lecture seule,
+    # sans être exposé aux autres utilisateurs de la VM.
+    group: '1000'
+    mode: '0640'
+  register: otel_kafka_jaas
+  no_log: true
+
+- name: Déployer la configuration client Kafka OTel pour les diagnostics
+  ansible.builtin.template:
+    src: kafka-client.properties.j2
+    dest: /etc/observability/otel-kafka-client.properties
+    # Le script Kafka embarqué dans le conteneur s'exécute également avec uid 1000.
+    group: '1000'
+    mode: '0640'
+  register: otel_kafka_client
+  no_log: true
+
 - name: Déployer le broker Kafka dédié aux signaux OTel
   ansible.builtin.template:
     src: "{{ role_path }}/templates/kafka.container.j2"
@@ -32,7 +62,7 @@
     daemon_reload: true
     enabled: true
     state: restarted
-  when: otel_kafka_template.changed
+  when: otel_kafka_template.changed or otel_kafka_jaas.changed or otel_kafka_client.changed
 
 - name: Recharger systemd après le déploiement du broker Kafka OTel
   ansible.builtin.systemd_service:
@@ -83,6 +113,8 @@
     content: |
       ELASTICSEARCH_API_KEY={{ otel_elasticsearch_api_key }}
       APM_SERVER_SECRET_TOKEN={{ apm_server_secret_token | default(elastic_password | hash('sha256'), true) }}
+      OTEL_KAFKA_CONSUMER_USERNAME={{ otel_kafka_consumer_username }}
+      OTEL_KAFKA_CONSUMER_PASSWORD={{ otel_kafka_consumer_password }}
     dest: /etc/observability/otel-backend.env
     mode: '0600'
   no_log: true

@@ -12,6 +12,42 @@
     dest: /etc/observability/otel-edge.yaml
     mode: '0644'
 
+- name: Déployer les identifiants Kafka OTel du producteur Edge
+  ansible.builtin.copy:
+    content: |
+      OTEL_KAFKA_PUBLISHER_USERNAME={{ otel_kafka_publisher_username }}
+      OTEL_KAFKA_PUBLISHER_PASSWORD={{ otel_kafka_publisher_password }}
+    dest: /etc/observability/otel-edge.env
+    mode: '0600'
+  no_log: true
+
+- name: Vérifier les clés des clients Edge
+  ansible.builtin.assert:
+    that:
+      - otel_edge_key_supermarket_middleware | default('') | length > 0
+      - otel_edge_key_edge_agent | default('') | length > 0
+      - otel_edge_key_elk_agent | default('') | length > 0
+      - otel_edge_key_kubernetes | default('') | length > 0
+      - otel_edge_key_kubernetes_cluster | default('') | length > 0
+    fail_msg: "Les cinq clés OTEL_EDGE_KEY_* des clients Edge sont requises pour le collecteur Edge."
+    quiet: true
+
+- name: Déployer les clés des clients Edge
+  ansible.builtin.copy:
+    content: |
+      {{ otel_edge_key_supermarket_middleware }} # supermarket-middleware-01
+      {{ otel_edge_key_edge_agent }} # otel-edge-01 agent
+      {{ otel_edge_key_elk_agent }} # elk-01 agent
+      {{ otel_edge_key_kubernetes }} # otel-kubernetes
+      {{ otel_edge_key_kubernetes_cluster }} # otel-kubernetes-cluster
+    dest: /etc/observability/otel-edge.tokens
+    # L'image EDOT s'exécute avec elastic-agent (UID/GID 1000). Conserver
+    # 0600 tout en permettant au processus du conteneur de lire le secret.
+    owner: '1000'
+    group: '1000'
+    mode: '0600'
+  no_log: true
+
 - name: Créer le répertoire d’état du Collecteur EDOT Edge
   ansible.builtin.file:
     path: /var/lib/observability/otel-edge

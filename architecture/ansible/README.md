@@ -39,7 +39,7 @@ Le rôle `common` configure chrony avec `makestep 1.0 3` afin de corriger
 automatiquement l’horloge après un redémarrage ou une reprise de VM. Cette
 synchronisation continue est nécessaire aux fenêtres temporelles des dashboards
 et au chemin OTLP → Kafka → Elasticsearch. `rtcsync` maintient également
-l’horloge matérielle alignée sur l’horloge système. Vérifier les quatre VM avec
+l’horloge matérielle alignée sur l’horloge système. Vérifier les cinq VM avec
 `make time-sync-verify` ; la commande attend une source NTP sélectionnée et un
 état `Leap status : Normal` sur chaque nœud.
 
@@ -71,10 +71,19 @@ Vagrant choisit automatiquement le prochain port disponible. Pour imposer une
 autre plage de départ, utiliser par exemple
 `VAGRANT_SSH_PORT_BASE=2300 make vms-up`.
 
-La cible `make vms-up` démarre les quatre VM en parallèle, puis exécute un seul
-playbook Ansible sur les quatre hôtes. Les rôles restent parallèles par hôte et
+La cible `make vms-up` démarre les cinq VM en parallèle, puis exécute un seul
+playbook Ansible sur les cinq hôtes. Les rôles restent parallèles par hôte et
 les variables sensibles viennent de l’environnement. Les données Kafka sont conservées dans le volume Podman
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
+
+Le broker Kafka OTel protège les échanges de logs, métriques et traces avec
+SASL/PLAIN. Le compte `otel_publisher` est utilisé par Edge et l'agent EDOT du
+backend pour publier ; le compte `otel_consumer` est utilisé par le backend et
+la collecte des métriques Kafka pour consommer. Définir
+`KAFKA_OTEL_PUBLISHER_PASSWORD` et `KAFKA_OTEL_CONSUMER_PASSWORD` dans
+l'environnement avant `make vms-up` ou `make ansible-deploy`. Les mots de passe
+ne sont ni versionnés ni écrits dans les manifests Kubernetes ; le Job de
+création des topics reçoit son secret par `otel-kafka-credentials-apply`.
 
 La cible `make vms-restart` redémarre séquentiellement les cinq VM
 (`supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`) sans
@@ -92,7 +101,28 @@ Après une modification de la configuration EDOT du backend, utiliser
 `otel-backend-01`. La cible attend les variables d’environnement habituelles
 du provisionnement et ne crée pas la VM si elle n’existe pas encore.
 
-Pour supprimer les quatre VM et leurs disques locaux, exécuter la cible
+Les agents EDOT qui envoient leurs signaux vers Edge utilisent une clé Bearer
+distincte par client. Les cibles Makefile qui provisionnent Edge chargent
+automatiquement `.otel-edge-keys.env` et vérifient les cinq clés avant
+d'exécuter Ansible. Pour lancer Ansible directement, charger le fichier dans
+le shell courant avec `source ./.otel-edge-keys.env`. Le collecteur Edge
+conserve ces clés dans `/etc/observability/otel-edge.tokens` avec le mode
+`0600`.
+
+Pour générer et charger les clés Edge et les identifiants Kafka OTel du POC dans
+le shell courant, exécuter
+depuis `architecture/` :
+
+```bash
+source ./platform/elk/scripts/generate-otel-edge-keys.sh
+```
+
+Le script conserve les identifiants dans `.otel-edge-keys.env`, ignoré par Git
+et protégé par le mode `0600`. Pour remplacer toutes les clés et identifiants,
+utiliser
+`OTEL_EDGE_KEYS_ROTATE=1 source ./platform/elk/scripts/generate-otel-edge-keys.sh`.
+
+Pour supprimer les cinq VM et leurs disques locaux, exécuter la cible
 destructive `make vms-destroy`. Cette opération ne supprime pas les ressources
 Kubernetes ni les données persistées en dehors des VM.
 
@@ -178,11 +208,11 @@ Elastic, OTel et applicatifs. Elle ne détruit pas le cluster k3d.
 ## Sauvegarde et restauration des VM
 
 La cible `make vms-backup` crée un snapshot Vagrant portant le même identifiant
-temporel pour `supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01` et `elk-01`. Le
+temporel pour `supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`. Le
 manifeste du dernier backup est conservé dans `.vagrant-backups/latest.env` ;
 les données du snapshot restent gérées par VirtualBox et ne sont pas versionnées.
 
-La restauration écrase l'état actuel des quatre VM. Elle exige une confirmation
+La restauration écrase l'état actuel des cinq VM. Elle exige une confirmation
 explicite et redémarre les VM sans reprovisionnement. Le démarrage est
 séquentiel afin que Vagrant recalcule les redirections SSH sans collision avec
 une ancienne instance :

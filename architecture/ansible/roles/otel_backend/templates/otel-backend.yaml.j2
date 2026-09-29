@@ -1,10 +1,10 @@
 extensions:
-  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/storage/filestorage
-  file_storage:
-    directory: /var/lib/otel
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/healthcheckextension
   health_check:
     endpoint: 0.0.0.0:13134
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/storage/filestorage
+  file_storage:
+    directory: /var/lib/otel
 
 receivers:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver
@@ -21,6 +21,11 @@ receivers:
     logs:
       topics: [otel-logs]
       encoding: otlp_proto
+    auth:
+      sasl:
+        username: "${env:OTEL_KAFKA_CONSUMER_USERNAME}"
+        password: "${env:OTEL_KAFKA_CONSUMER_PASSWORD}"
+        mechanism: PLAIN
 
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
   otlp/internal:
@@ -33,6 +38,9 @@ processors:
     check_interval: 1s
     limit_mib: 700
     spike_limit_mib: 150
+  batch:
+    timeout: 1s
+    send_batch_size: 512
   transform/ecs-log-correlation:
     log_statements:
       - context: log
@@ -50,9 +58,6 @@ processors:
       - context: scope
         statements:
           - set(attributes["elastic.mapping.mode"], "ecs")
-  batch:
-    timeout: 1s
-    send_batch_size: 512
   resource/internal-telemetry:
     attributes:
       - key: data_stream.dataset

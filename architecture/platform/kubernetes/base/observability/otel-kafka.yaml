@@ -202,6 +202,8 @@ data:
     exporters:
       otlphttp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318
+        headers:
+          Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:
       extensions: [health_check, file_storage]
       telemetry:
@@ -253,6 +255,8 @@ data:
     exporters:
       otlphttp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318
+        headers:
+          Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:
       extensions: [health_check]
       pipelines:
@@ -297,6 +301,11 @@ spec:
                   fieldPath: status.hostIP
             - name: K8S_CLUSTER_NAME
               value: k3s-01
+            - name: OTEL_EDGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: otel-edge-client-keys
+                  key: otel-kubernetes
           ports:
             - {name: health, containerPort: 13133}
             - {name: metrics, containerPort: 8888}
@@ -341,6 +350,11 @@ spec:
           env:
             - name: K8S_CLUSTER_NAME
               value: k3s-01
+            - name: OTEL_EDGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: otel-edge-client-keys
+                  key: otel-kubernetes-cluster
           image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
           securityContext:
             allowPrivilegeEscalation: false
@@ -378,6 +392,7 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - >-
+              printf 'security.protocol=SASL_PLAINTEXT\nsasl.mechanism=PLAIN\nsasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="%s" password="%s";\n' "$KAFKA_OTEL_PUBLISHER_USERNAME" "$KAFKA_OTEL_PUBLISHER_PASSWORD" > /tmp/otel-kafka-client.properties;
               for topic in supermarket.order.placed supermarket.stock.depleted supermarket.stock.restock-requested; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.10:9092 --create --if-not-exists --topic "$topic"
@@ -388,10 +403,23 @@ spec:
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.20:9092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1
+              --command-config /tmp/otel-kafka-client.properties
               --config min.insync.replicas=1
               --config retention.ms=86400000
               --config retention.bytes=536870912;
               /opt/kafka/bin/kafka-configs.sh --bootstrap-server
               192.168.33.20:9092 --entity-type topics --entity-name "$topic"
+              --command-config /tmp/otel-kafka-client.properties
               --alter --add-config retention.ms=86400000,retention.bytes=536870912;
               done
+          env:
+            - name: KAFKA_OTEL_PUBLISHER_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: otel-kafka-credentials
+                  key: publisher-username
+            - name: KAFKA_OTEL_PUBLISHER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: otel-kafka-credentials
+                  key: publisher-password

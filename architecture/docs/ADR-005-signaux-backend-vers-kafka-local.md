@@ -33,6 +33,57 @@ EDOT backend → Kafka OTel local → backend OTel
 La configuration reste standalone et versionnée dans Ansible. Fleet conserve
 uniquement la supervision OpAMP.
 
+## Sécurité des identités et des flux
+
+La chaîne Edge, Kafka, Backend, Elasticsearch et APM doit utiliser une
+identité distincte par rôle. Une même clé ne doit pas être partagée entre les
+collecteurs, Kafka, Elasticsearch et APM Server.
+
+```text
+otel-edge
+  └── identité Kafka producteur
+       └── droits d'écriture sur les topics OTel
+
+otel-backend
+  ├── identité Kafka consommateur
+  │    └── droits de lecture sur les topics OTel
+  ├── clé API Elasticsearch
+  │    └── droits d'écriture limités aux data streams OTel
+  └── token secret APM Server
+       └── droits d'ingestion APM
+```
+
+Le flux Edge vers Backend passe par Kafka. L'identité du collecteur Edge doit
+donc être autorisée à publier sur `otel-traces`, `otel-metrics` et `otel-logs`.
+L'identité du backend doit être limitée à la consommation de ces mêmes topics.
+Kafka doit utiliser TLS et une authentification client, par SASL ou par
+certificat, selon le mécanisme retenu pour l'installation.
+
+Le backend utilise une clé API Elasticsearch dédiée à l'exporteur
+`elasticsearch/otel`. Cette clé doit autoriser l'écriture dans les data
+streams OTel requis et ne doit pas fournir de droits d'administration, de
+lecture générale ou de gestion des utilisateurs.
+
+Le backend utilise un token secret APM dédié à l'exporteur
+`otlphttp/apm-server`. Ce token est distinct de la clé Elasticsearch et doit
+être transmis uniquement sur HTTPS.
+
+Les secrets sont conservés hors Git et injectés dans l'environnement local du
+backend avec des permissions restrictives. Les clés Kafka Edge et Backend,
+la clé API Elasticsearch et le token APM doivent pouvoir être renouvelés
+indépendamment, avec une période de recouvrement permettant de vérifier le
+nouveau chemin avant la révocation de l'ancien secret.
+
+Les templates Edge et les exporteurs OTLP utilisent maintenant ces clés Bearer.
+Les clés Kubernetes sont créées par `make otel-edge-client-keys-apply` à partir
+des variables d'environnement `OTEL_EDGE_KEY_KUBERNETES` et
+`OTEL_EDGE_KEY_KUBERNETES_CLUSTER`. Les clés des agents VM sont fournies à
+Ansible avec `OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE`,
+`OTEL_EDGE_KEY_EDGE_AGENT` et `OTEL_EDGE_KEY_ELK_AGENT`.
+
+Le transport OTLP reste à chiffrer avec TLS. Une clé Bearer ne doit pas être
+considérée comme protégée tant que les endpoints Edge utilisent encore HTTP.
+
 ## Alternatives considérées
 
 ### Conserver l'envoi des logs et traces vers Edge

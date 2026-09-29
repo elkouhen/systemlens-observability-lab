@@ -1,4 +1,7 @@
 extensions:
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/bearertokenauth
+  bearertokenauth/clients:
+    filename: /etc/otel/edge.tokens
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/healthcheckextension
   health_check:
     endpoint: 0.0.0.0:13135
@@ -12,8 +15,12 @@ receivers:
     protocols:
       grpc:
         endpoint: 127.0.0.1:14317
+        auth:
+          authenticator: bearertokenauth/clients
       http:
         endpoint: 127.0.0.1:14318
+        auth:
+          authenticator: bearertokenauth/clients
 
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
   otlp/internal:
@@ -52,6 +59,11 @@ exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
   kafka/otlp:
     brokers: ["{{ otel_gateway_kafka_broker }}"]
+    auth:
+      sasl:
+        username: "${env:OTEL_KAFKA_PUBLISHER_USERNAME}"
+        password: "${env:OTEL_KAFKA_PUBLISHER_PASSWORD}"
+        mechanism: PLAIN
     traces:
       topic: otel-traces
       encoding: otlp_proto
@@ -63,8 +75,11 @@ exporters:
       encoding: otlp_proto
 
 service:
-  extensions: [health_check, file_storage]
+  extensions: [health_check, file_storage, bearertokenauth/clients]
   telemetry:
+    resource:
+      service.name: otel-edge
+      deployment.environment.name: homologation
     metrics:
       level: detailed
       readers:
@@ -91,9 +106,6 @@ service:
               otlp:
                 protocol: grpc
                 endpoint: http://127.0.0.1:14319
-    resource:
-      service.name: otel-edge
-      deployment.environment.name: homologation
   pipelines:
     metrics/internal-telemetry:
       receivers: [otlp/internal]

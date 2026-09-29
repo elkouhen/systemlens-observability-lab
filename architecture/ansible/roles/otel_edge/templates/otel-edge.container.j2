@@ -6,8 +6,10 @@ Wants=network-online.target
 [Container]
 Image=docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
 ContainerName=observability-otel-edge
+EnvironmentFile=/etc/observability/otel-edge.env
 Network=host
 Volume=/etc/observability/otel-edge.yaml:/etc/otel/collector.yaml:ro,Z
+Volume=/etc/observability/otel-edge.tokens:/etc/otel/edge.tokens:ro,Z
 Volume=/var/lib/observability/otel-edge:/var/lib/otel-edge:Z
 Memory=768m
 Exec=--config=/etc/otel/collector.yaml
