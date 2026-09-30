@@ -10,6 +10,8 @@
     elk_ip: 192.168.33.40
     k3s_ip: 192.168.33.50
     k3s_version: v1.31.6+k3s1
+    k3s_install_script_url: "https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | replace('+', '%2B') }}/install.sh"
+    vm_dns_servers: "1.1.1.1,8.8.8.8"
     postgresql_database: observability_test
     postgresql_user: observability
     postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('', true) }}"
@@ -41,7 +43,7 @@
       {% if node_role == 'poc' %}{{ otel_edge_key_supermarket_middleware }}
       {% elif node_role == 'otel_edge' %}{{ otel_edge_key_edge_agent }}
       {% elif node_role == 'elk' %}{{ otel_edge_key_elk_agent }}
-      {% else %}{% endif %}
+      {% else %}password{% endif %}
     fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
     zscaler_ca_cert_content: "{{ lookup('env', 'ZSCALER_CA_CERT_CONTENT') | default('', true) }}"
     fleet_url: "http://{{ elk_ip }}:8220"
@@ -49,14 +51,14 @@
   roles:
     - role: common
     - role: retention
+    - role: elastic_agent
+      when: node_role != 'k3s'
     - role: poc
       when: node_role == 'poc'
     - role: otel_backend
       when: node_role == 'otel_backend'
     - role: otel_edge
       when: node_role == 'otel_edge'
-    - role: elastic_agent
-      when: node_role != 'k3s'
     - role: elk
       when: node_role == 'elk'
     - role: k3s

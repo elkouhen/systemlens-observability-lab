@@ -21,10 +21,10 @@
     otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') | default('', true) }}"
     fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
     otel_edge_client_key: >-
-      {% if node_role == 'poc' %}{{ lookup('env', 'OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE') | default('', true) }}
-      {% elif node_role == 'otel_edge' %}{{ lookup('env', 'OTEL_EDGE_KEY_EDGE_AGENT') | default('', true) }}
-      {% elif node_role == 'elk' %}{{ lookup('env', 'OTEL_EDGE_KEY_ELK_AGENT') | default('', true) }}
-      {% else %}{% endif %}
+      {% if node_role == 'poc' %}{{ lookup('env', 'OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE') | default('password', true) }}
+      {% elif node_role == 'otel_edge' %}{{ lookup('env', 'OTEL_EDGE_KEY_EDGE_AGENT') | default('password', true) }}
+      {% elif node_role == 'elk' %}{{ lookup('env', 'OTEL_EDGE_KEY_ELK_AGENT') | default('password', true) }}
+      {% else %}password{% endif %}
 
   roles:
     - role: elastic_agent

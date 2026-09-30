@@ -29,6 +29,9 @@
     nmcli connection modify
     "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
     ipv4.never-default yes
+    ipv4.ignore-auto-dns yes
+    ipv6.never-default yes
+    ipv6.ignore-auto-dns yes
   changed_when: false
 
 - name: Réactiver le réseau privé sans route par défaut
@@ -46,15 +49,33 @@
   register: nat_connection
   changed_when: false
 
-- name: Configurer des DNS fiables sur la connexion NAT
+- name: Vérifier qu'une connexion NAT et une route par défaut sont disponibles
+  ansible.builtin.assert:
+    that:
+      - nat_connection.stdout | trim | length > 0
+    fail_msg: >-
+      Aucune connexion NAT n'est associée à la route par défaut.
+      Le réseau privé ne doit pas fournir la route par défaut ; vérifier la
+      configuration VirtualBox et NetworkManager de la VM.
+
+- name: Configurer les résolveurs IPv4 de la connexion NAT
   ansible.builtin.shell: >-
     nmcli connection modify "{{ nat_connection.stdout }}"
-    ipv4.ignore-auto-dns yes ipv4.dns "1.1.1.1,8.8.8.8"
+    ipv4.never-default no ipv4.ignore-auto-dns yes ipv4.dns "{{ vm_dns_servers }}"
+    ipv6.ignore-auto-dns yes
   changed_when: false
 
 - name: Réappliquer la connexion NAT
   ansible.builtin.shell: nmcli connection up "{{ nat_connection.stdout }}"
   changed_when: false
+
+- name: Vérifier la résolution DNS avant les installations réseau
+  ansible.builtin.command: getent ahostsv4 raw.githubusercontent.com
+  register: github_dns
+  changed_when: false
+  retries: 5
+  delay: 3
+  until: github_dns.rc == 0
 
 - name: Installer le certificat racine d'entreprise si fourni
   ansible.builtin.copy:

@@ -57,10 +57,12 @@ Une réinstallation doit être demandée explicitement avec la variable Ansible
 démarrage.
 
 Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
-privé VirtualBox et configure des résolveurs DNS sur l'interface NAT. Cette
+privé VirtualBox et configure des résolveurs IPv4 sur l'interface NAT. Cette
 séquence est nécessaire dès le premier provisioning, car les images Rocky
-peuvent donner la priorité au réseau privé et empêcher la résolution des
-miroirs de paquets.
+peuvent donner la priorité au réseau privé et récupérer un DNS DHCP invalide.
+Les valeurs par défaut (`1.1.1.1,8.8.8.8`) sont déclarées par `vm_dns_servers`
+dans `ansible/site.yml` et doivent être remplacées par les DNS de l'entreprise
+si le réseau sortant les impose.
 
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `supermarket-middleware-01`.
@@ -204,6 +206,11 @@ make k3s-migrate
 La cible crée `k3s-01`, exporte son kubeconfig dans `.kube/k3s.config`,
 importe les images applicatives dans le runtime k3s et réapplique les manifests
 Elastic, OTel et applicatifs. Elle ne détruit pas le cluster k3d.
+
+L'installation de k3s utilise le script de la release épinglée sur GitHub. Ce
+chemin évite la dépendance à `get.k3s.io` lorsque son service de distribution
+est indisponible. La version reste déclarée par `k3s_version` dans
+`ansible/site.yml`.
 
 ## Sauvegarde et restauration des VM
 

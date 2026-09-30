@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Crée un snapshot Vagrant commun aux quatre VM et conserve son manifeste local.
+# Crée un snapshot Vagrant commun aux cinq VM et conserve son manifeste local.
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 architecture_root="$(cd -- "${script_dir}/.." && pwd)"
 backup_dir="${VAGRANT_BACKUP_DIR:-${architecture_root}/.vagrant-backups}"
 vagrant_bin="${VAGRANT:-vagrant}"
-nodes=(supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01)
+k3s_vm_name="${K3S_VM_NAME:-k3s-01}"
+nodes=(supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 "${k3s_vm_name}")
 
 command -v "${vagrant_bin}" >/dev/null || {
   printf 'Vagrant est requis pour sauvegarder les VM.\n' >&2

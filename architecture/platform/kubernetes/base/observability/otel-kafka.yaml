@@ -200,8 +200,8 @@ data:
             value: ${env:K8S_NODE_NAME}
             action: upsert
     exporters:
-      otlphttp/edge:
-        endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318
+      otlp/edge:
+        endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
         headers:
           Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:
@@ -222,11 +222,11 @@ data:
         logs:
           receivers: [filelog/kubernetes]
           processors: [memory_limiter, k8sattributes, filter/logs, batch/logs]
-          exporters: [otlphttp/edge]
+          exporters: [otlp/edge]
         metrics:
           receivers: [hostmetrics, kubeletstats, prometheus/internal]
           processors: [memory_limiter, resource/k8s_cluster, batch]
-          exporters: [otlphttp/edge]
+          exporters: [otlp/edge]
 
   cluster.yaml: |
     extensions:
@@ -253,8 +253,8 @@ data:
             value: ${env:K8S_CLUSTER_NAME}
             action: upsert
     exporters:
-      otlphttp/edge:
-        endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318
+      otlp/edge:
+        endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
         headers:
           Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:
@@ -263,7 +263,7 @@ data:
         metrics:
           receivers: [k8s_cluster]
           processors: [memory_limiter, resource/k8s_cluster, batch]
-          exporters: [otlphttp/edge]
+          exporters: [otlp/edge]
 
 ---
 apiVersion: apps/v1

@@ -30,7 +30,7 @@ n'est pas utilisé comme adresse réseau, car il n'est pas nécessairement
 résolvable depuis le pod. Le flux attendu est :
 
 ```text
-kubelet / hostmetrics → otel-kubernetes → OTLP HTTP → otel-edge-01
+kubelet / hostmetrics → otel-kubernetes → OTLP gRPC → otel-edge-01
   → Kafka otel-metrics → exporteur backend → metrics-* dans Elasticsearch
 ```
 

@@ -66,24 +66,47 @@
     path: /usr/local/bin/k3s
   register: k3s_binary
 
+- name: Vérifier la présence de l'unité systemd k3s
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s.service
+  register: k3s_unit
+
 - name: Installer k3s serveur avec une version déclarée
-  ansible.builtin.shell: >-
-    curl --fail --silent --show-error https://get.k3s.io |
-    INSTALL_K3S_VERSION={{ k3s_version }} sh -s - server
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl --fail --silent --show-error '{{ k3s_install_script_url }}' |
+      INSTALL_K3S_VERSION={{ k3s_version }} sh -s - server
   args:
     executable: /bin/bash
-  when: not k3s_binary.stat.exists
+  when:
+    - not k3s_binary.stat.exists or not k3s_unit.stat.exists
   notify: Redémarrer k3s
+
+- name: Recharger systemd après l'installation éventuelle de k3s
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Vérifier que l'installation k3s a créé son unité systemd
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s.service
+  register: k3s_unit_after_install
+
+- name: Arrêter si l'unité systemd k3s est absente
+  ansible.builtin.fail:
+    msg: >-
+      L'installeur k3s a terminé sans créer /etc/systemd/system/k3s.service.
+      Vérifier la sortie de l'installeur et la distribution de la VM.
+  when: not k3s_unit_after_install.stat.exists
 
 - name: Redémarrer k3s si sa configuration a changé
   ansible.builtin.systemd_service:
-    name: k3s
+    name: k3s.service
     state: restarted
   when: k3s_configuration.changed and k3s_binary.stat.exists
 
 - name: Activer et démarrer k3s
   ansible.builtin.systemd_service:
-    name: k3s
+    name: k3s.service
     enabled: true
     state: started
 
