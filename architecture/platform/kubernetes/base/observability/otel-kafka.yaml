@@ -202,6 +202,8 @@ data:
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
         headers:
           Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:
@@ -255,6 +257,8 @@ data:
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
+        tls:
+          insecure: true
         headers:
           Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:

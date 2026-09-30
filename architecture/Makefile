@@ -97,6 +97,7 @@ time-sync-verify: ## Vérifier la synchronisation chrony des cinq VM
 		echo "--- $$node ---"; \
 		output="$$($(VAGRANT) ssh "$$node" -c 'sudo chronyc tracking; sudo chronyc sources -n' 2>/dev/null)"; \
 		echo "$$output" | grep -E '^(Reference ID|Stratum|System time|Leap status)' || { echo "État chrony incomplet sur $$node" >&2; exit 1; }; \
+		echo "$$output" | awk '/^System time/ { offset=$$4; if (offset < 0) offset=-offset; if (offset > 5) exit 1 }' || { echo "Horloge trop décalée sur $$node" >&2; exit 1; }; \
 		echo "$$output" | grep -Eq '^Leap status[[:space:]]*:[[:space:]]*Normal' || { echo "Horloge non synchronisée sur $$node" >&2; exit 1; }; \
 		echo "$$output" | grep -Eq '^\^([*+])' || { echo "Aucune source NTP sélectionnée sur $$node" >&2; exit 1; }; \
 	done
