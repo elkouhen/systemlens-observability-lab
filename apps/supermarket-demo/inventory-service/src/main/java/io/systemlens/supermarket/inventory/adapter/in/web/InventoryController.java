@@ -19,6 +19,7 @@ public class InventoryController implements StocksApi {
     @Override
     public HealthStatus health() { return new HealthStatus("ok"); }
 
+    @Override
     @GetMapping("/api/products/{productId}")
     public ProductResponse product(@PathVariable String productId) {
         ProductResponseDto dto = ProductResponseDto.from(inventory.findProduct(productId));
