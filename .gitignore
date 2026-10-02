@@ -1,3 +1,5 @@
+.idea
+*.xlsx
 *.xslx
 *.html
 dist 
