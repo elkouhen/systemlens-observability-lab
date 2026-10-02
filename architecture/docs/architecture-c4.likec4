@@ -79,17 +79,17 @@ model {
   business_user = person 'Utilisateur métier' 'Utilise les APIs de l’application pour consulter ou modifier les données métier'
   operator = person 'Opérateur plateforme' 'Consulte Kibana, vérifie les signaux et administre la plateforme'
 
-  zone1 = zone 'Zone 1 - applications, Kubernetes, poc et Edge' {
+  zone1 = zone 'Zone 1 - applications, Kubernetes, lab et Edge' {
     kubernetes = system 'k3s-01' 'VM qui héberge le cluster Kubernetes de référence' {
       applications = container 'Applications métier' 'Spring Boot / Java' 'Produisent logs, métriques et traces OTLP'
       k8s_collectors = container 'Collectors Kubernetes' 'EDOT Collector' 'Collectent les logs Kubernetes et les métriques du cluster'
       traefik = container 'Traefik' 'Ingress' 'Expose les points d’accès Kubernetes'
     }
 
-    poc = system 'supermarket-middleware-01' {
-      poc_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux et les envoie vers Edge'
+    supermarket_middleware = system 'supermarket-middleware-01' {
+      supermarket_middleware_agent = container 'Agent EDOT' 'Elastic Agent standalone' 'Collecte les signaux locaux et les envoie vers Edge'
       kafka = queue 'Kafka métier' 'Topics des applications'
-      poc_data = container 'Services de données' 'MongoDB / PostgreSQL' 'Services observés par l’agent EDOT'
+      supermarket_middleware_data = container 'Services de données' 'MongoDB / PostgreSQL' 'Services observés par l’agent EDOT'
     }
 
     edge = system 'otel-edge-01' {
@@ -119,15 +119,15 @@ model {
 
   business_user .business zone1.kubernetes.traefik 'Utilise les APIs métier'
   zone1.kubernetes.traefik .business zone1.kubernetes.applications 'Achemine les requêtes métier'
-  zone1.kubernetes.applications .business zone1.poc.kafka 'Publie et consomme les événements métier'
+  zone1.kubernetes.applications .business zone1.supermarket_middleware.kafka 'Publie et consomme les événements métier'
 
   zone1.kubernetes.applications .traces zone1.edge.edge_proxy 'Envoie les traces applicatives'
   zone1.kubernetes.applications .metrics zone1.edge.edge_proxy 'Envoie les métriques applicatives'
   zone1.kubernetes.k8s_collectors .logs zone1.edge.edge_proxy 'Envoie les logs stdout Kubernetes'
   zone1.kubernetes.k8s_collectors .metrics zone1.edge.edge_proxy 'Envoie les métriques Kubernetes'
   zone1.edge.edge_proxy .otlp zone1.edge.edge_collector 'Relaye OTLP'
-  zone1.poc.poc_agent .logs zone1.edge.edge_collector 'Envoie les logs VM'
-  zone1.poc.poc_agent .metrics zone1.edge.edge_collector 'Envoie les métriques VM'
+  zone1.supermarket_middleware.supermarket_middleware_agent .logs zone1.edge.edge_collector 'Envoie les logs VM'
+  zone1.supermarket_middleware.supermarket_middleware_agent .metrics zone1.edge.edge_collector 'Envoie les métriques VM'
   zone1.edge.edge_agent .logs zone1.edge.edge_collector 'Envoie les logs Edge'
   zone1.edge.edge_agent .metrics zone1.edge.edge_collector 'Envoie les métriques Edge'
   zone2.backend.backend_agent .logs zone1.edge.edge_collector 'Envoie les logs backend'
@@ -144,12 +144,12 @@ model {
   zone2.backend.backend_collector .traces zone3.elk.apm 'Envoie les traces à APM Server'
   zone3.elk.apm .traces zone3.elk.elasticsearch 'Indexe les traces APM'
 
-  zone1.poc.poc_data .storage zone1.poc.poc_agent 'Expose les logs et métriques locales'
+  zone1.supermarket_middleware.supermarket_middleware_data .storage zone1.supermarket_middleware.supermarket_middleware_agent 'Expose les logs et métriques locales'
   operator .administration zone3.elk.elasticsearch 'Accède directement à Elasticsearch'
   operator .administration zone3.elk.kibana 'Accède directement à Kibana'
   operator .administration zone3.elk.fleet 'Supervise les agents via Fleet'
 
-  zone1.poc.poc_agent .control zone3.elk.fleet 'Supervision OpAMP'
+  zone1.supermarket_middleware.supermarket_middleware_agent .control zone3.elk.fleet 'Supervision OpAMP'
   zone1.edge.edge_agent .control zone3.elk.fleet 'Supervision OpAMP'
   zone2.backend.backend_agent .control zone3.elk.fleet 'Supervision OpAMP'
 }
@@ -187,7 +187,7 @@ views {
     include business_user
     include zone1.kubernetes.traefik
     include zone1.kubernetes.applications
-    include zone1.poc.kafka
+    include zone1.supermarket_middleware.kafka
   }
 
   view observability-flow {
@@ -195,7 +195,7 @@ views {
     description 'Les signaux sont collectés en OTLP, bufferisés dans Kafka OTel, exportés vers Elasticsearch ou APM, puis consultés dans Kibana.'
     include zone1.kubernetes.applications
     include zone1.kubernetes.k8s_collectors
-    include zone1.poc.poc_agent
+    include zone1.supermarket_middleware.supermarket_middleware_agent
     include zone1.edge.edge_agent
     include zone1.edge.edge_proxy
     include zone1.edge.edge_collector
@@ -220,7 +220,7 @@ views {
     '''
     include zone1.kubernetes.applications
     include zone1.kubernetes.k8s_collectors
-    include zone1.poc.poc_agent
+    include zone1.supermarket_middleware.supermarket_middleware_agent
     include zone1.edge.edge_proxy
     include zone1.edge.edge_collector
     include zone2.backend.otel_kafka

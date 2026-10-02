@@ -5,7 +5,7 @@ socle applicatif commun et ajouter le patch d'instrumentation OTel décrit dans
 `kubernetes/apps/supermarket-demo/default/otel-instrumentation.yaml`.
 
 Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
-d'observabilité du POC. Le chemin des signaux est le suivant :
+d'observabilité du lab. Le chemin des signaux est le suivant :
 
 ```text
 application Java → agent Java OTel → Gateway EDOT → Kafka → Elasticsearch

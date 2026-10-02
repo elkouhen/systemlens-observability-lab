@@ -11,14 +11,13 @@
   become: true
   gather_facts: false
   vars:
-    node_id: 1
     node_ip: 192.168.33.10
     kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
     kafka_controller_voters: 1@192.168.33.10:9093
   tasks:
     - name: Déployer la configuration déclarative du broker
       ansible.builtin.template:
-        src: roles/poc/templates/kafka.container.j2
+        src: roles/supermarket_middleware/templates/kafka.container.j2
         dest: /etc/containers/systemd/observability-kafka.container
         mode: '0644'
       register: retention_kafka
@@ -71,7 +70,6 @@
   become: true
   gather_facts: false
   vars:
-    node_id: 2
     node_ip: 192.168.33.20
     otel_kafka_cluster_id: otelQ1Sh-9_ISia_zwGINzRvyQ
     otel_kafka_controller_voters: 2@192.168.33.20:9093

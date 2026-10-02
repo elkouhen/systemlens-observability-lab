@@ -2,7 +2,7 @@
 
 ## Executive summary
 
-The most important complexity in this POC is not the number of services. It is
+The most important complexity in this lab is not the number of services. It is
 the way one stock reservation crosses several execution and consistency
 boundaries. `InventoryApplicationService.reserve` is called through REST and
 Kafka, updates JPA and Mongo persistence, records metrics, and can publish a
@@ -17,7 +17,7 @@ cross-service flows.
 
 ## The critical scenario
 
-The POC has two entry paths into the same reservation operation:
+The lab has two entry paths into the same reservation operation:
 
 ```text
 POST /api/orders
@@ -79,7 +79,7 @@ repository does not show an outbox or an explicit transaction coordinator for
 JPA, Mongo, and Kafka. A failure or retry can therefore leave the business
 state, audit documents, stock movements, and emitted event with different
 outcomes unless the runtime configuration supplies guarantees not visible in
-this POC.
+this lab.
 
 Decision to clarify: choose and document the consistency model. The options
 are an outbox for Kafka publication, an explicit distributed transaction

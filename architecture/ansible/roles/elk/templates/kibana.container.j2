@@ -1,17 +1,16 @@
 [Unit]
-Description=Kibana du POC
+Description=Kibana du lab
 After=network-online.target observability-elasticsearch.service
 Wants=network-online.target
 Requires=observability-elasticsearch.service
 
 [Container]
 # Documentation : https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-kibana-with-docker
-Image=docker.elastic.co/kibana/kibana:9.4.3
+Image=docker.elastic.co/kibana/kibana:9.5.4
 ContainerName=observability-kibana
 Network=host
 EnvironmentFile=/etc/observability/kibana.env
 Volume=/etc/observability/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
-Memory=1536m
 Environment=NODE_OPTIONS=--max-old-space-size=1024
 
 [Service]

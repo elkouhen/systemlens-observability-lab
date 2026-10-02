@@ -1,0 +1,5 @@
+---
+otel_edge_client_key_env: ''
+firewall_tcp_ports: [6443, 10250]
+firewall_udp_ports: [8472]
+middleware_credentials_required: false

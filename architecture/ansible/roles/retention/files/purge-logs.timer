@@ -1,5 +1,5 @@
 [Unit]
-Description=Contrôle horaire de la rétention des archives du POC
+Description=Contrôle horaire de la rétention des archives du lab
 
 [Timer]
 OnCalendar=hourly

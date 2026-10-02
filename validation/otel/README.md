@@ -15,7 +15,7 @@ Le parcours validé dans l’architecture active est :
 
 ## Prérequis
 
-- Ansible, Vagrant et la VM `poc-01` démarrée ;
+- Ansible, Vagrant et la VM `supermarket-middleware-01` démarrée ;
 - un compte Elasticsearch ayant le droit de lire `metrics-*` ;
 - le mot de passe fourni uniquement par l'environnement :
 

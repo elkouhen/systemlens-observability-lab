@@ -1,5 +1,5 @@
 [Unit]
-Description=PostgreSQL POC database
+Description=PostgreSQL lab database
 After=network-online.target
 Wants=network-online.target
 
@@ -12,7 +12,6 @@ Environment=POSTGRES_USER={{ postgresql_user }}
 Environment=POSTGRES_PASSWORD={{ postgresql_password }}
 Volume=postgresql-data:/var/lib/postgresql/data:Z
 Volume=/var/log/postgresql:/var/log/postgresql:Z
-Memory=512m
 Exec=postgres -c logging_collector=on -c log_directory=/var/log/postgresql -c log_filename=postgresql.log -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
 
 [Service]

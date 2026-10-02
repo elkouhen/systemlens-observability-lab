@@ -30,7 +30,7 @@ configuration est installée et maintenue par Ansible. Fleet utilise OpAMP pour
 superviser ces agents, sans devenir la source de vérité de leur collecte.
 
 Cette décision compare deux modes de gestion d'EDOT. Elle ne remet pas en
-concurrence EDOT avec une autre distribution OpenTelemetry : le POC reste sur
+concurrence EDOT avec une autre distribution OpenTelemetry : le lab reste sur
 la distribution Elastic, sélectionnée, testée et supportée par Elastic.
 
 La séparation est donc la suivante :

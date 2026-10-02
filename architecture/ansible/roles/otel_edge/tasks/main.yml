@@ -61,6 +61,13 @@
     dest: /etc/containers/systemd/observability-otel-edge.container
     mode: '0644'
 
+- name: Vérifier la génération de l'unité Quadlet Edge
+  ansible.builtin.command:
+    argv: ["{{ podman_system_generator_path }}", --dryrun]
+  environment:
+    QUADLET_UNIT_DIRS: /etc/containers/systemd
+  changed_when: false
+
 - name: Créer le répertoire des overrides systemd HAProxy
   ansible.builtin.file:
     path: /etc/systemd/system/haproxy.service.d
@@ -80,7 +87,6 @@
 - name: Démarrer le Collecteur EDOT Edge
   ansible.builtin.systemd_service:
     name: observability-otel-edge.service
-    enabled: true
     state: restarted
 
 - name: Démarrer HAProxy otel-edge

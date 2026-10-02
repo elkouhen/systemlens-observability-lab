@@ -5,7 +5,7 @@ metadata:
   namespace: h0tl-supermarche-app
 spec:
   replicas: 1
-  # Le cluster k3d du POC ne dispose que d'un nœud à 2 vCPU : remplacer le
+  # Le cluster k3d du lab ne dispose que d'un nœud à 2 vCPU : remplacer le
   # pod plutôt que créer un surge évite un rollout bloqué. En production,
   # conserver le surge avec plusieurs replicas et une capacité réservée.
   strategy:

@@ -17,8 +17,8 @@ APP_IMAGE_TAG ?= 1.1.5
 OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
-ELASTIC_STACK_VERSION ?= 9.4.3
-KUBERNETES_OTEL_PACKAGE_VERSION ?= 2.6.0
+ELASTIC_STACK_VERSION ?= 9.5.4
+KUBERNETES_OTEL_PACKAGE_VERSION ?= 2.6.1
 KAFKA_OTEL_PACKAGE_VERSION ?= 0.3.1
 POSTGRESQL_OTEL_PACKAGE_VERSION ?= 0.5.0
 MONGODB_OTEL_PACKAGE_VERSION ?= 0.3.1
@@ -38,18 +38,33 @@ FLEET_CURL_RESOLVE ?= fleet.observability.test:8220:192.168.33.40
 ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 C4_PAGES_BASE ?= ./
-OTEL_EDGE_KEYS_FILE ?= $(ARCH_ROOT)/.otel-edge-keys.env
+OBSERVABILITY_CREDENTIALS_FILE ?= $(ARCH_ROOT)/.observability-credentials.env
 
-.PHONY: help architecture-status c4-pages-build credentials-show cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+# Interface opérateur principale. Les cibles techniques non listées restent
+# disponibles pour les dépendances et les diagnostics ciblés, sans apparaître
+# dans l'aide courante.
+HELP_TARGETS := help architecture-status credentials-show credentials-generate cluster-show \
+	platform-status kubernetes-status vm-status time-sync-verify \
+	apps-build apps-test command-center-build \
+	kubernetes-validate ansible-validate elastic-version-validate ci-run \
+	vms-start vms-restart vms-destroy \
+	architecture-deploy \
+	elk-deploy fleet-assets-deploy apps-deploy \
+	application-data-verify order-service-command \
+	dashboards-verify trace-context-verify observability-schema-verify \
+	otel-validate retention-validate retention-deploy retention-verify \
+	stock-show order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
+
+.PHONY: help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy apm-token-sync fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
-	postgresql-credentials-apply otel-kafka-credentials-apply kafka-jolokia-verify mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
+	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
 	otel-edge-client-keys-apply otel-edge-vm-provision elastic-agent-vm-provision elastic-agent-backend-provision \
-	vms-up vms-restart vms-backup vms-restore-latest vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
+	vms-up vms-restart vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import k3s-vm-up k3s-kubeconfig k3s-migrate public-tls-apply ci
+	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import k3s-vm-up k3s-kubeconfig public-tls-apply ci
 
 .PHONY: cluster-show elasticsearch-wait kibana-wait fleet-prerequisites-validate fleet-registry-wait \
 	vms-start architecture-deploy deployment-finalize otel-validate ci-run stock-show slides-start \
@@ -58,9 +73,7 @@ OTEL_EDGE_KEYS_FILE ?= $(ARCH_ROOT)/.otel-edge-keys.env
 ##@ Informations et diagnostic
 
 help: ## Afficher les tâches disponibles
-	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <cible>\n"} \
-		/^##@/ {printf "\n%s\n", substr($$0, 5); next} \
-		/^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-32s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk -v targets='$(HELP_TARGETS)' 'BEGIN { FS = ":.*##"; split(targets, names, /[[:space:]]+/); for (name in names) wanted[names[name]] = 1; printf "Usage: make <cible>\n" } /^##@/ { section = substr($$0, 5); if (!(section in section_seen)) sections[++section_count] = section; section_seen[section] = 1; next } /^[a-zA-Z0-9_.-]+:.*##/ && ($$1 in wanted) { item_count[section]++; item_name[section, item_count[section]] = $$1; item_description[section, item_count[section]] = $$2 } END { for (section_index = 1; section_index <= section_count; section_index++) { section = sections[section_index]; for (i = 1; i <= item_count[section]; i++) for (j = i + 1; j <= item_count[section]; j++) if (item_name[section, j] < item_name[section, i]) { tmp = item_name[section, i]; item_name[section, i] = item_name[section, j]; item_name[section, j] = tmp; tmp = item_description[section, i]; item_description[section, i] = item_description[section, j]; item_description[section, j] = tmp } if (item_count[section] > 0) { printf "\n%s\n", section; for (i = 1; i <= item_count[section]; i++) printf "  %-32s %s\n", item_name[section, i], item_description[section, i] } } }' $(MAKEFILE_LIST)
 
 architecture-status: ## Afficher la configuration de l'architecture
 	@printf 'ARCH_NAME=%s\nELASTIC_STACK_VERSION=%s\nARCH_ROOT=%s\n' '$(ARCH_NAME)' '$(ELASTIC_STACK_VERSION)' '$(ARCH_ROOT)'
@@ -73,7 +86,11 @@ c4-pages-build: ## Construire le site LikeC4 destiné à GitHub Pages
 	@cp docs/site/assets/c4-telemetry.png dist/c4/assets/c4-telemetry.png
 
 credentials-show: ## Indiquer comment charger les identifiants dans le shell courant
+	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/generate-otel-edge-keys.sh\n'
 	@printf 'source ./$(ARCH_ROOT)/platform/elk/scripts/load-credentials.sh\n'
+
+credentials-generate: ## Générer ou compléter le fichier local d’identifiants
+	@OBSERVABILITY_CREDENTIALS_FILE='$(OBSERVABILITY_CREDENTIALS_FILE)' bash -c 'source ./$(ARCH_ROOT)/platform/elk/scripts/generate-otel-edge-keys.sh'
 
 cluster-info:
 	@printf 'KIBANA_URL=%s\nELASTICSEARCH_URL=%s\nFLEET_URL=%s\nUSER=elastic\n' \
@@ -89,7 +106,7 @@ kubernetes-status: ## Afficher l’état Elastic et applications
 
 vm-status: ## Vérifier l'état Vagrant et les services spécifiques des VM
 	@$(VAGRANT) status supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME)
-	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POC_VM_NAME='supermarket-middleware-01' ../scripts/cluster-status.sh
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' MIDDLEWARE_VM_NAME='supermarket-middleware-01' ../scripts/cluster-status.sh
 	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka observability-otel-backend && sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 --command-config /opt/kafka/config/otel-kafka-client.properties describe --status'
 
 time-sync-verify: ## Vérifier la synchronisation chrony des cinq VM
@@ -148,7 +165,7 @@ k3d-ca-import: ## Faire confiance au certificat Zscaler dans les nœuds k3d (req
 
 ##@ Déploiement de la plateforme Elastic
 
-public-tls-apply: ## Créer ou réparer le certificat TLS public local du POC
+public-tls-apply: ## Créer ou réparer le certificat TLS public local du lab
 	@tmp_dir="$$(mktemp -d)"; trap 'rm -rf "$$tmp_dir"' EXIT; recreate=1; \
 	if $(KUBECTL) -n $(K8S_NAMESPACE) get secret elastic-public-tls >/dev/null 2>&1; then \
 		$(KUBECTL) -n $(K8S_NAMESPACE) get secret elastic-public-tls -o jsonpath='{.data.tls\.crt}' | base64 --decode > "$$tmp_dir/current.crt"; \
@@ -284,7 +301,6 @@ otel-elasticsearch-credentials-apply: ## Créer ou réconcilier la clé API Elas
 
 elk-deploy: elastic-stack-deploy otel-edge-client-keys-apply otel-kafka-credentials-apply ## Déployer la plateforme d'observabilité Elastic sur elk-01
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics --ignore-not-found
-	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@password="$${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD outside Git}"; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent' >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic elasticsearch-es-elastic-user --from-literal=elastic="$$password" --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -292,8 +308,10 @@ elk-deploy: elastic-stack-deploy otel-edge-client-keys-apply otel-kafka-credenti
 	@$(MAKE) postgresql-credentials-apply
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) otel-elasticsearch-credentials-apply
+	@echo "Plateforme Elastic prête ; déploiement du backend OTel puis de l'Edge"
 	@$(MAKE) otel-backend-vm-provision
 	@$(MAKE) otel-edge-vm-provision
+	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics --timeout=180s
 	@$(MAKE) otel-gateway-kubernetes-remove
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
@@ -382,8 +400,8 @@ slides-start: slides ## Démarrer le support Slidev de l'architecture
 
 vms-up:
 	@set -euo pipefail; \
-	test -r '$(OTEL_EDGE_KEYS_FILE)' || { echo "Fichier de clés Edge introuvable : $(OTEL_EDGE_KEYS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
-	source '$(OTEL_EDGE_KEYS_FILE)'; \
+	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
+	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	postgresql_password="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}"; \
 	mongodb_password="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}"; \
@@ -410,19 +428,13 @@ k3s-vm-up: ## Créer et provisionner la VM serveur k3s
 k3s-kubeconfig: ## Exporter le kubeconfig k3s vers un fichier local non versionné
 	@K3S_KUBECONFIG='$(K3S_KUBECONFIG)' ./scripts/k3s-kubeconfig.sh
 
-vms-backup: ## Créer un snapshot Vagrant des cinq VM
-	@./scripts/vms-backup.sh
-
-vms-restore-latest: ## Restaurer le dernier snapshot Vagrant (CONFIRM_RESTORE=YES requis)
-	@CONFIRM_RESTORE='$(CONFIRM_RESTORE)' START_AFTER_RESTORE='$(START_AFTER_RESTORE)' ./scripts/vms-restore-latest.sh
-
 vms-destroy: ## Détruire les cinq VM Vagrant et leurs disques locaux (DESTRUCTIF)
 	@$(VAGRANT) destroy -f supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME)
 
 elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des agents VM
 	@set -euo pipefail; \
-	test -r '$(OTEL_EDGE_KEYS_FILE)' || { echo "Fichier de clés Edge introuvable : $(OTEL_EDGE_KEYS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
-	source '$(OTEL_EDGE_KEYS_FILE)'; \
+	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
+	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
@@ -434,6 +446,9 @@ elastic-agent-backend-provision: ## Déployer uniquement la configuration EDOT d
 
 deploy:
 	@set -euo pipefail; \
+	password="$$( $(VAGRANT) ssh elk-01 -c 'sudo cat /etc/observability/elasticsearch.env' | sed -n 's/^ELASTIC_PASSWORD=//p' | head -n 1 | tr -d '\r' )"; \
+	test -n "$$password" || { echo 'Mot de passe Elasticsearch introuvable sur elk-01.' >&2; exit 1; }; \
+	export ELASTIC_PASSWORD="$$password"; \
 	SKIP_ELK_VM_PROVISION=1 $(MAKE) elk-deploy; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
@@ -441,9 +456,6 @@ deploy:
 	$(MAKE) deploy-post
 
 architecture-deploy: deploy ## Déployer Elastic, Fleet, Kubernetes et les applications
-
-k3s-migrate: k3s-vm-up k3s-kubeconfig kubernetes-validate ## Migrer le déploiement k3d vers le cluster k3s
-	@$(MAKE) deploy
 
 deploy-post:
 	@set -euo pipefail; \
@@ -461,8 +473,8 @@ ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
 ansible-deploy: ## Déployer toute l'architecture via un seul orchestrateur Ansible
-	@test -r '$(OTEL_EDGE_KEYS_FILE)' || { echo "Fichier de clés Edge introuvable : $(OTEL_EDGE_KEYS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
-	source '$(OTEL_EDGE_KEYS_FILE)'; \
+	@test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
+	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
@@ -495,9 +507,6 @@ fleet-sync: ## Synchroniser les pipelines et la policy Fleet
 	@KIBANA_URL='$(KIBANA_URL)' KIBANA_HOST='$(KIBANA_HOST)' DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' \
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
-kafka-jolokia-verify: ## Vérifier les MBeans des brokers Kafka exposés par Jolokia
-	@set -euo pipefail; for node in supermarket-middleware-01 otel-backend-01; do $(VAGRANT) ssh "$$node" -c 'curl --fail --silent http://127.0.0.1:8778/jolokia >/dev/null'; done
-
 mongodb-workload:
 	@$(VAGRANT) ssh supermarket-middleware-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
 
@@ -518,16 +527,16 @@ otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01
 
 otel-edge-vm-provision: ## Provisionner le Collecteur EDOT Edge sur otel-edge-01
 	@set -euo pipefail; \
-	test -r '$(OTEL_EDGE_KEYS_FILE)' || { echo "Fichier de clés Edge introuvable : $(OTEL_EDGE_KEYS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
-	source '$(OTEL_EDGE_KEYS_FILE)'; \
+	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
+	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	$(VAGRANT) up otel-edge-01 --no-provision; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" KAFKA_OTEL_PUBLISHER_PASSWORD="$${KAFKA_OTEL_PUBLISHER_PASSWORD:?Set KAFKA_OTEL_PUBLISHER_PASSWORD outside Git}" KAFKA_OTEL_CONSUMER_PASSWORD="$${KAFKA_OTEL_CONSUMER_PASSWORD:?Set KAFKA_OTEL_CONSUMER_PASSWORD outside Git}" $(VAGRANT) provision otel-edge-01 --provision-with ansible
 
 otel-edge-client-keys-apply: ## Créer les clés Bearer des clients OTLP Edge dans Kubernetes
 	@set -euo pipefail; \
-	test -r '$(OTEL_EDGE_KEYS_FILE)' || { echo "Fichier de clés Edge introuvable : $(OTEL_EDGE_KEYS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
-	source '$(OTEL_EDGE_KEYS_FILE)'; \
+	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
+	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	kubernetes_key="$${OTEL_EDGE_KEY_KUBERNETES:?Set OTEL_EDGE_KEY_KUBERNETES outside Git}"; \
 	cluster_key="$${OTEL_EDGE_KEY_KUBERNETES_CLUSTER:?Set OTEL_EDGE_KEY_KUBERNETES_CLUSTER outside Git}"; \
 	$(KUBECTL) apply -f $(ARCH_ROOT)/platform/kubernetes/base/observability/namespace.yaml; \
@@ -572,7 +581,7 @@ otel-backend-vm-provision: ## Provisionner le collecteur backend OTel sur otel-b
 	password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	publisher_password="$${KAFKA_OTEL_PUBLISHER_PASSWORD:?Set KAFKA_OTEL_PUBLISHER_PASSWORD outside Git}"; \
 	consumer_password="$${KAFKA_OTEL_CONSUMER_PASSWORD:?Set KAFKA_OTEL_CONSUMER_PASSWORD outside Git}"; \
-	apm_token="$$( $(VAGRANT) ssh elk-01 -c 'sudo grep APM_SERVER_SECRET_TOKEN= /etc/observability/apm-server.env | cut -d= -f2-' | tr -d '\r' )"; \
+	apm_token="$$( $(VAGRANT) ssh elk-01 -c 'sudo cat /etc/observability/apm-server.env' | sed -n 's/^APM_SERVER_SECRET_TOKEN=//p' | head -n 1 | tr -d '\r' )"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
 	test -n "$$apm_token" || { echo 'Token APM absent sur elk-01.' >&2; exit 1; }; \

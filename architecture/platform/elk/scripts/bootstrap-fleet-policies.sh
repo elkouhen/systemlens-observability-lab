@@ -4,7 +4,7 @@ set -euo pipefail
 
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"
 kibana_resolve="${KIBANA_CURL_RESOLVE:-kibana.observability.test:5601:192.168.33.40}"
-kibana_version="${KIBANA_VERSION:-9.4.3}"
+kibana_version="${KIBANA_VERSION:-9.5.4}"
 : "${KIBANA_PASSWORD:?Définir KIBANA_PASSWORD avant de configurer Fleet}"
 
 curl_args=(--fail --silent --show-error --insecure --resolve "${kibana_resolve}"
@@ -59,7 +59,7 @@ install_package_from_registry() {
   return 1
 }
 
-install_package_from_registry kubernetes_otel "${KUBERNETES_OTEL_PACKAGE_VERSION:-2.6.0}"
+install_package_from_registry kubernetes_otel "${KUBERNETES_OTEL_PACKAGE_VERSION:-2.6.1}"
 install_package_from_registry kafka_otel "${KAFKA_OTEL_PACKAGE_VERSION:-0.3.1}"
 install_package_from_registry postgresql_otel "${POSTGRESQL_OTEL_PACKAGE_VERSION:-0.5.0}"
 install_package_from_registry mongodb_otel "${MONGODB_OTEL_PACKAGE_VERSION:-0.3.1}"

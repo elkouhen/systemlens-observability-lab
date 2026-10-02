@@ -27,7 +27,7 @@ pas être actives en parallèle.
 kubectl -n elastic-stack get deployment,daemonset,pods
 make otel-validation
 make otel-gateway-vm-status
-vagrant ssh poc-01 -c 'sudo /opt/Elastic/Agent/elastic-agent status'
+vagrant ssh supermarket-middleware-01 -c 'sudo /opt/Elastic/Agent/elastic-agent status'
 ```
 
 ## Sources IaC

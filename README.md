@@ -1,4 +1,4 @@
-# POC d’observabilité Elastic
+# lab d’observabilité Elastic
 
 Ce dépôt fournit un environnement Kubernetes et Vagrant pour observer une
 application Java avec Elastic, OpenTelemetry, Kafka, MongoDB et PostgreSQL.

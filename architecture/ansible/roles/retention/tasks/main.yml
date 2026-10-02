@@ -1,6 +1,6 @@
 ---
 - name: Installer logrotate
-  ansible.builtin.dnf:
+  ansible.builtin.package:
     name: logrotate
     state: present
 

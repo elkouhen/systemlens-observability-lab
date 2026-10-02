@@ -40,8 +40,17 @@ présence récente de documents `metrics-*` dans Elasticsearch. Le déploiement
 reste volontairement séparé de cette validation : appliquer l'overlay seulement
 après revue du rendu.
 
-Les secrets restent hors Git. Les modifications durables doivent être faites
-dans les manifests, templates et scripts versionnés avant tout déploiement.
+Les secrets restent hors Git. Les mots de passe et clés utilisés par le lab
+peuvent être chargés depuis `.observability-credentials.env`, généré par
+`source ./platform/elk/scripts/generate-otel-edge-keys.sh`. Les modifications
+durables doivent être faites dans les manifests, templates et scripts
+versionnés avant tout déploiement.
+
+La vérification ILM exclut le data stream système
+`metrics-endpoint.metadata_current_default`, géré par l'intégration Endpoint
+de Fleet. Les flux `logs-*`, `metrics-*` et `traces-*` de la télémétrie du lab
+restent couverts par la policy déclarée dans
+`platform/elk/ilm/retention.json`.
 
 Les collecteurs Kubernetes s'authentifient auprès d'Edge avec deux clés Bearer
 distinctes, une pour `otel-kubernetes` et une pour

@@ -76,10 +76,16 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
+- name: Vérifier la génération des unités Quadlet Elastic
+  ansible.builtin.command:
+    argv: ["{{ podman_system_generator_path }}", --dryrun]
+  environment:
+    QUADLET_UNIT_DIRS: /etc/containers/systemd
+  changed_when: false
+
 - name: Démarrer Elasticsearch sur elk-01
   ansible.builtin.systemd_service:
     name: observability-elasticsearch.service
-    enabled: true
     state: started
 
 - name: Attendre Elasticsearch sur elk-01
@@ -198,14 +204,12 @@
 - name: Redémarrer APM Server et Kibana sur elk-01
   ansible.builtin.systemd_service:
     name: "{{ item }}.service"
-    enabled: true
     state: restarted
   loop: [observability-apm-server, observability-kibana]
 
 - name: Démarrer Fleet Server sur elk-01
   ansible.builtin.systemd_service:
     name: observability-fleet-server.service
-    enabled: true
     state: stopped
 
 - name: Attendre APM Server sur elk-01

@@ -1,5 +1,5 @@
 [Unit]
-Description=Suppression des archives de logs du POC de plus de 24 h
+Description=Suppression des archives de logs du lab de plus de 24 h
 
 [Service]
 Type=oneshot

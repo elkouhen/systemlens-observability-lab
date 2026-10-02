@@ -1,6 +1,6 @@
 # Supermarché en ligne — démonstration observabilité
 
-Ce POC simule le système d'information d'un supermarché avec trois
+Ce lab simule le système d'information d'un supermarché avec trois
 microservices Spring Boot : `order-service` gère la prise de commande,
 `inventory-service` gère le stock du catalogue et `restock-service` orchestre
 le réassort asynchrone. Le Dockerfile produit une image pour chacun.

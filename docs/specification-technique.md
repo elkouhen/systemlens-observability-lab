@@ -30,7 +30,7 @@ sont provisionnés par Ansible en mode EDOT standalone.
 | --- | --- | --- |
 | Service `otel-edge-vm` | Kubernetes, namespace `elastic-stack` | Exposer le Collecteur Edge sur les ports `4317` et `4318` |
 | EDOT DaemonSet | Kubernetes | Lire les logs stdout et les métriques Kubernetes prévues par la configuration |
-| Kafka | `poc-01` | Tamponner les signaux applicatifs, Kubernetes et VM dans trois topics dédiés |
+| Kafka | `supermarket-middleware-01` | Tamponner les signaux applicatifs, Kubernetes et VM dans trois topics dédiés |
 | Collector backend EDOT | `otel-backend-01` | Consommer Kafka, traiter les signaux et les exporter vers Elastic |
 | HAProxy | `otel-edge-01` | Exposer les points d’entrée OTLP |
 | Elasticsearch | `elk-01` | Stocker les signaux et fournir les API d’ingestion et de recherche |

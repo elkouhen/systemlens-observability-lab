@@ -1,16 +1,16 @@
 ---
 - name: Vérifier les variables injectées par Vagrant
   ansible.builtin.assert:
-    that: [node_id is defined, node_ip is defined, node_role is defined]
-    fail_msg: Vagrant doit fournir node_id, node_ip et node_role.
+    that: [node_ip is defined]
+    fail_msg: Vagrant doit fournir node_ip.
 
-- name: Vérifier les secrets nécessaires au POC
+- name: Vérifier les secrets nécessaires au lab
   ansible.builtin.assert:
     that:
       - postgresql_password | length > 0
       - mongodb_otel_password | length > 0
     fail_msg: Définir POSTGRESQL_PASSWORD et MONGODB_PASSWORD hors Git.
-  when: node_role == 'poc'
+  when: middleware_credentials_required | default(false)
 
 - name: Identifier l'interface du réseau privé
   ansible.builtin.shell: |
@@ -20,54 +20,43 @@
   register: private_network_device
   changed_when: false
 
-- name: Restaurer le contexte SELinux des profils NetworkManager avant modification
-  ansible.builtin.command: restorecon -RFv /etc/NetworkManager/system-connections
-  changed_when: false
-
-- name: Empêcher le réseau privé de devenir la route par défaut
-  ansible.builtin.shell: >-
-    nmcli connection modify
-    "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
-    ipv4.never-default yes
-    ipv4.ignore-auto-dns yes
-    ipv6.never-default yes
-    ipv6.ignore-auto-dns yes
-  changed_when: false
-
-- name: Réactiver le réseau privé sans route par défaut
-  ansible.builtin.shell: >-
-    nmcli connection up
-    "$(nmcli -g GENERAL.CONNECTION device show {{ private_network_device.stdout }})"
-    ifname {{ private_network_device.stdout }}
-  changed_when: false
-
-- name: Identifier la connexion NAT
-  ansible.builtin.shell: |
-    nmcli -g GENERAL.CONNECTION device show "$(ip route show default | awk 'NR == 1 { print $5 }')"
-  args:
-    executable: /bin/bash
-  register: nat_connection
-  changed_when: false
-
-- name: Vérifier qu'une connexion NAT et une route par défaut sont disponibles
+- name: Vérifier les interfaces réseau Ubuntu
   ansible.builtin.assert:
     that:
-      - nat_connection.stdout | trim | length > 0
+      - private_network_device.stdout | trim | length > 0
+      - ansible_default_ipv4.interface | length > 0
+      - private_network_device.stdout | trim != ansible_default_ipv4.interface
     fail_msg: >-
-      Aucune connexion NAT n'est associée à la route par défaut.
-      Le réseau privé ne doit pas fournir la route par défaut ; vérifier la
-      configuration VirtualBox et NetworkManager de la VM.
+      Les interfaces privée et NAT Ubuntu n'ont pas pu être identifiées
+      séparément.
 
-- name: Configurer les résolveurs IPv4 de la connexion NAT
-  ansible.builtin.shell: >-
-    nmcli connection modify "{{ nat_connection.stdout }}"
-    ipv4.never-default no ipv4.ignore-auto-dns yes ipv4.dns "{{ vm_dns_servers }}"
-    ipv6.ignore-auto-dns yes
-  changed_when: false
+- name: Empêcher le réseau privé de devenir la route par défaut sous Ubuntu
+  ansible.builtin.copy:
+    dest: /etc/netplan/99-observability-network.yaml
+    mode: '0600'
+    content: |
+      network:
+        version: 2
+        ethernets:
+          {{ private_network_device.stdout | trim }}:
+            dhcp4-overrides:
+              use-routes: false
+              use-dns: false
+            dhcp6-overrides:
+              use-routes: false
+              use-dns: false
+          {{ ansible_default_ipv4.interface }}:
+            dhcp4-overrides:
+              use-routes: true
+              use-dns: false
+            nameservers:
+              addresses: [{{ vm_dns_servers }}]
+  register: ubuntu_network_configuration
 
-- name: Réappliquer la connexion NAT
-  ansible.builtin.shell: nmcli connection up "{{ nat_connection.stdout }}"
-  changed_when: false
+- name: Appliquer la configuration réseau Ubuntu
+  ansible.builtin.command: netplan apply
+  when: ubuntu_network_configuration.changed
+  changed_when: true
 
 - name: Vérifier la résolution DNS avant les installations réseau
   ansible.builtin.command: getent ahostsv4 raw.githubusercontent.com
@@ -80,28 +69,53 @@
 - name: Installer le certificat racine d'entreprise si fourni
   ansible.builtin.copy:
     content: "{{ zscaler_ca_cert_content }}"
-    dest: /etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt
+    dest: "{{ '/usr/local/share/ca-certificates/zscaler-root-ca.crt' if ansible_os_family == 'Debian' else '/etc/pki/ca-trust/source/anchors/zscaler-root-ca.crt' }}"
     mode: '0644'
   register: zscaler_ca
   when: zscaler_ca_cert_content | length > 0
 
 - name: Actualiser le magasin de certificats
-  ansible.builtin.command: update-ca-trust extract
+  ansible.builtin.command: "{{ 'update-ca-certificates' if ansible_os_family == 'Debian' else 'update-ca-trust extract' }}"
   when: zscaler_ca.changed | default(false)
   changed_when: true
 
+- name: Actualiser les index APT avant l'installation des dépendances
+  ansible.builtin.apt:
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
 - name: Installer les dépendances système
-  ansible.builtin.dnf:
-    name: [podman, curl, openssl, chrony, haproxy, policycoreutils-python-utils]
+  ansible.builtin.package:
+    name: [podman, curl, openssl, chrony, haproxy, firewalld, ca-certificates]
     state: present
+
+- name: Vérifier la présence du générateur Quadlet rootful
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/lib/systemd/system-generators/podman-system-generator
+    - /lib/systemd/system-generators/podman-system-generator
+  register: podman_quadlet_generator_paths
+
+- name: Définir le chemin du générateur Quadlet rootful
+  ansible.builtin.set_fact:
+    podman_system_generator_path: >-
+      {{ (podman_quadlet_generator_paths.results | selectattr('stat.exists') | map(attribute='item') | list | first) | default('') }}
+
+- name: Refuser une installation Podman sans générateur Quadlet
+  ansible.builtin.assert:
+    that: podman_system_generator_path | length > 0
+    fail_msg: >-
+      Le générateur Quadlet rootful est absent. Réinstaller le paquet Ubuntu
+      podman avant de déployer les unités .container.
 
 - name: Collecter l'état des services système
   ansible.builtin.service_facts:
 
 - name: Configurer des sources NTP accessibles en IPv4
   ansible.builtin.replace:
-    path: /etc/chrony.conf
-    regexp: '^(pool 2\.rocky\.pool\.ntp\.org|server time\.cloudflare\.com|server time\.google\.com) iburst$'
+    path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
+    regexp: '^(pool .*\.pool\.ntp\.org|server time\.cloudflare\.com|server time\.google\.com) iburst$'
     replace: |-
       server 162.159.200.1 iburst
       server 162.159.200.123 iburst
@@ -110,7 +124,7 @@
 
 - name: Autoriser chrony à corriger automatiquement un décalage après un redémarrage
   ansible.builtin.lineinfile:
-    path: /etc/chrony.conf
+    path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
     regexp: '^makestep '
     line: makestep 1.0 3
     insertafter: EOF
@@ -118,7 +132,7 @@
 
 - name: Synchroniser l'horloge matérielle avec l'horloge système
   ansible.builtin.lineinfile:
-    path: /etc/chrony.conf
+    path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
     regexp: '^rtcsync$'
     line: rtcsync
     insertafter: '^makestep '
@@ -126,7 +140,7 @@
 
 - name: Redémarrer chrony après modification de sa configuration
   ansible.builtin.systemd_service:
-    name: chronyd
+    name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
     state: restarted
   when: >-
     chrony_configuration.changed or
@@ -135,7 +149,7 @@
 
 - name: Activer la synchronisation NTP
   ansible.builtin.systemd_service:
-    name: chronyd
+    name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
     enabled: true
     state: started
 
@@ -150,36 +164,17 @@
     permanent: true
     immediate: true
     state: enabled
-  loop: "{{ ([27017, 9092, 9093, 5432] if node_role == 'poc' else []) + ([9092, 9093, 8778, 9999, 4319, 4320] if node_role == 'otel_backend' else []) + ([4317, 4318] if node_role == 'otel_edge' else []) + ([8200, 9200, 5601, 8220] if node_role == 'elk' else []) + ([6443, 10250] if node_role == 'k3s' else []) }}"
+  loop: "{{ firewall_tcp_ports | default([]) }}"
   when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
-- name: Autoriser le réseau overlay k3s
+- name: Autoriser les ports UDP de la topologie sur firewalld
   ansible.posix.firewalld:
-    port: 8472/udp
+    port: "{{ item }}/udp"
     permanent: true
     immediate: true
     state: enabled
-  when:
-    - node_role == 'k3s'
-    - ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
-
-- name: Autoriser HAProxy à écouter ses ports otel-edge sous SELinux
-  ansible.builtin.command:
-    argv: [semanage, port, -a, -t, http_port_t, -p, tcp, "{{ item }}"]
-  loop: [4317, 4318]
-  register: haproxy_selinux_ports
-  changed_when: haproxy_selinux_ports.rc == 0
-  failed_when: >-
-    haproxy_selinux_ports.rc != 0 and
-    'already defined' not in (haproxy_selinux_ports.stderr | lower)
-  when: node_role == 'otel_edge'
-
-- name: Autoriser HAProxy à joindre les backends OTLP sous SELinux
-  ansible.posix.seboolean:
-    name: haproxy_connect_any
-    state: true
-    persistent: true
-  when: node_role == 'otel_edge'
+  loop: "{{ firewall_udp_ports | default([]) }}"
+  when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
 - name: Créer les répertoires de la plateforme
   ansible.builtin.file:
@@ -190,6 +185,7 @@
   loop:
     - /etc/observability
     - /etc/containers/systemd
+    - /usr/share/containers/systemd
     - /var/lib/observability
     - /var/lib/observability/otel-backend
     - /var/cache/observability
@@ -198,7 +194,7 @@
 - name: Installer la résolution locale des VM
   ansible.builtin.blockinfile:
     path: /etc/hosts
-    marker: '# {mark} POC OBSERVABILITY HOSTS'
+    marker: '# {mark} lab OBSERVABILITY HOSTS'
     block: |
       {{ supermarket_middleware_ip }} supermarket-middleware-01
       {{ otel_backend_ip }} otel-backend-01

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Réconcilier et contrôler les politiques ILM du POC sans exposer les secrets."""
+"""Réconcilier et contrôler les politiques ILM du lab sans exposer les secrets."""
 import argparse
 import base64
 import copy
@@ -45,6 +45,8 @@ def main():
         'phases': {'delete': copy.deepcopy(config['policy']['phases']['delete'])}}}
     patterns = ','.join(config['patterns'])
     streams = api('GET', '_data_stream/' + patterns)['data_streams']
+    excluded_streams = set(config.get('excluded_data_streams', []))
+    streams = [stream for stream in streams if stream['name'] not in excluded_streams]
     if not streams:
         raise RuntimeError('Aucun data stream de télémétrie trouvé.')
     if api('GET', '_ilm/status')['operation_mode'] != 'RUNNING':
@@ -118,7 +120,15 @@ def main():
         if lifecycle.get('name') != policy or str(lifecycle.get('prefer_ilm')).lower() != 'true':
             raise RuntimeError('Template non conforme : ' + stream['name'])
     indices = api('GET', patterns + '/_ilm/explain')['indices']
-    invalid = [name for name, state in indices.items() if state.get('policy') not in policies or state.get('step') == 'ERROR']
+    excluded_indices = {
+        index['index_name']
+        for stream in api('GET', '_data_stream/' + patterns)['data_streams']
+        if stream['name'] in excluded_streams
+        for index in stream['indices']
+    }
+    invalid = [name for name, state in indices.items()
+               if name not in excluded_indices and
+               (state.get('policy') not in policies or state.get('step') == 'ERROR')]
     if invalid:
         raise RuntimeError('Indices ILM non conformes : ' + ', '.join(invalid))
     print(f'ILM vérifié : {len(streams)} data streams, {len(indices)} indices, aucune erreur ILM.')

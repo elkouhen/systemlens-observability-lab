@@ -1,11 +1,11 @@
 ---
-- name: Vérifier MongoDB, Kafka et PostgreSQL sur les VM du POC
+- name: Vérifier MongoDB, Kafka et PostgreSQL sur les VM du lab
   hosts: supermarket-middleware-01
   become: true
   gather_facts: false
 
   tasks:
-    - name: Vérifier les conteneurs POC
+    - name: Vérifier les conteneurs lab
       ansible.builtin.command: podman ps --format '{{ "{{" }}.Names{{ "}}" }} {{ "{{" }}.Status{{ "}}" }}'
       register: podman_status
       changed_when: false

@@ -110,7 +110,7 @@ plateforme. Elastic documente également une architecture dans laquelle un
 connecteur Kafka ES Sink lit Kafka et écrit dans Elasticsearch ([architecture
 Elastic avec Kafka ES Sink](https://www.elastic.co/docs/manage-data/ingest/ingest-reference-architectures/agent-kafka-es)).
 
-Cette option est écartée pour le POC, car elle ne correspond pas à
+Cette option est écartée pour le lab, car elle ne correspond pas à
 l'architecture de référence proposée par Elastic. Kafka Connect est moins
 adapté qu'un exporteur OTel pour exporter les signaux EDOT vers
 Elasticsearch. Cette solution ajouterait Kafka Connect et un connecteur à

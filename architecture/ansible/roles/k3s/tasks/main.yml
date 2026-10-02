@@ -1,21 +1,8 @@
 ---
 - name: Installer les dépendances réseau k3s
-  ansible.builtin.dnf:
-    name: [iptables, conntrack-tools, iproute-tc, kernel-modules, kernel-modules-extra]
+  ansible.builtin.package:
+    name: [iptables, conntrack, iproute2]
     state: present
-
-- name: Détecter un noyau installé plus récent que le noyau actif
-  ansible.builtin.shell: >-
-    rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' |
-    sort -V | tail -n 1
-  register: latest_kernel
-  changed_when: false
-
-- name: Redémarrer pour charger le noyau et ses modules réseau
-  ansible.builtin.reboot:
-    msg: Redémarrage requis pour charger les modules réseau k3s
-    reboot_timeout: 600
-  when: latest_kernel.stdout | trim != ansible_kernel
 
 - name: Charger les modules noyau réseau requis par k3s
   community.general.modprobe:

@@ -1,5 +1,5 @@
 [Unit]
-Description=APM Server du POC
+Description=APM Server du lab
 After=network-online.target observability-elasticsearch.service
 Wants=network-online.target
 Requires=observability-elasticsearch.service
@@ -11,7 +11,6 @@ ContainerName=observability-apm-server
 Network=host
 EnvironmentFile=/etc/observability/apm-server.env
 Volume=/etc/observability/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro,Z
-Memory=768m
 Exec=-e -c /usr/share/apm-server/apm-server.yml
 
 [Service]

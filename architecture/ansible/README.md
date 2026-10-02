@@ -56,18 +56,21 @@ Une réinstallation doit être demandée explicitement avec la variable Ansible
 `elastic_agent_reinstall=true` ; elle ne fait pas partie du chemin normal de
 démarrage.
 
-Avant toute installation DNF, `site.yml` retire la route par défaut du réseau
-privé VirtualBox et configure des résolveurs IPv4 sur l'interface NAT. Cette
-séquence est nécessaire dès le premier provisioning, car les images Rocky
-peuvent donner la priorité au réseau privé et récupérer un DNS DHCP invalide.
+Avant toute installation de paquets, `site.yml` retire durablement la route par
+défaut du réseau privé VirtualBox avec une surcharge Netplan et configure des
+résolveurs IPv4 sur l’interface NAT. Les VM utilisent Ubuntu 24.04 LTS avec la
+box Vagrant `bento/ubuntu-24.04`.
+Le rôle `common` actualise les index APT juste avant l'installation afin d'éviter
+les références à des versions retirées des miroirs Ubuntu.
 Les valeurs par défaut (`1.1.1.1,8.8.8.8`) sont déclarées par `vm_dns_servers`
-dans `ansible/site.yml` et doivent être remplacées par les DNS de l'entreprise
+dans `inventory/group_vars/all.yml` et doivent être remplacées par les DNS de l'entreprise
 si le réseau sortant les impose.
 
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `supermarket-middleware-01`.
 
-Les redirections SSH Vagrant utilisent `VAGRANT_SSH_PORT_BASE + node_id`, avec
+Les redirections SSH Vagrant utilisent `VAGRANT_SSH_PORT_BASE + id` de la
+configuration Ruby `NODES`, avec
 une base fixée à `2250` par défaut. Si un port est déjà occupé sur l’hôte,
 Vagrant choisit automatiquement le prochain port disponible. Pour imposer une
 autre plage de départ, utiliser par exemple
@@ -104,14 +107,15 @@ Après une modification de la configuration EDOT du backend, utiliser
 du provisionnement et ne crée pas la VM si elle n’existe pas encore.
 
 Les agents EDOT qui envoient leurs signaux vers Edge utilisent une clé Bearer
-distincte par client. Les cibles Makefile qui provisionnent Edge chargent
-automatiquement `.otel-edge-keys.env` et vérifient les cinq clés avant
-d'exécuter Ansible. Pour lancer Ansible directement, charger le fichier dans
-le shell courant avec `source ./.otel-edge-keys.env`. Le collecteur Edge
+distincte par client. Les cibles Makefile qui provisionnent l'architecture
+chargent automatiquement `.observability-credentials.env` et vérifient les
+identifiants avant d'exécuter Ansible. Pour lancer Ansible directement, charger
+le fichier dans le shell courant avec `source ./.observability-credentials.env`.
+Le collecteur Edge
 conserve ces clés dans `/etc/observability/otel-edge.tokens` avec le mode
 `0600`.
 
-Pour générer et charger les clés Edge et les identifiants Kafka OTel du POC dans
+Pour générer et charger les clés Edge et les identifiants Kafka OTel du lab dans
 le shell courant, exécuter
 depuis `architecture/` :
 
@@ -119,10 +123,16 @@ depuis `architecture/` :
 source ./platform/elk/scripts/generate-otel-edge-keys.sh
 ```
 
-Le script conserve les identifiants dans `.otel-edge-keys.env`, ignoré par Git
-et protégé par le mode `0600`. Pour remplacer toutes les clés et identifiants,
-utiliser
-`OTEL_EDGE_KEYS_ROTATE=1 source ./platform/elk/scripts/generate-otel-edge-keys.sh`.
+La même génération peut être lancée sans conserver l'environnement du script
+avec `make credentials-generate`, puis le fichier peut être chargé avec
+`source ./.observability-credentials.env`.
+
+Le script conserve les clés Edge et les mots de passe dans
+`.observability-credentials.env`, ignoré par Git et protégé par le mode `0600`.
+Le fichier contient `POSTGRESQL_PASSWORD`, `MONGODB_PASSWORD`,
+`ELASTIC_PASSWORD`, les mots de passe Kafka OTel et les cinq clés Edge. Pour
+remplacer tous les identifiants, utiliser
+`OBSERVABILITY_CREDENTIALS_ROTATE=1 source ./platform/elk/scripts/generate-otel-edge-keys.sh`.
 
 Pour supprimer les cinq VM et leurs disques locaux, exécuter la cible
 destructive `make vms-destroy`. Cette opération ne supprime pas les ressources
@@ -139,12 +149,12 @@ une rotation de clé ou une modification de configuration.
 | `otel-backend-01` | Kafka OTel, backend OTel | Métriques, logs et traces locales → Kafka OTel local → APM Server / Elasticsearch |
 | `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
-| `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du POC |
+| `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du lab |
 
 ## Ordre de lecture
 
-1. `inventory/vagrant.yml` : hôtes ciblés et connexion SSH.
-2. `site.yml` : orchestration des rôles idempotents.
+1. `inventory/vagrant.yml` : hôtes ciblés, connexion SSH et capacités propres à chaque nœud ; les variables communes sont dans `inventory/group_vars/all.yml`.
+2. `site.yml` : orchestration des rôles idempotents par groupes d’inventaire.
 3. `roles/` : responsabilités séparées par type de VM et composants communs.
 4. `roles/*/templates/` : unités Podman Quadlet et configurations propres à chaque rôle.
 5. `status.yml` : diagnostic détaillé des services sur les VM.
@@ -153,13 +163,24 @@ une rotation de clé ou une modification de configuration.
 
 ## Rôles
 
-Le playbook `site.yml` applique les rôles dans cet ordre :
+Le playbook `site.yml` applique les rôles dans cet ordre, en utilisant les groupes de
+`inventory/vagrant.yml` comme structure de déploiement :
 
-1. `common` : prérequis système, réseau, pare-feu, SELinux, répertoires et
+1. `common` : prérequis système, réseau, pare-feu, répertoires et
    résolution des noms des VM ;
-2. `elastic_agent` : téléchargement, installation et configuration locale de l’agent EDOT ;
-3. un rôle de service selon `node_role` : `poc`, `otel_backend`, `otel_edge` ou
-   `elk`.
+2. `elk` sur `elk_nodes` : Elasticsearch, APM Server, Kibana et Fleet Server ;
+3. `otel_backend` sur `otel_backend_nodes` : Kafka OTel et backend OTel ;
+4. `otel_edge` sur `otel_edge_nodes` : collecteur Edge et HAProxy ;
+5. `lab` sur `supermarket_middleware_nodes` : MongoDB, Kafka métier et PostgreSQL ;
+6. `k3s` sur `k3s_nodes` : serveur Kubernetes ;
+7. `elastic_agent` sur `elastic_agent_nodes` : téléchargement et configuration EDOT,
+   après le démarrage des services dont les agents dépendent.
+
+Les ports pare-feu, la clé d’accès Edge et les besoins spécifiques du middleware
+sont également déclarés par hôte dans l’inventaire. Les rôles utilisent les
+groupes Ansible comme source de vérité pour sélectionner le comportement propre
+à chaque VM ; les conditions restantes portent sur l’état observé de la machine
+et l’idempotence.
 
 `site-restructured.yml` est conservé comme alias de compatibilité et importe
 `site.yml`. Chaque rôle possède ses propres templates afin que la tâche et la
@@ -196,41 +217,22 @@ make vms-up
 make vm-status
 ```
 
-Pour migrer le cluster k3d local vers k3s, utiliser :
+Pour préparer le cluster k3s local, utiliser :
 
 ```bash
 source ./platform/elk/scripts/load-credentials.sh
-make k3s-migrate
+make k3s-vm-up
+make k3s-kubeconfig
 ```
 
-La cible crée `k3s-01`, exporte son kubeconfig dans `.kube/k3s.config`,
-importe les images applicatives dans le runtime k3s et réapplique les manifests
-Elastic, OTel et applicatifs. Elle ne détruit pas le cluster k3d.
+La première cible crée et provisionne `k3s-01`. La seconde exporte son
+kubeconfig dans `.kube/k3s.config`. Le déploiement Elastic, OTel et applicatif
+reste piloté par les cibles de déploiement dédiées.
 
 L'installation de k3s utilise le script de la release épinglée sur GitHub. Ce
 chemin évite la dépendance à `get.k3s.io` lorsque son service de distribution
 est indisponible. La version reste déclarée par `k3s_version` dans
-`ansible/site.yml`.
-
-## Sauvegarde et restauration des VM
-
-La cible `make vms-backup` crée un snapshot Vagrant portant le même identifiant
-temporel pour `supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`. Le
-manifeste du dernier backup est conservé dans `.vagrant-backups/latest.env` ;
-les données du snapshot restent gérées par VirtualBox et ne sont pas versionnées.
-
-La restauration écrase l'état actuel des cinq VM. Elle exige une confirmation
-explicite et redémarre les VM sans reprovisionnement. Le démarrage est
-séquentiel afin que Vagrant recalcule les redirections SSH sans collision avec
-une ancienne instance :
-
-```bash
-make vms-restore-latest CONFIRM_RESTORE=YES
-```
-
-Pour laisser les VM arrêtées après la restauration, utiliser
-`START_AFTER_RESTORE=NO`. La restauration s'arrête avant toute modification si
-le snapshot indiqué par le manifeste est absent pour une VM.
+`inventory/group_vars/all.yml`.
 
 Après vérification des services, déployer le reste de l'architecture avec :
 
@@ -238,9 +240,20 @@ Après vérification des services, déployer le reste de l'architecture avec :
 make deploy
 ```
 
+L'ordre opérationnel est volontairement séquentiel : plateforme Elastic sur
+`elk-01`, backend OTel, Edge OTel, middleware du scénario, serveur k3s, puis
+collecteurs Kubernetes et applications. Les namespaces et secrets Kubernetes
+strictement nécessaires sont préparés en amont ; l'overlay Kubernetes complet
+n'est appliqué qu'après le backend et Edge.
+
+Lorsque `make deploy` réutilise une VM ELK déjà provisionnée, le mot de passe
+Elasticsearch persistant sur `elk-01` est utilisé comme source de vérité pour
+éviter un `401 Unauthorized` dû à un secret local différent. Le mot de passe
+n'est jamais affiché ni versionné.
+
 Les mots de passe restent dans `ELASTIC_PASSWORD`, `POSTGRESQL_PASSWORD` et
 `MONGODB_PASSWORD` hors du dépôt. Si `MONGODB_PASSWORD` n'est pas défini, le
-POC réutilise la valeur de `POSTGRESQL_PASSWORD`. La cible `ansible-deploy`
+lab réutilise la valeur de `POSTGRESQL_PASSWORD`. La cible `ansible-deploy`
 reste disponible pour l'orchestrateur Ansible complet.
 
 ## Documentation externe

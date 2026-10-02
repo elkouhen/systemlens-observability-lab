@@ -3,28 +3,6 @@
   hosts: all
   become: true
   gather_facts: true
-  vars:
-    elastic_agent_version: 9.4.3
-    otel_edge_ip: 192.168.33.30
-    elk_ip: 192.168.33.40
-    postgresql_database: observability_test
-    postgresql_user: observability
-    postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true) }}"
-    postgresql_otel_user: otel
-    postgresql_otel_password: "{{ postgresql_password }}"
-    mongodb_otel_user: otel_monitor
-    mongodb_password: "{{ lookup('env', 'MONGODB_PASSWORD') | default(lookup('env', 'POSTGRESQL_PASSWORD') | default('password', true), true) }}"
-    mongodb_otel_password: "{{ mongodb_password }}"
-    otel_kafka_publisher_username: otel_publisher
-    otel_kafka_publisher_password: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') | default('', true) }}"
-    otel_kafka_consumer_username: otel_consumer
-    otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') | default('', true) }}"
-    fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
-    otel_edge_client_key: >-
-      {% if node_role == 'poc' %}{{ lookup('env', 'OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE') | default('password', true) }}
-      {% elif node_role == 'otel_edge' %}{{ lookup('env', 'OTEL_EDGE_KEY_EDGE_AGENT') | default('password', true) }}
-      {% elif node_role == 'elk' %}{{ lookup('env', 'OTEL_EDGE_KEY_ELK_AGENT') | default('password', true) }}
-      {% else %}password{% endif %}
 
   roles:
     - role: elastic_agent

@@ -1,6 +1,6 @@
 # Architecture : Hybride Fleet
 
-L’architecture active du POC utilise Elastic
+L’architecture active du lab utilise Elastic
 Stack `9.4.3`, OpenTelemetry et EDOT pour les applications, Kubernetes et les
 VM. Les agents des VM sont installés en mode EDOT standalone. Leur supervision
 Fleet OpAMP est optionnelle et limitée au monitoring ; leur configuration reste
@@ -48,7 +48,7 @@ VM de données et VM de plateforme
 
 `otel-edge-01` fournit le point d’entrée exposé pour OTLP. `elk-01` héberge
 Elasticsearch, Kibana et Fleet Server. `otel-backend-01` héberge le Kafka OTel,
-le Collector backend et l’export vers Elastic. `poc-01` héberge le Kafka métier,
+le Collector backend et l’export vers Elastic. `supermarket-middleware-01` héberge le Kafka métier,
 MongoDB et PostgreSQL.
 
 Les namespaces Kubernetes conservés sont `elastic-stack` pour la plateforme
@@ -78,7 +78,7 @@ l’export vers Elastic.
 | --- | --- | --- |
 | `otel-edge-01` | Recevoir l’OTLP Kubernetes et VM puis publier dans Kafka | `architecture/ansible/roles/otel_edge/` |
 | EDOT DaemonSet | Collecter les logs et métriques Kubernetes | `architecture/platform/kubernetes/base/observability/` |
-| `poc-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
+| `supermarket-middleware-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
 | `otel-backend-01` | Consommer Kafka et exporter les signaux vers Elastic | `architecture/ansible/` |
 | `otel-edge-01` | Exposer les points d’entrée et héberger le Collecteur Edge | `architecture/ansible/` et `architecture/platform/kubernetes/` |
 | `elk-01` | Fournir Elasticsearch, Kibana et Fleet Server | `architecture/ansible/` |

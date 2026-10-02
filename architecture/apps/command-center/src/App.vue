@@ -86,7 +86,7 @@ function sendOrder() {
 
 function commandResult(command) {
   if (command === 'architecture-status') {
-    return ['✓ ARCH_NAME=Hybride Fleet', '  ELASTIC_STACK_VERSION=9.4.3', '  ARCH_ROOT=.']
+    return ['✓ ARCH_NAME=Hybride Fleet', '  ELASTIC_STACK_VERSION=9.5.4', '  ARCH_ROOT=.']
   }
   if (command === 'kubernetes-status') {
     return ['✓ elastic-stack   Elasticsearch, Kibana, Fleet   READY', '✓ h0tl-supermarche-app   3 services   READY']

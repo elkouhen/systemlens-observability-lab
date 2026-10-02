@@ -38,6 +38,10 @@ processors:
     check_interval: 1s
     limit_mib: 700
     spike_limit_mib: 150
+  cumulativetodelta:
+    include:
+      metric_types:
+        - histogram
   batch:
     timeout: 1s
     send_batch_size: 512
@@ -129,7 +133,7 @@ service:
   pipelines:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, batch]
+      processors: [memory_limiter, resource/internal-telemetry, cumulativetodelta, batch]
       exporters: [elasticsearch/otel]
     logs/internal-telemetry:
       receivers: [otlp/internal]
@@ -145,7 +149,7 @@ service:
       exporters: [otlphttp/apm-server]
     metrics:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, cumulativetodelta, batch]
       exporters: [elasticsearch/otel]
     logs:
       receivers: [kafka/otlp]

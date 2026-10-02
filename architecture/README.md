@@ -1,6 +1,6 @@
 # Architecture : Hybride Fleet
 
-Architecture de référence avec Elastic Stack `9.4.3`. Les applications,
+Architecture de référence avec Elastic Stack `9.5.4`. Les applications,
 Kubernetes et les VM utilisent OpenTelemetry/EDOT avec Kafka comme tampon. Le
 cluster Kubernetes de référence est k3s sur `k3s-01` ; k3d reste disponible
 uniquement pour la comparaison pendant la migration.
@@ -35,8 +35,50 @@ Elastic.
 
 Le code Java et les images sont partagés avec la plateforme. Le déploiement et
 la recette sont décrits dans le README Ansible et les cibles du `Makefile`.
-Pour migrer le cluster local k3d vers k3s, charger les identifiants puis
-exécuter `make k3s-migrate`. Le kubeconfig généré reste local et non versionné.
+Le cluster k3s de référence se prépare avec `make k3s-vm-up`, puis son
+kubeconfig local peut être exporté avec `make k3s-kubeconfig`.
+
+## Commandes principales
+
+`make help` affiche uniquement les parcours opérateur courants. Les cibles
+techniques conservées dans le `Makefile` servent aux dépendances et aux
+diagnostics ciblés ; elles restent utilisables directement lorsque cela est
+nécessaire.
+
+Pour préparer et vérifier l'environnement :
+
+```bash
+make architecture-status
+make credentials-generate
+make platform-status
+make kubernetes-validate
+make ansible-validate
+make ci-run
+```
+
+Pour construire et déployer :
+
+```bash
+make apps-build
+make apps-test
+make vms-start
+make architecture-deploy
+```
+
+Pour contrôler la chaîne d'observabilité et l'application :
+
+```bash
+make dashboards-verify
+make trace-context-verify
+make observability-schema-verify
+make application-data-verify
+make order-service-command
+```
+
+Les opérations de cycle de vie et de diagnostic avancé restent disponibles
+depuis `make help`, notamment `make retention-deploy` et `make otel-validate`.
+`make vms-destroy` est destructif et demande une validation explicite de
+l'opérateur.
 
 Documents propres à l'architecture :
 

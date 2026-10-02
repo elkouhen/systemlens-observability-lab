@@ -2,7 +2,7 @@
 set -euo pipefail
 
 profile=minimal
-data_node="${POC_VM_NAME:-data-01}"
+data_node="${MIDDLEWARE_VM_NAME:-data-01}"
 nodes=("${data_node}")
 
 run_on_vm() {

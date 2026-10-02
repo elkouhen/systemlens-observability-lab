@@ -1,7 +1,7 @@
 # Spécification fonctionnelle
 
 Cette spécification décrit les capacités attendues de la plateforme
-d’observabilité active pour les applications Java, Kubernetes et les VM du POC.
+d’observabilité active pour les applications Java, Kubernetes et les VM du lab.
 
 | Élément | Définition |
 | --- | --- |
@@ -40,7 +40,7 @@ Les objectifs fonctionnels sont les suivants :
 
 Le périmètre ne comprend pas la définition métier des services Java, la
 conservation d’un historique de production ou la gestion d’un cluster Elastic
-externe au POC.
+externe au lab.
 
 ## 3. Exigences fonctionnelles
 
@@ -116,7 +116,7 @@ chaîne de collecte.
 | AC-02 | L’opérateur exécute `make ansible-validate` | Les playbooks Ansible sont syntaxiquement valides sans provisioning |
 | AC-03 | Une application émet une trace et expose ses métriques | Les signaux sont transportés par la chaîne OTLP puis visibles dans Elastic |
 | AC-04 | Un pod couvert écrit sur stdout | Le log est collecté et consultable avec son contexte Kubernetes |
-| AC-05 | L’agent EDOT standalone de `poc-01` est actif | Les logs et métriques de la VM sont visibles après leur passage par Edge et Kafka |
+| AC-05 | L’agent EDOT standalone de `supermarket-middleware-01` est actif | Les logs et métriques de la VM sont visibles après leur passage par Edge et Kafka |
 | AC-06 | L’opérateur exécute `make otel-validation` | La validation OTLP retourne un résultat exploitable |
 | AC-07 | L’opérateur exécute `make dashboards-verify` | Les jeux de données attendus par les dashboards sont récents |
 

@@ -1,16 +1,15 @@
 [Unit]
-Description=Fleet Server du POC
+Description=Fleet Server du lab
 After=network-online.target observability-elasticsearch.service observability-kibana.service
 Wants=network-online.target
 Requires=observability-elasticsearch.service observability-kibana.service
 
 [Container]
-Image=docker.elastic.co/elastic-agent/elastic-agent:9.4.3
+Image=docker.elastic.co/elastic-agent/elastic-agent:9.5.4
 ContainerName=observability-fleet-server
 Network=host
 EnvironmentFile=/etc/observability/fleet-server.env
 Volume=/var/lib/observability/fleet-server:/usr/share/elastic-agent/state:Z
-Memory=768m
 Environment=FLEET_SERVER_ENABLE=true
 Environment=FLEET_SERVER_HOST=0.0.0.0
 Environment=FLEET_SERVER_PORT=8220

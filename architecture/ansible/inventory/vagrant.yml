@@ -1,8 +1,5 @@
 ---
 all:
-  vars:
-    ansible_user: vagrant
-    ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   children:
     supermarket_middleware_nodes:
       hosts:
@@ -10,42 +7,38 @@ all:
           ansible_host: 192.168.33.10
           ansible_port: 22
           ansible_ssh_private_key_file: .vagrant/machines/supermarket-middleware-01/virtualbox/private_key
-          node_id: 1
           node_ip: 192.168.33.10
-          node_role: poc
     otel_backend_nodes:
       hosts:
         otel-backend-01:
           ansible_host: 192.168.33.20
           ansible_port: 22
           ansible_ssh_private_key_file: .vagrant/machines/otel-backend-01/virtualbox/private_key
-          node_id: 2
           node_ip: 192.168.33.20
-          node_role: otel_backend
     otel_edge_nodes:
       hosts:
         otel-edge-01:
           ansible_host: 192.168.33.30
           ansible_port: 22
           ansible_ssh_private_key_file: .vagrant/machines/otel-edge-01/virtualbox/private_key
-          node_id: 3
           node_ip: 192.168.33.30
-          node_role: otel_edge
     elk_nodes:
       hosts:
         elk-01:
           ansible_host: 192.168.33.40
           ansible_port: 22
           ansible_ssh_private_key_file: .vagrant/machines/elk-01/virtualbox/private_key
-          node_id: 4
           node_ip: 192.168.33.40
-          node_role: elk
     k3s_nodes:
       hosts:
         k3s-01:
           ansible_host: 192.168.33.50
           ansible_port: 22
           ansible_ssh_private_key_file: .vagrant/machines/k3s-01/virtualbox/private_key
-          node_id: 5
           node_ip: 192.168.33.50
-          node_role: k3s
+    elastic_agent_nodes:
+      children:
+        supermarket_middleware_nodes:
+        otel_backend_nodes:
+        otel_edge_nodes:
+        elk_nodes:

@@ -3,63 +3,48 @@
   hosts: all
   become: true
   gather_facts: true
-  vars:
-    supermarket_middleware_ip: 192.168.33.10
-    otel_backend_ip: 192.168.33.20
-    otel_edge_ip: 192.168.33.30
-    elk_ip: 192.168.33.40
-    k3s_ip: 192.168.33.50
-    k3s_version: v1.31.6+k3s1
-    k3s_install_script_url: "https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | replace('+', '%2B') }}/install.sh"
-    vm_dns_servers: "1.1.1.1,8.8.8.8"
-    postgresql_database: observability_test
-    postgresql_user: observability
-    postgresql_password: "{{ lookup('env', 'POSTGRESQL_PASSWORD') | default('', true) }}"
-    postgresql_otel_user: otel
-    postgresql_otel_password: "{{ postgresql_password }}"
-    mongodb_otel_user: otel_monitor
-    mongodb_password: "{{ lookup('env', 'MONGODB_PASSWORD') | default(lookup('env', 'POSTGRESQL_PASSWORD') | default('', true), true) }}"
-    mongodb_otel_password: "{{ mongodb_password }}"
-    kafka_cluster_id: q1Sh-9_ISia_zwGINzRvyQ
-    kafka_controller_voters: 1@192.168.33.10:9093
-    otel_kafka_cluster_id: otelQ1Sh-9_ISia_zwGINzRvyQ
-    otel_kafka_controller_voters: 2@192.168.33.20:9093
-    otel_gateway_kafka_broker: 192.168.33.20:9092
-    otel_kafka_publisher_username: otel_publisher
-    otel_kafka_publisher_password: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') | default('', true) }}"
-    otel_kafka_consumer_username: otel_consumer
-    otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') | default('', true) }}"
-    elastic_agent_version: 9.4.3
-    apm_server_version: 9.4.3
-    elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('', true) }}"
-    apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"
-    otel_elasticsearch_api_key: "{{ lookup('env', 'OTEL_ELASTICSEARCH_API_KEY') | default('', true) }}"
-    otel_edge_key_supermarket_middleware: "{{ lookup('env', 'OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE') | default('', true) }}"
-    otel_edge_key_edge_agent: "{{ lookup('env', 'OTEL_EDGE_KEY_EDGE_AGENT') | default('', true) }}"
-    otel_edge_key_elk_agent: "{{ lookup('env', 'OTEL_EDGE_KEY_ELK_AGENT') | default('', true) }}"
-    otel_edge_key_kubernetes: "{{ lookup('env', 'OTEL_EDGE_KEY_KUBERNETES') | default('', true) }}"
-    otel_edge_key_kubernetes_cluster: "{{ lookup('env', 'OTEL_EDGE_KEY_KUBERNETES_CLUSTER') | default('', true) }}"
-    otel_edge_client_key: >-
-      {% if node_role == 'poc' %}{{ otel_edge_key_supermarket_middleware }}
-      {% elif node_role == 'otel_edge' %}{{ otel_edge_key_edge_agent }}
-      {% elif node_role == 'elk' %}{{ otel_edge_key_elk_agent }}
-      {% else %}password{% endif %}
-    fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
-    zscaler_ca_cert_content: "{{ lookup('env', 'ZSCALER_CA_CERT_CONTENT') | default('', true) }}"
-    fleet_url: "http://{{ elk_ip }}:8220"
-
   roles:
     - role: common
     - role: retention
-    - role: elastic_agent
-      when: node_role != 'k3s'
-    - role: poc
-      when: node_role == 'poc'
-    - role: otel_backend
-      when: node_role == 'otel_backend'
-    - role: otel_edge
-      when: node_role == 'otel_edge'
+
+- name: Déployer la plateforme Elastic
+  hosts: elk_nodes
+  become: true
+  gather_facts: true
+  roles:
     - role: elk
-      when: node_role == 'elk'
+
+- name: Déployer le backend OTel
+  hosts: otel_backend_nodes
+  become: true
+  gather_facts: true
+  roles:
+    - role: otel_backend
+
+- name: Déployer la passerelle Edge OTel
+  hosts: otel_edge_nodes
+  become: true
+  gather_facts: true
+  roles:
+    - role: otel_edge
+
+- name: Déployer le middleware du scénario
+  hosts: supermarket_middleware_nodes
+  become: true
+  gather_facts: true
+  roles:
+    - role: supermarket_middleware
+
+- name: Déployer le serveur k3s
+  hosts: k3s_nodes
+  become: true
+  gather_facts: true
+  roles:
     - role: k3s
-      when: node_role == 'k3s'
+
+- name: Installer et configurer les agents EDOT
+  hosts: elastic_agent_nodes
+  become: true
+  gather_facts: true
+  roles:
+    - role: elastic_agent

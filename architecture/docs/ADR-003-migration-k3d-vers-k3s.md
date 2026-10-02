@@ -10,7 +10,7 @@ Accepted
 
 ## Contexte
 
-Le cluster Kubernetes utilisé par le POC était un cluster k3d local nommé
+Le cluster Kubernetes utilisé par le lab était un cluster k3d local nommé
 `elastic`. Cette exécution dépend du runtime Docker de la machine opérateur et
 ne fournit pas un nœud Kubernetes indépendant pour les contrôles réseau et
 les validations de la chaîne d'observabilité.
@@ -22,7 +22,7 @@ Kubernetes vers une VM Vagrant dédiée.
 
 ## Décision
 
-Le POC utilise un cluster k3s mono-nœud sur `k3s-01`, avec l'adresse privée
+Le lab utilise un cluster k3s mono-nœud sur `k3s-01`, avec l'adresse privée
 `192.168.33.50`. La configuration du serveur k3s est provisionnée par Ansible
 et la VM est déclarée dans `Vagrantfile` et l'inventaire Vagrant.
 
@@ -57,7 +57,7 @@ augmenterait le risque de contention et compliquerait le diagnostic.
 ### Déployer un cluster k3s multi-nœuds
 
 Cette option fournirait une meilleure tolérance aux pannes, mais elle dépasse
-le besoin du POC et augmenterait les ressources et les opérations nécessaires.
+le besoin du lab et augmenterait les ressources et les opérations nécessaires.
 
 ## Conséquences
 

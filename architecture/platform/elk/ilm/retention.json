@@ -1,9 +1,12 @@
 {
-  "policy_name": "poc-observability-24h",
+  "policy_name": "supermarket-middleware-observability-24h",
   "patterns": [
     "logs-*",
     "metrics-*",
     "traces-*"
+  ],
+  "excluded_data_streams": [
+    "metrics-endpoint.metadata_current_default"
   ],
   "policy": {
     "phases": {

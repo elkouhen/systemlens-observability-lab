@@ -2,7 +2,10 @@ agent:
   grpc:
     port: 6790
 
-{% set internal_telemetry_port = 4320 if node_role == 'otel_edge' else 4317 %}
+{% set is_supermarket_middleware = 'supermarket_middleware_nodes' in group_names %}
+{% set is_otel_backend = 'otel_backend_nodes' in group_names %}
+{% set is_otel_edge = 'otel_edge_nodes' in group_names %}
+{% set internal_telemetry_port = 4320 if is_otel_edge else 4317 %}
 
 extensions:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/healthcheckextension
@@ -41,10 +44,10 @@ receivers:
       - /var/log/messages
       - /var/log/secure
       - /var/log/*.log
-{% if node_role in ['poc', 'otel_backend'] %}
+{% if is_supermarket_middleware or is_otel_backend %}
       - /var/log/kafka/*.log
 {% endif %}
-{% if node_role == 'poc' %}
+{% if is_supermarket_middleware %}
       - /var/log/mongodb/mongod.log
       - /var/log/postgresql/*.log
 {% endif %}
@@ -75,13 +78,13 @@ receivers:
       paging:
       processes:
 
-{% if node_role in ['poc', 'otel_backend'] %}
+{% if is_supermarket_middleware or is_otel_backend %}
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkametricsreceiver
   kafkametrics/local:
     brokers:
       - 127.0.0.1:9092
     protocol_version: 3.9.0
-{% if node_role == 'otel_backend' %}
+{% if is_otel_backend %}
     auth:
       sasl:
         username: "{{ otel_kafka_consumer_username }}"
@@ -95,9 +98,9 @@ receivers:
     collection_interval: 60s
 
 {% endif %}
-{% if node_role == 'poc' %}
+{% if is_supermarket_middleware %}
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/mongodbreceiver
-  mongodb/poc:
+  mongodb/supermarket_middleware:
     hosts:
       - endpoint: 127.0.0.1:27017
     username: {{ mongodb_otel_user }}
@@ -109,7 +112,7 @@ receivers:
       insecure: true
 
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/postgresqlreceiver
-  postgresql/poc:
+  postgresql/supermarket_middleware:
     endpoint: 127.0.0.1:5432
     username: {{ postgresql_otel_user }}
     password: {{ postgresql_otel_password }}
@@ -199,14 +202,14 @@ processors:
         action: upsert
 
 exporters:
-{% if node_role != 'otel_backend' %}
+{% if not is_otel_backend %}
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
   otlphttp/edge:
     endpoint: http://{{ otel_edge_ip }}:4318
     headers:
       Authorization: "Bearer {{ otel_edge_client_key }}"
 {% endif %}
-{% if node_role == 'otel_backend' %}
+{% if is_otel_backend %}
   # Le backend publie directement tous ses signaux dans le Kafka OTel local.
   kafka/backend:
     brokers: ["127.0.0.1:9092"]
@@ -268,30 +271,30 @@ service:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
       processors: [memory_limiter, resource/internal-telemetry, batch]
-      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
+      exporters: [{% if is_otel_backend %}kafka/backend{% else %}otlphttp/edge{% endif %}]
     logs/internal-telemetry:
       receivers: [otlp/internal]
       processors: [memory_limiter, resource/internal-telemetry, batch]
-      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
+      exporters: [{% if is_otel_backend %}kafka/backend{% else %}otlphttp/edge{% endif %}]
     traces/internal-telemetry:
       receivers: [otlp/internal]
       processors: [memory_limiter, resource/internal-telemetry, batch]
-      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
+      exporters: [{% if is_otel_backend %}kafka/backend{% else %}otlphttp/edge{% endif %}]
     logs:
       receivers: [filelog/system]
       processors: [memory_limiter, resource/agent, batch]
-      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
+      exporters: [{% if is_otel_backend %}kafka/backend{% else %}otlphttp/edge{% endif %}]
     metrics:
-      receivers: [hostmetrics/system{% if node_role in ['poc', 'otel_backend'] %}, kafkametrics/local{% endif %}{% if node_role == 'poc' %}, postgresql/poc{% endif %}]
+      receivers: [hostmetrics/system{% if is_supermarket_middleware or is_otel_backend %}, kafkametrics/local{% endif %}{% if is_supermarket_middleware %}, postgresql/supermarket_middleware{% endif %}]
       processors: [memory_limiter, resource/agent, batch]
-      exporters: [{% if node_role == 'otel_backend' %}kafka/backend{% else %}otlphttp/edge{% endif %}]
-{% if node_role == 'poc' %}
+      exporters: [{% if is_otel_backend %}kafka/backend{% else %}otlphttp/edge{% endif %}]
+{% if is_supermarket_middleware %}
     metrics/mongodb:
-      receivers: [mongodb/poc]
+      receivers: [mongodb/supermarket_middleware]
       processors: [memory_limiter, resource/agent, attributes/mongodb, batch]
       exporters: [otlphttp/edge]
     logs/postgresql:
-      receivers: [postgresql/poc]
+      receivers: [postgresql/supermarket_middleware]
       processors: [memory_limiter, resource/agent, batch]
       exporters: [otlphttp/edge]
 {% endif %}

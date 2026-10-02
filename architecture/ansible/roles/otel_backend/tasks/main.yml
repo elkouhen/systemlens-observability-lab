@@ -60,7 +60,6 @@
   ansible.builtin.systemd_service:
     name: observability-otel-kafka.service
     daemon_reload: true
-    enabled: true
     state: restarted
   when: otel_kafka_template.changed or otel_kafka_jaas.changed or otel_kafka_client.changed
 
@@ -71,8 +70,18 @@
 - name: S'assurer que le broker Kafka OTel est actif
   ansible.builtin.systemd_service:
     name: observability-otel-kafka.service
-    enabled: true
     state: started
+
+- name: Attendre la disponibilité de Kafka OTel
+  ansible.builtin.command: >-
+    podman exec --env KAFKA_OPTS= observability-otel-kafka
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092
+    --command-config /opt/kafka/config/otel-kafka-client.properties --list
+  register: otel_kafka_ready
+  changed_when: false
+  retries: 30
+  delay: 3
+  until: otel_kafka_ready.rc == 0
 
 - name: Arrêter l’ancien Gateway OTEL du backend
   ansible.builtin.systemd_service:
@@ -131,10 +140,16 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
+- name: Vérifier la génération des unités Quadlet backend OTel
+  ansible.builtin.command:
+    argv: ["{{ podman_system_generator_path }}", --dryrun]
+  environment:
+    QUADLET_UNIT_DIRS: /etc/containers/systemd
+  changed_when: false
+
 - name: Démarrer le collecteur backend OTEL
   ansible.builtin.systemd_service:
     name: "{{ item }}.service"
-    enabled: true
     state: restarted
   loop: [observability-otel-backend]
 

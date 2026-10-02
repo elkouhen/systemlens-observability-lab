@@ -3,7 +3,7 @@
 ## Audit scope
 
 This review applies the `microservices-architect` checks to the persisted
-SystemLens model of the supermarket-demo POC. It does not replace the indexed
+SystemLens model of the supermarket-demo lab. It does not replace the indexed
 facts with inferred runtime behavior.
 
 SystemLens reports:
@@ -43,7 +43,7 @@ technical integration dependencies, not proof of shared business data.
 
 The indexed REST edge is `order-service -> inventory-service` through
 `POST /api/reservations`. `OrderServiceApplication` creates a plain
-`RestTemplate` from `RestTemplateBuilder`, and the POC configuration does not
+`RestTemplate` from `RestTemplateBuilder`, and the lab configuration does not
 declare a connect timeout, read timeout, retry budget, circuit breaker, or
 fallback for this call.
 
@@ -82,7 +82,7 @@ Evidence:
 - `inventory-service/src/main/resources/application.yml:4-18`
 
 Impact: the service has a coherent ownership boundary, but the consistency
-boundary spans JPA, MongoDB, and Kafka. The POC does not show an outbox or an
+boundary spans JPA, MongoDB, and Kafka. The lab does not show an outbox or an
 explicit cross-resource transaction coordinator. A partial failure can require
 reconciliation between stock, fulfillment history, movement history, and the
 depletion event.
@@ -183,7 +183,7 @@ Evidence:
 - `restock-service/src/main/resources/application.yml:17-40`
 - `inventory-service/src/main/java/io/systemlens/supermarket/messaging/AbstractKafkaMessageProcessor.java:23-34`
 
-Impact: the POC can measure service and consumer behavior, but one order may be
+Impact: the lab can measure service and consumer behavior, but one order may be
 hard to follow across REST, Kafka, and persistence logs without infrastructure-
 level tracing not represented in the application model.
 

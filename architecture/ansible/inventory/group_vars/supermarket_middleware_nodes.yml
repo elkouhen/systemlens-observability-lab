@@ -1,0 +1,5 @@
+---
+otel_edge_client_key_env: OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE
+firewall_tcp_ports: [27017, 9092, 9093, 5432]
+firewall_udp_ports: []
+middleware_credentials_required: true

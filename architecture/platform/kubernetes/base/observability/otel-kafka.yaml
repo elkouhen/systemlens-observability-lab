@@ -285,7 +285,7 @@ spec:
       serviceAccountName: otel-collector
       containers:
         - name: collector
-          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.5.4
           securityContext:
             runAsUser: 0
             allowPrivilegeEscalation: false
@@ -359,7 +359,7 @@ spec:
                 secretKeyRef:
                   name: otel-edge-client-keys
                   key: otel-kubernetes-cluster
-          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.3
+          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.5.4
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -388,7 +388,12 @@ metadata:
 spec:
   backoffLimit: 6
   template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-telemetry-topics
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: OnFailure
       containers:
         - name: create-topics

@@ -17,47 +17,57 @@
     modification_time: preserve
     access_time: preserve
 
-- name: Télécharger l'agent Jolokia pour Kafka
-  ansible.builtin.get_url:
-    url: https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/2.2.0/jolokia-agent-jvm-2.2.0-javaagent.jar
-    dest: /opt/observability/jolokia-agent.jar
-    mode: '0644'
-
-- name: Déployer les middlewares du POC
+- name: Déployer les middlewares du lab
   ansible.builtin.template:
     src: "{{ role_path }}/templates/{{ item.template }}.container.j2"
     dest: "/etc/containers/systemd/{{ item.unit }}.container"
     mode: '0644'
-  register: poc_templates
+  register: middleware_templates
   loop:
     - {template: mongodb, unit: observability-mongodb}
     - {template: kafka, unit: observability-kafka}
     - {template: postgresql, unit: observability-postgresql}
 
+- name: Vérifier la génération des unités Quadlet du lab
+  ansible.builtin.command:
+    argv: ["{{ podman_system_generator_path }}", --dryrun]
+  environment:
+    QUADLET_UNIT_DIRS: /etc/containers/systemd
+  changed_when: false
+
 - name: Redémarrer Kafka après modification de sa déclaration
   ansible.builtin.systemd_service:
-    name: observability-kafka
+    name: observability-kafka.service
     daemon_reload: true
     state: restarted
-  when: poc_templates.results[1].changed
+  when: middleware_templates.results[1].changed
 
 - name: Redémarrer PostgreSQL après modification de sa déclaration
   ansible.builtin.systemd_service:
-    name: observability-postgresql
+    name: observability-postgresql.service
     daemon_reload: true
     state: restarted
-  when: poc_templates.results[2].changed
+  when: middleware_templates.results[2].changed
 
-- name: Recharger systemd pour les unités Quadlet du POC
+- name: Recharger systemd pour les unités Quadlet du lab
   ansible.builtin.systemd_service:
     daemon_reload: true
 
-- name: Démarrer les middlewares du POC
+- name: Démarrer les middlewares du lab
   ansible.builtin.systemd_service:
     name: "{{ item }}.service"
-    enabled: true
     state: started
   loop: [observability-mongodb, observability-kafka, observability-postgresql]
+
+- name: Attendre la disponibilité de Kafka métier
+  ansible.builtin.command: >-
+    podman exec --env KAFKA_OPTS= observability-kafka
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+  register: middleware_kafka_ready
+  changed_when: false
+  retries: 30
+  delay: 3
+  until: middleware_kafka_ready.rc == 0
 
 - name: Activer les statistiques PostgreSQL pour le dashboard Query Latency
   ansible.builtin.command:
