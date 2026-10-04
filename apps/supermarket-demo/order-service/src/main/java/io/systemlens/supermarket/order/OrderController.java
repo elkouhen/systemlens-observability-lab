@@ -5,13 +5,11 @@ import io.systemlens.supermarket.order.generated.model.HealthStatus;
 import io.systemlens.supermarket.order.generated.model.OrderRequest;
 import io.systemlens.supermarket.order.generated.model.ReservationResult;
 import io.systemlens.supermarket.contract.generated.event.OrderPlaced;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,12 +23,10 @@ public class OrderController implements CommandesApi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
 
-    private final RestTemplate restTemplate;
-    @Value("${order-service.inventory-service-url}")
-    private String inventoryServiceUrl;
+    private final OrderPlacementWorkflow placementWorkflow;
 
-    public OrderController(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public OrderController(OrderPlacementWorkflow placementWorkflow) {
+        this.placementWorkflow = placementWorkflow;
     }
 
     @Override
@@ -45,8 +41,7 @@ public class OrderController implements CommandesApi {
                 UUID.randomUUID().toString(), request.getProductId(), request.getQuantity(), OffsetDateTime.now());
         LOGGER.info("Commande recue: orderId={}, productId={}, quantity={}",
             order.getOrderId(), order.getProductId(), order.getQuantity());
-        ReservationResult reservation = restTemplate.postForObject(
-            inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
+        ReservationResult reservation = placementWorkflow.reserve(order);
         LOGGER.info("Commande reservee: orderId={}, productId={}, quantity={}, remainingStock={}",
             order.getOrderId(), order.getProductId(), order.getQuantity(), reservation.getRemainingStock());
         return reservation;
@@ -61,7 +56,7 @@ public class OrderController implements CommandesApi {
             new OrderPlaced(
                 UUID.randomUUID().toString(), "PASTA-500G", 999_999, OffsetDateTime.now());
         try {
-            restTemplate.postForObject(inventoryServiceUrl + "/api/reservations", order, ReservationResult.class);
+            placementWorkflow.reserve(order);
         } catch (HttpClientErrorException exception) {
             LOGGER.warn("Rupture de stock: orderId={}, productId={}, quantity={}",
                 order.getOrderId(), order.getProductId(), order.getQuantity());

@@ -1,6 +1,7 @@
 package io.systemlens.supermarket.inventory.adapter.in.web;
 
 import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
+import io.systemlens.supermarket.inventory.application.InventoryReservationWorkflow;
 import io.systemlens.supermarket.inventory.domain.OutOfStockException;
 import io.systemlens.supermarket.inventory.domain.ProductNotFoundException;
 import io.systemlens.supermarket.inventory.generated.api.StocksApi;
@@ -15,7 +16,11 @@ import java.util.Map;
 @RestController
 public class InventoryController implements StocksApi {
     private final InventoryUseCase inventory;
-    public InventoryController(InventoryUseCase inventory) { this.inventory=inventory; }
+    private final InventoryReservationWorkflow reservationWorkflow;
+    public InventoryController(InventoryUseCase inventory, InventoryReservationWorkflow reservationWorkflow) {
+        this.inventory = inventory;
+        this.reservationWorkflow = reservationWorkflow;
+    }
     @Override
     public HealthStatus health() { return new HealthStatus("ok"); }
 
@@ -28,7 +33,7 @@ public class InventoryController implements StocksApi {
 
     @Override
     public ReservationResult reserve(OrderPlaced order) {
-        InventoryUseCase.ReservationResult result = inventory.reserve(
+        InventoryUseCase.ReservationResult result = reservationWorkflow.reserve(
             order.getOrderId().toString(), order.getProductId(), order.getQuantity(), "rest", order.getRequestedAt().toInstant());
         return new ReservationResult(result.orderId(), result.productId(), result.productName(), result.quantity(),
             result.remainingStock(), result.channel(), result.durationMs());

@@ -1,6 +1,6 @@
 package io.systemlens.supermarket.inventory.adapter.in.messaging;
 
-import io.systemlens.supermarket.inventory.application.port.in.InventoryUseCase;
+import io.systemlens.supermarket.inventory.application.InventoryReservationWorkflow;
 import io.systemlens.supermarket.contract.generated.event.OrderPlaced;
 import io.systemlens.supermarket.messaging.AbstractKafkaMessageProcessor;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -10,10 +10,15 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KafkaOrderConsumer extends AbstractKafkaMessageProcessor<OrderPlaced> {
-    private final InventoryUseCase inventory;
-    public KafkaOrderConsumer(InventoryUseCase inventory) { this(inventory, new io.micrometer.core.instrument.simple.SimpleMeterRegistry()); }
+    private final InventoryReservationWorkflow reservationWorkflow;
+    public KafkaOrderConsumer(InventoryReservationWorkflow reservationWorkflow) {
+        this(reservationWorkflow, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+    }
     @Autowired
-    public KafkaOrderConsumer(InventoryUseCase inventory, MeterRegistry meterRegistry) { super(meterRegistry); this.inventory=inventory; }
+    public KafkaOrderConsumer(InventoryReservationWorkflow reservationWorkflow, MeterRegistry meterRegistry) {
+        super(meterRegistry);
+        this.reservationWorkflow = reservationWorkflow;
+    }
     @KafkaListener(topics="supermarket.order.placed", groupId="inventory-service")
     public void consume(OrderPlaced order) {
         consumeMessage(order, "orders", "supermarket.order.placed");
@@ -21,6 +26,6 @@ public class KafkaOrderConsumer extends AbstractKafkaMessageProcessor<OrderPlace
 
     @Override
     protected void processMessage(OrderPlaced order) {
-        inventory.reserve(order.getOrderId(), order.getProductId(), order.getQuantity(), "kafka", order.getRequestedAt().toInstant());
+        reservationWorkflow.reserve(order.getOrderId(), order.getProductId(), order.getQuantity(), "kafka", order.getRequestedAt().toInstant());
     }
 }

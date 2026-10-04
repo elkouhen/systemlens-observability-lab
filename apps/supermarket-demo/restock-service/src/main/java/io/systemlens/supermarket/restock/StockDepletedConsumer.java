@@ -9,28 +9,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-import java.time.OffsetDateTime;
 
 @Component
 public class StockDepletedConsumer extends AbstractKafkaMessageProcessor<StockDepleted> {
 
-    private static final int RESTOCK_QUANTITY = 500;
     private static final Logger LOGGER = LoggerFactory.getLogger(StockDepletedConsumer.class);
 
-    private final KafkaTemplate<String, StockRestockRequested> kafkaTemplate;
+    private final RestockRequestWorkflow requestWorkflow;
     private final Counter restocksRequested;
     @Autowired
-    public StockDepletedConsumer(KafkaTemplate<String, StockRestockRequested> kafkaTemplate,
+    public StockDepletedConsumer(RestockRequestWorkflow requestWorkflow,
                                 MeterRegistry meterRegistry) {
         super(meterRegistry);
-        this.kafkaTemplate = kafkaTemplate;
+        this.requestWorkflow = requestWorkflow;
         this.restocksRequested = Counter.builder("business.stock.restock.requested").description("Réassorts demandés").register(meterRegistry);
     }
 
-    public StockDepletedConsumer(KafkaTemplate<String, StockRestockRequested> kafkaTemplate) { this(kafkaTemplate, new io.micrometer.core.instrument.simple.SimpleMeterRegistry()); }
+    public StockDepletedConsumer(
+            org.springframework.kafka.core.KafkaTemplate<String, StockRestockRequested> kafkaTemplate,
+            MeterRegistry meterRegistry) {
+        this(new RestockRequestWorkflow(new RestockRequestPublisher(kafkaTemplate)), meterRegistry);
+    }
 
     @KafkaListener(topics = "supermarket.stock.depleted", groupId = "restock-service")
     public void requestRestock(StockDepleted event) {
@@ -39,10 +40,7 @@ public class StockDepletedConsumer extends AbstractKafkaMessageProcessor<StockDe
 
     @Override
     protected void processMessage(StockDepleted event) {
-        StockRestockRequested request = new StockRestockRequested(
-                event.getProductId(), RESTOCK_QUANTITY, OffsetDateTime.now()
-        );
-        kafkaTemplate.send("supermarket.stock.restock-requested", request.getProductId(), request);
+        StockRestockRequested request = requestWorkflow.publishRequest(event);
         restocksRequested.increment();
         LOGGER.info("Reassort demande: productId={}, quantity={}", request.getProductId(), request.getQuantity());
     }

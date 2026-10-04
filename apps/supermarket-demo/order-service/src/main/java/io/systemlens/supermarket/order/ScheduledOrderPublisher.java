@@ -1,7 +1,6 @@
 package io.systemlens.supermarket.order;
 
 import io.systemlens.supermarket.contract.generated.event.OrderPlaced;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,10 +23,10 @@ public class ScheduledOrderPublisher {
             "PASTA-500G", "BREAD-WHOLE", "MILK-1L", "COFFEE-250G", "EGGS-12"
     );
 
-    private final KafkaTemplate<String, OrderPlaced> kafkaTemplate;
+    private final OrderPublicationWorkflow publicationWorkflow;
 
-    public ScheduledOrderPublisher(KafkaTemplate<String, OrderPlaced> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
+    public ScheduledOrderPublisher(OrderPublicationWorkflow publicationWorkflow) {
+        this.publicationWorkflow = publicationWorkflow;
     }
 
     @Scheduled(cron = "${order-service.cron}")
@@ -36,6 +35,6 @@ public class ScheduledOrderPublisher {
         String productId = CATALOG_PRODUCT_IDS.get(random.nextInt(CATALOG_PRODUCT_IDS.size()));
         int quantity = random.nextInt(1, 6);
         OrderPlaced order = new OrderPlaced(UUID.randomUUID().toString(), productId, quantity, OffsetDateTime.now());
-        kafkaTemplate.send("supermarket.order.placed", order.getOrderId(), order);
+        publicationWorkflow.publish(order);
     }
 }
