@@ -45,6 +45,13 @@
             dhcp6-overrides:
               use-routes: false
               use-dns: false
+      {% if private_network_routes | default([]) | length > 0 %}
+            routes:
+      {% for route in private_network_routes %}
+              - to: {{ route.to }}
+                via: {{ route.via }}
+      {% endfor %}
+      {% endif %}
           {{ ansible_default_ipv4.interface }}:
             dhcp4-overrides:
               use-routes: true
@@ -174,6 +181,16 @@
     immediate: true
     state: enabled
   loop: "{{ firewall_udp_ports | default([]) }}"
+  when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
+
+- name: Classer les sources réseau nécessaires au forwarding dans trusted
+  ansible.posix.firewalld:
+    source: "{{ item }}"
+    zone: trusted
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ firewall_trusted_sources | default([]) }}"
   when: ansible_facts.services['firewalld.service'].state | default('stopped') == 'running'
 
 - name: Créer les répertoires de la plateforme

@@ -11,7 +11,7 @@ Usage: check-kafka-jolokia.sh [--url URL]
 Teste l'API Jolokia et les MBeans nécessaires aux streams Kafka Fleet.
 
 Exemples :
-  # Depuis la VM data-01
+  # Depuis la VM supermarket-middleware-01
   ./scripts/check-kafka-jolokia.sh
 
   # Depuis l'hôte, via le port Vagrant redirigé

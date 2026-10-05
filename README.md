@@ -20,7 +20,7 @@ make vm-status
 make architecture-deploy
 ```
 
-`make vms-start` démarre les quatre VM en parallèle, puis provisionne leurs rôles
+`make vms-start` démarre les cinq VM en parallèle, puis provisionne leurs rôles
 avec un seul playbook Ansible parallèle. Après le contrôle `make vm-status`,
 `make architecture-deploy` déploie la plateforme Elastic, Fleet,
 Kubernetes et l'application.
@@ -78,7 +78,7 @@ make apps-codeql-module-graph
 ```
 
 Ces commandes valident le modèle statique. Pour la validation de la plateforme,
-utiliser `make ci` sans déploiement, puis le parcours `make vms-up` et
+utiliser `make ci-run` sans déploiement, puis le parcours `make vms-up` et
 `make deploy` après fourniture des secrets hors Git.
 
 ## Architecture active
@@ -114,11 +114,17 @@ composant concerné.
 ```text
 architecture/          # plateforme et provisionnement de l’architecture active
 apps/supermarket-demo/ # code Java, Docker et tests Maven
-kubernetes/            # manifests applicatifs partagés
+kubernetes/            # manifests applicatifs partagés, hors plateforme Elastic
 docs/                  # procédures et références transverses
 scripts/               # diagnostics partagés
 certs/                 # certificats locaux et prérequis TLS
 ```
+
+`architecture/` est le point d’entrée de l’infrastructure active. Le dépôt
+conserve les manifests applicatifs sous `kubernetes/` et les validations
+transverses sous `validation/` afin de séparer le déploiement métier de la
+plateforme Elastic. Les cibles du Makefile d’architecture centralisent ces
+chemins et restent les seuls points d’entrée opérateur.
 
 ## Validation sans déploiement
 

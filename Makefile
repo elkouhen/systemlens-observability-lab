@@ -6,7 +6,7 @@ ARCH_NAME := Hybride Fleet
 SYSTEMLENS ?= systemlens
 VAGRANT ?= vagrant
 
-.PHONY: help architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit vagrant-destroy ci
+.PHONY: help architecture-status apps-architecture-graph apps-codeql-module-graph apm-install apm-audit vagrant-destroy ci ci-run
 
 help: ## Afficher les tâches de l'architecture par défaut
 	@printf 'Architecture par défaut : %s\n' '$(ARCH_NAME)'
@@ -16,10 +16,10 @@ help: ## Afficher les tâches de l'architecture par défaut
 	@printf '  apps-codeql-module-graph Analyser les dépendances de modules Java et actualiser le graphe\n'
 	@printf '  apm-install          Installer le contexte APM déclaré dans apm.yml\n'
 	@printf '  apm-audit            Auditer le contexte APM du projet\n'
-	@printf '  vms-up               Démarrer et provisionner les quatre VM\n'
+	@printf '  vms-up               Démarrer et provisionner les cinq VM\n'
 	@printf '  deploy               Déployer la plateforme et les applications après vms-up\n'
 	@printf '  vagrant-destroy      Détruire les VM de l’architecture active\n'
-	@printf "  ci                   Exécuter les validations de l'architecture\n"
+	@printf "  ci-run               Exécuter les validations de l'architecture\n"
 	@printf '  make <cible>         Déléguer la cible au bundle d’architecture\n'
 
 architecture-status: ## Afficher la configuration de l'architecture
@@ -56,6 +56,9 @@ vagrant-destroy: ## Détruire les VM de l’architecture active
 
 ci: ## Exécuter les validations de l'architecture
 	@$(MAKE) -C $(ARCH_ROOT) ci
+
+ci-run: ## Exécuter les validations reproductibles de l'architecture
+	@$(MAKE) -C $(ARCH_ROOT) ci-run
 
 %:
 	@$(MAKE) -C $(ARCH_ROOT) '$@'

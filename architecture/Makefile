@@ -8,6 +8,9 @@ K3S_VM_NAME ?= k3s-01
 K3S_VM_IP ?= 192.168.33.50
 K3S_KUBECONFIG ?= $(ARCH_ROOT)/.kube/k3s.config
 export KUBECONFIG ?= $(K3S_KUBECONFIG)
+APP_MANIFEST_ROOT ?= ../kubernetes/apps/supermarket-demo
+VALIDATION_ROOT ?= ../validation/otel
+SHARED_SCRIPTS_ROOT ?= ../scripts
 DEPLOYMENT_PROFILE := minimal
 ARCH_NAME := Hybride Fleet
 ARCH_ROOT := .
@@ -44,7 +47,7 @@ OBSERVABILITY_CREDENTIALS_FILE ?= $(ARCH_ROOT)/.observability-credentials.env
 # disponibles pour les dépendances et les diagnostics ciblés, sans apparaître
 # dans l'aide courante.
 HELP_TARGETS := help architecture-status credentials-show credentials-generate cluster-show \
-	platform-status kubernetes-status vm-status time-sync-verify \
+	platform-status kubernetes-status vm-status vm-services-status vm-services-restart time-sync-verify \
 	apps-build apps-test command-center-build \
 	kubernetes-validate ansible-validate elastic-version-validate ci-run \
 	vms-start vms-restart vms-destroy \
@@ -53,7 +56,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	application-data-verify order-service-command \
 	dashboards-verify trace-context-verify observability-schema-verify \
 	otel-validate retention-validate retention-deploy retention-verify \
-	stock-show order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
+	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
 .PHONY: help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy apm-token-sync fleet-sync \
@@ -61,10 +64,11 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
 	otel-edge-client-keys-apply otel-edge-vm-provision elastic-agent-vm-provision elastic-agent-backend-provision \
+	middleware-vm-provision \
 	vms-up vms-restart vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
-	dashboards-verify kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
+	dashboards-verify otel-flow-dashboard-deploy kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
 	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
-	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import k3s-vm-up k3s-kubeconfig public-tls-apply ci
+	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import k3s-vm-up k3s-vm-provision k3s-kubeconfig public-tls-apply ci
 
 .PHONY: cluster-show elasticsearch-wait kibana-wait fleet-prerequisites-validate fleet-registry-wait \
 	vms-start architecture-deploy deployment-finalize otel-validate ci-run stock-show slides-start \
@@ -106,8 +110,14 @@ kubernetes-status: ## Afficher l’état Elastic et applications
 
 vm-status: ## Vérifier l'état Vagrant et les services spécifiques des VM
 	@$(VAGRANT) status supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME)
-	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' MIDDLEWARE_VM_NAME='supermarket-middleware-01' ../scripts/cluster-status.sh
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' MIDDLEWARE_VM_NAME='supermarket-middleware-01' $(SHARED_SCRIPTS_ROOT)/cluster-status.sh
 	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-kafka observability-otel-backend && sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 --command-config /opt/kafka/config/otel-kafka-client.properties describe --status'
+
+vm-services-status: ## Afficher l'état des services de chaque VM et des workloads Kubernetes
+	@./scripts/vm-services-status.sh
+
+vm-services-restart: ## Redémarrer les services des VM puis les workloads Kubernetes
+	@./scripts/vm-services-restart.sh
 
 time-sync-verify: ## Vérifier la synchronisation chrony des cinq VM
 	@set -euo pipefail; for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME); do \
@@ -246,7 +256,7 @@ elastic-stack-deploy: ## Déployer Elasticsearch, Kibana et Fleet Server sur elk
 	fi
 
 postgresql-credentials-apply: ## Créer ou mettre à jour le secret PostgreSQL Fleet (requiert POSTGRESQL_PASSWORD)
-	@$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml
+	@$(KUBECTL) apply -f $(APP_MANIFEST_ROOT)/base/namespace.yaml
 	@postgresql_password="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}"; \
 	test -n "$$postgresql_password" || { echo "Définir POSTGRESQL_PASSWORD hors Git (requis au premier déploiement)" >&2; exit 1; }; \
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic postgresql-fleet-credentials \
@@ -335,6 +345,11 @@ business-dashboard-deploy: ## Importer le dashboard des métriques métier
 
 business-dashboard-replace: business-dashboard-deploy ## Supprimer puis réimporter le dashboard métier
 
+otel-flow-dashboard-deploy: ## Déployer le dashboard de santé des flux OTel
+	@kibana_password="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
+	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/replace-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/otel-flow-health-dashboard.json
+
 observability-policies-validate: ## Vérifier le manifeste versionné des SLO et alertes
 	@jq -e '(.slos | type == "array" and length > 0) and (.rules | type == "array" and length > 0) and ([.slos[].id, .rules[].id] | all(type == "string" and length > 0)) and ([.slos[] | select(.indicator.type == "sli.metric.timeslice") | ((.budgetingMethod == "timeslices") and (.objective.target > 0 and .objective.target < 1) and (.objective.timesliceTarget > 0 and .objective.timesliceTarget < 1) and (.objective.timesliceWindow | type == "string" and length > 0) and (.indicator.params.metric.metrics | type == "array" and length > 0))] | all) and ([.rules[].body | select(.rule_type_id == ".es-query" and .params.searchType == "esQuery") | .params.esQuery | fromjson] | all(type == "object")) and ([.rules[].body | select(.rule_type_id == ".es-query" and .params.searchType == "esqlQuery") | .params.esqlQuery.esql] | all(type == "string" and length > 0))' $(ARCH_ROOT)/platform/elk/alerts/observability-policies.json >/dev/null
 	@bash -n $(ARCH_ROOT)/platform/elk/scripts/sync-observability-policies.sh
@@ -355,7 +370,7 @@ apm-kibana-role-apply: ## Accorder au compte APM les droits Kibana APM/Fleet en 
 
 apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis par order-service
 	@set -euo pipefail; \
-	$(KUBECTL) apply -f ../kubernetes/apps/supermarket-demo/base/namespace.yaml; \
+	$(KUBECTL) apply -f $(APP_MANIFEST_ROOT)/base/namespace.yaml; \
 	token="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token -o jsonpath='{.data.secret-token}' | base64 --decode)"; \
 	ca_file="$$(mktemp)"; \
 	trap 'rm -f "$$ca_file"' EXIT; \
@@ -365,7 +380,7 @@ apm-token-sync: ## Copier dans le namespace applicatif les secrets APM requis pa
 
 apps-deploy: ## Déployer uniquement l'application de démonstration
 	@test '$(DEPLOYMENT_PROFILE)' = minimal || { echo "Profil Kubernetes inconnu : $(DEPLOYMENT_PROFILE) (seul minimal est supporté)" >&2; exit 1; }
-	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/default
+	@$(KUBECTL) apply -k $(APP_MANIFEST_ROOT)/default
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/order-service \
 		order-service=order-service:$(APP_IMAGE_TAG)
 	@$(KUBECTL) -n $(APP_NAMESPACE) set image deployment/inventory-service \
@@ -444,6 +459,13 @@ elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des ag
 elastic-agent-backend-provision: ## Déployer uniquement la configuration EDOT du backend
 	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision otel-backend-01 --provision-with ansible
 
+middleware-vm-provision: ## Reprovisionner le middleware et sa route vers le réseau des pods
+	@set -euo pipefail; \
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision supermarket-middleware-01 --provision-with ansible
+
+k3s-vm-provision: ## Reprovisionner k3s et le forwarding du réseau des pods
+	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' $(VAGRANT) provision $(K3S_VM_NAME) --provision-with ansible
+
 deploy:
 	@set -euo pipefail; \
 	password="$$( $(VAGRANT) ssh elk-01 -c 'sudo cat /etc/observability/elasticsearch.env' | sed -n 's/^ELASTIC_PASSWORD=//p' | head -n 1 | tr -d '\r' )"; \
@@ -466,7 +488,7 @@ deployment-finalize: deploy-post ## Finaliser les services VM et le monitoring O
 
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
-	@$(KUBECTL) kustomize ../kubernetes/apps/supermarket-demo/default >/dev/null
+	@$(KUBECTL) kustomize $(APP_MANIFEST_ROOT)/default >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
@@ -479,7 +501,7 @@ ansible-deploy: ## Déployer toute l'architecture via un seul orchestrateur Ansi
 	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
 otel-validation:
-	@inventory="$${INVENTORY:-validation/otel/inventory/hosts.yml}"; \
+	@inventory="$${INVENTORY:-$(VALIDATION_ROOT)/inventory/hosts.yml}"; \
 	validation_tags="$${VALIDATION_TAGS:-}"; \
 	case "$$inventory" in /*|../*) ;; *) inventory="../$$inventory";; esac; \
 	if [ -z "$${INVENTORY:-}" ]; then \
@@ -493,7 +515,7 @@ otel-validation:
 	  inventory="$$inventory_tmp"; \
 	fi; \
 	if [ -n "$$validation_tags" ]; then tag_args=(--tags "$$validation_tags"); else tag_args=(); fi; \
-	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook "$${tag_args[@]}" -i "$$inventory" ../validation/otel/playbook.yml
+	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook "$${tag_args[@]}" -i "$$inventory" $(VALIDATION_ROOT)/playbook.yml
 
 otel-validate: otel-validation ## Valider OTLP (VALIDATION_TAGS=host|direct ; vide = les deux)
 
@@ -508,7 +530,7 @@ fleet-sync: ## Synchroniser les pipelines et la policy Fleet
 		ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ./$(ARCH_ROOT)/platform/elk/scripts/sync-fleet-policies.sh
 
 mongodb-workload:
-	@$(VAGRANT) ssh supermarket-middleware-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < ../scripts/mongodb-elk-workload.js
+	@$(VAGRANT) ssh supermarket-middleware-01 -c 'sudo podman exec -i observability-mongodb mongosh --quiet' < $(SHARED_SCRIPTS_ROOT)/mongodb-elk-workload.js
 
 mongodb-workload-generate: mongodb-workload ## Générer une charge MongoDB courte pour valider la collecte
 
@@ -544,7 +566,7 @@ otel-edge-client-keys-apply: ## Créer les clés Bearer des clients OTLP Edge da
 		--from-literal=otel-kubernetes="$$kubernetes_key" \
 		--from-literal=otel-kubernetes-cluster="$$cluster_key" \
 		--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
-	$(KUBECTL) apply -f $(ARCH_ROOT)/../kubernetes/apps/supermarket-demo/base/namespace.yaml; \
+	$(KUBECTL) apply -f $(APP_MANIFEST_ROOT)/base/namespace.yaml; \
 	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic otel-edge-client-keys \
 		--from-literal=otel-kubernetes="$$kubernetes_key" \
 		--from-literal=otel-kubernetes-cluster="$$cluster_key" \
@@ -561,7 +583,7 @@ otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove otel-edge-client
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
-	@$(KUBECTL) apply -k ../kubernetes/apps/supermarket-demo/default
+	@$(KUBECTL) apply -k $(APP_MANIFEST_ROOT)/default
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
 

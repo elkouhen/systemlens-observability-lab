@@ -1,4 +1,0 @@
----
-# Compatibilité avec l'ancien point d'entrée. Le code actif est dans site.yml
-# et les rôles sous roles/.
-- import_playbook: site.yml

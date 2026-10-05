@@ -52,7 +52,7 @@ télémétrie suivent les procédures de [l’architecture](architecture.md).
 Depuis la racine du dépôt :
 
 ```bash
-make ci
+make ci-run
 ```
 
 Le résultat attendu est un rendu Kustomize valide, une syntaxe Ansible valide

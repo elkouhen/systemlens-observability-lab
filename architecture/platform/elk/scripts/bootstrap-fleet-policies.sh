@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Réconcilie les policies Fleet nécessaires aux quatre VM architecture.
+# Réconcilie les policies Fleet nécessaires aux cinq VM de l’architecture.
 set -euo pipefail
 
 kibana_url="${KIBANA_URL:-http://kibana.observability.test:5601}"

@@ -51,6 +51,7 @@ Pour préparer et vérifier l'environnement :
 make architecture-status
 make credentials-generate
 make platform-status
+make vm-services-status
 make kubernetes-validate
 make ansible-validate
 make ci-run
@@ -74,6 +75,26 @@ make observability-schema-verify
 make application-data-verify
 make order-service-command
 ```
+
+Le dashboard Kibana `Santé des flux OTel` suit les volumes de signaux, la
+fraîcheur des datasets, les hostmetrics, la télémétrie des collecteurs, le lag
+Kafka et les erreurs de collecte. Le déployer ou le réconcilier avec :
+
+```bash
+make otel-flow-dashboard-deploy
+```
+
+La cible utilise le secret Elasticsearch du namespace `elastic-stack`. Le
+dashboard est alimenté par les index `metrics-*`, `traces-*` et `logs-*` et
+utilise une fenêtre par défaut de quinze minutes.
+
+`make vm-services-status` affiche, VM par VM, l'état des unités systemd, des
+conteneurs Podman et des workloads Kubernetes présents sur `k3s-01`. Le
+diagnostic est en lecture seule.
+
+`make vm-services-restart` redémarre les services des VM dans l'ordre des
+dépendances, redémarre ensuite les Deployments applicatifs Kubernetes et
+attend leur rollout. Cette opération perturbe temporairement la plateforme.
 
 Les opérations de cycle de vie et de diagnostic avancé restent disponibles
 depuis `make help`, notamment `make retention-deploy` et `make otel-validate`.

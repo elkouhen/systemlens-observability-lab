@@ -19,15 +19,11 @@
   failed_when: false
   when: elastic_agent_state.results[0].stat.exists
 
-- name: Déterminer la transition depuis Fleet classique
+- name: Déterminer l’état cible EDOT de l’agent
   ansible.builtin.set_fact:
-    elastic_agent_binary_exists: "{{ elastic_agent_state.results[0].stat.exists }}"
-    elastic_agent_otel_configured: "{{ elastic_agent_state.results[1].stat.exists }}"
-    elastic_agent_version_matches: >-
-      {{ elastic_agent_version_state.stdout | default('') is search('Binary:\s*' ~ elastic_agent_version) }}
-    elastic_agent_otel_install_required: >-
+    elastic_agent_install_required: >-
       {{ not elastic_agent_state.results[0].stat.exists or
-         (elastic_agent_state.results[0].stat.exists and not elastic_agent_state.results[1].stat.exists) or
+         not elastic_agent_state.results[1].stat.exists or
          not (elastic_agent_version_state.stdout | default('') is search('Binary:\s*' ~ elastic_agent_version)) or
          (elastic_agent_reinstall | default(false) | bool) }}
 
@@ -38,28 +34,6 @@
     owner: root
     mode: '0755'
 
-- name: Arrêter l’agent avant sa conversion en mode EDOT
-  ansible.builtin.systemd_service:
-    name: elastic-agent.service
-    state: stopped
-    enabled: false
-  when:
-    - elastic_agent_binary_exists
-    - not elastic_agent_otel_configured or not elastic_agent_version_matches or elastic_agent_reinstall | default(false) | bool
-  failed_when: false
-
-- name: Désinstaller l’agent Fleet avant sa conversion en mode EDOT
-  ansible.builtin.command:
-    argv:
-      - /opt/Elastic/Agent/elastic-agent
-      - uninstall
-      - --force
-  when:
-    - elastic_agent_binary_exists
-    - not elastic_agent_otel_configured or not elastic_agent_version_matches or elastic_agent_reinstall | default(false) | bool
-  no_log: true
-  failed_when: false
-
 - name: Télécharger Elastic Agent pour le mode EDOT
   ansible.builtin.get_url:
     url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
@@ -67,7 +41,7 @@
     mode: '0644'
     force: false
     timeout: "{{ elastic_agent_download_timeout | default(120) }}"
-  when: elastic_agent_otel_install_required
+  when: elastic_agent_install_required
   register: elastic_agent_download
   retries: "{{ elastic_agent_download_retries | default(5) }}"
   delay: "{{ elastic_agent_download_delay | default(15) }}"
@@ -78,7 +52,7 @@
     src: "/var/cache/observability/elastic-agent-{{ elastic_agent_version }}-linux-{{ elastic_agent_arch }}.tar.gz"
     dest: /var/tmp
     remote_src: true
-  when: elastic_agent_otel_install_required
+  when: elastic_agent_install_required
 
 - name: Installer Elastic Agent comme service standalone EDOT
   ansible.builtin.command:
@@ -87,7 +61,7 @@
       - install
       - --non-interactive
       - --force
-  when: elastic_agent_otel_install_required
+  when: elastic_agent_install_required
   no_log: true
 
 - name: Déployer la configuration EDOT de l’agent
@@ -149,7 +123,7 @@
     name: elastic-agent.service
     enabled: true
     state: restarted
-  when: elastic_agent_configuration.changed or elastic_agent_otel_install_required
+  when: elastic_agent_configuration.changed or elastic_agent_install_required
 
 - name: Vérifier la santé de l’agent EDOT
   ansible.builtin.command:

@@ -75,6 +75,7 @@ Vagrant.configure("2") do |config|
         elk: "OTEL_EDGE_KEY_ELK_AGENT",
         k3s: ""
       }.fetch(node_config[:role], "")
+      otel_edge_client_key = otel_edge_client_key_env.empty? ? "" : ENV.fetch(otel_edge_client_key_env, "")
       ansible_extra_vars = {
         "node_ip" => node_config[:ip],
         "otel_edge_client_key_env" => otel_edge_client_key_env,
@@ -87,7 +88,13 @@ Vagrant.configure("2") do |config|
         "fleet_enrollment_token" => fleet_enrollment_token || "",
         "otel_kafka_publisher_password" => kafka_otel_publisher_password,
         "otel_kafka_consumer_password" => kafka_otel_consumer_password,
-        "zscaler_ca_cert_content" => zscaler_ca_cert_content
+        "zscaler_ca_cert_content" => zscaler_ca_cert_content,
+        "otel_edge_key_supermarket_middleware" => ENV.fetch("OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE", ""),
+        "otel_edge_key_edge_agent" => ENV.fetch("OTEL_EDGE_KEY_EDGE_AGENT", ""),
+        "otel_edge_key_elk_agent" => ENV.fetch("OTEL_EDGE_KEY_ELK_AGENT", ""),
+        "otel_edge_key_kubernetes" => ENV.fetch("OTEL_EDGE_KEY_KUBERNETES", ""),
+        "otel_edge_key_kubernetes_cluster" => ENV.fetch("OTEL_EDGE_KEY_KUBERNETES_CLUSTER", ""),
+        "otel_edge_client_key" => otel_edge_client_key
       }
 
       node.vm.provision "ansible" do |ansible|

@@ -49,9 +49,9 @@ Le mode EDOT standalone est idempotent : la présence de
 `elastic_agent_version`, conserve l'installation après un redémarrage ou un
 reprovisionnement. Une installation n'est relancée que si l'agent est absent,
 que le mode EDOT est absent, que la version diffère ou qu'une réinstallation
-explicite est demandée. Les VM ne sont pas enrôlées comme agents
-Fleet classiques ; elles peuvent être visibles dans Fleet comme collecteurs
-OTel monitorés par OpAMP.
+explicite est demandée. Les VM restent en mode EDOT standalone et ne reçoivent
+pas de policy Fleet de collecte ; elles peuvent être visibles dans Fleet comme
+collecteurs OTel monitorés par OpAMP.
 Une réinstallation doit être demandée explicitement avec la variable Ansible
 `elastic_agent_reinstall=true` ; elle ne fait pas partie du chemin normal de
 démarrage.
@@ -60,6 +60,11 @@ Avant toute installation de paquets, `site.yml` retire durablement la route par
 défaut du réseau privé VirtualBox avec une surcharge Netplan et configure des
 résolveurs IPv4 sur l’interface NAT. Les VM utilisent Ubuntu 24.04 LTS avec la
 box Vagrant `bento/ubuntu-24.04`.
+Sur `supermarket-middleware-01`, la même configuration conserve une route
+persistante vers le réseau des pods k3s (`10.42.0.0/16` via `k3s-01`) afin que
+les connexions Kubernetes vers PostgreSQL, MongoDB et Kafka aient un chemin
+retour explicite. `k3s-01` classe également ce réseau dans la zone firewalld
+`trusted` afin que le trafic des pods puisse sortir par son interface privée.
 Le rôle `common` actualise les index APT juste avant l'installation afin d'éviter
 les références à des versions retirées des miroirs Ubuntu.
 Les valeurs par défaut (`1.1.1.1,8.8.8.8`) sont déclarées par `vm_dns_servers`
@@ -182,9 +187,9 @@ groupes Ansible comme source de vérité pour sélectionner le comportement prop
 à chaque VM ; les conditions restantes portent sur l’état observé de la machine
 et l’idempotence.
 
-`site-restructured.yml` est conservé comme alias de compatibilité et importe
-`site.yml`. Chaque rôle possède ses propres templates afin que la tâche et la
-configuration déployée restent au même endroit.
+`site.yml` est l'unique point d'entrée du provisionnement général. Chaque rôle
+possède ses propres templates afin que la tâche et la configuration déployée
+restent au même endroit.
 
 Le playbook `fleet-agent.yml` est le point d'entrée du monitoring OpAMP. Il
 réapplique la configuration EDOT avec un jeton fourni temporairement par la

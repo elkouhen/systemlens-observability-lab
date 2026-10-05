@@ -1,18 +1,20 @@
-# Scripts partagés des VM
+# Scripts partagés de l’infrastructure
 
-Ce dossier ne contient que les utilitaires d'infrastructure commune, hors ELK
-Kubernetes. Les scripts Elastic/Kibana sont dans `platform/elk/scripts/`.
+Ce dossier contient les utilitaires d'infrastructure commune qui sont appelés
+par le Makefile d'architecture. Les scripts Elastic et Kibana sont dans
+`architecture/platform/elk/scripts/`.
 
 ## Fichiers
 
-- `cluster-status.sh` : vérifie les conteneurs et Kafka/MongoDB de l'unique VM
-  `data-01`.
+- `cluster-status.sh` : vérifie les conteneurs et les services de
+  `supermarket-middleware-01`.
 - `check-kafka-jolokia.sh` : contrôle que Jolokia expose les MBeans requis par
   les streams Kafka de la policy Fleet (`make kafka-jolokia-verify`).
 - `mongodb-elk-workload.js` : génère une charge MongoDB pour observer le flux
   dans Elastic (`make mongodb-workload`).
 
-Lire d'abord `ansible/README.md` pour comprendre ce que ces scripts vérifient.
+Lire d'abord `architecture/ansible/README.md` pour comprendre ce que ces
+scripts vérifient.
 
 ## Documentation externe
 
