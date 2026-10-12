@@ -1,0 +1,59 @@
+{
+  "format": "systemlens-ai-graph-v1",
+  "project": "supermarket-demo",
+  "generated_by": {
+    "agent": "Codex",
+    "model": "GPT-6",
+    "source_revision": "working-tree",
+    "pass": "poc-002",
+    "namespace": "poc-ai-analysis"
+  },
+  "mode": "complete",
+  "nodes": [
+    {
+      "id": "service-inventory",
+      "kind": "service",
+      "name": "inventory-service",
+      "evidence": [
+        {
+          "path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java",
+          "start_line": 91
+        }
+      ]
+    },
+    {
+      "id": "collection-order-fulfillments",
+      "kind": "collection",
+      "name": "inventory-service:order_fulfillments",
+      "owner": "inventory-service",
+      "evidence": [
+        {
+          "path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/adapter/out/persistence/mongodb/OrderFulfillmentDocument.java",
+          "start_line": 7
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "stock-movement-failure-compensates-fulfillment",
+      "source": "service-inventory",
+      "target": "collection-order-fulfillments",
+      "kind": "failure_compensation",
+      "relation": "failed_write_triggers_compensating_delete",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidence": [
+        {
+          "path": "inventory-service/src/main/java/io/systemlens/supermarket/inventory/application/InventoryApplicationService.java",
+          "start_line": 92
+        }
+      ],
+      "metadata": {
+        "condition": "movements.save throws RuntimeException",
+        "effect": "fulfillments.deleteById(orderId)",
+        "context": "StockMovementEntity persistence failure"
+      }
+    }
+  ]
+}
