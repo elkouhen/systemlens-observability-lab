@@ -142,8 +142,17 @@
   changed_when: "'created' in mongodb_otel_user_config.stdout"
   no_log: true
 
+# Au premier provisionnement, le rôle elastic_agent (exécuté après ce rôle dans
+# site.yml) n'a pas encore installé l'agent : il démarrera avec les comptes
+# déjà créés. Le redémarrage ne concerne donc qu'un agent déjà présent.
+- name: Inventorier les services systemd
+  ansible.builtin.service_facts:
+  when: postgresql_otel_user_config.changed or mongodb_otel_user_config.changed
+
 - name: Redémarrer l’agent EDOT après la création des comptes de supervision
   ansible.builtin.systemd_service:
     name: elastic-agent.service
     state: restarted
-  when: postgresql_otel_user_config.changed or mongodb_otel_user_config.changed
+  when:
+    - postgresql_otel_user_config.changed or mongodb_otel_user_config.changed
+    - "'elastic-agent.service' in ansible_facts.services"

@@ -83,6 +83,23 @@
     QUADLET_UNIT_DIRS: /etc/containers/systemd
   changed_when: false
 
+# Les unités Quadlet tirent l'image au démarrage, sous le timeout systemd :
+# un premier téléchargement (~1 Go, proxy TLS) l'excède et boucle. Les images
+# sont donc pré-téléchargées ici, hors systemd, avec réessais.
+- name: Pré-télécharger les images Elastic sur elk-01
+  ansible.builtin.shell:
+    cmd: podman image exists '{{ item }}' && echo present || podman pull --quiet '{{ item }}'
+  loop:
+    - docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    - docker.elastic.co/kibana/kibana:9.5.4
+    - docker.elastic.co/elastic-agent/elastic-agent:9.5.4
+    - docker.elastic.co/apm/apm-server:{{ apm_server_version }}
+  register: elastic_image_pull
+  changed_when: elastic_image_pull.stdout != 'present'
+  retries: 3
+  delay: 10
+  until: elastic_image_pull.rc == 0
+
 - name: Démarrer Elasticsearch sur elk-01
   ansible.builtin.systemd_service:
     name: observability-elasticsearch.service

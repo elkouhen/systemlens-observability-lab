@@ -28,7 +28,8 @@ COPY inventory-service/pom.xml inventory-service/pom.xml
 COPY restock-service/pom.xml restock-service/pom.xml
 RUN mvn --batch-mode --projects order-service,inventory-service,restock-service --also-make dependency:go-offline
 
-COPY supermarket-contracts/src supermarket-contracts/src
+# supermarket-contracts n'a pas de sources : ses classes sont générées en
+# generate-sources depuis inventory-service/src/main/resources/static/asyncapi.yaml.
 COPY kafka-processing/src kafka-processing/src
 COPY order-service/src order-service/src
 COPY inventory-service/src inventory-service/src

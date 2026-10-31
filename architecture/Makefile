@@ -471,6 +471,7 @@ deploy:
 	password="$$( $(VAGRANT) ssh elk-01 -c 'sudo cat /etc/observability/elasticsearch.env' | sed -n 's/^ELASTIC_PASSWORD=//p' | head -n 1 | tr -d '\r' )"; \
 	test -n "$$password" || { echo 'Mot de passe Elasticsearch introuvable sur elk-01.' >&2; exit 1; }; \
 	export ELASTIC_PASSWORD="$$password"; \
+	$(MAKE) k3s-kubeconfig; \
 	SKIP_ELK_VM_PROVISION=1 $(MAKE) elk-deploy; \
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
