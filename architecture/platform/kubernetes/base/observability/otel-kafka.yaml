@@ -168,6 +168,13 @@ data:
           auth_type: serviceAccount
         metric_groups: [node, pod, container, volume]
         extra_metadata_labels: [container.id]
+        # Métriques optionnelles lues par les dashboards [Kubernetes OTel] ;
+        # émises uniquement pour les pods qui déclarent des limites.
+        metrics:
+          k8s.pod.cpu_limit_utilization:
+            enabled: true
+          k8s.pod.memory_limit_utilization:
+            enabled: true
     processors:
       memory_limiter:
         check_interval: 1s
@@ -241,6 +248,12 @@ data:
         # Requis par les dashboards [Kubernetes OTel] pour calculer la
         # saturation CPU et mémoire des nœuds.
         allocatable_types_to_report: [cpu, memory]
+        # Requis par les dashboards [Kubernetes OTel] : pression mémoire des
+        # nœuds et raison du dernier arrêt des conteneurs.
+        node_conditions_to_report: [Ready, MemoryPressure]
+        resource_attributes:
+          k8s.container.status.last_terminated_reason:
+            enabled: true
     processors:
       memory_limiter:
         check_interval: 1s

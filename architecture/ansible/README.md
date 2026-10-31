@@ -74,6 +74,20 @@ si le réseau sortant les impose.
 La cible `make stock-view` affiche le catalogue et le stock depuis PostgreSQL
 sur `supermarket-middleware-01`.
 
+Le receiver PostgreSQL OTel émet aussi les événements `db.server.query_sample`
+et `db.server.top_query`. L'extension `pg_stat_statements` est créée dans la
+base applicative et dans la base `postgres`, que le receiver utilise pour les
+top queries. Le collecteur backend conserve ces événements en mode OTel natif
+(pas de forçage ECS) afin qu'ils arrivent dans `logs-postgresqlreceiver.otel-*`,
+le data stream lu par les dashboards du package `postgresql_otel`. Contrôle :
+`make postgresql-otel-dashboards-verify`.
+
+Lors du premier provisionnement, les images Elastic sont pré-téléchargées sur
+`elk-01` avant le démarrage des unités Quadlet : un téléchargement sous systemd
+dépasse son délai de démarrage. Derrière un proxy TLS (`ZSCALER_CA_CERT`
+défini), le certificat racine est aussi monté dans Kibana
+(`NODE_EXTRA_CA_CERTS`) pour l'accès au registre des packages Fleet.
+
 Les redirections SSH Vagrant utilisent `VAGRANT_SSH_PORT_BASE + id` de la
 configuration Ruby `NODES`, avec
 une base fixée à `2250` par défaut. Si un port est déjà occupé sur l’hôte,

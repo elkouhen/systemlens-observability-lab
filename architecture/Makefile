@@ -640,7 +640,7 @@ postgresql-otel-dashboards-verify: ## Vérifier les métriques et requêtes des 
 kubernetes-otel-dashboards-verify: ## Vérifier les requêtes des dashboards Kubernetes OTel
 	@kibana_password="$${KIBANA_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$kibana_password" || { echo 'KIBANA_PASSWORD ou le secret ECK est requis' >&2; exit 1; }; \
-	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-kubernetes-otel-dashboards.sh
+	 KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ./$(ARCH_ROOT)/platform/elk/scripts/verify-kubernetes-otel-dashboards.sh
 
 trace-context-verify: ## Vérifier la propagation W3C jusqu’à Kafka et les logs corrélés
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \

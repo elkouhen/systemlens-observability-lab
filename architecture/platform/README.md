@@ -34,6 +34,22 @@ kubelet / hostmetrics → otel-kubernetes → OTLP gRPC → otel-edge-01
   → Kafka otel-metrics → exporteur backend → metrics-* dans Elasticsearch
 ```
 
+Les dashboards `[Kubernetes OTel]` du package `kubernetes_otel` lisent quatre
+champs optionnels activés dans `otel-kafka.yaml` : `k8s.pod.cpu_limit_utilization`
+et `k8s.pod.memory_limit_utilization` (`kubeletstats`, uniquement pour les pods
+qui déclarent des limites), `k8s.node.condition_memory_pressure`
+(`node_conditions_to_report`) et l'attribut de ressource
+`k8s.container.status.last_terminated_reason` (`k8s_cluster`). La cible
+`make kubernetes-otel-dashboards-verify` contrôle qu'ils sont alimentés sur les
+15 dernières minutes.
+
+Les Services `elasticsearch-vm` et `kibana-vm` pointent vers `elk-01` par des
+`Endpoints` et non des `EndpointSlice` : le Traefik 2.11 embarqué par k3s ne
+résout les backends des `IngressRoute` qu'à partir des `Endpoints`. Contrôle :
+`curl -k --resolve kibana.observability.test:443:192.168.33.50
+https://kibana.observability.test/` renvoie `302` (redirection vers la page de
+connexion).
+
 Après une modification de cette chaîne, vérifier le rendu avec
 `make kubernetes-validate`, puis contrôler les logs des collecteurs et la
 présence récente de documents `metrics-*` dans Elasticsearch. Le déploiement

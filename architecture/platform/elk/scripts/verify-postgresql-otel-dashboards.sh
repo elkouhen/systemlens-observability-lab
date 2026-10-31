@@ -40,6 +40,13 @@ expected_fields=(
   postgresql.bgwriter.buffers.writes
   postgresql.bgwriter.checkpoint.count
   postgresql.bgwriter.duration
+  postgresql.blks_hit
+  postgresql.blks_read
+  postgresql.database.locks
+  postgresql.temp_files
+  postgresql.tup_inserted
+  postgresql.tup_fetched
+  postgresql.tup_returned
 )
 
 missing=0
@@ -77,12 +84,6 @@ for dashboard_id in "${dashboard_ids[@]}"; do
   while IFS= read -r panel; do
     panel_title="$(jq -r '.title' <<<"${panel}")"
     query="$(jq -r '.query' <<<"${panel}")"
-    forbidden="$(grep -oE 'postgresql\.(tup_[a-z]+|database\.locks|temp_files|temp\.io|blks_(hit|read))|attributes\.(source|type)|attributes\.postgresql\.(state|wait_event_type|wait_event|total_exec_time)|logs-postgresqlreceiver\.otel-[*]' <<<"${query}" | sort -u || true)"
-    if [[ -n "${forbidden}" ]]; then
-      printf 'ERREUR  dashboard %-32s panneau %-38s références invalides : %s\n' "${dashboard_id}" "${panel_title}" "${forbidden//$'\n'/, }" >&2
-      missing=1
-      continue
-    fi
     normalized_query="$(printf '%s' "${query}" | sed "s/?_tstart/TO_DATETIME(\"${start_time}\")/g; s/?_tend/TO_DATETIME(\"${end_time}\")/g")"
     query_response="$(curl --silent --show-error --insecure \
       --resolve "${elasticsearch_resolve}" \

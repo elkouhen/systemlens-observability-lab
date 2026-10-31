@@ -51,9 +51,12 @@ processors:
         statements:
           - set(attributes["trace.id"], attributes["trace_id"]) where attributes["trace_id"] != nil
           - set(attributes["span.id"], attributes["span_id"]) where attributes["span_id"] != nil
+      # Les événements db.server.query_sample/top_query du receiver PostgreSQL
+      # restent en mode OTel natif : le package postgresql_otel les lit dans
+      # logs-postgresqlreceiver.otel-*, suffixe que le mode ECS n'ajoute pas.
       - context: scope
         statements:
-          - set(attributes["elastic.mapping.mode"], "ecs")
+          - set(attributes["elastic.mapping.mode"], "ecs") where not IsMatch(name, "postgresqlreceiver")
     trace_statements:
       - context: scope
         statements:

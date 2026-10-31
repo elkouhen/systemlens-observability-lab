@@ -17,23 +17,27 @@ response="$(curl --fail --silent --show-error --insecure --resolve "${kibana_res
 count="$(jq '.saved_objects | length' <<<"${response}")"
 (( count == 11 )) || { printf 'Nombre inattendu de dashboards Kubernetes OTel : %s (attendu 11).\n' "${count}" >&2; exit 1; }
 
-for forbidden in \
+# Champs optionnels activés dans les Collectors (otel-kafka.yaml) et lus par
+# les dashboards du package : chacun doit être réellement alimenté.
+elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:9200}"
+elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"
+window="${DASHBOARDS_VERIFY_WINDOW:-15m}"
+for field in \
   'k8s.container.status.last_terminated_reason' \
   'k8s.node.condition_memory_pressure' \
   'k8s.pod.cpu_limit_utilization' \
   'k8s.pod.memory_limit_utilization'; do
-  occurrences="$(while IFS= read -r id; do
-    curl --fail --silent --show-error --insecure --resolve "${kibana_resolve}" \
-      -u "elastic:${KIBANA_PASSWORD}" "${kibana_url}/api/saved_objects/dashboard/${id}"
-  done < <(jq -r '.saved_objects[].id' <<<"${response}") \
-    | jq -r --arg field "${forbidden}" \
-      '.attributes.panelsJSON | fromjson[] | .embeddableConfig.attributes.state.query.esql? // empty | select(contains($field))' \
-    | wc -l | tr -d ' ' )"
-  if (( occurrences > 0 )); then
-    printf 'ABSENT  correction du champ %s (%s occurrence(s))\n' "${forbidden}" "${occurrences}" >&2
+  count="$(curl --fail --silent --show-error --insecure --resolve "${elasticsearch_resolve}" \
+    -u "elastic:${ELASTICSEARCH_PASSWORD:-${KIBANA_PASSWORD}}" \
+    -H 'Content-Type: application/json' \
+    -X POST "${elasticsearch_url}/metrics-*/_count" \
+    --data "{\"query\":{\"bool\":{\"filter\":[{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},{\"exists\":{\"field\":\"${field}\"}}]}}}" \
+    | jq -r '.count // 0')"
+  if (( count == 0 )); then
+    printf 'ABSENT  champ %s : aucun document sur %s\n' "${field}" "${window}" >&2
     exit 1
   fi
-  printf 'OK      aucun panneau ne référence %s\n' "${forbidden}"
+  printf 'OK      champ %-46s %s document(s) sur %s\n' "${field}" "${count}" "${window}"
 done
 
 printf 'Les 11 dashboards Kubernetes OTel ont des requêtes compatibles avec le schéma collecté.\n'

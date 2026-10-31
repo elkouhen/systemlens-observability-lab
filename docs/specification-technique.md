@@ -55,6 +55,11 @@ Le routage externe s’appuie sur Traefik et les hôtes suivants :
 - `kibana.observability.test` ;
 - `fleet.observability.test`.
 
+Ces hôtes sont servis en HTTPS par l'ingress k3s (`192.168.33.50:443`). Le
+poste opérateur doit les résoudre vers cette adresse (par exemple dans
+`/etc/hosts`). Kibana reste aussi joignable directement sur
+`http://192.168.33.40:5601`, adresse utilisée par les cibles du `Makefile`.
+
 Fleet Server se vérifie avec `/api/status`. Sa racine `/` n’est pas une
 interface utilisateur.
 

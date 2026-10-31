@@ -79,9 +79,15 @@
       - -U
       - "{{ postgresql_user }}"
       - -d
-      - "{{ postgresql_database }}"
+      - "{{ item }}"
       - -c
       - CREATE EXTENSION IF NOT EXISTS pg_stat_statements
+  # Le receiver PostgreSQL OTel lit pg_stat_statements (événements
+  # db.server.top_query) via la base par défaut « postgres », et non via les
+  # bases déclarées dans `databases`.
+  loop:
+    - "{{ postgresql_database }}"
+    - postgres
   register: pg_stat_statements_extension
   changed_when: "'CREATE EXTENSION' in pg_stat_statements_extension.stdout"
 
