@@ -170,6 +170,46 @@ une rotation de clé ou une modification de configuration.
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 | `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du lab |
 
+## Routage des data streams par topic Kafka
+
+Le collecteur backend choisit le namespace du data stream cible d'après le
+topic Kafka OTel d'origine ([ADR-007](../docs/ADR-007-namespace-data-stream-par-topic.md)) :
+
+| Topic consommé | Data stream écrit |
+| --- | --- |
+| `otel-logs`, `otel-metrics`, `otel-traces` | namespace fourni par la source, sinon `default` |
+| `otel-logs-<namespace>` | `logs-<dataset>-<namespace>` |
+| `otel-metrics-<namespace>` | `metrics-<dataset>.otel-<namespace>` |
+| `otel-traces-<namespace>` | `traces-apm-<namespace>` (via APM Server) |
+
+Chemin : producteur → topic `otel-<signal>-<namespace>` du Kafka OTel →
+receiver `kafka/otlp` (souscription par regex) → `resource/kafka-topic`
+(copie de `kafka.topic`) → `transform/data-stream-namespace` (attribut de
+ressource `data_stream.namespace`) → exporteur Elasticsearch ou APM Server.
+Le suffixe est normalisé : minuscules, et tout caractère hors `[a-z0-9_]`
+devient `_` (`otel-logs-Equipe-A` → namespace `equipe_a`). Le topic l'emporte
+sur un `data_stream.namespace` posé par la source au niveau ressource. Le
+dataset reste choisi par la source ou, à défaut, par le receiver d'origine.
+
+Le collecteur Edge publie uniquement dans les topics de base. Un producteur qui
+cible un namespace publie directement dans le Kafka OTel
+(`192.168.33.20:9092`, SASL PLAIN, compte `otel_publisher`), comme l'agent du
+backend. Le broker crée le topic à la première publication et le backend le
+découvre en moins d'une minute, en le lisant depuis le début. Ces topics
+créés automatiquement ne reçoivent pas la rétention d'un jour que le job
+`otel-telemetry-topics` applique aux topics de base : ils suivent les valeurs
+par défaut du broker.
+
+Vérification après publication (remplacer `<namespace>`) :
+
+```bash
+vagrant ssh otel-backend-01 -c 'sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --command-config /opt/kafka/config/otel-kafka-client.properties --describe --group otel-backend'
+```
+
+Le topic `otel-<signal>-<namespace>` doit apparaître avec un retard nul, puis
+`GET _data_stream/*-<namespace>` dans Kibana Dev Tools doit lister les data
+streams correspondants.
+
 ## Ordre de lecture
 
 1. `inventory/vagrant.yml` : hôtes ciblés, connexion SSH et capacités propres à chaque nœud ; les variables communes sont dans `inventory/group_vars/all.yml`.
