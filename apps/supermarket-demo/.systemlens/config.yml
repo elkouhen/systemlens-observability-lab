@@ -12,8 +12,6 @@ analysis:
   disabled_extractors: []
   call_graph_engine: source
 runtime:
-  service_map:
-    supermarket-order: order-service
   ignore_services:
     - elastic-otel-collector
     - otel-edge
