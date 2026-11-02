@@ -119,21 +119,23 @@
 - name: Collecter l'état des services système
   ansible.builtin.service_facts:
 
-- name: Configurer des sources NTP accessibles en IPv4
+- name: Interroger les sources NTP au moins toutes les 64 secondes
+  # Sans maxpoll, chrony espace ses requêtes jusqu'à 1024 s : après une mise en
+  # veille de l'hôte, la dérive des VM resterait longtemps invisible.
   ansible.builtin.replace:
     path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
-    regexp: '^(pool .*\.pool\.ntp\.org|server time\.cloudflare\.com|server time\.google\.com) iburst$'
-    replace: |-
-      server 162.159.200.1 iburst
-      server 162.159.200.123 iburst
-      server 216.239.35.12 iburst
+    regexp: '^((?:pool|server) (?!.*\bmaxpoll\b).*)$'
+    replace: '\1 maxpoll 6'
   register: chrony_configuration
 
-- name: Autoriser chrony à corriger automatiquement un décalage après un redémarrage
+- name: Autoriser chrony à sauter l'horloge dès qu'elle dérive de plus d'une seconde
+  # makestep 1.0 -1 : saut autorisé à tout moment, pas seulement aux trois
+  # premières mesures. Les VM VirtualBox s'arrêtent quand l'hôte se met en veille
+  # et reprennent avec plusieurs minutes de retard.
   ansible.builtin.lineinfile:
     path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
     regexp: '^makestep '
-    line: makestep 1.0 3
+    line: makestep 1.0 -1
     insertafter: EOF
   register: chrony_makestep_configuration
 

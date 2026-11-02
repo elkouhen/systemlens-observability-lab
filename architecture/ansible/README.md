@@ -35,8 +35,10 @@ Le receiver `hostmetrics` active explicitement `system.cpu.utilization` et
 Inventory avec les champs `host.name` et `data_stream.dataset:
 hostmetricsreceiver.otel`.
 
-Le rôle `common` configure chrony avec `makestep 1.0 3` afin de corriger
-automatiquement l’horloge après un redémarrage ou une reprise de VM. Cette
+Le rôle `common` configure chrony avec `makestep 1.0 -1` et `maxpoll 6` sur
+chaque source : chrony interroge ses sources au moins toutes les 64 s et saute
+l’horloge dès qu’elle dérive de plus d’une seconde. Une VM VirtualBox mise en
+pause par la veille de l’hôte se recale ainsi en trois minutes environ. Cette
 synchronisation continue est nécessaire aux fenêtres temporelles des dashboards
 et au chemin OTLP → Kafka → Elasticsearch. `rtcsync` maintient également
 l’horloge matérielle alignée sur l’horloge système. Vérifier les cinq VM avec
