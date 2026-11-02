@@ -4,6 +4,11 @@
 
 Accepted
 
+Amendé le 2026-11-02 par
+[ADR-009](ADR-009-namespaces-supermarche-et-k8s.md) : le collecteur Edge
+publie aussi dans des topics suffixés, et les topics `otel-<signal>-supermarche`
+et `otel-<signal>-k8s` sont créés avec la rétention des topics de base.
+
 ## Date
 
 2026-11-02
@@ -51,7 +56,9 @@ Le suffixe du topic détermine le namespace : `otel-<signal>-<namespace>`.
   (data stream propre, mêmes templates et politiques que le namespace
   `default`).
 - Le collecteur Edge publie uniquement dans les topics de base. Un producteur
-  qui cible un namespace publie directement dans le Kafka OTel.
+  qui cible un namespace publie directement dans le Kafka OTel. *Amendé par
+  ADR-009 : l'Edge choisit lui-même un topic suffixé pour les signaux
+  applicatifs et Kubernetes.*
 - Les topics suffixés sont créés automatiquement par le broker et ne reçoivent
   pas la rétention appliquée par le job `otel-telemetry-topics` aux topics de
   base.

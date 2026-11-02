@@ -12,8 +12,10 @@ métriques vers Elastic.
 | Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka par signal | Collector backend → Elasticsearch |
 
 Kafka absorbe les pics entre les producteurs et le Collector backend. Les
-topics `otel-traces`, `otel-logs` et `otel-metrics` sont consommés par le
-groupe `otel-backend`. Le Collector applique le batch, la limitation mémoire
+topics `otel-traces`, `otel-logs` et `otel-metrics`, et leurs déclinaisons
+`-supermarche` (applications) et `-k8s` (collecteurs Kubernetes) choisies
+par le collecteur Edge (ADR-009), sont consommés par le groupe
+`otel-backend`. Le Collector applique le batch, la limitation mémoire
 et la queue disque avant l'export Elasticsearch.
 
 Les VM exécutent Elastic Agent en mode EDOT standalone. La configuration

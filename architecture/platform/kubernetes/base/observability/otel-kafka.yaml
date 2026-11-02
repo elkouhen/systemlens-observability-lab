@@ -206,6 +206,14 @@ data:
           - key: host.name
             value: ${env:K8S_NODE_NAME}
             action: upsert
+      # Marqueur lu puis supprimé par le collecteur Edge (ADR-009) : les
+      # signaux de ce collecteur vont dans le namespace de data stream « k8s »,
+      # sauf les logs des pods applicatifs, routés selon k8s.namespace.name.
+      resource/edge-source:
+        attributes:
+          - key: otel.edge.source
+            value: kubernetes
+            action: upsert
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
@@ -230,11 +238,11 @@ data:
       pipelines:
         logs:
           receivers: [filelog/kubernetes]
-          processors: [memory_limiter, k8sattributes, filter/logs, batch/logs]
+          processors: [memory_limiter, k8sattributes, filter/logs, resource/edge-source, batch/logs]
           exporters: [otlp/edge]
         metrics:
           receivers: [hostmetrics, kubeletstats, prometheus/internal]
-          processors: [memory_limiter, resource/k8s_cluster, batch]
+          processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
           exporters: [otlp/edge]
 
   cluster.yaml: |
@@ -267,6 +275,12 @@ data:
           - key: k8s.cluster.name
             value: ${env:K8S_CLUSTER_NAME}
             action: upsert
+      # Marqueur lu puis supprimé par le collecteur Edge (ADR-009).
+      resource/edge-source:
+        attributes:
+          - key: otel.edge.source
+            value: kubernetes
+            action: upsert
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
@@ -279,7 +293,7 @@ data:
       pipelines:
         metrics:
           receivers: [k8s_cluster]
-          processors: [memory_limiter, resource/k8s_cluster, batch]
+          processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
           exporters: [otlp/edge]
 
 ---
@@ -421,7 +435,9 @@ spec:
               --partitions 1 --replication-factor 1
               --config min.insync.replicas=1;
               done;
-              for topic in otel-traces otel-metrics otel-logs; do
+              for topic in otel-traces otel-metrics otel-logs
+              otel-traces-supermarche otel-metrics-supermarche otel-logs-supermarche
+              otel-traces-k8s otel-metrics-k8s otel-logs-k8s; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.20:9092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1

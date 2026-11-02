@@ -581,7 +581,10 @@ otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove otel-edge-client
 otel-gateway-kubernetes-switch: otel-gateway-kubernetes-bascule ## Déployer les collecteurs Kubernetes et les applications avec Edge comme endpoint OTLP
 
 kubernetes-observability-deploy: otel-gateway-kubernetes-remove otel-edge-client-keys-apply otel-kafka-credentials-apply ## Appliquer et vérifier les Collectors Kubernetes déclarés par Kustomize
+	@# Le gabarit d'un Job est immuable : le recréer applique la liste de topics versionnée.
+	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
+	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s

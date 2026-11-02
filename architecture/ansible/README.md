@@ -191,14 +191,34 @@ devient `_` (`otel-logs-Equipe-A` → namespace `equipe_a`). Le topic l'emporte
 sur un `data_stream.namespace` posé par la source au niveau ressource. Le
 dataset reste choisi par la source ou, à défaut, par le receiver d'origine.
 
-Le collecteur Edge publie uniquement dans les topics de base. Un producteur qui
-cible un namespace publie directement dans le Kafka OTel
-(`192.168.33.20:9092`, SASL PLAIN, compte `otel_publisher`), comme l'agent du
-backend. Le broker crée le topic à la première publication et le backend le
-découvre en moins d'une minute, en le lisant depuis le début. Ces topics
-créés automatiquement ne reçoivent pas la rétention d'un jour que le job
-`otel-telemetry-topics` applique aux topics de base : ils suivent les valeurs
-par défaut du broker.
+### Topics choisis par le collecteur Edge
+
+Le collecteur Edge choisit le topic de chaque ressource
+([ADR-009](../docs/ADR-009-namespaces-supermarche-et-k8s.md)). Le
+processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
+`topic_from_attribute` de l'exporteur Kafka ; sans attribut, le topic de base
+s'applique. Les règles viennent de `inventory/group_vars/otel_edge_nodes.yml` :
+
+| Ressource reçue par l'Edge | Topic | Namespace |
+| --- | --- | --- |
+| Log avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-logs-supermarche` | `supermarche` |
+| Métrique ou trace avec `otel.edge.source` = `kubernetes` | `otel-<signal>-k8s` | `k8s` |
+| Métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche` | `supermarche` |
+| Log avec `otel.edge.source` = `kubernetes` (autre namespace) | `otel-logs-k8s` | `k8s` |
+| Autre ressource (VM, Edge, Fleet) | topic de base | `default` |
+
+Les collecteurs Kubernetes (`otel-kubernetes`, `otel-kubernetes-cluster`)
+posent le marqueur `otel.edge.source=kubernetes`. L'Edge le supprime, et le
+backend supprime `otel.kafka.topic` avant l'indexation. Un log suit le
+namespace de son pod, une métrique ou une trace suit son émetteur : les
+métriques `kubeletstats` d'un pod applicatif vont donc dans `k8s`.
+
+Les six topics suffixés sont créés par le job `otel-telemetry-topics`, avec
+trois partitions et la rétention d'un jour des topics de base. Un autre
+producteur peut publier directement dans un topic suffixé du Kafka OTel
+(`192.168.33.20:9092`, SASL PLAIN, compte `otel_publisher`). Le broker crée
+alors le topic avec ses valeurs par défaut, jusqu'au passage de
+`make retention-deploy`, et le backend le découvre en moins d'une minute.
 
 Vérification après publication (remplacer `<namespace>`) :
 

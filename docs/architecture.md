@@ -69,8 +69,12 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka par signal | EDOT backend, Elasticsearch |
 
 Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
-`otel-metrics`. Le Collector backend applique le traitement nécessaire avant
-l’export vers Elastic.
+`otel-metrics`. Le collecteur Edge publie les signaux applicatifs dans
+`otel-<signal>-supermarche` et ceux des collecteurs Kubernetes dans
+`otel-<signal>-k8s` ; le backend en déduit les namespaces de data stream
+`supermarche` et `k8s` (ADR-009). Les signaux des VM restent dans `default`.
+Le Collector backend applique le traitement nécessaire avant l’export vers
+Elastic.
 
 ## Responsabilités des composants
 

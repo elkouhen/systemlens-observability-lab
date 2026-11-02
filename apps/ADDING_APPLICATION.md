@@ -93,15 +93,37 @@ transmis par `k8s.namespace.name` et indexé en `kubernetes.namespace`.
 ## Data streams alimentés
 
 Le collecteur backend écrit en mode de mapping ECS. Le namespace des data
-streams dérive du suffixe du topic Kafka (ADR-007) ; les topics `otel-traces`,
-`otel-metrics` et `otel-logs` sans suffixe donnent `default` :
+streams dérive du suffixe du topic Kafka (ADR-007). Le collecteur Edge publie
+les signaux dont la ressource porte `k8s.namespace.name` =
+`h0tl-supermarche-app` dans les topics `otel-<signal>-supermarche` (ADR-009) :
 
 | Signal | Data stream |
 | --- | --- |
-| Traces | `traces-apm-default` |
+| Traces | `traces-apm-supermarche` |
+| Erreurs APM | `logs-apm.error-supermarche` |
+| Métriques Micrometer et JVM | `metrics-generic.otel-supermarche` |
+| Logs stdout | `logs-filelogreceiver-supermarche` |
 | Métriques APM agrégées | `metrics-apm.transaction.1m-default`, `metrics-apm.service_destination.1m-default` et voisins |
-| Métriques Micrometer et JVM | `metrics-generic.otel-default` |
-| Logs stdout | `logs-filelogreceiver-default` |
+
+APM Server calcule les métriques APM agrégées sans reprendre le namespace des
+traces : elles restent dans `default`. Les métriques Kubernetes des pods
+(`kubeletstats`, `k8s_cluster`) vont dans le namespace `k8s`. Les données
+antérieures au 2026-11-02 sont dans les data streams `*-default`.
+
+### Donner son propre namespace à une nouvelle application
+
+1. Ajouter une entrée à `otel_edge_application_routes` dans
+   `architecture/ansible/inventory/group_vars/otel_edge_nodes.yml` :
+   `kubernetes_namespace` est le namespace Kubernetes de l'application,
+   `data_stream_namespace` le namespace de data stream (`[a-z0-9_]`).
+2. Ajouter les trois topics `otel-{traces,metrics,logs}-<namespace>` à la
+   boucle du job `otel-telemetry-topics` dans
+   `architecture/platform/kubernetes/base/observability/otel-kafka.yaml`.
+3. Appliquer `make kubernetes-observability-deploy` (création des topics),
+   puis `make otel-edge-vm-provision`.
+
+Sans entrée dédiée, les signaux de l'application partent dans les topics de
+base et le namespace `default`.
 
 Les traces et métriques APM portent `agent.name` égal à
 `opentelemetry/java/opentelemetry-java-instrumentation`. Les logs ne portent
@@ -132,6 +154,7 @@ and agent.name:"opentelemetry/java/opentelemetry-java-instrumentation"
 ```kql
 # Logs applicatifs
 data_stream.dataset:"filelogreceiver"
+and data_stream.namespace:"supermarche"
 and service.name:"my-service"
 and kubernetes.namespace:"h0tl-supermarche-app"
 ```

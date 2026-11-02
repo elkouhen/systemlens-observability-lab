@@ -55,6 +55,43 @@ processors:
         value: "{{ inventory_hostname }}"
         action: upsert
 
+{#
+  Routage par topic (ADR-009). Le topic est choisi par ressource et posé dans
+  l'attribut otel.kafka.topic, lu par topic_from_attribute de l'exporteur
+  Kafka. Une ressource sans cet attribut part dans le topic de base.
+  Les logs suivent le namespace Kubernetes de leur pod : la règle applicative
+  passe avant le marqueur Kubernetes. Les métriques et les traces suivent leur
+  émetteur : le marqueur posé par les collecteurs Kubernetes passe avant.
+#}
+{% macro kafka_topic_statements(signal) %}
+      - context: resource
+        statements:
+          # Un client ne choisit jamais lui-même son topic.
+          - delete_key(resource.attributes, "otel.kafka.topic")
+{% if signal != 'logs' %}
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_data_stream_namespace }}") where resource.attributes["otel.edge.source"] == "kubernetes"
+{% endif %}
+{% for route in otel_edge_application_routes %}
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ route.data_stream_namespace }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
+{% endfor %}
+{% if signal == 'logs' %}
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_data_stream_namespace }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"
+{% endif %}
+          # Le marqueur des collecteurs Kubernetes n'est pas indexé.
+          - delete_key(resource.attributes, "otel.edge.source")
+{% endmacro %}
+  # Choix du topic Kafka par ressource (ADR-009). otel.kafka.topic reste sur la
+  # ressource jusqu'à l'exporteur ; le backend le réécrit depuis le topic lu
+  # puis le supprime avant l'indexation (ADR-007).
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
+  transform/kafka-topic:
+    error_mode: ignore
+    trace_statements:
+{{ kafka_topic_statements('traces') | trim('\n') }}
+    metric_statements:
+{{ kafka_topic_statements('metrics') | trim('\n') }}
+    log_statements:
+{{ kafka_topic_statements('logs') | trim('\n') }}
 exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
   kafka/otlp:
@@ -64,6 +101,9 @@ exporters:
         username: "${env:OTEL_KAFKA_PUBLISHER_USERNAME}"
         password: "${env:OTEL_KAFKA_PUBLISHER_PASSWORD}"
         mechanism: PLAIN
+    # Topic posé par transform/kafka-topic ; à défaut, topic de base du signal.
+    # L'exporteur publie chaque ressource séparément dans son topic.
+    topic_from_attribute: otel.kafka.topic
     traces:
       topic: otel-traces
       encoding: otlp_proto
@@ -121,13 +161,13 @@ service:
       exporters: [kafka/otlp]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, transform/kafka-topic, batch]
       exporters: [kafka/otlp]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, transform/kafka-topic, batch]
       exporters: [kafka/otlp]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch/logs]
+      processors: [memory_limiter, transform/kafka-topic, batch/logs]
       exporters: [kafka/otlp]
