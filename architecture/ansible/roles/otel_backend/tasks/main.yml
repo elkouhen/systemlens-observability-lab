@@ -1,9 +1,15 @@
 ---
 - name: Autoriser le collecteur backend OTEL à écrire son file_storage
+  # L'image OpenTelemetry Contrib s'exécute avec l'UID/GID 10001. La propriété
+  # est appliquée récursivement afin de reprendre les files d'attente déjà
+  # persistées par une version précédente du collecteur (UID différent).
   ansible.builtin.file:
     path: /var/lib/observability/otel-backend
     state: directory
-    mode: '0777'
+    owner: '10001'
+    group: '10001'
+    mode: 'u=rwX,g=rX,o='
+    recurse: true
 
 - name: Créer les répertoires du broker Kafka OTel
   ansible.builtin.file:
