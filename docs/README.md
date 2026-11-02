@@ -42,9 +42,10 @@ télémétrie suivent les procédures de [l’architecture](architecture.md).
 - [ADR-008 : instrumenter les applications avec le seul agent Java OpenTelemetry](../architecture/docs/ADR-008-agent-java-opentelemetry-seul.md) :
   retrait de l'agent Java Elastic APM et point d'attachement de l'agent OTel.
 - [ADR-009 : séparer les namespaces de data stream `supermarche` et `k8s`](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md) :
-  routage par l'Edge vers des topics Kafka suffixés.
+  choix par l'Edge du topic Kafka suffixé de chaque ressource.
 - [ADR-010 : le dataset nomme l'application, le namespace l'environnement](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md) :
-  noms des data streams `supermarche` et Kubernetes en `homologation`.
+  noms des data streams `supermarche` et Kubernetes en `homologation`, portés
+  par le nom du topic Kafka.
 - [ADR-011 : nommer les spans HTTP client par leur chemin normalisé](../architecture/docs/ADR-011-nom-des-spans-http-client.md) :
   renommage `{méthode} {chemin}` des spans client par l'Edge.
 - [ADR-012 : plus d'ECS pour les logs](../architecture/docs/ADR-012-logs-otel-natifs-sans-ecs.md) :

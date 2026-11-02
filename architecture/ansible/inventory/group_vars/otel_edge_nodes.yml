@@ -3,19 +3,21 @@ otel_edge_client_key_env: OTEL_EDGE_KEY_EDGE_AGENT
 firewall_tcp_ports: [4317, 4318]
 firewall_udp_ports: []
 middleware_credentials_required: false
-# Routage des signaux vers les topics Kafka suffixés otel-<signal>-<suffixe>
-# (ADR-009, ADR-010). Un signal dont la ressource porte k8s.namespace.name égal
-# à kubernetes_namespace est publié dans otel-<signal>-<kafka_topic_suffix> ;
-# ses logs et métriques reçoivent data_stream.dataset = data_stream_dataset
-# ([a-z0-9_]). Les traces gardent le dataset apm d'APM Server ; le backend
-# leur donne le namespace <data_stream_dataset>_<environnement>. Il dérive
-# l'environnement (namespace des logs et métriques) de
-# deployment.environment(.name).
+# Table de routage du collecteur Edge (ADR-009 ; ADR-007, note du
+# 2026-11-02). Une ressource dont k8s.namespace.name vaut kubernetes_namespace
+# est publiée dans otel-<signal>-<kafka_topic>. Le topic porte toute la cible :
+# kafka_topic = <dataset>-<namespace> ([a-z0-9_] de part et d'autre). Le
+# collecteur backend en tire data_stream.dataset et data_stream.namespace pour
+# les logs et métriques, et le namespace <dataset>_<namespace> pour les
+# traces, qui gardent les datasets apm d'APM Server. Les trois topics
+# otel-{logs,metrics,traces}-<kafka_topic> sont créés par le job
+# otel-telemetry-topics.
 otel_edge_application_routes:
   - kubernetes_namespace: h0tl-supermarche-app
-    kafka_topic_suffix: supermarche
-    data_stream_dataset: supermarche
-# Suffixe de topic des signaux marqués otel.edge.source=kubernetes par les
-# collecteurs Kubernetes (otel-kubernetes, otel-kubernetes-cluster). Leur
-# dataset reste celui du receiver, lu par les dashboards [Kubernetes OTel].
-otel_edge_kubernetes_kafka_topic_suffix: k8s
+    kafka_topic: supermarche-homologation
+# Route des signaux marqués otel.edge.source=kubernetes par les collecteurs
+# Kubernetes (otel-kubernetes, otel-kubernetes-cluster). kafka_topic =
+# <namespace> seul : le dataset reste celui du receiver, lu par les
+# dashboards [Kubernetes OTel] (ADR-010).
+otel_edge_kubernetes_route:
+  kafka_topic: homologation

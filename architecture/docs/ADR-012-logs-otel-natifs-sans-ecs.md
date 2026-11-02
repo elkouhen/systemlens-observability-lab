@@ -45,7 +45,9 @@ Décision produit : plus d'ECS pour les logs et les métriques.
   ECS et le filtre associé sont retirés, ce qui évite tout doublon.
 - **Edge** : inchangé. La règle `k8s.namespace.name` =
   `h0tl-supermarche-app` de `transform/kafka-topic` route les logs de
-  l'agent vers `otel-logs-supermarche` avec le dataset `supermarche`.
+  l'agent vers `otel-logs-supermarche` avec le dataset `supermarche`
+  (topic `otel-logs-supermarche-homologation` depuis la note du 2026-11-02
+  d'ADR-007).
 - **Backend** : `transform/ecs-log-correlation` est supprimé. Tous les flux
   indexés par l'exporteur Elasticsearch sont en mode de mapping OTel (défaut)
   et leur dataset prend le suffixe `.otel`.

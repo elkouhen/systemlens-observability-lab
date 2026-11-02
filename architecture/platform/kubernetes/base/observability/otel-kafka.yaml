@@ -168,15 +168,16 @@ data:
             value: ${env:K8S_NODE_NAME}
             action: upsert
       # Marqueur lu puis supprimé par le collecteur Edge (ADR-009) : les
-      # signaux de ce collecteur vont dans les topics otel-<signal>-k8s.
+      # signaux de ce collecteur vont dans le topic de la route Kubernetes,
+      # otel-<signal>-homologation.
       resource/edge-source:
         attributes:
           - key: otel.edge.source
             value: kubernetes
             action: upsert
-      # Environnement des signaux collectés : le backend en dérive le
-      # namespace de data stream des flux routés (ADR-010). Une valeur déjà
-      # posée par la source est conservée.
+      # Environnement des signaux collectés, indexé avec la ressource. Le
+      # namespace de data stream vient du topic de la route Kubernetes
+      # (ADR-007). Une valeur déjà posée par la source est conservée.
       resource/environment:
         attributes:
           - key: deployment.environment.name
@@ -245,9 +246,9 @@ data:
           - key: otel.edge.source
             value: kubernetes
             action: upsert
-      # Environnement des signaux collectés : le backend en dérive le
-      # namespace de data stream des flux routés (ADR-010). Une valeur déjà
-      # posée par la source est conservée.
+      # Environnement des signaux collectés, indexé avec la ressource. Le
+      # namespace de data stream vient du topic de la route Kubernetes
+      # (ADR-007). Une valeur déjà posée par la source est conservée.
       resource/environment:
         attributes:
           - key: deployment.environment.name
@@ -400,8 +401,8 @@ spec:
               --config min.insync.replicas=1;
               done;
               for topic in otel-traces otel-metrics otel-logs
-              otel-traces-supermarche otel-metrics-supermarche otel-logs-supermarche
-              otel-traces-k8s otel-metrics-k8s otel-logs-k8s; do
+              otel-traces-supermarche-homologation otel-metrics-supermarche-homologation otel-logs-supermarche-homologation
+              otel-traces-homologation otel-metrics-homologation otel-logs-homologation; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.20:9092 --create --if-not-exists --topic "$topic"
               --partitions 3 --replication-factor 1

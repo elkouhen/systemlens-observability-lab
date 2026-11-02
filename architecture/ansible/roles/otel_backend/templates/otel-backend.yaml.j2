@@ -56,69 +56,59 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 512
-  # Routage par topic (ADR-007, ADR-010) : un topic suffixé
-  # otel-<signal>-<suffixe> porte un flux routé par l'Edge, dont le dataset est
-  # déjà posé (ou laissé à la source). Son namespace de data stream est
-  # l'environnement de la ressource (deployment.environment.name, sinon
-  # deployment.environment, sinon « default »). Le receiver Kafka expose le
-  # topic d'origine dans le contexte de la requête (kafka.topic) ; il est copié
-  # en attribut de ressource avant le batch, qui ne conserve pas ce contexte.
-  # Le topic de base (sans suffixe) ne pose aucun namespace : la valeur fournie
-  # par la source ou « default » s'applique.
+  # Routage par topic (ADR-007, note du 2026-11-02) : le nom du topic porte
+  # toute la cible. Le receiver Kafka expose le topic d'origine dans le
+  # contexte (kafka.topic) ; il est copié en attribut de ressource avant le
+  # batch, qui ne conserve pas ce contexte.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourceprocessor
   resource/kafka-topic:
     attributes:
       - key: otel.kafka.topic
         from_context: metadata.kafka.topic
         action: upsert
+  #   otel-<signal>-<dataset>-<namespace> : logs et métriques reçoivent
+  #     data_stream.dataset et data_stream.namespace ; les traces gardent les
+  #     datasets apm d'APM Server et reçoivent le namespace
+  #     <dataset>_<namespace>, recopié dans apm.route.namespace (label global
+  #     apm_route_namespace, que le pipeline Elasticsearch apm-route-namespace
+  #     applique aux métriques APM agrégées puis retire).
+  #   otel-<signal>-<namespace> : data_stream.namespace seul ; le dataset reste
+  #     celui de la source ou du receiver.
+  #   otel-<signal> : rien n'est posé.
+  # Les noms sont contraints par celui du topic (dataset [a-z0-9_.] sans « - »,
+  # namespace [a-z0-9_]) : aucune normalisation à l'exécution. Un topic hors
+  # de ces formes ne pose rien. otel.kafka.topic est supprimé ensuite.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
-  transform/data-stream-namespace:
+  transform/data-stream-route:
     error_mode: ignore
-    log_statements: &data_stream_namespace
-      # L'environnement est normalisé (minuscules, caractères [a-z0-9_]) pour
-      # respecter les contraintes de nommage des data streams.
+    log_statements: &data_stream_route
       - context: resource
         conditions:
-          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-(logs|metrics|traces)-.+$")
+          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-([a-z0-9_.]+-)?[a-z0-9_]+$")
         statements:
-          - set(resource.attributes["data_stream.namespace"], "default")
-          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment"]) where resource.attributes["deployment.environment"] != nil
-          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment.name"]) where resource.attributes["deployment.environment.name"] != nil
-          - set(resource.attributes["data_stream.namespace"], ConvertCase(resource.attributes["data_stream.namespace"], "lower"))
-          - replace_pattern(resource.attributes["data_stream.namespace"], "[^a-z0-9_]", "_")
+          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-((?P<dataset>[a-z0-9_.]+)-)?(?P<namespace>[a-z0-9_]+)$"), "upsert")
+          - set(resource.attributes["data_stream.dataset"], resource.cache["dataset"]) where resource.cache["dataset"] != nil and resource.cache["dataset"] != ""
+          - set(resource.attributes["data_stream.namespace"], resource.cache["namespace"])
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
-          - delete_key(resource.attributes, "otel.route.dataset")
-    metric_statements: *data_stream_namespace
-    # APM Server impose les datasets apm, apm.error et apm.* : le namespace
-    # des traces d'une route applicative porte donc aussi l'application,
-    # <dataset de la route>_<environnement> (ADR-010, note du 2026-11-02).
-    # Le dataset de la route arrive de l'Edge dans otel.route.dataset. Le
-    # namespace est recopié dans apm.route.namespace : APM Server en fait le
-    # label global apm_route_namespace, reporté sur ses métriques agrégées, que
-    # le pipeline Elasticsearch apm-route-namespace range dans ce namespace
-    # puis retire de tous les documents APM.
+    metric_statements: *data_stream_route
     trace_statements:
       - context: resource
         statements:
-          # Seul ce collecteur pose le label de routage des agrégats.
+          # Seul ce collecteur pose le label de routage des agrégats APM.
           - delete_key(resource.attributes, "apm.route.namespace")
       - context: resource
         conditions:
-          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-.+$")
+          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-([a-z0-9_.]+-)?[a-z0-9_]+$")
         statements:
-          - set(resource.attributes["data_stream.namespace"], "default")
-          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment"]) where resource.attributes["deployment.environment"] != nil
-          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment.name"]) where resource.attributes["deployment.environment.name"] != nil
-          - set(resource.attributes["data_stream.namespace"], Concat([resource.attributes["otel.route.dataset"], resource.attributes["data_stream.namespace"]], "_")) where resource.attributes["otel.route.dataset"] != nil
-          - set(resource.attributes["data_stream.namespace"], ConvertCase(resource.attributes["data_stream.namespace"], "lower"))
-          - replace_pattern(resource.attributes["data_stream.namespace"], "[^a-z0-9_]", "_")
-          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"]) where resource.attributes["otel.route.dataset"] != nil
+          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-traces-((?P<dataset>[a-z0-9_.]+)-)?(?P<namespace>[a-z0-9_]+)$"), "upsert")
+          - set(resource.attributes["data_stream.namespace"], resource.cache["namespace"])
+          - set(resource.attributes["data_stream.namespace"], Concat([resource.cache["dataset"], resource.cache["namespace"]], "_")) where resource.cache["dataset"] != nil and resource.cache["dataset"] != ""
+          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"]) where resource.cache["dataset"] != nil and resource.cache["dataset"] != ""
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
-          - delete_key(resource.attributes, "otel.route.dataset")
   resource/internal-telemetry:
     attributes:
       - key: data_stream.dataset
@@ -206,13 +196,13 @@ service:
       exporters: [elasticsearch/otel]
     traces:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-namespace, batch]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, batch]
       exporters: [otlphttp/apm-server]
     metrics:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-namespace, cumulativetodelta, batch]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, cumulativetodelta, batch]
       exporters: [elasticsearch/otel]
     logs:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-namespace, batch]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, batch]
       exporters: [elasticsearch/otel]

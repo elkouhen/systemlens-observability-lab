@@ -6,6 +6,22 @@
     mode: '0644'
     validate: haproxy -c -f %s
 
+# Le topic porte le dataset et le namespace lus par le backend : son format
+# est validé ici plutôt que normalisé à l'exécution.
+- name: Vérifier la table de routage du Collecteur Edge
+  ansible.builtin.assert:
+    that:
+      - otel_edge_kubernetes_route.kafka_topic | default('') is match('^[a-z0-9_]+$')
+      - otel_edge_application_routes | map(attribute='kubernetes_namespace') | select | list | length == otel_edge_application_routes | length
+      - otel_edge_application_routes | map(attribute='kafka_topic') | select('match', '^[a-z0-9_]+-[a-z0-9_]+$') | list | length == otel_edge_application_routes | length
+      - otel_edge_application_routes | map(attribute='kafka_topic') | unique | list | length == otel_edge_application_routes | length
+      - otel_edge_application_routes | map(attribute='kubernetes_namespace') | unique | list | length == otel_edge_application_routes | length
+    fail_msg: >-
+      Table de routage Edge invalide : kafka_topic vaut <dataset>-<namespace>
+      pour une route applicative et <namespace> pour la route Kubernetes
+      ([a-z0-9_]), unique par route, avec un kubernetes_namespace par route.
+    quiet: true
+
 - name: Déployer la configuration du Collecteur Edge
   ansible.builtin.template:
     src: "{{ role_path }}/templates/otel-edge.yaml.j2"

@@ -72,13 +72,14 @@ Les topics OTLP sont séparés par type de signal :
 | `otel-traces` | Collecteur Edge et collecte de traces | Collector backend |
 | `otel-logs` | Collecteur Edge, logs des VM et des collecteurs | Collector backend |
 | `otel-metrics` | Collecteur Edge et collecte des métriques | Collector backend |
-| `otel-<signal>-supermarche` | Collecteur Edge, signaux des services `supermarket-demo` | Collector backend |
-| `otel-<signal>-k8s` | Collecteur Edge, signaux des collecteurs Kubernetes | Collector backend |
+| `otel-<signal>-supermarche-homologation` | Collecteur Edge, signaux des services `supermarket-demo` | Collector backend |
+| `otel-<signal>-homologation` | Collecteur Edge, signaux des collecteurs Kubernetes | Collector backend |
 
-Le collecteur Edge choisit le topic par ressource
-([ADR-009](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md)) et
-pose le dataset des logs et métriques applicatifs (`supermarche`). Pour un
-topic suffixé, le backend pose le namespace depuis `deployment.environment`
+Le collecteur Edge choisit le topic par ressource selon sa table de routage
+([ADR-009](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md)).
+Le nom du topic porte la cible : le backend tire d'un topic
+`otel-<signal>-<dataset>-<namespace>` le dataset et le namespace des logs et
+métriques, d'un topic `otel-<signal>-<namespace>` le namespace seul
 ([ADR-007](../architecture/docs/ADR-007-namespace-data-stream-par-topic.md),
 [ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
 `logs-supermarche.otel-homologation` (ADR-012), `metrics-supermarche.otel-homologation`,

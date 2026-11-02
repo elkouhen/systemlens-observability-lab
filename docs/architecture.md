@@ -69,14 +69,16 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka par signal | EDOT backend, Elasticsearch |
 
 Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
-`otel-metrics`. Le collecteur Edge publie les signaux applicatifs dans
-`otel-<signal>-supermarche` et ceux des collecteurs Kubernetes dans
-`otel-<signal>-k8s` (ADR-009). L'Edge pose le dataset `supermarche` sur les
-logs et métriques applicatifs ; le backend pose le namespace depuis
-`deployment.environment` (`homologation`). Les signaux Kubernetes gardent le
-dataset de leur receiver (ADR-010). Les traces, erreurs et métriques APM de
-l'application prennent le namespace `supermarche_homologation`, APM Server
-imposant le dataset `apm`. Les signaux des VM restent dans `default`.
+`otel-metrics`. Le nom du topic porte la cible du flux (ADR-007, note du
+2026-11-02). L'Edge publie les signaux applicatifs dans
+`otel-<signal>-supermarche-homologation` (`<dataset>-<namespace>`) et ceux
+des collecteurs Kubernetes dans `otel-<signal>-homologation` (`<namespace>`),
+selon sa table de routage (ADR-009). Le backend en tire le dataset
+`supermarche` et le namespace `homologation` des logs et métriques. Les
+signaux Kubernetes gardent le dataset de leur receiver (ADR-010). Les traces,
+erreurs et métriques APM de l'application prennent le namespace
+`supermarche_homologation`, APM Server imposant le dataset `apm`. Les signaux
+des VM restent dans `default`.
 Le Collector backend applique le traitement nécessaire avant l’export vers
 Elastic.
 

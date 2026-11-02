@@ -11,6 +11,11 @@ par le collecteur Edge (ADR-009) reste en vigueur.
 Amendé par [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md) : les logs sont en
 mode de mapping OTel et leur data stream prend le suffixe `.otel`.
 
+Amendé par la note « dataset et namespace portés par le topic » du
+2026-11-02, en fin de document : les puces **Dataset** et **Namespace**
+ci-dessous, ainsi que la composition `<dataset>_<environnement>` de la note
+APM, sont remplacées. Les noms des data streams ne changent pas.
+
 ## Date
 
 2026-11-02
@@ -187,3 +192,41 @@ APM ne porte `labels.apm_route_namespace`. L'UI APM liste les services et
 leurs erreurs ; les contrôles `trace-context-verify`,
 `observability-schema-verify`, `dashboards-verify` et
 `kubernetes-otel-dashboards-verify` réussissent.
+
+## Note du 2026-11-02 : dataset et namespace portés par le topic
+
+Décision produit, simplification : le dataset et le namespace d'un flux routé
+sont déclarés une seule fois, par la route Edge, dans le nom de son topic
+(`kafka_topic: supermarche-homologation`). Le backend les lit dans le topic
+([ADR-007](ADR-007-namespace-data-stream-par-topic.md), note du 2026-11-02).
+
+| Avant | Après |
+| --- | --- |
+| Edge : `data_stream.dataset` sur les logs et métriques, `otel.route.dataset` sur les traces | Edge : choix du topic seul, attributs de routage du client supprimés |
+| Backend : namespace = `deployment.environment.name`, sinon `deployment.environment`, sinon `default`, normalisé | Backend : namespace = segment `<namespace>` du topic |
+| Backend : traces en `Concat(otel.route.dataset, environnement)` | Backend : traces en `<dataset>_<namespace>` du topic |
+| Topics `otel-<signal>-supermarche`, `otel-<signal>-k8s` | Topics `otel-<signal>-supermarche-homologation`, `otel-<signal>-homologation` |
+
+Pourquoi : la règle tenait en trois endroits (route Edge, attribut
+d'environnement de chaque source, calcul du backend) pour une valeur connue à
+l'avance. Le topic suffit, et Kafka montre où va chaque flux.
+
+Conséquences :
+
+- Une route vise un seul environnement : l'Edge d'homologation publie en
+  `homologation`. Une application déployée dans un autre environnement reçoit
+  sa propre route et ses topics.
+- `deployment.environment.name` ne fixe plus le namespace. Il reste porté par
+  les sources, pour `service.environment` dans l'UI APM. Les applications
+  utilisent ce nom courant d'OpenTelemetry au lieu de
+  `deployment.environment` ; APM Server 9.5.4 le reporte en
+  `service.environment` = `homologation`.
+- Les noms sont validés par Ansible au déploiement, plus normalisés à
+  l'exécution.
+
+Vérification du 2026-11-02 : les data streams du tableau d'ADR-010, de sa
+note APM et d'ADR-012 reçoivent les nouveaux documents, métriques APM
+agrégées comprises (`metrics-apm.*.1m-supermarche_homologation` pour les trois
+services). Aucun data stream n'a été créé et aucun document ne porte
+`otel.kafka.topic` ou `labels.apm_route_namespace`. L'UI APM liste les trois
+services en `homologation`.

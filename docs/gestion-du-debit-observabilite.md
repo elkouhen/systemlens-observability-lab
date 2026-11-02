@@ -53,7 +53,7 @@ Agent Java OpenTelemetry -> Collecteur Edge -> Kafka otel-traces
 ## Logs applicatifs
 
 ```text
-Logback -> agent Java OTel (OTLP) -> Edge -> Kafka otel-logs-supermarche
+Logback -> agent Java OTel (OTLP) -> Edge -> Kafka otel-logs-supermarche-homologation
 -> Collector backend -> Elasticsearch
 ```
 

@@ -14,6 +14,10 @@ Depuis [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md), les logs des trois
 services viennent de l'agent OTel et non plus de stdout ; la règle
 `k8s.namespace.name` les route toujours dans `otel-logs-supermarche`.
 
+Depuis la note du 2026-11-02 en fin de document, les topics routés sont
+`otel-<signal>-supermarche-homologation` et `otel-<signal>-homologation`, et
+l'Edge supprime les attributs de routage fournis par les clients.
+
 ## Date
 
 2026-11-02
@@ -95,3 +99,48 @@ métriques `kubeletstatsreceiver`, `k8sclusterreceiver`,
 `*-k8s`. Les signaux des VM restent dans `default`. Les contrôles
 `trace-context-verify`, `observability-schema-verify`, `dashboards-verify` et
 `kubernetes-otel-dashboards-verify` réussissent.
+
+## Note du 2026-11-02 : l'Edge choisit le topic, le topic porte la cible
+
+[ADR-007](ADR-007-namespace-data-stream-par-topic.md) (note du 2026-11-02)
+fait porter au nom du topic le dataset et le namespace, que le backend
+reporte sur les signaux. L'Edge ne pose plus aucun attribut de data stream ;
+il choisit le topic de chaque ressource selon la même priorité qu'ici.
+
+```yaml
+otel_edge_application_routes:
+  - kubernetes_namespace: h0tl-supermarche-app
+    kafka_topic: supermarche-homologation   # <dataset>-<namespace>
+otel_edge_kubernetes_route:
+  kafka_topic: homologation                 # <namespace>
+```
+
+Le rôle `otel_edge` refuse au déploiement un `kafka_topic` hors format
+(`[a-z0-9_]` de part et d'autre du `-`), dupliqué, ou une route sans
+`kubernetes_namespace`. Le job `otel-telemetry-topics` crée
+`otel-{logs,metrics,traces}-supermarche-homologation` et
+`otel-{logs,metrics,traces}-homologation` avec la rétention des topics de
+base. Les collecteurs Kubernetes n'émettent que des métriques ; les topics de
+logs et de traces de la route Kubernetes existent pour un receiver `filelog`
+rétabli et pour éviter une création automatique sans rétention.
+
+Exigence de sécurité validée (revue du backend, constat 4) : seule la table
+de routage décide. Avant le routage, `transform/kafka-topic` supprime :
+
+- `otel.kafka.topic`, `data_stream.namespace` et `apm.route.namespace` sur
+  toute ressource reçue. Aucun client VM ne pose de namespace ;
+- `data_stream.dataset` sur toute ressource routée ou qui porte
+  `k8s.namespace.name`. Les agents EDOT des VM gardent leur
+  `collectortelemetry`, posé sur leur télémétrie interne.
+
+Limite : un client qui ne déclare ni `k8s.namespace.name` ni le marqueur
+Kubernetes garde son `data_stream.dataset`. Rien ne le distingue d'un agent
+VM, la clé Bearer n'identifiant pas le client. Son namespace étant supprimé,
+il n'écrit que dans des data streams `*-default`.
+
+Vérification du 2026-11-02 : un pod de `elastic-stack` a envoyé à l'Edge
+trois logs avec `data_stream.namespace` = `pirate`. Ils sont arrivés dans
+`logs-generic.otel-default` (namespace `elastic-stack` ou sans attribut
+Kubernetes) et `logs-supermarche.otel-homologation` (namespace
+`h0tl-supermarche-app`). Aucun data stream `*-pirate` n'a été créé ; les
+trois documents de test ont été supprimés.

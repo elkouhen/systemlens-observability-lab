@@ -13,9 +13,10 @@ métriques vers Elastic.
 
 Kafka absorbe les pics entre les producteurs et le Collector backend. Les
 topics `otel-traces`, `otel-logs` et `otel-metrics`, et leurs déclinaisons
-`-supermarche` (applications) et `-k8s` (collecteurs Kubernetes) choisies
-par le collecteur Edge (ADR-009), sont consommés par le groupe
-`otel-backend`. Le Collector applique le batch, la limitation mémoire
+`-supermarche-homologation` (applications) et `-homologation` (collecteurs
+Kubernetes) choisies par le collecteur Edge (ADR-009), sont consommés par le
+groupe `otel-backend`. Le suffixe porte le dataset et le namespace, que le
+Collector backend reporte sur les signaux (ADR-007, note du 2026-11-02). Le Collector applique le batch, la limitation mémoire
 et la queue disque avant l'export Elasticsearch.
 
 Les flux routés suivent la convention Elastic (ADR-010) : le dataset nomme
