@@ -6,7 +6,7 @@ métriques vers Elastic.
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
 | Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces` | Collector backend → APM Server |
-| Logs applicatifs/Kubernetes | EDOT DaemonSet `filelog` | OTLP → Edge → Kafka `otel-logs` | Collector backend → Elasticsearch |
+| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → Edge → Kafka `otel-logs` | Collector backend → Elasticsearch |
 | Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
 | Métriques Kubernetes | EDOT DaemonSet `hostmetrics` | OTLP → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
 | Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka par signal | Collector backend → Elasticsearch |
@@ -20,7 +20,7 @@ et la queue disque avant l'export Elasticsearch.
 
 Les flux routés suivent la convention Elastic (ADR-010) : le dataset nomme
 l'application, le namespace l'environnement. Les services `supermarket-demo`
-écrivent dans `logs-supermarche-homologation`,
+écrivent dans `logs-supermarche.otel-homologation` (logs OTel natifs, ADR-012),
 `metrics-supermarche.otel-homologation`,
 `traces-apm-supermarche_homologation`,
 `logs-apm.error-supermarche_homologation` et

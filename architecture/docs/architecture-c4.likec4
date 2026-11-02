@@ -82,7 +82,7 @@ model {
   zone1 = zone 'Zone 1 - applications, Kubernetes, lab et Edge' {
     kubernetes = system 'k3s-01' 'VM qui héberge le cluster Kubernetes de référence' {
       applications = container 'Applications métier' 'Spring Boot / Java' 'Produisent logs, métriques et traces OTLP'
-      k8s_collectors = container 'Collectors Kubernetes' 'OTel Collector Contrib' 'Collectent les logs Kubernetes et les métriques du cluster'
+      k8s_collectors = container 'Collectors Kubernetes' 'OTel Collector Contrib' 'Collectent les métriques des nœuds, des pods et du cluster'
       traefik = container 'Traefik' 'Ingress' 'Expose les points d’accès Kubernetes'
     }
 
@@ -123,7 +123,7 @@ model {
 
   zone1.kubernetes.applications .traces zone1.edge.edge_proxy 'Envoie les traces applicatives'
   zone1.kubernetes.applications .metrics zone1.edge.edge_proxy 'Envoie les métriques applicatives'
-  zone1.kubernetes.k8s_collectors .logs zone1.edge.edge_proxy 'Envoie les logs stdout Kubernetes'
+  zone1.kubernetes.applications .logs zone1.edge.edge_proxy 'Envoie les logs applicatifs (agent OTel)'
   zone1.kubernetes.k8s_collectors .metrics zone1.edge.edge_proxy 'Envoie les métriques Kubernetes'
   zone1.edge.edge_proxy .otlp zone1.edge.edge_collector 'Relaye OTLP'
   zone1.supermarket_middleware.supermarket_middleware_agent .logs zone1.edge.edge_collector 'Envoie les logs VM'

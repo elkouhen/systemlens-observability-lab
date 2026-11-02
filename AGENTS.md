@@ -152,10 +152,15 @@ commandes de validation.
 - Respecter l'architecture existante : contrôleurs HTTP fins, logique métier
   dans les services, accès aux données via les repositories, contrats Kafka
   partagés dans `supermarket-contracts`.
-- Ne pas retirer l'instrumentation ou les logs ECS. Les trois services sont
-  instrumentés uniquement par l'agent Java OpenTelemetry, attaché par
-  l'`ENTRYPOINT` du Dockerfile ; toute évolution doit préserver les noms de
-  services, l'environnement et les dépendances observables.
+- Ne pas retirer l'instrumentation. Les trois services sont instrumentés
+  uniquement par l'agent Java OpenTelemetry, attaché par l'`ENTRYPOINT` du
+  Dockerfile ; toute évolution doit préserver les noms de services,
+  l'environnement et les dépendances observables.
+- Les logs applicatifs sont OTel natifs : l'agent les exporte en OTLP
+  (`otel.logs.exporter=otlp`) avec `trace_id` et `span_id`, vers
+  `logs-supermarche.otel-homologation` (ADR-012). Ne pas réintroduire de
+  format ECS sur stdout, de collecte des fichiers des pods applicatifs ni de
+  mode de mapping ECS dans le collecteur backend.
 - Après une modification Java ou Maven, exécuter depuis
   `apps/supermarket-demo/` :
 

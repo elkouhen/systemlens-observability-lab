@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Vérifie la propagation W3C et le contrat ECS/OTel sur les données indexées.
+# Vérifie la propagation W3C et le contrat OTel des données indexées : traces
+# et erreurs au modèle d'APM Server, logs et métriques OTel natifs (ADR-012).
 set -euo pipefail
 
 : "${ELASTICSEARCH_PASSWORD:?Définir ELASTICSEARCH_PASSWORD avant la vérification}"
@@ -59,9 +60,13 @@ if [[ "${mode}" == trace-context ]]; then
       printf 'KO      propagateurs W3C absents de %s\n' "${properties_file}" >&2
       failures=1
     }
+    grep -Eq '^otel\.logs\.exporter=otlp$' "${properties_file}" || {
+      printf 'KO      export OTLP des logs absent de %s\n' "${properties_file}" >&2
+      failures=1
+    }
   done
   if [[ "${failures}" == 0 ]]; then
-    printf 'OK      propagateurs W3C tracecontext,baggage configurés pour les trois services\n'
+    printf 'OK      propagateurs W3C et export OTLP des logs configurés pour les trois services\n'
   fi
 
   trace_query="$(jq -cn --arg window "${window}" '{
@@ -82,27 +87,34 @@ if [[ "${mode}" == trace-context ]]; then
     }
   }')"
   trace_response="$(request POST '/traces-*/_search' "${trace_query}")"
-  trace_id="$(jq -r '[.aggregations.trace_ids.buckets[]
+  trace_ids="$(jq -c '[.aggregations.trace_ids.buckets[]
     | select(([.services.buckets[].key] | index("order-service")) != null)
     | select(([.services.buckets[].key] | index("inventory-service")) != null)
     | select(.kafka.doc_count > 0)
-    | .key] | first // empty' <<<"${trace_response}")"
-  if [[ -z "${trace_id}" ]]; then
+    | .key]' <<<"${trace_response}")"
+  if [[ "$(jq 'length' <<<"${trace_ids}")" == 0 ]]; then
     printf 'KO      aucun trace.id ne relie order-service, inventory-service et un span Kafka sur %s\n' "${window}" >&2
     failures=1
   else
     printf 'OK      trace.id partagé entre REST/Kafka et les services applicatifs sur %s\n' "${window}"
-    logs_query="$(jq -cn --arg trace_id "${trace_id}" --arg window "${window}" '{
+    # Les logs OTel natifs portent le contexte de trace dans trace_id/span_id,
+    # posés par l'agent sur chaque log émis dans un span. Parmi les traces
+    # retenues, au moins une doit avoir des logs corrélés.
+    logs_query="$(jq -cn --argjson trace_ids "${trace_ids}" --arg window "${window}" '{
+      size: 0,
       query: {bool: {filter: [
         {range: {"@timestamp": {gte: ("now-" + $window)}}},
-        {term: {"trace.id": $trace_id}}
-      ]}}
+        {terms: {"trace_id": $trace_ids}},
+        {exists: {field: "span_id"}}
+      ]}},
+      aggs: {trace_ids: {terms: {field: "trace_id", size: 1}}}
     }')"
-    logs_count="$(count_query 'logs-*' "${logs_query}")"
-    if (( logs_count > 0 )); then
-      printf 'OK      logs corrélés avec le trace.id sélectionné : %s document(s)\n' "${logs_count}"
+    logs_response="$(request POST '/logs-supermarche.otel-*/_search?allow_no_indices=true' "${logs_query}")"
+    correlated="$(jq -r '.aggregations.trace_ids.buckets[0] // empty | "\(.key) : \(.doc_count)"' <<<"${logs_response}")"
+    if [[ -n "${correlated}" ]]; then
+      printf 'OK      logs OTel corrélés (trace_id) avec la trace %s document(s)\n' "${correlated}"
     else
-      printf 'KO      aucun log corrélé avec le trace.id sélectionné\n' >&2
+      printf 'KO      aucun log de logs-supermarche.otel-* ne porte le trace_id des traces REST/Kafka\n' >&2
       failures=1
     fi
   fi
@@ -150,17 +162,45 @@ if [[ "${mode}" == schema ]]; then
   service_missing="$(count_query 'traces-*,metrics-supermarche.otel-*,metrics-generic.otel-*,logs-generic.otel-*' "${service_missing_query}")"
   check_zero "documents OTel applicatifs sans service.name" "${service_missing}"
 
-  ecs_missing_query="$(jq -cn --arg window "${window}" '{
+  # Logs applicatifs OTel natifs (ADR-012) : présents, avec sévérité, corps
+  # et identité de service, sans champ ECS hérité du format stdout.
+  app_logs_query="$(jq -cn --arg window "${window}" '{
+    query: {range: {"@timestamp": {gte: ("now-" + $window)}}}
+  }')"
+  app_logs="$(count_query 'logs-supermarche.otel-*' "${app_logs_query}")"
+  if (( app_logs > 0 )); then
+    printf 'OK      logs applicatifs OTel natifs : %s document(s)\n' "${app_logs}"
+  else
+    printf 'KO      aucun log applicatif dans logs-supermarche.otel-*\n' >&2
+    failures=1
+  fi
+
+  otel_log_missing_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {
-      filter: [
-        {range: {"@timestamp": {gte: ("now-" + $window)}}},
-        {exists: {field: "service.name"}}
+      filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],
+      should: [
+        {bool: {must_not: [{exists: {field: "severity_text"}}]}},
+        {bool: {must_not: [{exists: {field: "body.text"}}]}},
+        {bool: {must_not: [{exists: {field: "resource.attributes.service.name"}}]}}
       ],
-      must_not: [{exists: {field: "ecs.version"}}]
+      minimum_should_match: 1
     }}
   }')"
-  ecs_missing="$(count_query 'logs-supermarche-*,logs-generic.otel-*' "${ecs_missing_query}")"
-  check_zero "logs applicatifs sans ecs.version" "${ecs_missing}"
+  otel_log_missing="$(count_query 'logs-supermarche.otel-*' "${otel_log_missing_query}")"
+  check_zero "logs applicatifs sans severity_text, body.text ou service.name" "${otel_log_missing}"
+
+  ecs_log_query="$(jq -cn --arg window "${window}" '{
+    query: {bool: {
+      filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],
+      should: [
+        {exists: {field: "ecs.version"}},
+        {term: {"data_stream.dataset": "supermarche"}}
+      ],
+      minimum_should_match: 1
+    }}
+  }')"
+  ecs_logs="$(count_query 'logs-supermarche*' "${ecs_log_query}")"
+  check_zero "logs applicatifs au format ECS" "${ecs_logs}"
 fi
 
 if (( failures )); then

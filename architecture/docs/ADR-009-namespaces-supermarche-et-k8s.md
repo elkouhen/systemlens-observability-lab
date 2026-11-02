@@ -10,6 +10,10 @@ remplace le nommage des data streams : le dataset nomme l'application
 topics `otel-<signal>-supermarche` et `otel-<signal>-k8s` par l'Edge reste en
 vigueur.
 
+Depuis [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md), les logs des trois
+services viennent de l'agent OTel et non plus de stdout ; la règle
+`k8s.namespace.name` les route toujours dans `otel-logs-supermarche`.
+
 ## Date
 
 2026-11-02

@@ -50,18 +50,19 @@ Agent Java OpenTelemetry -> Collecteur Edge -> Kafka otel-traces
 - Surveiller le débit du topic `otel-traces`, le consumer lag et les erreurs
   d’export.
 
-## Logs applicatifs et Kubernetes
+## Logs applicatifs
 
 ```text
-stdout des pods -> EDOT DaemonSet -> Kafka otel-logs
+Logback -> agent Java OTel (OTLP) -> Edge -> Kafka otel-logs-supermarche
 -> Collector backend -> Elasticsearch
 ```
 
-- Régler le niveau de logs applicatif à `INFO` par défaut.
-- Activer `DEBUG` temporairement et par namespace lorsque le diagnostic le
+- Régler le niveau de logs applicatif à `INFO` par défaut : l'agent exporte
+  ce que Logback émet, selon les niveaux de Spring Boot.
+- Activer `DEBUG` temporairement et par service lorsque le diagnostic le
   justifie.
-- Filtrer les logs répétitifs et les probes dans la collecte `filelog` ou dans
-  le pipeline Collector avant l’indexation.
+- Filtrer les logs répétitifs dans le pipeline du collecteur Edge ou backend
+  avant l’indexation.
 - Régler `batch`, `memory_limiter` et la queue du Collector backend.
 - Surveiller le débit du topic `otel-logs`, le consumer lag et les rejets du
   backend.

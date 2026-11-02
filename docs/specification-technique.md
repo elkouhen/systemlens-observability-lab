@@ -29,7 +29,7 @@ sont provisionnés par Ansible en mode EDOT standalone.
 | Composant | Déploiement | Fonction technique |
 | --- | --- | --- |
 | Service `otel-edge-vm` | Kubernetes, namespace `elastic-stack` | Exposer le Collecteur Edge sur les ports `4317` et `4318` |
-| EDOT DaemonSet | Kubernetes | Lire les logs stdout et les métriques Kubernetes prévues par la configuration |
+| EDOT DaemonSet | Kubernetes | Collecter les métriques hôte et kubelet prévues par la configuration |
 | Kafka | `supermarket-middleware-01` | Tamponner les signaux applicatifs, Kubernetes et VM dans trois topics dédiés |
 | Collector backend EDOT | `otel-backend-01` | Consommer Kafka, traiter les signaux et les exporter vers Elastic |
 | HAProxy | `otel-edge-01` | Exposer les points d’entrée OTLP |
@@ -70,7 +70,7 @@ Les topics OTLP sont séparés par type de signal :
 | Topic | Producteurs principaux | Consommateur |
 | --- | --- | --- |
 | `otel-traces` | Collecteur Edge et collecte de traces | Collector backend |
-| `otel-logs` | Collecteur Edge et collecte filelog | Collector backend |
+| `otel-logs` | Collecteur Edge, logs des VM et des collecteurs | Collector backend |
 | `otel-metrics` | Collecteur Edge et collecte des métriques | Collector backend |
 | `otel-<signal>-supermarche` | Collecteur Edge, signaux des services `supermarket-demo` | Collector backend |
 | `otel-<signal>-k8s` | Collecteur Edge, signaux des collecteurs Kubernetes | Collector backend |
@@ -81,7 +81,7 @@ pose le dataset des logs et métriques applicatifs (`supermarche`). Pour un
 topic suffixé, le backend pose le namespace depuis `deployment.environment`
 ([ADR-007](../architecture/docs/ADR-007-namespace-data-stream-par-topic.md),
 [ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
-`logs-supermarche-homologation`, `metrics-supermarche.otel-homologation`,
+`logs-supermarche.otel-homologation` (ADR-012), `metrics-supermarche.otel-homologation`,
 `metrics-kubeletstatsreceiver.otel-homologation`. Les signaux APM d'une route
 applicative prennent le namespace `<dataset>_<environnement>` :
 `traces-apm-supermarche_homologation`,

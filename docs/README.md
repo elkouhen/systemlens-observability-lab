@@ -47,6 +47,8 @@ télémétrie suivent les procédures de [l’architecture](architecture.md).
   noms des data streams `supermarche` et Kubernetes en `homologation`.
 - [ADR-011 : nommer les spans HTTP client par leur chemin normalisé](../architecture/docs/ADR-011-nom-des-spans-http-client.md) :
   renommage `{méthode} {chemin}` des spans client par l'Edge.
+- [ADR-012 : plus d'ECS pour les logs](../architecture/docs/ADR-012-logs-otel-natifs-sans-ecs.md) :
+  logs applicatifs exportés en OTLP par l'agent, data streams `.otel`.
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   sources, transport, destinations et fichiers IaC associés.
 - [Gestion du débit de télémétrie](gestion-du-debit-observabilite.md) :

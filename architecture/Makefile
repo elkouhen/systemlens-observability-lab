@@ -647,7 +647,7 @@ trace-context-verify: ## Vérifier la propagation W3C jusqu’à Kafka et les lo
 	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
 	 ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-observability-contracts.sh trace-context
 
-observability-schema-verify: ## Vérifier le contrat ECS/OTel des événements indexés
+observability-schema-verify: ## Vérifier le contrat OTel des événements indexés (logs et métriques OTel natifs)
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
 	 ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-observability-contracts.sh schema

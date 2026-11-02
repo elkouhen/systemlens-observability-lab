@@ -63,7 +63,7 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
 | Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces` | EDOT backend, APM Server |
-| Logs applicatifs et Kubernetes | EDOT DaemonSet `filelog` | OTLP, Edge, Kafka `otel-logs` | EDOT backend, Elasticsearch |
+| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, Edge, Kafka `otel-logs` | EDOT backend, Elasticsearch |
 | Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
 | Métriques Kubernetes | EDOT DaemonSet | OTLP, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka par signal | EDOT backend, Elasticsearch |
@@ -85,7 +85,7 @@ Elastic.
 | Composant | Responsabilité | Source de configuration |
 | --- | --- | --- |
 | `otel-edge-01` | Recevoir l’OTLP Kubernetes et VM puis publier dans Kafka | `architecture/ansible/roles/otel_edge/` |
-| EDOT DaemonSet | Collecter les logs et métriques Kubernetes | `architecture/platform/kubernetes/base/observability/` |
+| EDOT DaemonSet | Collecter les métriques Kubernetes | `architecture/platform/kubernetes/base/observability/` |
 | `supermarket-middleware-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
 | `otel-backend-01` | Consommer Kafka et exporter les signaux vers Elastic | `architecture/ansible/` |
 | `otel-edge-01` | Exposer les points d’entrée et héberger le Collecteur Edge | `architecture/ansible/` et `architecture/platform/kubernetes/` |

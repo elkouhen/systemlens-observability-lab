@@ -4,6 +4,9 @@
 
 Accepted
 
+Amendé par [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md) : corrélation
+logs/traces.
+
 ## Date
 
 2026-11-02
@@ -29,10 +32,10 @@ l'agent Elastic actif et sans agent OTel.
   `OTEL_JAVAAGENT_CONFIGURATION_FILE`, attributs de ressource et clé du
   collecteur Edge. Il ne contient plus de `-javaagent`, ce qui évite un double
   attachement.
-- La corrélation logs/traces repose sur l'injection par l'agent OTel de
-  `trace_id` et `span_id` dans le MDC Logback, écrits par le format ECS de
-  Spring Boot puis recopiés en `trace.id` et `span.id` par le collecteur
-  backend.
+- La corrélation logs/traces repose sur l'agent OTel, qui exporte les logs
+  Logback en OTLP avec leur `trace_id` et leur `span_id` (ADR-012). Le format
+  ECS de stdout et la copie en `trace.id` par le collecteur backend sont
+  retirés.
 
 ## Alternatives considérées
 

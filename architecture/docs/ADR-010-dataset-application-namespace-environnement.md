@@ -8,6 +8,9 @@ Remplace la partie « nommage des data streams » de
 [ADR-009](ADR-009-namespaces-supermarche-et-k8s.md). Le choix du topic Kafka
 par le collecteur Edge (ADR-009) reste en vigueur.
 
+Amendé par [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md) : les logs sont en
+mode de mapping OTel et leur data stream prend le suffixe `.otel`.
+
 ## Date
 
 2026-11-02
@@ -46,15 +49,15 @@ l'environnement. Les topics `otel-<signal>-supermarche` et
   viderait, et ces dashboards sont gérés par Fleet, pas par ce dépôt.
 - Les collecteurs Kubernetes posent `deployment.environment.name` =
   `homologation` (`resource/environment`, sans écraser une valeur de la
-  source) : leurs métriques et les logs des pods applicatifs portent ainsi
-  l'environnement.
+  source) : leurs métriques portent ainsi l'environnement. Les logs
+  applicatifs le tiennent de l'agent OTel (`deployment.environment`).
 - En mode de mapping OTel, l'exporteur Elasticsearch ajoute `.otel` au
-  dataset des métriques ; les templates `metrics-*.otel-*` s'appliquent. Les
-  logs sont en mode ECS : pas de suffixe.
+  dataset des métriques et, depuis ADR-012, des logs ; les templates
+  `metrics-*.otel-*` et `logs-*.otel-*` s'appliquent.
 
 | Signal | Data stream |
 | --- | --- |
-| Logs des services `supermarket-demo` | `logs-supermarche-homologation` |
+| Logs des services `supermarket-demo` | `logs-supermarche.otel-homologation` (ADR-012) |
 | Métriques Micrometer et JVM | `metrics-supermarche.otel-homologation` |
 | Traces | `traces-apm-supermarche_homologation` (note du 2026-11-02) |
 | Erreurs APM | `logs-apm.error-supermarche_homologation` (note du 2026-11-02) |
@@ -79,7 +82,7 @@ l'environnement. Les topics `otel-<signal>-supermarche` et
   2026-11-02).
 - Le dashboard métier, le data view APM et les contrôles
   `dashboards-verify` et `observability-schema-verify` lisent
-  `metrics-supermarche.otel-*` et `logs-supermarche-*`.
+  `metrics-supermarche.otel-*` et `logs-supermarche.otel-*` (ADR-012).
 - APM Server ne reprend pas le namespace des traces pour ses métriques
   agrégées. Depuis la note du 2026-11-02, un pipeline Elasticsearch les range
   dans le namespace des traces de la route applicative. Les motifs
@@ -110,7 +113,7 @@ les topics de base ne changent pas.
 | Traces | `traces-apm-supermarche_homologation` |
 | Erreurs APM | `logs-apm.error-supermarche_homologation` |
 | Métriques APM agrégées | `metrics-apm.{transaction,service_transaction,service_destination,service_summary}.1m-supermarche_homologation` |
-| Logs | `logs-supermarche-homologation` |
+| Logs | `logs-supermarche.otel-homologation` (ADR-012) |
 | Métriques | `metrics-supermarche.otel-homologation` |
 
 ### Traces et erreurs

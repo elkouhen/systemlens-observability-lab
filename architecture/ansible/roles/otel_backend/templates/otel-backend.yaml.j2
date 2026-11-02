@@ -119,26 +119,6 @@ processors:
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
           - delete_key(resource.attributes, "otel.route.dataset")
-  transform/ecs-log-correlation:
-    log_statements:
-      - context: log
-        statements:
-          - set(attributes["trace.id"], attributes["trace_id"]) where attributes["trace_id"] != nil
-          - set(attributes["span.id"], attributes["span_id"]) where attributes["span_id"] != nil
-      # Les événements db.server.query_sample/top_query du receiver PostgreSQL
-      # restent en mode OTel natif : le package postgresql_otel les lit dans
-      # logs-postgresqlreceiver.otel-*, suffixe que le mode ECS n'ajoute pas.
-      - context: scope
-        statements:
-          - set(attributes["elastic.mapping.mode"], "ecs") where not IsMatch(name, "postgresqlreceiver")
-    trace_statements:
-      - context: scope
-        statements:
-          - set(attributes["elastic.mapping.mode"], "ecs")
-    metric_statements:
-      - context: scope
-        statements:
-          - set(attributes["elastic.mapping.mode"], "ecs")
   resource/internal-telemetry:
     attributes:
       - key: data_stream.dataset
@@ -161,6 +141,10 @@ exporters:
     headers:
       Authorization: "Bearer ${env:APM_SERVER_SECRET_TOKEN}"
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter
+  # Mode de mapping OTel natif (défaut de l'exporteur) pour tous les signaux
+  # indexés ici : les data streams prennent le suffixe .otel, par exemple
+  # logs-supermarche.otel-homologation (ADR-012). Aucun flux n'est forcé en
+  # ECS ; les traces passent par APM Server et gardent son modèle.
   elasticsearch/otel:
     endpoints: ["{{ elasticsearch_url }}"]
     api_key: ${env:ELASTICSEARCH_API_KEY}
@@ -230,5 +214,5 @@ service:
       exporters: [elasticsearch/otel]
     logs:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-namespace, transform/ecs-log-correlation, batch]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-namespace, batch]
       exporters: [elasticsearch/otel]

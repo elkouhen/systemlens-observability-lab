@@ -57,8 +57,10 @@ service et d’environnement afin de permettre leur filtrage dans Elastic.
 
 ### 3.2 Collecte de Kubernetes
 
-**SF-K8S-01.** La plateforme doit collecter les logs stdout des workloads
-Kubernetes couverts par la configuration EDOT.
+**SF-K8S-01.** Les applications Java doivent exporter leurs logs en OTLP par
+l'agent OpenTelemetry, au format OTel natif et corrélés aux traces (ADR-012).
+La lecture de stdout par le DaemonSet est réservée à un workload sans agent,
+déclaré explicitement.
 
 **SF-K8S-02.** La plateforme doit collecter les métriques Kubernetes prévues
 par les collecteurs EDOT.
@@ -115,7 +117,7 @@ chaîne de collecte.
 | AC-01 | L’opérateur exécute `make kubernetes-validate` | Le rendu Kustomize est valide sans application de ressource |
 | AC-02 | L’opérateur exécute `make ansible-validate` | Les playbooks Ansible sont syntaxiquement valides sans provisioning |
 | AC-03 | Une application émet une trace et expose ses métriques | Les signaux sont transportés par la chaîne OTLP puis visibles dans Elastic |
-| AC-04 | Un pod couvert écrit sur stdout | Le log est collecté et consultable avec son contexte Kubernetes |
+| AC-04 | Un service applicatif émet un log dans une transaction | Le log est consultable dans `logs-supermarche.otel-*` avec son `trace_id` et son contexte Kubernetes |
 | AC-05 | L’agent EDOT standalone de `supermarket-middleware-01` est actif | Les logs et métriques de la VM sont visibles après leur passage par Edge et Kafka |
 | AC-06 | L’opérateur exécute `make otel-validation` | La validation OTLP retourne un résultat exploitable |
 | AC-07 | L’opérateur exécute `make dashboards-verify` | Les jeux de données attendus par les dashboards sont récents |

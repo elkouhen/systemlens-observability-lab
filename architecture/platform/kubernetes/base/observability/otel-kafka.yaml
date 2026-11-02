@@ -95,39 +95,15 @@ metadata:
   namespace: elastic-stack
 data:
   daemonset.yaml: |
+    # Ce collecteur ne lit plus les fichiers de logs des pods : les
+    # applications Java exportent leurs logs en OTLP par l'agent OTel
+    # (ADR-012). apps/ADDING_APPLICATION.md décrit le receiver filelog à
+    # rétablir pour une application d'un autre namespace qui ne peut écrire
+    # que sur stdout.
     extensions:
       health_check:
         endpoint: 0.0.0.0:13133
-      file_storage:
-        directory: /var/lib/otelcol/file_storage
-        create_directory: true
     receivers:
-      filelog/kubernetes:
-        # Les logs applicatifs sont la seule source de logs Kubernetes utile à
-        # cette chaîne ; exclure les namespaces système évite une boucle et
-        # borne fortement la volumétrie envoyée vers Kafka.
-        include: [/var/log/pods/h0tl-supermarche-app_*/*/*.log]
-        start_at: end
-        max_log_size: 64KiB
-        storage: file_storage
-        include_file_path: true
-        operators:
-          - type: container
-          # Les applications Java écrivent un événement ECS JSON sur stdout.
-          # On le décode ici afin que message, service et contexte de trace
-          # soient indexés comme champs de log, au lieu de rester dans body.text.
-          - type: json_parser
-            parse_from: body
-            parse_to: attributes
-            if: 'body matches "^\\s*\\{"'
-            body: attributes.message
-            trace:
-              trace_id:
-                parse_from: attributes.trace_id
-              span_id:
-                parse_from: attributes.span_id
-              trace_flags:
-                parse_from: attributes.trace_flags
       hostmetrics:
         root_path: /hostfs
         collection_interval: 15s
@@ -180,24 +156,9 @@ data:
         check_interval: 1s
         limit_mib: 400
         spike_limit_mib: 100
-      k8sattributes:
-        auth_type: serviceAccount
-        passthrough: false
-        extract:
-          metadata: [k8s.namespace.name, k8s.pod.name, k8s.container.name]
       batch:
         timeout: 1s
         send_batch_size: 512
-      batch/logs:
-        timeout: 1s
-        send_batch_size: 50
-        send_batch_max_size: 50
-      filter/logs:
-        error_mode: ignore
-        logs:
-          log_record:
-            - 'IsMatch(attributes["message"], "^Consumer exception$")'
-            - 'IsMatch(attributes["message"], "^Value Deserializers with error:")'
       resource/k8s_cluster:
         attributes:
           - key: k8s.cluster.name
@@ -207,8 +168,7 @@ data:
             value: ${env:K8S_NODE_NAME}
             action: upsert
       # Marqueur lu puis supprimé par le collecteur Edge (ADR-009) : les
-      # signaux de ce collecteur vont dans les topics otel-<signal>-k8s, sauf
-      # les logs des pods applicatifs, routés selon k8s.namespace.name.
+      # signaux de ce collecteur vont dans les topics otel-<signal>-k8s.
       resource/edge-source:
         attributes:
           - key: otel.edge.source
@@ -230,7 +190,7 @@ data:
         headers:
           Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
     service:
-      extensions: [health_check, file_storage]
+      extensions: [health_check]
       telemetry:
         resource:
           service.name: otel-kubernetes
@@ -244,10 +204,6 @@ data:
                     host: 0.0.0.0
                     port: 8888
       pipelines:
-        logs:
-          receivers: [filelog/kubernetes]
-          processors: [memory_limiter, k8sattributes, filter/logs, resource/environment, resource/edge-source, batch/logs]
-          exporters: [otlp/edge]
         metrics:
           receivers: [hostmetrics, kubeletstats, prometheus/internal]
           processors: [memory_limiter, resource/k8s_cluster, resource/environment, resource/edge-source, batch]
@@ -358,8 +314,6 @@ spec:
             - {name: metrics, containerPort: 8888}
           volumeMounts:
             - {name: config, mountPath: /etc/otel, readOnly: true}
-            - {name: varlogpods, mountPath: /var/log/pods, readOnly: true}
-            - {name: storage, mountPath: /var/lib/otelcol}
             - {name: hostfs, mountPath: /hostfs, readOnly: true}
           readinessProbe: {httpGet: {path: /, port: health}}
           livenessProbe: {httpGet: {path: /, port: health}}
@@ -369,14 +323,8 @@ spec:
       volumes:
         - name: config
           configMap: {name: otel-kafka-config}
-        - name: varlogpods
-          hostPath: {path: /var/log/pods}
         - name: hostfs
           hostPath: {path: /}
-        - name: storage
-          hostPath:
-            path: /var/lib/otelcol
-            type: DirectoryOrCreate
 ---
 apiVersion: apps/v1
 kind: Deployment

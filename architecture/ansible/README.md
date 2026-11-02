@@ -77,8 +77,8 @@ sur `supermarket-middleware-01`.
 Le receiver PostgreSQL OTel émet aussi les événements `db.server.query_sample`
 et `db.server.top_query`. L'extension `pg_stat_statements` est créée dans la
 base applicative et dans la base `postgres`, que le receiver utilise pour les
-top queries. Le collecteur backend conserve ces événements en mode OTel natif
-(pas de forçage ECS) afin qu'ils arrivent dans `logs-postgresqlreceiver.otel-*`,
+top queries. Le collecteur backend les indexe en mode OTel natif, comme tous
+ses flux (ADR-012), afin qu'ils arrivent dans `logs-postgresqlreceiver.otel-*`,
 le data stream lu par les dashboards du package `postgresql_otel`. Contrôle :
 `make postgresql-otel-dashboards-verify`.
 
@@ -199,8 +199,11 @@ L'environnement est normalisé : minuscules, et tout caractère hors
 `[a-z0-9_]` devient `_`. Sur un topic suffixé, il l'emporte sur un
 `data_stream.namespace` posé par la source au niveau ressource. Le dataset est
 posé par l'Edge pour une route applicative, sinon par la source ou le
-receiver d'origine. En mode de mapping OTel (métriques), l'exporteur ajoute
-`.otel` au dataset ; les logs, en mode ECS, n'ont pas ce suffixe.
+receiver d'origine. Tous les flux sont en mode de mapping OTel : l'exporteur
+ajoute `.otel` au dataset des logs et des métriques
+([ADR-012](../docs/ADR-012-logs-otel-natifs-sans-ecs.md)). Les logs des VM
+arrivent ainsi dans `logs-generic.otel-default` et les logs internes des
+collecteurs dans `logs-collectortelemetry.otel-default`.
 
 ### Topics et datasets choisis par le collecteur Edge
 
@@ -215,11 +218,11 @@ viennent de
 
 | Ressource reçue par l'Edge | Topic | Data stream (environnement `homologation`) |
 | --- | --- | --- |
-| Log avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-logs-supermarche` | `logs-supermarche-homologation` |
+| Log avec `k8s.namespace.name` = `h0tl-supermarche-app` (agent OTel) | `otel-logs-supermarche` | `logs-supermarche.otel-homologation` |
 | Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k8s` | `metrics-<receiver>.otel-homologation` |
 | Métrique avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-metrics-supermarche` | `metrics-supermarche.otel-homologation` |
 | Trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-traces-supermarche` | `traces-apm-supermarche_homologation`, `logs-apm.error-supermarche_homologation`, `metrics-apm.<métrique>.1m-supermarche_homologation` |
-| Log avec `otel.edge.source` = `kubernetes` (autre namespace) | `otel-logs-k8s` | `logs-<receiver>-homologation` |
+| Log avec `otel.edge.source` = `kubernetes` (autre namespace, si un receiver `filelog` est rétabli) | `otel-logs-k8s` | `logs-<receiver>.otel-homologation` |
 | Autre ressource (VM, Edge, Fleet) | topic de base | inchangé, namespace `default` |
 
 Les traces ne reçoivent aucun dataset : APM Server garde `apm`, `apm.error`

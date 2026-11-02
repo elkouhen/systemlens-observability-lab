@@ -25,16 +25,17 @@ ce module.
 Les transactions Kafka sont exposées directement avec le type `messaging` dans
 la vue APM.
 
-Chaque réservation produit un log ECS métier : `INFO` en cas de succès et
+Chaque réservation produit un log métier : `INFO` en cas de succès et
 `WARN` pour une quantité invalide, un produit absent ou une rupture de stock.
 Lorsqu'une réservation épuise le stock, le service publie
 `supermarket.stock.depleted`. `restock-service` répond par une demande sur
 `supermarket.stock.restock-requested`, appliquée ici afin que ce module reste
 propriétaire du catalogue PostgreSQL.
-L'agent OTel place `trace_id` et `span_id` dans le MDC Logback ; le format ECS
-de Spring Boot les écrit dans chaque événement. Le collecteur backend les
-recopie en `trace.id` et `span.id`, ce qui rend ces logs accessibles depuis la
-vue Logs des transactions APM. Aucune option n'est à activer.
+L'agent OTel exporte ces logs en OTLP vers
+`logs-supermarche.otel-homologation` (ADR-012), avec le `trace_id` et le
+`span_id` du span courant. Les paires `addKeyValue` (`event.action`,
+`product.id`, `business.units_sold`...) deviennent des attributs du log. La
+vue Logs des transactions APM les retrouve par l'alias `trace.id`.
 
 Le service expose aussi le compteur métier Micrometer
 `business.orders.completed`, incrémenté après la réussite des écritures

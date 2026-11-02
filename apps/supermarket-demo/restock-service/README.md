@@ -10,12 +10,12 @@ Il consomme également `supermarket.order.placed` avec le groupe
 `restock-order-observer`. Cette consommation est volontairement en lecture
 seule : elle rend visible le fan-out d'une commande en ligne vers
 `inventory-service` et `restock-service` sans réserver le stock une seconde
-fois. Le compteur `business.orders.observed` et le log ECS associé permettent
+fois. Le compteur `business.orders.observed` et le log associé permettent
 de vérifier le flux dans Kibana.
 
 Le module est instrumenté par l'agent Java OpenTelemetry attaché par le
-Dockerfile parent. Ses logs ECS sur `stdout` permettent de suivre l'épuisement et le
-réassort d'un produit dans Kibana.
+Dockerfile parent, qui exporte aussi ses logs en OTLP (ADR-012) : ils
+permettent de suivre l'épuisement et le réassort d'un produit dans Kibana.
 
 Le compteur Micrometer `business.stock.restock.requested` est incrémenté pour
 chaque demande de réassort émise sur Kafka. Le compteur

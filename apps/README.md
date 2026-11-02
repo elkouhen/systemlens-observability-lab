@@ -10,8 +10,8 @@ Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis la base
 commune et l’overlay par défaut sous `../kubernetes/apps/`, et enfin les modules Maven
 communs. L’application est raccordée à l’architecture d’observabilité active.
 
-Pour intégrer une nouvelle application Java dans les chaînes APM/OTel et logs
-ECS, suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
+Pour intégrer une nouvelle application Java dans les chaînes APM et OTel
+(traces, métriques et logs), suivre [Ajouter une application Java observée](ADDING_APPLICATION.md).
 Pour vérifier l’intégration de bout en bout, consulter le
 guide de déploiement et d'exploitation de l'architecture active.
 
