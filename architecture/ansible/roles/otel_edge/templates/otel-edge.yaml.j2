@@ -40,20 +40,6 @@ processors:
     timeout: 1s
     send_batch_size: 50
     send_batch_max_size: 50
-  resource/internal-telemetry:
-    attributes:
-      - key: data_stream.dataset
-        value: collectortelemetry
-        action: upsert
-      - key: service.name
-        value: otel-edge
-        action: upsert
-      - key: service.version
-        value: "{{ otel_collector_contrib_version }}"
-        action: upsert
-      - key: service.instance.id
-        value: "{{ inventory_hostname }}"
-        action: upsert
 
 {#
   Choix du topic par ressource (ADR-009 ; ADR-007, note du 2026-11-02). Le
@@ -161,15 +147,28 @@ exporters:
 
 service:
   extensions: [health_check, file_storage, bearertokenauth/clients]
+  # Télémétrie interne (ADR-013) : niveau normal, export toutes les 30 s,
+  # logs au niveau info (défaut), sans traces. La ressource remplace le
+  # processor resource/internal-telemetry ; le backend conserve
+  # data_stream.dataset du topic de base (collectortelemetry.otel-default).
   telemetry:
     resource:
-      service.name: otel-edge
-      deployment.environment.name: homologation
+      attributes:
+        - name: service.name
+          value: otel-edge
+        - name: service.version
+          value: "{{ otel_collector_contrib_version }}"
+        - name: service.instance.id
+          value: "{{ inventory_hostname }}"
+        - name: deployment.environment.name
+          value: homologation
+        - name: data_stream.dataset
+          value: collectortelemetry
     metrics:
-      level: detailed
+      level: normal
       readers:
         - periodic:
-            interval: 3000
+            interval: 30000
             exporter:
               # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
               otlp:
@@ -183,26 +182,14 @@ service:
               otlp:
                 protocol: grpc
                 endpoint: http://127.0.0.1:14319
-    traces:
-      processors:
-        - batch:
-            exporter:
-              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
-              otlp:
-                protocol: grpc
-                endpoint: http://127.0.0.1:14319
   pipelines:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, batch]
+      processors: [memory_limiter, batch]
       exporters: [kafka/otlp]
     logs/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, batch/logs]
-      exporters: [kafka/otlp]
-    traces/internal-telemetry:
-      receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, batch]
+      processors: [memory_limiter, batch/logs]
       exporters: [kafka/otlp]
     traces:
       receivers: [otlp]

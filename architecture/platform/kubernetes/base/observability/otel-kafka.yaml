@@ -124,11 +124,13 @@ data:
           network: {}
           paging: {}
           processes: {}
+      # Télémétrie interne du collecteur, lue sur son propre endpoint
+      # Prometheus toutes les 30 s (ADR-013).
       prometheus/internal:
         config:
           scrape_configs:
             - job_name: otel-kubernetes
-              scrape_interval: 15s
+              scrape_interval: 30s
               static_configs:
                 - targets: [127.0.0.1:8888]
       kubeletstats:
@@ -197,7 +199,7 @@ data:
           service.name: otel-kubernetes
           deployment.environment.name: homologation
         metrics:
-          level: detailed
+          level: normal
           readers:
             - pull:
                 exporter:

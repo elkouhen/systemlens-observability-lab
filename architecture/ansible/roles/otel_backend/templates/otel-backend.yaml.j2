@@ -10,7 +10,9 @@ receivers:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkareceiver
   kafka/otlp:
     brokers: ["{{ otel_kafka_broker }}"]
-    protocol_version: 3.9.0
+    # Pas de protocol_version (ADR-013) : franz-go négocie avec le broker la
+    # version de chaque requête (ApiVersions). Une valeur fixée borne à la
+    # fois le minimum et le maximum de chaque requête à cette version.
     group_id: otel-backend
     # Souscription par expression régulière (un topic commençant par « ^ »
     # est interprété comme une regex) : le backend consomme le topic de base
@@ -32,6 +34,22 @@ receivers:
     initial_offset: earliest
     metadata:
       refresh_interval: 1m
+    # Garantie de livraison (ADR-013) : un message n'est marqué, donc son
+    # offset commité, qu'après le retour du pipeline, c'est-à-dire après son
+    # écriture dans la file persistante de l'exporteur. Une erreur
+    # transitoire (file pleine, memory_limiter) laisse le message non marqué
+    # et error_backoff le relit. Une erreur permanente (message illisible,
+    # rejet définitif) marque le message : il est perdu, mais il ne bloque
+    # pas sa partition jusqu'au prochain rebalance.
+    message_marking:
+      after: true
+      on_error: false
+      on_permanent_error: true
+    error_backoff:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 5m
     auth:
       sasl:
         username: "${env:OTEL_KAFKA_CONSUMER_USERNAME}"
@@ -53,13 +71,27 @@ processors:
     include:
       metric_types:
         - histogram
+  # Seuls les pipelines de télémétrie interne passent par batch. Les
+  # pipelines Kafka n'en ont pas : batch acquitte avant l'export et
+  # annulerait message_marking.after. Ils sont regroupés par la file de
+  # chaque exporteur, après persistance (ADR-013).
   batch:
     timeout: 1s
     send_batch_size: 512
+  # Les métriques Java du client Kafka (kafka.consumer.*.avg/.max, agent
+  # OpenTelemetry des services) valent NaN tant qu'aucune mesure n'existe.
+  # L'exporteur Elasticsearch rejette ces points avec un avertissement
+  # « validation errors » ; ils sont supprimés ici, sans autre perte.
+  # x - x est différent de 0 seulement pour NaN et ±Inf (ADR-013).
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/filterprocessor
+  filter/invalid-double:
+    error_mode: ignore
+    metric_conditions:
+      - (metric.type == METRIC_DATA_TYPE_GAUGE or metric.type == METRIC_DATA_TYPE_SUM) and datapoint.value_double - datapoint.value_double != 0.0
   # Routage par topic (ADR-007, note du 2026-11-02) : le nom du topic porte
   # toute la cible. Le receiver Kafka expose le topic d'origine dans le
-  # contexte (kafka.topic) ; il est copié en attribut de ressource avant le
-  # batch, qui ne conserve pas ce contexte.
+  # contexte (kafka.topic) ; il est copié en attribut de ressource, car la
+  # file de l'exporteur, qui regroupe les lots, ne conserve pas ce contexte.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourceprocessor
   resource/kafka-topic:
     attributes:
@@ -109,20 +141,6 @@ processors:
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
-  resource/internal-telemetry:
-    attributes:
-      - key: data_stream.dataset
-        value: collectortelemetry
-        action: upsert
-      - key: service.name
-        value: otel-backend
-        action: upsert
-      - key: service.version
-        value: "{{ otel_collector_contrib_version }}"
-        action: upsert
-      - key: service.instance.id
-        value: "{{ inventory_hostname }}"
-        action: upsert
 
 exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
@@ -130,6 +148,26 @@ exporters:
     endpoint: "{{ apm_server_url }}"
     headers:
       Authorization: "Bearer ${env:APM_SERVER_SECRET_TOKEN}"
+    # File persistante (ADR-013) : les traces acquittées au receiver Kafka
+    # survivent à un redémarrage du collecteur et à une panne d'APM Server.
+    # Pleine, la file refuse les données : le receiver Kafka ne marque pas
+    # le message et le relit, Kafka reste le tampon.
+    sending_queue:
+      enabled: true
+      storage: file_storage
+      sizer: requests
+      queue_size: 1000
+      batch:
+        flush_timeout: 1s
+        sizer: items
+        min_size: 512
+    # Réessais sans limite de durée : seule une erreur permanente (4xx hors
+    # 429) abandonne un lot.
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter
   # Mode de mapping OTel natif (défaut de l'exporteur) pour tous les signaux
   # indexés ici : les data streams prennent le suffixe .otel, par exemple
@@ -142,38 +180,46 @@ exporters:
       enabled: true
       queue_size: 1000
       storage: file_storage
+    # Réessais explicites (ADR-013) : erreurs de transport et 429. Les 5xx ne
+    # sont pas réessayés, pour éviter les doublons d'un bulk partiellement
+    # indexé.
+    retry:
+      enabled: true
+      max_retries: 10
+      initial_interval: 1s
+      max_interval: 1m
+      retry_on_status: [429]
 
 service:
   extensions: [health_check, file_storage]
+  # Télémétrie interne (ADR-013) : niveau normal, export toutes les 30 s,
+  # logs au niveau info (défaut), sans traces. La ressource remplace le
+  # processor resource/internal-telemetry : data stream
+  # metrics|logs-collectortelemetry.otel-default, instance stable.
   telemetry:
     resource:
-      service.name: otel-backend
-      deployment.environment.name: homologation
+      attributes:
+        - name: service.name
+          value: otel-backend
+        - name: service.version
+          value: "{{ otel_collector_contrib_version }}"
+        - name: service.instance.id
+          value: "{{ inventory_hostname }}"
+        - name: deployment.environment.name
+          value: homologation
+        - name: data_stream.dataset
+          value: collectortelemetry
     metrics:
-      level: detailed
+      level: normal
       readers:
         - periodic:
-            interval: 3000
+            interval: 30000
             exporter:
               # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
               otlp:
                 protocol: grpc
                 endpoint: http://127.0.0.1:4322
-        - pull:
-            exporter:
-              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/prometheusexporter
-              prometheus:
-                host: 0.0.0.0
-                port: 8889
     logs:
-      processors:
-        - batch:
-            exporter:
-              # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter
-              otlp:
-                protocol: grpc
-                endpoint: http://127.0.0.1:4322
-    traces:
       processors:
         - batch:
             exporter:
@@ -184,25 +230,21 @@ service:
   pipelines:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, cumulativetodelta, batch]
+      processors: [memory_limiter, cumulativetodelta, batch]
       exporters: [elasticsearch/otel]
     logs/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, batch]
-      exporters: [elasticsearch/otel]
-    traces/internal-telemetry:
-      receivers: [otlp/internal]
-      processors: [memory_limiter, resource/internal-telemetry, batch]
+      processors: [memory_limiter, batch]
       exporters: [elasticsearch/otel]
     traces:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, batch]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route]
       exporters: [otlphttp/apm-server]
     metrics:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, cumulativetodelta, batch]
+      processors: [memory_limiter, filter/invalid-double, resource/kafka-topic, transform/data-stream-route, cumulativetodelta]
       exporters: [elasticsearch/otel]
     logs:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, batch]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route]
       exporters: [elasticsearch/otel]
