@@ -7,7 +7,7 @@
       "indicator": {
         "type": "sli.kql.custom",
         "params": {
-          "index": "metrics-generic.otel-*",
+          "index": "metrics-supermarche.otel-*",
           "filter": "",
           "good": "metrics.up : 1",
           "total": "metrics.up : *",

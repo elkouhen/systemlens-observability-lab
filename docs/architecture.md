@@ -71,8 +71,10 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
 `otel-metrics`. Le collecteur Edge publie les signaux applicatifs dans
 `otel-<signal>-supermarche` et ceux des collecteurs Kubernetes dans
-`otel-<signal>-k8s` ; le backend en déduit les namespaces de data stream
-`supermarche` et `k8s` (ADR-009). Les signaux des VM restent dans `default`.
+`otel-<signal>-k8s` (ADR-009). L'Edge pose le dataset `supermarche` sur les
+logs et métriques applicatifs ; le backend pose le namespace depuis
+`deployment.environment` (`homologation`). Les signaux Kubernetes gardent le
+dataset de leur receiver (ADR-010). Les signaux des VM restent dans `default`.
 Le Collector backend applique le traitement nécessaire avant l’export vers
 Elastic.
 

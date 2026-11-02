@@ -9,6 +9,14 @@ Amendé le 2026-11-02 par
 publie aussi dans des topics suffixés, et les topics `otel-<signal>-supermarche`
 et `otel-<signal>-k8s` sont créés avec la rétention des topics de base.
 
+Amendé le 2026-11-02 par
+[ADR-010](ADR-010-dataset-application-namespace-environnement.md) : le
+suffixe du topic ne fixe plus le namespace. Il isole un flux routé et indique
+au backend de poser `data_stream.namespace` depuis l'environnement de la
+ressource (`deployment.environment.name`, sinon `deployment.environment`,
+sinon `default`). Un producteur qui publie dans `otel-*-recette` écrit donc
+dans `<type>-<dataset>-<environnement>`. Les topics de base ne changent pas.
+
 ## Date
 
 2026-11-02

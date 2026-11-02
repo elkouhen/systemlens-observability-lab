@@ -181,46 +181,57 @@ dans `roles/otel_backend/templates/kafka.container.j2`. Le Kafka métier de
 
 ## Routage des data streams par topic Kafka
 
-Le collecteur backend choisit le namespace du data stream cible d'après le
-topic Kafka OTel d'origine ([ADR-007](../docs/ADR-007-namespace-data-stream-par-topic.md)) :
+Le dataset nomme l'application ou la plateforme, le namespace l'environnement
+([ADR-010](../docs/ADR-010-dataset-application-namespace-environnement.md)).
+Le collecteur backend pose le namespace des flux reçus sur un topic suffixé
+([ADR-007](../docs/ADR-007-namespace-data-stream-par-topic.md)) :
 
-| Topic consommé | Data stream écrit |
+| Topic consommé | Namespace du data stream |
 | --- | --- |
-| `otel-logs`, `otel-metrics`, `otel-traces` | namespace fourni par la source, sinon `default` |
-| `otel-logs-<namespace>` | `logs-<dataset>-<namespace>` |
-| `otel-metrics-<namespace>` | `metrics-<dataset>.otel-<namespace>` |
-| `otel-traces-<namespace>` | `traces-apm-<namespace>` (via APM Server) |
+| `otel-logs`, `otel-metrics`, `otel-traces` | fourni par la source, sinon `default` |
+| `otel-<signal>-<suffixe>` | `deployment.environment.name`, sinon `deployment.environment`, sinon `default` |
 
-Chemin : producteur → topic `otel-<signal>-<namespace>` du Kafka OTel →
+Chemin : producteur → topic `otel-<signal>-<suffixe>` du Kafka OTel →
 receiver `kafka/otlp` (souscription par regex) → `resource/kafka-topic`
 (copie de `kafka.topic`) → `transform/data-stream-namespace` (attribut de
 ressource `data_stream.namespace`) → exporteur Elasticsearch ou APM Server.
-Le suffixe est normalisé : minuscules, et tout caractère hors `[a-z0-9_]`
-devient `_` (`otel-logs-Equipe-A` → namespace `equipe_a`). Le topic l'emporte
-sur un `data_stream.namespace` posé par la source au niveau ressource. Le
-dataset reste choisi par la source ou, à défaut, par le receiver d'origine.
+L'environnement est normalisé : minuscules, et tout caractère hors
+`[a-z0-9_]` devient `_`. Sur un topic suffixé, il l'emporte sur un
+`data_stream.namespace` posé par la source au niveau ressource. Le dataset est
+posé par l'Edge pour une route applicative, sinon par la source ou le
+receiver d'origine. En mode de mapping OTel (métriques), l'exporteur ajoute
+`.otel` au dataset ; les logs, en mode ECS, n'ont pas ce suffixe.
 
-### Topics choisis par le collecteur Edge
+### Topics et datasets choisis par le collecteur Edge
 
 Le collecteur Edge choisit le topic de chaque ressource
 ([ADR-009](../docs/ADR-009-namespaces-supermarche-et-k8s.md)). Le
 processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
 `topic_from_attribute` de l'exporteur Kafka ; sans attribut, le topic de base
-s'applique. Les règles viennent de `inventory/group_vars/otel_edge_nodes.yml` :
+s'applique. Il pose aussi `data_stream.dataset` sur les logs et métriques
+d'une route applicative. Les règles viennent de
+`inventory/group_vars/otel_edge_nodes.yml` :
 
-| Ressource reçue par l'Edge | Topic | Namespace |
+| Ressource reçue par l'Edge | Topic | Data stream (environnement `homologation`) |
 | --- | --- | --- |
-| Log avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-logs-supermarche` | `supermarche` |
-| Métrique ou trace avec `otel.edge.source` = `kubernetes` | `otel-<signal>-k8s` | `k8s` |
-| Métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche` | `supermarche` |
-| Log avec `otel.edge.source` = `kubernetes` (autre namespace) | `otel-logs-k8s` | `k8s` |
-| Autre ressource (VM, Edge, Fleet) | topic de base | `default` |
+| Log avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-logs-supermarche` | `logs-supermarche-homologation` |
+| Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k8s` | `metrics-<receiver>.otel-homologation` |
+| Métrique avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-metrics-supermarche` | `metrics-supermarche.otel-homologation` |
+| Trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-traces-supermarche` | `traces-apm-homologation`, `logs-apm.error-homologation` |
+| Log avec `otel.edge.source` = `kubernetes` (autre namespace) | `otel-logs-k8s` | `logs-<receiver>-homologation` |
+| Autre ressource (VM, Edge, Fleet) | topic de base | inchangé, namespace `default` |
 
+Les traces ne reçoivent aucun dataset : APM Server garde `apm` et
+`apm.error`. Les signaux Kubernetes gardent le dataset de leur receiver
+(`kubeletstatsreceiver`, `k8sclusterreceiver`, `hostmetricsreceiver`,
+`prometheusreceiver`), lu par les dashboards Fleet `[Kubernetes OTel]`.
 Les collecteurs Kubernetes (`otel-kubernetes`, `otel-kubernetes-cluster`)
-posent le marqueur `otel.edge.source=kubernetes`. L'Edge le supprime, et le
-backend supprime `otel.kafka.topic` avant l'indexation. Un log suit le
+posent le marqueur `otel.edge.source=kubernetes` et
+`deployment.environment.name` = `homologation`. L'Edge supprime le marqueur,
+et le backend supprime `otel.kafka.topic` avant l'indexation. Un log suit le
 namespace de son pod, une métrique ou une trace suit son émetteur : les
-métriques `kubeletstats` d'un pod applicatif vont donc dans `k8s`.
+métriques `kubeletstats` d'un pod applicatif vont donc dans
+`metrics-kubeletstatsreceiver.otel-homologation`.
 
 Les six topics suffixés sont créés par le job `otel-telemetry-topics`, avec
 trois partitions et la rétention d'un jour des topics de base. Un autre

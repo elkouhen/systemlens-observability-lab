@@ -17,7 +17,7 @@ response="$(curl --fail --silent --show-error --insecure \
   --data "{\"size\":10000,\"query\":{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},\"_source\":[\"data_stream.dataset\",\"metrics\"],\"aggs\":{\"datasets\":{\"terms\":{\"field\":\"data_stream.dataset\",\"size\":100}}}}")"
 
 expected_datasets=(
-  hostmetricsreceiver.otel kubeletstatsreceiver.otel k8sclusterreceiver.otel generic.otel
+  hostmetricsreceiver.otel kubeletstatsreceiver.otel k8sclusterreceiver.otel supermarche.otel
   apm.service_transaction.1m
   kafkametricsreceiver.otel mongodbreceiver.otel postgresqlreceiver.otel
 )
@@ -32,10 +32,10 @@ expected_metrics=(
   'metrics-mongodbreceiver.otel-*|mongodb.connection.count'
   'metrics-mongodbreceiver.otel-*|mongodb.operation.count'
   'metrics-mongodbreceiver.otel-*|mongodb.storage.size'
-  'metrics-generic.otel-*|metrics.business.orders.completed'
-  'metrics-generic.otel-*|metrics.business.stock.restock.requested'
-  'metrics-generic.otel-*|metrics.business.stock.restock.completed'
-  'metrics-generic.otel-*|metrics.business.stock.quantity'
+  'metrics-supermarche.otel-*|metrics.business.orders.completed'
+  'metrics-supermarche.otel-*|metrics.business.stock.restock.requested'
+  'metrics-supermarche.otel-*|metrics.business.stock.restock.completed'
+  'metrics-supermarche.otel-*|metrics.business.stock.quantity'
   'metrics-postgresqlreceiver.otel-*|postgresql.backends'
   'metrics-postgresqlreceiver.otel-*|postgresql.connection.max'
   'metrics-postgresqlreceiver.otel-*|postgresql.commits'

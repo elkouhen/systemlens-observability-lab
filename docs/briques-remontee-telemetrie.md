@@ -18,6 +18,14 @@ par le collecteur Edge (ADR-009), sont consommés par le groupe
 `otel-backend`. Le Collector applique le batch, la limitation mémoire
 et la queue disque avant l'export Elasticsearch.
 
+Les flux routés suivent la convention Elastic (ADR-010) : le dataset nomme
+l'application, le namespace l'environnement. Les services `supermarket-demo`
+écrivent dans `logs-supermarche-homologation`,
+`metrics-supermarche.otel-homologation`, `traces-apm-homologation` et
+`logs-apm.error-homologation`. Les collecteurs Kubernetes gardent le dataset
+de leur receiver, par exemple `metrics-kubeletstatsreceiver.otel-homologation`.
+Les signaux des VM restent dans le namespace `default`.
+
 Les VM exécutent Elastic Agent en mode EDOT standalone. La configuration
 locale collecte les logs système et les métriques hôte, puis exporte en OTLP
 vers le Collecteur Edge. Les anciennes policies Fleet de collecte VM ne doivent

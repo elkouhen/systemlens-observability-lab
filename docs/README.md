@@ -43,6 +43,8 @@ télémétrie suivent les procédures de [l’architecture](architecture.md).
   retrait de l'agent Java Elastic APM et point d'attachement de l'agent OTel.
 - [ADR-009 : séparer les namespaces de data stream `supermarche` et `k8s`](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md) :
   routage par l'Edge vers des topics Kafka suffixés.
+- [ADR-010 : le dataset nomme l'application, le namespace l'environnement](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md) :
+  noms des data streams `supermarche` et Kubernetes en `homologation`.
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   sources, transport, destinations et fichiers IaC associés.
 - [Gestion du débit de télémétrie](gestion-du-debit-observabilite.md) :

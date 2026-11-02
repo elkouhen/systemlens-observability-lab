@@ -75,10 +75,14 @@ Les topics OTLP sont séparés par type de signal :
 | `otel-<signal>-supermarche` | Collecteur Edge, signaux des services `supermarket-demo` | Collector backend |
 | `otel-<signal>-k8s` | Collecteur Edge, signaux des collecteurs Kubernetes | Collector backend |
 
-Le suffixe du topic fixe le namespace du data stream
-([ADR-007](../architecture/docs/ADR-007-namespace-data-stream-par-topic.md)) ;
-le collecteur Edge choisit le topic par ressource
-([ADR-009](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md)).
+Le collecteur Edge choisit le topic par ressource
+([ADR-009](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md)) et
+pose le dataset des logs et métriques applicatifs (`supermarche`). Pour un
+topic suffixé, le backend pose le namespace depuis `deployment.environment`
+([ADR-007](../architecture/docs/ADR-007-namespace-data-stream-par-topic.md),
+[ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
+`logs-supermarche-homologation`, `metrics-supermarche.otel-homologation`,
+`traces-apm-homologation`, `metrics-kubeletstatsreceiver.otel-homologation`.
 Les topics de base portent les signaux des VM, écrits dans `default`.
 Le groupe de consommation du backend est `otel-backend`. La séparation des
 topics évite de décoder des payloads de types différents dans un même flux.

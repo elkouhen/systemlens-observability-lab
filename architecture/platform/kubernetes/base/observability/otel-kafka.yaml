@@ -207,13 +207,21 @@ data:
             value: ${env:K8S_NODE_NAME}
             action: upsert
       # Marqueur lu puis supprimé par le collecteur Edge (ADR-009) : les
-      # signaux de ce collecteur vont dans le namespace de data stream « k8s »,
-      # sauf les logs des pods applicatifs, routés selon k8s.namespace.name.
+      # signaux de ce collecteur vont dans les topics otel-<signal>-k8s, sauf
+      # les logs des pods applicatifs, routés selon k8s.namespace.name.
       resource/edge-source:
         attributes:
           - key: otel.edge.source
             value: kubernetes
             action: upsert
+      # Environnement des signaux collectés : le backend en dérive le
+      # namespace de data stream des flux routés (ADR-010). Une valeur déjà
+      # posée par la source est conservée.
+      resource/environment:
+        attributes:
+          - key: deployment.environment.name
+            value: homologation
+            action: insert
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
@@ -238,11 +246,11 @@ data:
       pipelines:
         logs:
           receivers: [filelog/kubernetes]
-          processors: [memory_limiter, k8sattributes, filter/logs, resource/edge-source, batch/logs]
+          processors: [memory_limiter, k8sattributes, filter/logs, resource/environment, resource/edge-source, batch/logs]
           exporters: [otlp/edge]
         metrics:
           receivers: [hostmetrics, kubeletstats, prometheus/internal]
-          processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
+          processors: [memory_limiter, resource/k8s_cluster, resource/environment, resource/edge-source, batch]
           exporters: [otlp/edge]
 
   cluster.yaml: |
@@ -281,6 +289,14 @@ data:
           - key: otel.edge.source
             value: kubernetes
             action: upsert
+      # Environnement des signaux collectés : le backend en dérive le
+      # namespace de data stream des flux routés (ADR-010). Une valeur déjà
+      # posée par la source est conservée.
+      resource/environment:
+        attributes:
+          - key: deployment.environment.name
+            value: homologation
+            action: insert
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
@@ -293,7 +309,7 @@ data:
       pipelines:
         metrics:
           receivers: [k8s_cluster]
-          processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
+          processors: [memory_limiter, resource/k8s_cluster, resource/environment, resource/edge-source, batch]
           exporters: [otlp/edge]
 
 ---

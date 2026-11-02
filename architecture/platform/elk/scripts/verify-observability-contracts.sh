@@ -147,7 +147,7 @@ if [[ "${mode}" == schema ]]; then
       must_not: [{exists: {field: "service.name"}}]
     }}
   }')"
-  service_missing="$(count_query 'traces-*,metrics-generic.otel-*,logs-generic.otel-*' "${service_missing_query}")"
+  service_missing="$(count_query 'traces-*,metrics-supermarche.otel-*,metrics-generic.otel-*,logs-generic.otel-*' "${service_missing_query}")"
   check_zero "documents OTel applicatifs sans service.name" "${service_missing}"
 
   ecs_missing_query="$(jq -cn --arg window "${window}" '{
@@ -159,7 +159,7 @@ if [[ "${mode}" == schema ]]; then
       must_not: [{exists: {field: "ecs.version"}}]
     }}
   }')"
-  ecs_missing="$(count_query 'logs-generic.otel-*' "${ecs_missing_query}")"
+  ecs_missing="$(count_query 'logs-supermarche-*,logs-generic.otel-*' "${ecs_missing_query}")"
   check_zero "logs applicatifs sans ecs.version" "${ecs_missing}"
 fi
 

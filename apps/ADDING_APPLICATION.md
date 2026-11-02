@@ -92,43 +92,51 @@ transmis par `k8s.namespace.name` et indexé en `kubernetes.namespace`.
 
 ## Data streams alimentés
 
-Le collecteur backend écrit en mode de mapping ECS. Le namespace des data
-streams dérive du suffixe du topic Kafka (ADR-007). Le collecteur Edge publie
-les signaux dont la ressource porte `k8s.namespace.name` =
-`h0tl-supermarche-app` dans les topics `otel-<signal>-supermarche` (ADR-009) :
+Le dataset nomme l'application, le namespace nomme l'environnement (ADR-010).
+Le collecteur Edge publie les signaux dont la ressource porte
+`k8s.namespace.name` = `h0tl-supermarche-app` dans les topics
+`otel-<signal>-supermarche` (ADR-009) et pose le dataset `supermarche` sur
+leurs logs et métriques. Le collecteur backend pose le namespace depuis
+`deployment.environment` (`homologation`) :
 
 | Signal | Data stream |
 | --- | --- |
-| Traces | `traces-apm-supermarche` |
-| Erreurs APM | `logs-apm.error-supermarche` |
-| Métriques Micrometer et JVM | `metrics-generic.otel-supermarche` |
-| Logs stdout | `logs-filelogreceiver-supermarche` |
+| Traces | `traces-apm-homologation` |
+| Erreurs APM | `logs-apm.error-homologation` |
+| Métriques Micrometer et JVM | `metrics-supermarche.otel-homologation` |
+| Logs stdout | `logs-supermarche-homologation` |
 | Métriques APM agrégées | `metrics-apm.transaction.1m-default`, `metrics-apm.service_destination.1m-default` et voisins |
 
-APM Server calcule les métriques APM agrégées sans reprendre le namespace des
-traces : elles restent dans `default`. Les métriques Kubernetes des pods
-(`kubeletstats`, `k8s_cluster`) vont dans le namespace `k8s`. Les données
-antérieures au 2026-11-02 sont dans les data streams `*-default`.
+Les traces gardent le dataset `apm` d'APM Server, lu par l'UI APM. Les
+métriques reçoivent le suffixe `.otel` du mode de mapping OTel ; les logs,
+écrits en mode ECS, n'en ont pas. APM Server calcule les métriques APM
+agrégées sans reprendre le namespace des traces : elles restent dans
+`default`. Les métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`)
+gardent le dataset de leur receiver, en namespace `homologation`.
 
-### Donner son propre namespace à une nouvelle application
+### Donner son propre dataset à une nouvelle application
 
 1. Ajouter une entrée à `otel_edge_application_routes` dans
    `architecture/ansible/inventory/group_vars/otel_edge_nodes.yml` :
    `kubernetes_namespace` est le namespace Kubernetes de l'application,
-   `data_stream_namespace` le namespace de data stream (`[a-z0-9_]`).
-2. Ajouter les trois topics `otel-{traces,metrics,logs}-<namespace>` à la
+   `kafka_topic_suffix` le suffixe de ses topics et `data_stream_dataset` le
+   dataset de ses logs et métriques (`[a-z0-9_]`).
+2. Ajouter les trois topics `otel-{traces,metrics,logs}-<suffixe>` à la
    boucle du job `otel-telemetry-topics` dans
    `architecture/platform/kubernetes/base/observability/otel-kafka.yaml`.
-3. Appliquer `make kubernetes-observability-deploy` (création des topics),
+3. Déclarer `deployment.environment` dans `OTEL_RESOURCE_ATTRIBUTES` : il
+   fixe le namespace (`default` à défaut).
+4. Appliquer `make kubernetes-observability-deploy` (création des topics),
    puis `make otel-edge-vm-provision`.
 
 Sans entrée dédiée, les signaux de l'application partent dans les topics de
-base et le namespace `default`.
+base, avec le dataset de leur source et le namespace `default`.
 
 Les traces et métriques APM portent `agent.name` égal à
 `opentelemetry/java/opentelemetry-java-instrumentation`. Les logs ne portent
-ni `agent.name` ni `service.environment` : le formateur ECS n'écrit que
-`service.name`, `service.version` et `service.node.name`.
+pas `agent.name` : le formateur ECS n'écrit que `service.name`,
+`service.version` et `service.node.name`. Leur `service.environment` vient de
+l'attribut `deployment.environment.name` posé par le collecteur Kubernetes.
 
 ## Raccorder la collecte des logs
 
@@ -153,8 +161,8 @@ and agent.name:"opentelemetry/java/opentelemetry-java-instrumentation"
 
 ```kql
 # Logs applicatifs
-data_stream.dataset:"filelogreceiver"
-and data_stream.namespace:"supermarche"
+data_stream.dataset:"supermarche"
+and data_stream.namespace:"homologation"
 and service.name:"my-service"
 and kubernetes.namespace:"h0tl-supermarche-app"
 ```

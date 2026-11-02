@@ -2,7 +2,13 @@
 
 ## Statut
 
-Accepted
+Accepted, partiellement remplacé
+
+Le 2026-11-02, [ADR-010](ADR-010-dataset-application-namespace-environnement.md)
+remplace le nommage des data streams : le dataset nomme l'application
+(`supermarche`) et le namespace l'environnement (`homologation`). Le choix des
+topics `otel-<signal>-supermarche` et `otel-<signal>-k8s` par l'Edge reste en
+vigueur.
 
 ## Date
 

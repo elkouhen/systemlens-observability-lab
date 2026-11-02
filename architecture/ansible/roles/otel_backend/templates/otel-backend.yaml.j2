@@ -56,12 +56,15 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 512
-  # Routage par topic : un topic suffixé otel-<signal>-<namespace> est écrit
-  # dans le data stream <type>-<dataset>-<namespace>. Le receiver Kafka expose
-  # le topic d'origine dans le contexte de la requête (kafka.topic) ; il est
-  # copié en attribut de ressource avant le batch, qui ne conserve pas ce
-  # contexte. Le topic de base (sans suffixe) ne pose aucun namespace : la
-  # valeur fournie par la source ou « default » s'applique.
+  # Routage par topic (ADR-007, ADR-010) : un topic suffixé
+  # otel-<signal>-<suffixe> porte un flux routé par l'Edge, dont le dataset est
+  # déjà posé (ou laissé à la source). Son namespace de data stream est
+  # l'environnement de la ressource (deployment.environment.name, sinon
+  # deployment.environment, sinon « default »). Le receiver Kafka expose le
+  # topic d'origine dans le contexte de la requête (kafka.topic) ; il est copié
+  # en attribut de ressource avant le batch, qui ne conserve pas ce contexte.
+  # Le topic de base (sans suffixe) ne pose aucun namespace : la valeur fournie
+  # par la source ou « default » s'applique.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourceprocessor
   resource/kafka-topic:
     attributes:
@@ -72,14 +75,15 @@ processors:
   transform/data-stream-namespace:
     error_mode: ignore
     log_statements: &data_stream_namespace
-      # Le suffixe est normalisé (minuscules, caractères [a-z0-9_]) pour
+      # L'environnement est normalisé (minuscules, caractères [a-z0-9_]) pour
       # respecter les contraintes de nommage des data streams.
       - context: resource
         conditions:
           - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-(logs|metrics|traces)-.+$")
         statements:
-          - set(resource.attributes["data_stream.namespace"], resource.attributes["otel.kafka.topic"])
-          - replace_pattern(resource.attributes["data_stream.namespace"], "^otel-(logs|metrics|traces)-", "")
+          - set(resource.attributes["data_stream.namespace"], "default")
+          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment"]) where resource.attributes["deployment.environment"] != nil
+          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment.name"]) where resource.attributes["deployment.environment.name"] != nil
           - set(resource.attributes["data_stream.namespace"], ConvertCase(resource.attributes["data_stream.namespace"], "lower"))
           - replace_pattern(resource.attributes["data_stream.namespace"], "[^a-z0-9_]", "_")
       - context: resource

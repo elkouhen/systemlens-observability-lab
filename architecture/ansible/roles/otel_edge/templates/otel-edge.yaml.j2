@@ -62,6 +62,8 @@ processors:
   Les logs suivent le namespace Kubernetes de leur pod : la règle applicative
   passe avant le marqueur Kubernetes. Les métriques et les traces suivent leur
   émetteur : le marqueur posé par les collecteurs Kubernetes passe avant.
+  Les logs et métriques d'une route applicative reçoivent le dataset de
+  l'application (ADR-010) ; les traces gardent le dataset apm d'APM Server.
 #}
 {% macro kafka_topic_statements(signal) %}
       - context: resource
@@ -69,20 +71,25 @@ processors:
           # Un client ne choisit jamais lui-même son topic.
           - delete_key(resource.attributes, "otel.kafka.topic")
 {% if signal != 'logs' %}
-          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_data_stream_namespace }}") where resource.attributes["otel.edge.source"] == "kubernetes"
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_kafka_topic_suffix }}") where resource.attributes["otel.edge.source"] == "kubernetes"
 {% endif %}
 {% for route in otel_edge_application_routes %}
-          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ route.data_stream_namespace }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ route.kafka_topic_suffix }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
 {% endfor %}
 {% if signal == 'logs' %}
-          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_data_stream_namespace }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_kafka_topic_suffix }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"
+{% endif %}
+{% if signal != 'traces' %}
+{% for route in otel_edge_application_routes %}
+          - set(resource.attributes["data_stream.dataset"], "{{ route.data_stream_dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.kafka_topic_suffix }}"
+{% endfor %}
 {% endif %}
           # Le marqueur des collecteurs Kubernetes n'est pas indexé.
           - delete_key(resource.attributes, "otel.edge.source")
 {% endmacro %}
-  # Choix du topic Kafka par ressource (ADR-009). otel.kafka.topic reste sur la
-  # ressource jusqu'à l'exporteur ; le backend le réécrit depuis le topic lu
-  # puis le supprime avant l'indexation (ADR-007).
+  # Choix du topic Kafka et du dataset par ressource (ADR-009, ADR-010).
+  # otel.kafka.topic reste sur la ressource jusqu'à l'exporteur ; le backend le
+  # réécrit depuis le topic lu puis le supprime avant l'indexation (ADR-007).
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
   transform/kafka-topic:
     error_mode: ignore
