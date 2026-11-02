@@ -39,6 +39,8 @@ télémétrie suivent les procédures de [l’architecture](architecture.md).
   choix du plan de données OTLP et de la gateway.
 - [ADR-002 : choisir la gestion EDOT standalone avec supervision Fleet](../architecture/docs/ADR-002-edot-standalone-ou-managed-by-fleet.md) :
   choix du mode de gestion des agents EDOT.
+- [ADR-008 : instrumenter les applications avec le seul agent Java OpenTelemetry](../architecture/docs/ADR-008-agent-java-opentelemetry-seul.md) :
+  retrait de l'agent Java Elastic APM et point d'attachement de l'agent OTel.
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   sources, transport, destinations et fichiers IaC associés.
 - [Gestion du débit de télémétrie](gestion-du-debit-observabilite.md) :

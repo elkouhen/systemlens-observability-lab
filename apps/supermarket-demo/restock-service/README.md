@@ -13,8 +13,8 @@ seule : elle rend visible le fan-out d'une commande en ligne vers
 fois. Le compteur `business.orders.observed` et le log ECS associé permettent
 de vérifier le flux dans Kibana.
 
-Le module est instrumenté par l'agent Java Elastic APM dans le Dockerfile
-parent. Ses logs ECS sur `stdout` permettent de suivre l'épuisement et le
+Le module est instrumenté par l'agent Java OpenTelemetry attaché par le
+Dockerfile parent. Ses logs ECS sur `stdout` permettent de suivre l'épuisement et le
 réassort d'un produit dans Kibana.
 
 Le compteur Micrometer `business.stock.restock.requested` est incrémenté pour

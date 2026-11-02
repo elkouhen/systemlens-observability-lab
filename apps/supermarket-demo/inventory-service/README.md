@@ -19,8 +19,9 @@ sans historique Flyway, `baseline-on-migrate` l'enregistre au niveau `0` afin de
 préserver les données déjà présentes ; une base vierge exécute la migration
 `V1` automatiquement.
 
-L'agent Java Elastic APM, défini dans le Dockerfile parent, produit les traces
-des interactions Kafka, MongoDB et PostgreSQL sans modifier le code de ce module.
+L'agent Java OpenTelemetry, attaché par le Dockerfile parent, produit les
+traces des interactions Kafka, MongoDB et PostgreSQL sans modifier le code de
+ce module.
 Les transactions Kafka sont exposées directement avec le type `messaging` dans
 la vue APM.
 
@@ -30,9 +31,10 @@ Lorsqu'une réservation épuise le stock, le service publie
 `supermarket.stock.depleted`. `restock-service` répond par une demande sur
 `supermarket.stock.restock-requested`, appliquée ici afin que ce module reste
 propriétaire du catalogue PostgreSQL.
-Avec `ELASTIC_APM_ENABLE_LOG_CORRELATION=true`, ces événements contiennent les
-identifiants de trace injectés par l'agent et sont donc accessibles depuis la
-vue Logs des transactions APM.
+L'agent OTel place `trace_id` et `span_id` dans le MDC Logback ; le format ECS
+de Spring Boot les écrit dans chaque événement. Le collecteur backend les
+recopie en `trace.id` et `span.id`, ce qui rend ces logs accessibles depuis la
+vue Logs des transactions APM. Aucune option n'est à activer.
 
 Le service expose aussi le compteur métier Micrometer
 `business.orders.completed`, incrémenté après la réussite des écritures

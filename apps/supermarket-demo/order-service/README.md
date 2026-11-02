@@ -8,10 +8,10 @@ pour passer une commande en caisse (`POST /api/orders`, appel synchrone vers
 et Actuator, puis lire les contrôleurs et le planificateur dans
 `src/main/java`.
 
-Les traces sont injectées par l'agent Java Elastic au démarrage du conteneur et
-envoyées directement à APM Server ; elles ne nécessitent aucun SDK dans ce
-module. L'agent est configuré dans le Deployment Kubernetes, qui lui fournit
-l'identité du service, le token APM et le certificat de l'APM Server.
+Les traces sont produites par l'agent Java OpenTelemetry, attaché au démarrage
+du conteneur, et envoyées en OTLP au collecteur Edge ; elles ne nécessitent
+aucun SDK dans ce module. Le patch Kubernetes `otel-instrumentation.yaml`
+configure l'agent : identité du service, environnement et clé du collecteur.
 
 ## API OpenAPI
 
@@ -41,4 +41,4 @@ par le producteur Kafka. La validation et la génération s'exécutent avec
 
 - [Spring Boot externalized configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html)
 - [Spring for Apache Kafka](https://docs.spring.io/spring-kafka/reference/)
-- [Agent Java Elastic APM](https://www.elastic.co/docs/reference/apm/agents/java)
+- [Agent Java OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/)

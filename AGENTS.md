@@ -152,8 +152,9 @@ commandes de validation.
 - Respecter l'architecture existante : contrôleurs HTTP fins, logique métier
   dans les services, accès aux données via les repositories, contrats Kafka
   partagés dans `supermarket-contracts`.
-- Ne pas retirer l'instrumentation ou les logs ECS. Les deux services utilisent
-  l'agent Java Elastic APM ; toute évolution doit préserver les noms de
+- Ne pas retirer l'instrumentation ou les logs ECS. Les trois services sont
+  instrumentés uniquement par l'agent Java OpenTelemetry, attaché par
+  l'`ENTRYPOINT` du Dockerfile ; toute évolution doit préserver les noms de
   services, l'environnement et les dépendances observables.
 - Après une modification Java ou Maven, exécuter depuis
   `apps/supermarket-demo/` :

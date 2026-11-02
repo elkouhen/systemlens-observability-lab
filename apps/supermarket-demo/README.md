@@ -33,11 +33,11 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 ## Ordre de lecture
 
 1. `pom.xml` : agrégateur Maven et versions communes.
-2. `Dockerfile` : build multi-stage, avec les agents Java Elastic APM et
-   OpenTelemetry intégrés dans les trois images de service.
-3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patch architecture
-   et raccordement d'`order-service` à APM Server et d'`inventory-service` à
-   APM Server.
+2. `Dockerfile` : build multi-stage ; l'`ENTRYPOINT` des trois images de
+   service attache l'agent Java OpenTelemetry, seul agent d'instrumentation.
+3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patch
+   `otel-instrumentation.yaml`, qui configure l'agent OTel des trois services
+   et les raccorde au collecteur Edge en OTLP.
 4. `order-service/src/main/resources/application.yml`, puis la même
    configuration d'`inventory-service` : endpoints, Kafka, MongoDB,
    PostgreSQL et Actuator.
@@ -61,7 +61,7 @@ make order-service-command ORDER_PRODUCT_ID=PASTA-500G ORDER_QUANTITY=2
 
 ## Documentation externe
 
-- [Agent Java Elastic APM](https://www.elastic.co/docs/reference/apm/agents/java)
+- [Agent Java OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/)
 - [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/)
 
 ## Versions d'images

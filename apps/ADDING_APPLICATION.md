@@ -17,8 +17,12 @@ backend centralisent ensuite la normalisation et le routage des signaux.
 
 ## Préparer l'application
 
-L'image doit contenir l'agent Java Elastic APM et démarrer la JVM avec
-`-javaagent`. Le `Dockerfile` de `supermarket-demo` est la référence du dépôt.
+L'image doit contenir l'agent Java OpenTelemetry et démarrer la JVM avec
+`-javaagent:/opt/opentelemetry-javaagent.jar` dans son `ENTRYPOINT`. C'est le
+seul agent d'instrumentation : ne pas ajouter l'agent Java Elastic APM. Le
+`Dockerfile` de `supermarket-demo` est la référence du dépôt ; chaque cible
+d'image y fixe aussi `OTEL_SERVICE_NAME` pour une exécution hors Kubernetes.
+
 L'application doit écrire des logs JSON ECS sur stdout, avec Spring Boot :
 
 ```yaml
@@ -28,12 +32,12 @@ logging:
       console: ecs
 ```
 
-Ne pas expédier les logs directement depuis l'application : l'Elastic Agent
+Ne pas expédier les logs directement depuis l'application : le DaemonSet OTel
 Kubernetes les collecte sur le nœud.
 
 ## Déclarer les variables Kubernetes
 
-Dans le Deployment, définir les identifiants de service et l'environnement APM :
+Le Deployment de base définit l'identité ECS des logs :
 
 ```yaml
 env:
@@ -41,30 +45,37 @@ env:
     value: ecs
   - name: LOGGING_STRUCTURED_ECS_SERVICE_NAME
     value: my-service
-  - name: ELASTIC_APM_SERVICE_NAME
-    value: my-service
-  - name: ELASTIC_APM_SERVICE_VERSION
+  - name: LOGGING_STRUCTURED_ECS_SERVICE_VERSION
     value: "1.0.0"
-  - name: KUBERNETES_NAMESPACE
-    valueFrom:
-      fieldRef:
-        fieldPath: metadata.namespace
-  - name: ELASTIC_APM_APPLICATION_PACKAGES
-    value: com.example.myservice
-  - name: ELASTIC_APM_SERVER_URL
-    value: https://apm-server-apm-http.elastic-stack.svc:8200
-  - name: ELASTIC_APM_SECRET_TOKEN
-    valueFrom:
-      secretKeyRef:
-        name: my-service-apm-token
-        key: secret-token
-  - name: ELASTIC_APM_ENABLE_LOG_CORRELATION
-    value: "true"
 ```
 
-Le token APM et le certificat de l'APM Server doivent être copiés dans le
-namespace de l'application, sur le modèle de la cible `apm-token-sync`. Ne
-jamais les inscrire dans un manifest ou dans Git.
+Le patch `otel-instrumentation.yaml` de l'overlay configure l'agent sans
+l'attacher une seconde fois. Il monte un fichier `otel.properties` généré par
+Kustomize (`otel.service.name`, `otel.service.version`, endpoint OTLP du
+collecteur Edge) et ajoute :
+
+```yaml
+env:
+  - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
+    value: /opt/opentelemetry/otel.properties
+  - name: OTEL_EDGE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: otel-edge-client-keys
+        key: otel-kubernetes-cluster
+  - name: OTEL_EXPORTER_OTLP_HEADERS
+    value: Authorization=Bearer $(OTEL_EDGE_KEY)
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: deployment.environment=homologation,service.name=my-service,k8s.namespace.name=h0tl-supermarche-app
+```
+
+Le patch réel complète `OTEL_RESOURCE_ATTRIBUTES` avec le pod et le nœud,
+fournis par la Downward API. La clé du collecteur Edge reste dans le secret
+`otel-edge-client-keys`, créé par `make otel-edge-client-keys-apply` ; ne
+jamais l'inscrire dans un manifest ou dans Git.
+
+Ne pas ajouter `-javaagent` dans `JAVA_TOOL_OPTIONS` : l'agent serait attaché
+deux fois, par l'`ENTRYPOINT` et par cette variable.
 
 ## Convention d'environnement
 
@@ -74,8 +85,8 @@ La valeur source a le format :
 <type><ptf_sur_3_caracteres>-<namespace>
 ```
 
-Le namespace Kubernetes porte cette valeur et la Downward API le transmet à
-l'agent APM avec `KUBERNETES_NAMESPACE`.
+Le namespace Kubernetes porte cette valeur ; le patch OTel la transmet à
+l'agent dans l'attribut de ressource `k8s.namespace.name`.
 Exemple : `h0tl-supermarche-app` signifie :
 
 | Partie | Valeur | Rôle |
@@ -137,4 +148,7 @@ and labels.namespace:"supermarche-app"
 
 Le contrôle attendu est la présence de la même identité de service dans les
 logs, métriques et traces, avec un `trace.id` sur les logs émis dans une
-transaction.
+transaction. L'agent OTel place `trace_id` et `span_id` dans le MDC Logback ;
+le formateur ECS de Spring Boot les écrit dans le JSON et le collecteur backend
+les recopie en `trace.id` et `span.id`. `make trace-context-verify` contrôle
+cette corrélation.

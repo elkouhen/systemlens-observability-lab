@@ -18,4 +18,4 @@ guide de déploiement et d'exploitation de l'architecture active.
 ## Documentation externe
 
 - [Déployer des workloads Kubernetes](https://kubernetes.io/docs/concepts/workloads/)
-- [Agent Java Elastic APM](https://www.elastic.co/docs/reference/apm/agents/java)
+- [Agent Java OpenTelemetry](https://opentelemetry.io/docs/zero-code/java/agent/)

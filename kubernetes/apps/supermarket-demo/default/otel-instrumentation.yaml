@@ -9,8 +9,6 @@ spec:
       containers:
         - name: order-service
           env:
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
             - name: OTEL_EDGE_KEY
               valueFrom:
                 secretKeyRef:
@@ -37,10 +35,10 @@ spec:
                 fieldRef: {fieldPath: spec.nodeName}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homologation,service.name=order-service,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-supermarche-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
-            - name: JAVA_TOOL_OPTIONS
-              value: >-
-                -javaagent:/opt/opentelemetry-javaagent.jar
-                -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
+            # L'ENTRYPOINT de l'image attache déjà l'agent OTel ; ce patch ne
+            # fournit que sa configuration, pour ne pas l'attacher deux fois.
+            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
+              value: /opt/opentelemetry/otel.properties
           volumeMounts:
             - name: order-service-otel-config
               mountPath: /opt/opentelemetry
@@ -61,8 +59,6 @@ spec:
       containers:
         - name: inventory-service
           env:
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
             - name: OTEL_EDGE_KEY
               valueFrom:
                 secretKeyRef:
@@ -89,10 +85,10 @@ spec:
                 fieldRef: {fieldPath: spec.nodeName}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homologation,service.name=inventory-service,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-supermarche-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
-            - name: JAVA_TOOL_OPTIONS
-              value: >-
-                -javaagent:/opt/opentelemetry-javaagent.jar
-                -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
+            # L'ENTRYPOINT de l'image attache déjà l'agent OTel ; ce patch ne
+            # fournit que sa configuration, pour ne pas l'attacher deux fois.
+            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
+              value: /opt/opentelemetry/otel.properties
           volumeMounts:
             - name: inventory-service-otel-config
               mountPath: /opt/opentelemetry
@@ -113,8 +109,6 @@ spec:
       containers:
         - name: restock-service
           env:
-            - name: ELASTIC_APM_ENABLED
-              value: "false"
             - name: OTEL_EDGE_KEY
               valueFrom:
                 secretKeyRef:
@@ -141,10 +135,10 @@ spec:
                 fieldRef: {fieldPath: spec.nodeName}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homologation,service.name=restock-service,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-supermarche-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
-            - name: JAVA_TOOL_OPTIONS
-              value: >-
-                -javaagent:/opt/opentelemetry-javaagent.jar
-                -Dotel.javaagent.configuration-file=/opt/opentelemetry/otel.properties
+            # L'ENTRYPOINT de l'image attache déjà l'agent OTel ; ce patch ne
+            # fournit que sa configuration, pour ne pas l'attacher deux fois.
+            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
+              value: /opt/opentelemetry/otel.properties
           volumeMounts:
             - name: restock-service-otel-config
               mountPath: /opt/opentelemetry
