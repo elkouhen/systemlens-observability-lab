@@ -8,12 +8,13 @@ Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
 d'observabilité du lab. Le chemin des signaux est le suivant :
 
 ```text
-application Java → agent Java OTel → Gateway EDOT → Kafka → Elasticsearch
-logs stdout ECS → EDOT DaemonSet → Kafka → Elasticsearch
+application Java → agent Java OTel → Collecteur Edge → Kafka → Collector backend → Elasticsearch
+logs stdout ECS → DaemonSet OTel → Collecteur Edge → Kafka → Collector backend → Elasticsearch
 ```
 
-L'agent Java OTel produit les traces applicatives. Le Gateway et le Collector
-backend centralisent ensuite la normalisation et le routage des signaux.
+L'agent Java OTel produit les traces et Micrometer les métriques applicatives.
+Le Collecteur Edge reçoit l'OTLP ; le Collector backend centralise ensuite la
+normalisation et le routage des signaux.
 
 ## Préparer l'application
 
@@ -79,43 +80,33 @@ deux fois, par l'`ENTRYPOINT` et par cette variable.
 
 ## Convention d'environnement
 
-La valeur source a le format :
+Le namespace Kubernetes suit le format
+`<type><ptf_sur_3_caracteres>-<namespace>`, par exemple
+`h0tl-supermarche-app` : `h` pour homologation, `0tl` pour la plateforme,
+`supermarche-app` pour le périmètre applicatif.
 
-```text
-<type><ptf_sur_3_caracteres>-<namespace>
-```
+Aucun traitement ne découpe cette valeur. L'environnement Elastic vient de
+l'attribut de ressource `deployment.environment` du patch OTel, indexé en
+`service.environment` sur les traces et les métriques APM. Le namespace est
+transmis par `k8s.namespace.name` et indexé en `kubernetes.namespace`.
 
-Le namespace Kubernetes porte cette valeur ; le patch OTel la transmet à
-l'agent dans l'attribut de ressource `k8s.namespace.name`.
-Exemple : `h0tl-supermarche-app` signifie :
+## Data streams alimentés
 
-| Partie | Valeur | Rôle |
-| --- | --- | --- |
-| Type | `h` | Environnement Elastic `homologation` |
-| PTF | `0tl` | Ajouté dans `labels.ptf` |
-| Namespace | `supermarche-app` | Ajouté dans `labels.namespace` |
+Le collecteur backend écrit en mode de mapping ECS. Le namespace des data
+streams dérive du suffixe du topic Kafka (ADR-007) ; les topics `otel-traces`,
+`otel-metrics` et `otel-logs` sans suffixe donnent `default` :
 
-Les types acceptés sont `r` (recette), `p` (production), `h` (homologation),
-`i` (integration) et `d` (developpement). Logstash normalise ensuite
-`service.environment` avec ce nom canonique. Pour les logs, il utilise
-`kubernetes.namespace`, y compris pour l'APM.
+| Signal | Data stream |
+| --- | --- |
+| Traces | `traces-apm-default` |
+| Métriques APM agrégées | `metrics-apm.transaction.1m-default`, `metrics-apm.service_destination.1m-default` et voisins |
+| Métriques Micrometer et JVM | `metrics-generic.otel-default` |
+| Logs stdout | `logs-filelogreceiver-default` |
 
-Les métriques APM dont `agent.name` vaut `java` et qui portent les métadonnées
-Kubernetes sont mutualisées par plateforme et routées vers :
-
-```text
-metrics-apm.app.<code_plateforme>-<environnement-elastic>
-```
-
-Les traces suivent la même règle de dataset mutualisé par plateforme. Les
-traces et erreurs portent le `service.environment` normalisé et les labels
-d'enrichissement. Les logs
-applicatifs Kubernetes dont la valeur source respecte la convention sont
-regroupés dans le même namespace Elastic, par exemple :
-
-```text
-logs-kube-0tl-homologation
-```
+Les traces et métriques APM portent `agent.name` égal à
+`opentelemetry/java/opentelemetry-java-instrumentation`. Les logs ne portent
+ni `agent.name` ni `service.environment` : le formateur ECS n'écrit que
+`service.name`, `service.version` et `service.node.name`.
 
 ## Raccorder la collecte des logs
 
@@ -132,18 +123,17 @@ Après le déploiement de l'application, générer une requête métier puis uti
 Discover avec les filtres suivants :
 
 ```kql
-# Métriques Java en homologation
-data_stream.dataset:"apm.app.0tl"
-and data_stream.namespace:"homologation"
-and agent.name:"java"
+# Traces et métriques APM en homologation
+service.name:"my-service"
+and service.environment:"homologation"
+and agent.name:"opentelemetry/java/opentelemetry-java-instrumentation"
 ```
 
 ```kql
-# Logs applicatifs normalisés
-data_stream.dataset:"kube-0tl"
-and service.environment:"homologation"
-and labels.ptf:"0tl"
-and labels.namespace:"supermarche-app"
+# Logs applicatifs
+data_stream.dataset:"filelogreceiver"
+and service.name:"my-service"
+and kubernetes.namespace:"h0tl-supermarche-app"
 ```
 
 Le contrôle attendu est la présence de la même identité de service dans les
