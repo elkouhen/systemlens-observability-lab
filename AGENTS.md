@@ -163,8 +163,8 @@ commandes de validation.
   mvn verify
   ```
 
-- Les tags Docker `order-service:1.0.5` et `inventory-service:1.0.5` sont
-  indépendants de la version Maven. Si un tag change, mettre à jour ensemble le
+- Les tags Docker `order-service:1.1.6`, `inventory-service:1.1.6` et
+  `restock-service:1.1.6` sont indépendants de la version Maven. Si un tag change, mettre à jour ensemble le
   `Makefile`, le Dockerfile et les manifests Kubernetes concernés, puis vérifier
   avec `make apps-build` lorsque Docker est disponible.
 
