@@ -260,6 +260,17 @@ Le topic `otel-<signal>-<namespace>` doit apparaître avec un retard nul, puis
 `GET _data_stream/*-<namespace>` dans Kibana Dev Tools doit lister les data
 streams correspondants.
 
+### Nom des spans HTTP client
+
+Dans le pipeline `traces`, le processor `transform/http-client-span-name`
+précède `transform/kafka-topic`
+([ADR-011](../docs/ADR-011-nom-des-spans-http-client.md)). Il renomme tout
+span `CLIENT` qui porte `url.full` et dont le nom se réduit à la méthode
+HTTP : `POST` devient `POST /api/reservations`. Les segments identifiants
+(nombre, UUID, hexadécimal long, code majuscule avec chiffre) deviennent
+`{id}`. La règle vaut pour toutes les ressources reçues par l'Edge ; elle ne
+filtre aucun span et ne modifie aucun attribut.
+
 ## Ordre de lecture
 
 1. `inventory/vagrant.yml` : hôtes ciblés, connexion SSH et capacités propres à chaque nœud ; les variables communes sont dans `inventory/group_vars/all.yml`.

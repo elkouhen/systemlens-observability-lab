@@ -104,6 +104,38 @@ processors:
 {{ kafka_topic_statements('metrics') | trim('\n') }}
     log_statements:
 {{ kafka_topic_statements('logs') | trim('\n') }}
+  # Nom des spans HTTP client (ADR-011). La convention sémantique HTTP nomme un
+  # span client « {méthode} » seul, faute de gabarit d'URL : l'appel
+  # order-service → inventory-service apparaît comme « POST ». Ce processor
+  # renomme en « {méthode} {chemin normalisé} » tout span CLIENT qui porte
+  # url.full et dont le nom se réduit encore à la méthode (ou « HTTP » pour
+  # une méthode inconnue) ; un nom déjà plus précis, les spans base de données,
+  # Kafka et serveur ne sont pas modifiés. Le chemin est tiré de url.full,
+  # sans schéma, hôte, port, requête ni fragment ; vide, il vaut « / ».
+  # Normalisation, pour borner la cardinalité des noms : un segment
+  # identifiant devient {id}. Est identifiant un segment entièrement
+  # numérique, un UUID, une suite hexadécimale d'au moins 16 caractères, ou un
+  # code en majuscules, chiffres, « - » et « _ » contenant au moins un chiffre
+  # (PASTA-500G). Un segment en minuscules comme v1 ou api est conservé. La
+  # règle est appliquée deux fois : une passe consomme la barre qui suit un
+  # identifiant et saute donc un identifiant sur deux d'une suite contiguë.
+  # Les attributs (url.full, http.request.method, server.address) ne changent
+  # pas : APM Server en tire toujours span.destination.service.resource.
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
+  transform/http-client-span-name:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - span.kind == SPAN_KIND_CLIENT and span.attributes["url.full"] != nil and (span.name == span.attributes["http.request.method"] or span.name == "HTTP")
+        statements:
+          - set(span.cache["path"], span.attributes["url.full"])
+          - replace_pattern(span.cache["path"], "^[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*", "")
+          - replace_pattern(span.cache["path"], "[?#].*$", "")
+          - set(span.cache["path"], "/") where span.cache["path"] == ""
+          - replace_pattern(span.cache["path"], "/([0-9]+|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{16,}|[A-Z0-9_-]*[0-9][A-Z0-9_-]*)(/|$)", "/{id}$$2")
+          - replace_pattern(span.cache["path"], "/([0-9]+|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{16,}|[A-Z0-9_-]*[0-9][A-Z0-9_-]*)(/|$)", "/{id}$$2")
+          - set(span.name, Concat([span.name, span.cache["path"]], " "))
 exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
   kafka/otlp:
@@ -173,7 +205,7 @@ service:
       exporters: [kafka/otlp]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, transform/kafka-topic, batch]
+      processors: [memory_limiter, transform/http-client-span-name, transform/kafka-topic, batch]
       exporters: [kafka/otlp]
     metrics:
       receivers: [otlp]

@@ -143,6 +143,27 @@ pas `agent.name` : le formateur ECS n'écrit que `service.name`,
 `service.version` et `service.node.name`. Leur `service.environment` vient de
 l'attribut `deployment.environment.name` posé par le collecteur Kubernetes.
 
+### Noms des spans HTTP client
+
+Le collecteur Edge renomme les spans HTTP client de toutes les applications
+([ADR-011](../architecture/docs/ADR-011-nom-des-spans-http-client.md)). Un
+span `CLIENT` nommé par sa seule méthode (`POST`) devient
+`{méthode} {chemin}`, par exemple `POST /api/reservations`. Le chemin vient
+de `url.full`, sans hôte, requête ni fragment.
+
+Un segment identifiant devient `{id}` : nombre, UUID, hexadécimal d'au moins
+16 caractères, ou code en majuscules contenant un chiffre (`PASTA-500G`).
+`GET /api/products/PASTA-500G` devient ainsi `GET /api/products/{id}`. Aucun
+span n'est filtré : les sondes de santé et l'export Micrometer
+(`POST /v1/metrics`) restent visibles.
+
+Pour une nouvelle application, inventorier ses URL sortantes
+(`url.original` des spans `span.type:external`). Si un identifiant échappe à
+ces formes, par exemple un code en minuscules, étendre l'expression de
+`transform/http-client-span-name` dans
+`architecture/ansible/roles/otel_edge/templates/otel-edge.yaml.j2`, puis
+appliquer `make otel-edge-vm-provision`.
+
 ## Raccorder la collecte des logs
 
 L'Agent Kubernetes actuel cible les fichiers des pods du namespace

@@ -45,6 +45,8 @@ télémétrie suivent les procédures de [l’architecture](architecture.md).
   routage par l'Edge vers des topics Kafka suffixés.
 - [ADR-010 : le dataset nomme l'application, le namespace l'environnement](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md) :
   noms des data streams `supermarche` et Kubernetes en `homologation`.
+- [ADR-011 : nommer les spans HTTP client par leur chemin normalisé](../architecture/docs/ADR-011-nom-des-spans-http-client.md) :
+  renommage `{méthode} {chemin}` des spans client par l'Edge.
 - [Briques de remontée de la télémétrie](briques-remontee-telemetrie.md) :
   sources, transport, destinations et fichiers IaC associés.
 - [Gestion du débit de télémétrie](gestion-du-debit-observabilite.md) :
