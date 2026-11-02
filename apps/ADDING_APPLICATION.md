@@ -49,12 +49,18 @@ env:
   - name: OTEL_EXPORTER_OTLP_HEADERS
     value: Authorization=Bearer $(OTEL_EDGE_KEY)
   - name: OTEL_RESOURCE_ATTRIBUTES
-    value: deployment.environment.name=homologation,service.name=my-service,k8s.namespace.name=h0tl-supermarche-app
+    value: service.name=my-service,k8s.namespace.name=h0tl-supermarche-app
 ```
 
 Le patch réel complète `OTEL_RESOURCE_ATTRIBUTES` avec le pod et le nœud,
-fournis par la Downward API. Ces attributs forment la ressource des traces et
-des logs : `k8s.namespace.name` choisit la route Edge des logs.
+fournis par la Downward API. Ces attributs forment la ressource des traces,
+des métriques et des logs : `k8s.namespace.name` choisit la route Edge.
+L'application ne déclare ni sa plateforme ni son environnement : le
+collecteur Edge pose `k8s.cluster.name` et `deployment.environment.name`
+depuis la route du namespace (`platform` et `environment` dans
+`architecture/ansible/inventory/group_vars/otel_edge_nodes.yml`) et écrase
+toute valeur envoyée. Un nouveau namespace applicatif demande donc une
+nouvelle route.
 
 Le fichier `otel.properties` active l'export des logs :
 

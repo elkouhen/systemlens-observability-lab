@@ -16,10 +16,15 @@
       - otel_edge_application_routes | map(attribute='kafka_topic') | select('match', '^[a-z0-9_]+-[a-z0-9_]+$') | list | length == otel_edge_application_routes | length
       - otel_edge_application_routes | map(attribute='kafka_topic') | unique | list | length == otel_edge_application_routes | length
       - otel_edge_application_routes | map(attribute='kubernetes_namespace') | unique | list | length == otel_edge_application_routes | length
+      - otel_edge_application_routes | map(attribute='platform') | select | list | length == otel_edge_application_routes | length
+      - otel_edge_application_routes | rejectattr('environment', 'undefined') | selectattr('environment', 'match', '^[a-z0-9_]+$') | list | length == otel_edge_application_routes | length
+      - otel_edge_application_routes | selectattr('environment', 'defined') | map(attribute='kafka_topic') | map('regex_replace', '^[^-]*-', '') | list == otel_edge_application_routes | map(attribute='environment', default='') | list
     fail_msg: >-
       Table de routage Edge invalide : kafka_topic vaut <dataset>-<namespace>
       pour une route applicative et <namespace> pour la route Kubernetes
-      ([a-z0-9_]), unique par route, avec un kubernetes_namespace par route.
+      ([a-z0-9_]), unique par route, avec un kubernetes_namespace, une
+      platform et un environment par route ; environment est le <namespace>
+      du kafka_topic.
     quiet: true
 
 - name: Déployer la configuration du Collecteur Edge

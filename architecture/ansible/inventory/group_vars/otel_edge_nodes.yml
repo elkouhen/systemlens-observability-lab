@@ -12,9 +12,16 @@ middleware_credentials_required: false
 # traces, qui gardent les datasets apm d'APM Server. Les trois topics
 # otel-{logs,metrics,traces}-<kafka_topic> sont créés par le job
 # otel-telemetry-topics.
+# L'Edge est aussi la référence de la plateforme et de l'environnement d'une
+# application déployée : il pose k8s.cluster.name = platform et
+# deployment.environment.name = environment sur chaque ressource de la route,
+# en écrasant la valeur éventuellement envoyée par l'application.
+# environment est le <namespace> du topic.
 otel_edge_application_routes:
   - kubernetes_namespace: h0tl-supermarche-app
     kafka_topic: supermarche-homologation
+    platform: k3s-01
+    environment: homologation
 # Route des signaux marqués otel.edge.source=kubernetes par les collecteurs
 # Kubernetes (otel-kubernetes, otel-kubernetes-cluster). kafka_topic =
 # <namespace> seul : le dataset reste celui du receiver, lu par les

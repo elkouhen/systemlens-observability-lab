@@ -144,3 +144,26 @@ trois logs avec `data_stream.namespace` = `pirate`. Ils sont arrivés dans
 Kubernetes) et `logs-supermarche.otel-homologation` (namespace
 `h0tl-supermarche-app`). Aucun data stream `*-pirate` n'a été créé ; les
 trois documents de test ont été supprimés.
+
+## Note du 2026-11-02 : plateforme et environnement posés par l'Edge
+
+Pour les applications déployées, la plateforme et l'environnement ne sont
+plus déclarés par l'application mais par sa route Edge :
+
+```yaml
+otel_edge_application_routes:
+  - kubernetes_namespace: h0tl-supermarche-app
+    kafka_topic: supermarche-homologation
+    platform: k3s-01           # k8s.cluster.name
+    environment: homologation  # deployment.environment.name
+```
+
+`transform/kafka-topic` pose les deux attributs, en écrasant la valeur reçue,
+sur toute ressource dont `k8s.namespace.name` correspond à la route (logs,
+métriques et traces). Les applications ne déclarent plus
+`deployment.environment.name` dans `OTEL_RESOURCE_ATTRIBUTES`, et leurs
+signaux portent désormais `k8s.cluster.name`, comme ceux des collecteurs
+Kubernetes. Le rôle `otel_edge` refuse une route sans `platform` ni
+`environment`, ou dont `environment` diffère du `<namespace>` du topic : le
+data stream et l'attribut désignent le même environnement. Les ressources
+hors route (VM, collecteurs) gardent leurs propres valeurs.

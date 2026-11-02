@@ -55,7 +55,11 @@ processors:
      attribut, topic de base. Les logs suivent le namespace Kubernetes de leur
      pod : la route applicative passe avant le marqueur Kubernetes. Les
      métriques et les traces suivent leur émetteur : le marqueur passe avant.
-  3. Le data_stream.dataset reçu est supprimé pour tout flux routé et toute
+  3. Plateforme et environnement des applications : pour une ressource d'une
+     route applicative, l'Edge pose k8s.cluster.name et
+     deployment.environment.name depuis la route, en écrasant la valeur
+     envoyée. Les autres ressources gardent les leurs.
+  4. Le data_stream.dataset reçu est supprimé pour tout flux routé et toute
      ressource qui porte k8s.namespace.name, mais conservé ailleurs : les
      agents EDOT des VM posent légitimement collectortelemetry sur leur
      télémétrie interne, et rien ne les distingue d'un autre client OTLP.
@@ -71,6 +75,8 @@ processors:
 {% endif %}
 {% for route in otel_edge_application_routes %}
           - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ route.kafka_topic }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
+          - set(resource.attributes["k8s.cluster.name"], "{{ route.platform }}") where resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
+          - set(resource.attributes["deployment.environment.name"], "{{ route.environment }}") where resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
 {% endfor %}
 {% if signal == 'logs' %}
           - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_route.kafka_topic }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"

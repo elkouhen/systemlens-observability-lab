@@ -228,12 +228,21 @@ est le seul endroit qui fixe la cible d'un flux :
 otel_edge_application_routes:
   - kubernetes_namespace: h0tl-supermarche-app
     kafka_topic: supermarche-homologation   # <dataset>-<namespace>
+    platform: k3s-01                        # k8s.cluster.name
+    environment: homologation               # deployment.environment.name
 otel_edge_kubernetes_route:
   kafka_topic: homologation                 # <namespace>
 ```
 
 Le rôle `otel_edge` vérifie le format (`[a-z0-9_]` de part et d'autre du
-`-`) et l'unicité des topics avant de déployer la configuration.
+`-`) et l'unicité des topics avant de déployer la configuration, ainsi que
+la présence de `platform` et d'`environment`, égal au `<namespace>` du topic.
+
+Pour les applications déployées, l'Edge est la référence de la plateforme et
+de l'environnement : il pose `k8s.cluster.name` = `platform` et
+`deployment.environment.name` = `environment` sur toute ressource de la
+route, en écrasant la valeur envoyée. Les manifests applicatifs ne déclarent
+plus `deployment.environment.name`. APM Server en tire `service.environment`.
 
 | Ressource reçue par l'Edge | Topic | Data stream |
 | --- | --- | --- |
