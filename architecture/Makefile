@@ -59,7 +59,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
 .PHONY: help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
-	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
+	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy apm-ingest-pipelines-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
@@ -318,6 +318,7 @@ elk-deploy: elastic-stack-deploy otel-edge-client-keys-apply otel-kafka-credenti
 	@$(MAKE) postgresql-credentials-apply
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) otel-elasticsearch-credentials-apply
+	@$(MAKE) apm-ingest-pipelines-deploy
 	@echo "Plateforme Elastic prête ; déploiement du backend OTel puis de l'Edge"
 	@$(MAKE) otel-backend-vm-provision
 	@$(MAKE) otel-edge-vm-provision
@@ -337,6 +338,12 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/deploy-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/apm-data-view.ndjson
+
+apm-ingest-pipelines-deploy: ## Installer le routage Elasticsearch des métriques APM agrégées (ADR-010)
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+		test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la stack Elastic Quadlet.' >&2; exit 1; }; \
+	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
+		./$(ARCH_ROOT)/platform/elk/scripts/sync-apm-ingest-pipelines.sh
 
 business-dashboard-deploy: ## Importer le dashboard des métriques métier
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \

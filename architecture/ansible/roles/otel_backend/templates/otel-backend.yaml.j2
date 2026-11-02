@@ -89,8 +89,36 @@ processors:
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
+          - delete_key(resource.attributes, "otel.route.dataset")
     metric_statements: *data_stream_namespace
-    trace_statements: *data_stream_namespace
+    # APM Server impose les datasets apm, apm.error et apm.* : le namespace
+    # des traces d'une route applicative porte donc aussi l'application,
+    # <dataset de la route>_<environnement> (ADR-010, note du 2026-11-02).
+    # Le dataset de la route arrive de l'Edge dans otel.route.dataset. Le
+    # namespace est recopié dans apm.route.namespace : APM Server en fait le
+    # label global apm_route_namespace, reporté sur ses métriques agrégées, que
+    # le pipeline Elasticsearch apm-route-namespace range dans ce namespace
+    # puis retire de tous les documents APM.
+    trace_statements:
+      - context: resource
+        statements:
+          # Seul ce collecteur pose le label de routage des agrégats.
+          - delete_key(resource.attributes, "apm.route.namespace")
+      - context: resource
+        conditions:
+          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-.+$")
+        statements:
+          - set(resource.attributes["data_stream.namespace"], "default")
+          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment"]) where resource.attributes["deployment.environment"] != nil
+          - set(resource.attributes["data_stream.namespace"], resource.attributes["deployment.environment.name"]) where resource.attributes["deployment.environment.name"] != nil
+          - set(resource.attributes["data_stream.namespace"], Concat([resource.attributes["otel.route.dataset"], resource.attributes["data_stream.namespace"]], "_")) where resource.attributes["otel.route.dataset"] != nil
+          - set(resource.attributes["data_stream.namespace"], ConvertCase(resource.attributes["data_stream.namespace"], "lower"))
+          - replace_pattern(resource.attributes["data_stream.namespace"], "[^a-z0-9_]", "_")
+          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"]) where resource.attributes["otel.route.dataset"] != nil
+      - context: resource
+        statements:
+          - delete_key(resource.attributes, "otel.kafka.topic")
+          - delete_key(resource.attributes, "otel.route.dataset")
   transform/ecs-log-correlation:
     log_statements:
       - context: log

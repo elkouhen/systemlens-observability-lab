@@ -97,22 +97,26 @@ Le collecteur Edge publie les signaux dont la ressource porte
 `k8s.namespace.name` = `h0tl-supermarche-app` dans les topics
 `otel-<signal>-supermarche` (ADR-009) et pose le dataset `supermarche` sur
 leurs logs et métriques. Le collecteur backend pose le namespace depuis
-`deployment.environment` (`homologation`) :
+`deployment.environment` (`homologation`). APM Server impose les datasets
+`apm`, `apm.error` et `apm.*` : le namespace des signaux APM porte donc aussi
+l'application, `<dataset>_<environnement>` (ADR-010, note du 2026-11-02) :
 
 | Signal | Data stream |
 | --- | --- |
-| Traces | `traces-apm-homologation` |
-| Erreurs APM | `logs-apm.error-homologation` |
+| Traces | `traces-apm-supermarche_homologation` |
+| Erreurs APM | `logs-apm.error-supermarche_homologation` |
+| Métriques APM agrégées | `metrics-apm.{transaction,service_transaction,service_destination,service_summary}.1m-supermarche_homologation` |
 | Métriques Micrometer et JVM | `metrics-supermarche.otel-homologation` |
 | Logs stdout | `logs-supermarche-homologation` |
-| Métriques APM agrégées | `metrics-apm.transaction.1m-default`, `metrics-apm.service_destination.1m-default` et voisins |
 
 Les traces gardent le dataset `apm` d'APM Server, lu par l'UI APM. Les
 métriques reçoivent le suffixe `.otel` du mode de mapping OTel ; les logs,
-écrits en mode ECS, n'en ont pas. APM Server calcule les métriques APM
-agrégées sans reprendre le namespace des traces : elles restent dans
-`default`. Les métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`)
-gardent le dataset de leur receiver, en namespace `homologation`.
+écrits en mode ECS, n'en ont pas. APM Server range ses métriques agrégées
+dans `default` ; le pipeline Elasticsearch `apm-route-namespace` les déplace
+dans le namespace des traces (`make apm-ingest-pipelines-deploy`). Les
+intervalles `10m` et `60m`, s'ils sont produits, suivent la même règle. Les
+métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`) gardent le
+dataset de leur receiver, en namespace `homologation`.
 
 ### Donner son propre dataset à une nouvelle application
 
@@ -120,7 +124,8 @@ gardent le dataset de leur receiver, en namespace `homologation`.
    `architecture/ansible/inventory/group_vars/otel_edge_nodes.yml` :
    `kubernetes_namespace` est le namespace Kubernetes de l'application,
    `kafka_topic_suffix` le suffixe de ses topics et `data_stream_dataset` le
-   dataset de ses logs et métriques (`[a-z0-9_]`).
+   dataset de ses logs et métriques (`[a-z0-9_]`). Ce dataset préfixe aussi le
+   namespace de ses signaux APM : `traces-apm-<dataset>_<environnement>`.
 2. Ajouter les trois topics `otel-{traces,metrics,logs}-<suffixe>` à la
    boucle du job `otel-telemetry-topics` dans
    `architecture/platform/kubernetes/base/observability/otel-kafka.yaml`.
@@ -153,8 +158,9 @@ Après le déploiement de l'application, générer une requête métier puis uti
 Discover avec les filtres suivants :
 
 ```kql
-# Traces et métriques APM en homologation
-service.name:"my-service"
+# Traces, erreurs et métriques APM en homologation
+data_stream.namespace:"supermarche_homologation"
+and service.name:"my-service"
 and service.environment:"homologation"
 and agent.name:"opentelemetry/java/opentelemetry-java-instrumentation"
 ```

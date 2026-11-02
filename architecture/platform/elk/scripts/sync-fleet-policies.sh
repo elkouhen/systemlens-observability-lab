@@ -57,8 +57,9 @@ printf 'Kafka service.address pipelines updated\n'
 
 # Le routage applicatif est exclusivement défini dans le pipeline Logstash
 # versionné. Retirer les pipelines Elasticsearch historiques pour qu'aucune
-# règle de routage résiduelle ne s'applique après Logstash.
-for pipeline in metrics-apm.app@custom logs-kubernetes.container_logs@custom traces-apm@custom; do
+# règle de routage résiduelle ne s'applique après Logstash. traces-apm@custom
+# appartient désormais à sync-apm-ingest-pipelines.sh (ADR-010).
+for pipeline in metrics-apm.app@custom logs-kubernetes.container_logs@custom; do
   if curl "${elasticsearch_args[@]}" \
     "${elasticsearch_url}/_ingest/pipeline/${pipeline}" >/dev/null 2>&1; then
     curl "${elasticsearch_args[@]}" -X DELETE \

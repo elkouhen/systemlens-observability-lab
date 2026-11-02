@@ -63,13 +63,16 @@ processors:
   passe avant le marqueur Kubernetes. Les métriques et les traces suivent leur
   émetteur : le marqueur posé par les collecteurs Kubernetes passe avant.
   Les logs et métriques d'une route applicative reçoivent le dataset de
-  l'application (ADR-010) ; les traces gardent le dataset apm d'APM Server.
+  l'application (ADR-010) ; les traces gardent le dataset apm d'APM Server et
+  portent le dataset de la route dans otel.route.dataset, dont le backend tire
+  le namespace <dataset>_<environnement> avant de le supprimer.
 #}
 {% macro kafka_topic_statements(signal) %}
       - context: resource
         statements:
-          # Un client ne choisit jamais lui-même son topic.
+          # Un client ne choisit jamais lui-même son topic ni sa route.
           - delete_key(resource.attributes, "otel.kafka.topic")
+          - delete_key(resource.attributes, "otel.route.dataset")
 {% if signal != 'logs' %}
           - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_kafka_topic_suffix }}") where resource.attributes["otel.edge.source"] == "kubernetes"
 {% endif %}
@@ -79,11 +82,13 @@ processors:
 {% if signal == 'logs' %}
           - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_kafka_topic_suffix }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"
 {% endif %}
-{% if signal != 'traces' %}
 {% for route in otel_edge_application_routes %}
+{% if signal == 'traces' %}
+          - set(resource.attributes["otel.route.dataset"], "{{ route.data_stream_dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.kafka_topic_suffix }}"
+{% else %}
           - set(resource.attributes["data_stream.dataset"], "{{ route.data_stream_dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.kafka_topic_suffix }}"
-{% endfor %}
 {% endif %}
+{% endfor %}
           # Le marqueur des collecteurs Kubernetes n'est pas indexé.
           - delete_key(resource.attributes, "otel.edge.source")
 {% endmacro %}

@@ -21,8 +21,12 @@ et la queue disque avant l'export Elasticsearch.
 Les flux routés suivent la convention Elastic (ADR-010) : le dataset nomme
 l'application, le namespace l'environnement. Les services `supermarket-demo`
 écrivent dans `logs-supermarche-homologation`,
-`metrics-supermarche.otel-homologation`, `traces-apm-homologation` et
-`logs-apm.error-homologation`. Les collecteurs Kubernetes gardent le dataset
+`metrics-supermarche.otel-homologation`,
+`traces-apm-supermarche_homologation`,
+`logs-apm.error-supermarche_homologation` et
+`metrics-apm.<métrique>.1m-supermarche_homologation` : APM Server impose le
+dataset `apm`, le namespace porte donc l'application et l'environnement. Les
+collecteurs Kubernetes gardent le dataset
 de leur receiver, par exemple `metrics-kubeletstatsreceiver.otel-homologation`.
 Les signaux des VM restent dans le namespace `default`.
 

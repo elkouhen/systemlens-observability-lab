@@ -74,7 +74,9 @@ Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
 `otel-<signal>-k8s` (ADR-009). L'Edge pose le dataset `supermarche` sur les
 logs et métriques applicatifs ; le backend pose le namespace depuis
 `deployment.environment` (`homologation`). Les signaux Kubernetes gardent le
-dataset de leur receiver (ADR-010). Les signaux des VM restent dans `default`.
+dataset de leur receiver (ADR-010). Les traces, erreurs et métriques APM de
+l'application prennent le namespace `supermarche_homologation`, APM Server
+imposant le dataset `apm`. Les signaux des VM restent dans `default`.
 Le Collector backend applique le traitement nécessaire avant l’export vers
 Elastic.
 

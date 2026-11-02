@@ -209,7 +209,8 @@ Le collecteur Edge choisit le topic de chaque ressource
 processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
 `topic_from_attribute` de l'exporteur Kafka ; sans attribut, le topic de base
 s'applique. Il pose aussi `data_stream.dataset` sur les logs et métriques
-d'une route applicative. Les règles viennent de
+d'une route applicative, et `otel.route.dataset` sur ses traces. Les règles
+viennent de
 `inventory/group_vars/otel_edge_nodes.yml` :
 
 | Ressource reçue par l'Edge | Topic | Data stream (environnement `homologation`) |
@@ -217,18 +218,27 @@ d'une route applicative. Les règles viennent de
 | Log avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-logs-supermarche` | `logs-supermarche-homologation` |
 | Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k8s` | `metrics-<receiver>.otel-homologation` |
 | Métrique avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-metrics-supermarche` | `metrics-supermarche.otel-homologation` |
-| Trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-traces-supermarche` | `traces-apm-homologation`, `logs-apm.error-homologation` |
+| Trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-traces-supermarche` | `traces-apm-supermarche_homologation`, `logs-apm.error-supermarche_homologation`, `metrics-apm.<métrique>.1m-supermarche_homologation` |
 | Log avec `otel.edge.source` = `kubernetes` (autre namespace) | `otel-logs-k8s` | `logs-<receiver>-homologation` |
 | Autre ressource (VM, Edge, Fleet) | topic de base | inchangé, namespace `default` |
 
-Les traces ne reçoivent aucun dataset : APM Server garde `apm` et
-`apm.error`. Les signaux Kubernetes gardent le dataset de leur receiver
+Les traces ne reçoivent aucun dataset : APM Server garde `apm`, `apm.error`
+et `apm.*`. Leur namespace porte donc l'application et l'environnement
+(ADR-010, note du 2026-11-02) : le backend le compose en
+`<otel.route.dataset>_<environnement>`, normalisé en `[a-z0-9_]`, puis le
+recopie dans `apm.route.namespace`. APM Server en fait le label global
+`apm_route_namespace`, reporté sur ses métriques agrégées. Le pipeline
+Elasticsearch `apm-route-namespace`, appelé par les pipelines `@custom` des
+data streams APM, range ces agrégats dans ce namespace et retire le label de
+tous les documents APM (`make apm-ingest-pipelines-deploy`). Une trace sans
+route applicative (Kubernetes, VM) n'a pas ce label. Les signaux Kubernetes gardent le dataset de leur receiver
 (`kubeletstatsreceiver`, `k8sclusterreceiver`, `hostmetricsreceiver`,
 `prometheusreceiver`), lu par les dashboards Fleet `[Kubernetes OTel]`.
 Les collecteurs Kubernetes (`otel-kubernetes`, `otel-kubernetes-cluster`)
 posent le marqueur `otel.edge.source=kubernetes` et
 `deployment.environment.name` = `homologation`. L'Edge supprime le marqueur,
-et le backend supprime `otel.kafka.topic` avant l'indexation. Un log suit le
+et le backend supprime `otel.kafka.topic` et `otel.route.dataset` avant
+l'indexation. Un log suit le
 namespace de son pod, une métrique ou une trace suit son émetteur : les
 métriques `kubeletstats` d'un pod applicatif vont donc dans
 `metrics-kubeletstatsreceiver.otel-homologation`.

@@ -7,8 +7,10 @@ middleware_credentials_required: false
 # (ADR-009, ADR-010). Un signal dont la ressource porte k8s.namespace.name égal
 # à kubernetes_namespace est publié dans otel-<signal>-<kafka_topic_suffix> ;
 # ses logs et métriques reçoivent data_stream.dataset = data_stream_dataset
-# ([a-z0-9_]). Les traces gardent le dataset apm d'APM Server. Le backend
-# dérive data_stream.namespace de deployment.environment(.name).
+# ([a-z0-9_]). Les traces gardent le dataset apm d'APM Server ; le backend
+# leur donne le namespace <data_stream_dataset>_<environnement>. Il dérive
+# l'environnement (namespace des logs et métriques) de
+# deployment.environment(.name).
 otel_edge_application_routes:
   - kubernetes_namespace: h0tl-supermarche-app
     kafka_topic_suffix: supermarche

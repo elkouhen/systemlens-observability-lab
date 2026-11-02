@@ -82,7 +82,12 @@ topic suffixé, le backend pose le namespace depuis `deployment.environment`
 ([ADR-007](../architecture/docs/ADR-007-namespace-data-stream-par-topic.md),
 [ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
 `logs-supermarche-homologation`, `metrics-supermarche.otel-homologation`,
-`traces-apm-homologation`, `metrics-kubeletstatsreceiver.otel-homologation`.
+`metrics-kubeletstatsreceiver.otel-homologation`. Les signaux APM d'une route
+applicative prennent le namespace `<dataset>_<environnement>` :
+`traces-apm-supermarche_homologation`,
+`logs-apm.error-supermarche_homologation` et
+`metrics-apm.<métrique>.1m-supermarche_homologation`, ces derniers rangés par
+le pipeline Elasticsearch `apm-route-namespace`.
 Les topics de base portent les signaux des VM, écrits dans `default`.
 Le groupe de consommation du backend est `otel-backend`. La séparation des
 topics évite de décoder des payloads de types différents dans un même flux.
