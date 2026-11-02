@@ -12,15 +12,26 @@ receivers:
     brokers: ["{{ otel_kafka_broker }}"]
     protocol_version: 3.9.0
     group_id: otel-backend
+    # Souscription par expression régulière (un topic commençant par « ^ »
+    # est interprété comme une regex) : le backend consomme le topic de base
+    # d'un signal et toute déclinaison « <topic>-<suffixe> », par exemple
+    # otel-logs-equipe-a. Les nouveaux topics sont découverts à chaque
+    # rafraîchissement des métadonnées, sans redémarrage du collecteur.
     traces:
-      topics: [otel-traces]
+      topics: ["^otel-traces(-.+)?$"]
       encoding: otlp_proto
     metrics:
-      topics: [otel-metrics]
+      topics: ["^otel-metrics(-.+)?$"]
       encoding: otlp_proto
     logs:
-      topics: [otel-logs]
+      topics: ["^otel-logs(-.+)?$"]
       encoding: otlp_proto
+    # Une partition sans offset commité (topic nouvellement découvert) est
+    # lue depuis le début : les premiers messages publiés avant la découverte
+    # ne sont pas perdus. Les partitions déjà commitées reprennent à leur offset.
+    initial_offset: earliest
+    metadata:
+      refresh_interval: 1m
     auth:
       sasl:
         username: "${env:OTEL_KAFKA_CONSUMER_USERNAME}"
@@ -74,7 +85,7 @@ processors:
         value: otel-backend
         action: upsert
       - key: service.version
-        value: "{{ elastic_agent_version }}"
+        value: "{{ otel_collector_contrib_version }}"
         action: upsert
       - key: service.instance.id
         value: "{{ inventory_hostname }}"

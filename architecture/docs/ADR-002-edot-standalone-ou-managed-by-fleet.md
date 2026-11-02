@@ -2,7 +2,8 @@
 
 ## Statut
 
-Accepted
+Accepted, amendé par [ADR-006](ADR-006-collecteurs-opentelemetry-contrib.md)
+pour la distribution des collecteurs Kubernetes, Edge et backend
 
 ## Date
 

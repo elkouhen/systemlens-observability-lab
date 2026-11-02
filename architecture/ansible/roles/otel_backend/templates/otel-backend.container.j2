@@ -1,10 +1,10 @@
 [Unit]
-Description=Collecteur backend Elastic OpenTelemetry du lab
+Description=Collecteur OpenTelemetry Contrib backend du lab
 After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=docker.elastic.co/elastic-agent/elastic-otel-collector:9.5.4
+Image=docker.io/otel/opentelemetry-collector-contrib:{{ otel_collector_contrib_version }}
 ContainerName=observability-otel-backend
 Network=host
 EnvironmentFile=/etc/observability/otel-backend.env

@@ -3,7 +3,7 @@
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
 L’architecture crée cinq VM séparées : `supermarket-middleware-01` pour MongoDB, Kafka métier et PostgreSQL,
 `otel-backend-01` pour le broker Kafka dédié OTel et le collecteur backend OTel, `otel-edge-01` pour HAProxy et le
-Collecteur EDOT Edge et
+Collecteur Edge (OpenTelemetry Collector Contrib) et
 `elk-01` pour Elasticsearch, Kibana et Fleet Server, et `k3s-01` pour le serveur
 k3s et les workloads Kubernetes.
 Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs
@@ -120,7 +120,7 @@ transport des métriques, sans reprovisionnement : collecteur backend OTel,
 Kafka OTel, collecteur Edge, puis HAProxy OTLP. Elle vérifie les endpoints de
 santé des collecteurs, l’état du broker et sa disponibilité du quorum.
 
-Après une modification de la configuration EDOT du backend, utiliser
+Après une modification de la configuration du collecteur backend, utiliser
 `make elastic-agent-backend-provision` pour reprovisionner uniquement
 `otel-backend-01`. La cible attend les variables d’environnement habituelles
 du provisionnement et ne crée pas la VM si elle n’existe pas encore.
@@ -166,7 +166,7 @@ une rotation de clé ou une modification de configuration.
 | --- | --- | --- |
 | `supermarket-middleware-01` | MongoDB, Kafka métier, PostgreSQL | Middlewares du scénario applicatif |
 | `otel-backend-01` | Kafka OTel, backend OTel | Métriques, logs et traces locales → Kafka OTel local → APM Server / Elasticsearch |
-| `otel-edge-01` | Collecteur EDOT Edge ; HAProxy | OTLP Kubernetes et VM → Kafka |
+| `otel-edge-01` | Collecteur Edge (Contrib) ; HAProxy | OTLP Kubernetes et VM → Kafka |
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 | `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du lab |
 

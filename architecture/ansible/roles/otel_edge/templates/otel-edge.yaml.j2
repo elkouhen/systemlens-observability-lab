@@ -49,7 +49,7 @@ processors:
         value: otel-edge
         action: upsert
       - key: service.version
-        value: "{{ elastic_agent_version }}"
+        value: "{{ otel_collector_contrib_version }}"
         action: upsert
       - key: service.instance.id
         value: "{{ inventory_hostname }}"

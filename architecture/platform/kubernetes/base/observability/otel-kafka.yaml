@@ -298,7 +298,7 @@ spec:
       serviceAccountName: otel-collector
       containers:
         - name: collector
-          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.5.4
+          image: otel/opentelemetry-collector-contrib:0.162.0
           securityContext:
             runAsUser: 0
             allowPrivilegeEscalation: false
@@ -372,7 +372,7 @@ spec:
                 secretKeyRef:
                   name: otel-edge-client-keys
                   key: otel-kubernetes-cluster
-          image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.5.4
+          image: otel/opentelemetry-collector-contrib:0.162.0
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
