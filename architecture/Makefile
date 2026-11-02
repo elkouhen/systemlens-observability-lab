@@ -448,13 +448,17 @@ elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des ag
 	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
+	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
+	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
 	for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
-	  DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
+	  OTEL_ELASTICSEARCH_API_KEY="$$api_key" DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
 
 elastic-agent-backend-provision: ## Déployer uniquement la configuration EDOT du backend
-	@DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision otel-backend-01 --provision-with ansible
+	@api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
+	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
+	OTEL_ELASTICSEARCH_API_KEY="$$api_key" DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision otel-backend-01 --provision-with ansible
 
 middleware-vm-provision: ## Reprovisionner le middleware et sa route vers le réseau des pods
 	@set -euo pipefail; \

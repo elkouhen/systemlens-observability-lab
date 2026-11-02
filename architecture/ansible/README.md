@@ -21,14 +21,19 @@ n'est activée.
 
 La télémétrie interne des agents EDOT standalone et des collecteurs EDOT
 exécutés sur les VM est exportée périodiquement par OTLP vers un receiver local,
-puis routée dans le dataset `collectortelemetry`. Elle comprend les métriques,
-logs et traces du Collector. Chaque composant conserve la sortie propre à son
+puis routée dans le dataset `collectortelemetry`. Elle comprend les métriques
+(niveau `normal`, toutes les 30 s) et les logs du Collector, sans traces
+([ADR-013](../docs/ADR-013-livraison-kafka-et-telemetrie-interne.md)). Chaque composant conserve la sortie propre à son
 rôle : les agents et Edge envoient leurs signaux vers Kafka, tandis que le
 backend les écrit dans Elasticsearch. Fleet peut ainsi afficher la
 consommation CPU et mémoire des agents dans la liste des collecteurs OpAMP et
-les dashboards peuvent suivre les erreurs et la performance des pipelines. Les
-traces internes dépendent de la production effective de spans par la
-distribution du Collector.
+les dashboards peuvent suivre les erreurs et la performance des pipelines.
+
+Le collecteur backend ne commite un offset Kafka qu'après l'écriture du
+message dans la file persistante de son exporteur (`message_marking.after`) :
+un redémarrage peut rejouer des messages, mais n'en perd pas. Si APM Server ou
+Elasticsearch est indisponible, la file se remplit puis le lag du groupe
+`otel-backend` augmente : Kafka sert de tampon (ADR-013).
 
 Le receiver `hostmetrics` active explicitement `system.cpu.utilization` et
 `system.memory.utilization`. Ces métriques alimentent la vue Infrastructure

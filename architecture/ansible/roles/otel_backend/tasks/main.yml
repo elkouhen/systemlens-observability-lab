@@ -123,6 +123,19 @@
     elasticsearch_url: "http://{{ elk_ip }}:9200"
     apm_server_url: "http://{{ elk_ip }}:8200"
 
+- name: Vérifier la clé API Elasticsearch du collecteur backend OTEL
+  # Une clé vide réécrirait otel-backend.env et ferait échouer chaque export
+  # Elasticsearch en 401 : le provisionnement s'arrête plutôt. La clé est
+  # fournie par OTEL_ELASTICSEARCH_API_KEY (cibles make qui provisionnent
+  # otel-backend-01).
+  ansible.builtin.assert:
+    that: otel_elasticsearch_api_key | length > 0
+    fail_msg: >-
+      OTEL_ELASTICSEARCH_API_KEY est vide : provisionner otel-backend-01 via
+      make otel-backend-vm-provision ou make elastic-agent-vm-provision.
+    quiet: true
+  no_log: true
+
 - name: Déployer les identifiants du collecteur backend OTEL
   ansible.builtin.copy:
     content: |
