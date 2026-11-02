@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=docker.io/apache/kafka:3.9.2
+Image=docker.io/apache/kafka:4.4.0
 ContainerName=observability-otel-kafka
 Network=host
 Volume=otel-kafka-data:/tmp/kraft-combined-logs:Z

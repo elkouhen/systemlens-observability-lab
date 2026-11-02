@@ -29,7 +29,7 @@ otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') 
 elastic_agent_version: 9.5.4
 # Distribution des collecteurs Edge et backend (ADR-006), alignée sur les
 # collecteurs Kubernetes de platform/kubernetes/base/observability/otel-kafka.yaml.
-otel_collector_contrib_version: 0.162.0
+otel_collector_contrib_version: 0.164.0
 apm_server_version: 9.5.4
 elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('', true) }}"
 apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"

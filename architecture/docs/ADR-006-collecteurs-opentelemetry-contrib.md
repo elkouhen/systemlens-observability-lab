@@ -31,7 +31,8 @@ calcule lui-même les métriques APM agrégées.
 ## Décision
 
 Ces quatre collecteurs utilisent l'image communautaire
-`otel/opentelemetry-collector-contrib:0.162.0`.
+`otel/opentelemetry-collector-contrib` (`0.162.0` à l'origine de cette
+décision, `0.164.0` depuis le 2026-11-02).
 
 - La version est portée par `otel_collector_contrib_version` dans
   `ansible/inventory/group_vars/all.yml` pour Edge et backend, et figée dans le
@@ -55,7 +56,7 @@ via OpAMP : ADR-002 reste valable pour eux.
   les traces directement dans Elasticsearch sans APM Server) imposerait de
   revenir à EDOT ou de construire une distribution avec `ocb`.
 - Deux lignes de versions coexistent : Elastic `9.5.4` pour la stack et les
-  agents VM, contrib `0.162.0` pour les collecteurs.
+  agents VM, contrib (`otel_collector_contrib_version`) pour les collecteurs.
 
 ## Vérification
 

@@ -170,6 +170,15 @@ une rotation de clé ou une modification de configuration.
 | `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
 | `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du lab |
 
+## Version du Kafka OTel
+
+Le broker Kafka OTel d'`otel-backend-01` utilise `apache/kafka:4.4.0`, monté
+en place depuis `3.9.2` sur le volume `otel-kafka-data`. Le
+`metadata.version` du cluster KRaft reste à `3.9-IV0` : il n'est pas finalisé,
+ce qui conserve un retour arrière possible vers `3.9.2` en restaurant l'image
+dans `roles/otel_backend/templates/kafka.container.j2`. Le Kafka métier de
+`supermarket-middleware-01` reste en `3.9.2`.
+
 ## Routage des data streams par topic Kafka
 
 Le collecteur backend choisit le namespace du data stream cible d'après le
