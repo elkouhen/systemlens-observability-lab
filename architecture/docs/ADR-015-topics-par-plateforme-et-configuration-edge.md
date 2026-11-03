@@ -344,7 +344,10 @@ après lag nul sur les six anciens topics.
 - Les noms des data streams applicatifs et Kubernetes n'ont pas changé ; les
   signaux des VM et des collecteurs sont passés de `*-default` à
   `*-homologation`. Les quatorze data streams `*-default` OTel et APM
-  devenus inactifs ont été supprimés.
+  devenus inactifs ont été supprimés, puis, à la demande de l'utilisateur,
+  tous les data streams `logs-*`, `metrics-*` et `traces-*` pour repartir
+  de documents portant tous `platform.id` ; dix-neuf flux se sont recréés
+  en trois minutes, sans document en `default` ni attribut manquant.
 
 Deux corrections ont été nécessaires pendant la migration : l'adresse de
 l'Edge dans les agents est `hostvars[otel_edge].ansible_host`, car `node_ip`
