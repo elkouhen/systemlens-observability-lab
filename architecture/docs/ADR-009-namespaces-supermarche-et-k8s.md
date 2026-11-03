@@ -4,6 +4,11 @@
 
 Accepted, partiellement remplacé
 
+Depuis [ADR-015](ADR-015-topics-par-plateforme-et-configuration-edge.md), la
+table de l'Edge est celle des plateformes du cluster (`otel_edge_cluster`,
+`otel_edge_namespace_routes`) et des VM rattachées ; le marqueur des
+collecteurs Kubernetes et la priorité des règles restent ceux décrits ici.
+
 Le 2026-11-02, [ADR-010](ADR-010-dataset-application-namespace-environnement.md)
 remplace le nommage des data streams : le dataset nomme l'application
 (`supermarche`) et le namespace l'environnement (`homologation`). Le choix des

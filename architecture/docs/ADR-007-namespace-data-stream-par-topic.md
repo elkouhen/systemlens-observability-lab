@@ -2,7 +2,10 @@
 
 ## Statut
 
-Accepted
+Accepted, remplacé pour la forme du topic par
+[ADR-015](ADR-015-topics-par-plateforme-et-configuration-edge.md) : le topic
+porte la plateforme et l'environnement, `otel-<signal>-<plateforme>-<env>`,
+et le dataset est posé par l'Edge.
 
 Amendé le 2026-11-02 par
 [ADR-009](ADR-009-namespaces-supermarche-et-k8s.md) : le collecteur Edge

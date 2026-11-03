@@ -4,6 +4,10 @@
 
 Accepted, supersedes ADR-004
 
+Précisé par [ADR-015](ADR-015-topics-par-plateforme-et-configuration-edge.md) :
+l'agent publie dans les topics de sa plateforme,
+`otel-<signal>-elk-homologation`, déclarés par `otel_edge: kafka-local`.
+
 ## Date
 
 2026-09-28

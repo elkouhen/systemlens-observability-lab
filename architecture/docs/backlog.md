@@ -170,24 +170,24 @@ Règles de travail :
   `validation/otel`, modèle C4 `architecture-c4.likec4` (relations
   `Publie otel-*`).
   Contrôle : relecture, `git diff --check`, liens relatifs valides.
-- [ ] **B18 Statut des ADR.**
+- [x] **B18 Statut des ADR.**
   ADR-015 passe à Accepted avec la section Vérification datée ; en-têtes
   d'ADR-005, ADR-007 et ADR-009 amendés pour renvoyer à ADR-015.
   Contrôle : relecture ; fait après B21.
 
 ## Lot 5 : migration, sur accord explicite
 
-- [ ] **B19 Étape 1, backend.** `make otel-backend-vm-provision` avec
+- [x] **B19 Étape 1, backend.** `make otel-backend-vm-provision` avec
   `otel_backend_legacy_topics: true`.
   Contrôle : neuf topics créés, `make otel-backend-vm-status` sain, lag du
   groupe `otel-backend` proche de 0, data streams applicatifs inchangés.
-- [ ] **B20 Étape 2, producteurs.** `make otel-edge-vm-provision`,
+- [x] **B20 Étape 2, producteurs.** `make otel-edge-vm-provision`,
   `make elastic-agent-vm-provision`, `make kubernetes-observability-deploy`,
   et les clés Kubernetes via `make otel-edge-client-keys-apply`.
   Contrôle : `make otel-gateway-vm-status`, `make otel-validation`,
   les neuf topics reçoivent des messages, les anciens topics n'en reçoivent
   plus.
-- [ ] **B21 Étape 3, nettoyage.** Lag nul sur `otel-{logs,metrics,traces}`
+- [x] **B21 Étape 3, nettoyage.** Lag nul sur `otel-{logs,metrics,traces}`
   et `otel-{logs,metrics,traces}-homologation`, suppression de ces six
   topics, `otel_backend_legacy_topics: false`, nouveau
   `make otel-backend-vm-provision`, déploiement des corrections de B16.
@@ -197,3 +197,5 @@ Règles de travail :
   `data_stream.namespace` et `platform.id` à `pirate` depuis `elastic-stack`
   (arrivée en `k3s`), puis un envoi avec un `k8s.namespace.name` inconnu
   (rejeté, compteur du filtre incrémenté). Documents de test supprimés.
+  Fait le 2026-11-03, sauf la suppression des six anciens topics, laissée à
+  l'opérateur (voir ADR-015, vérification).

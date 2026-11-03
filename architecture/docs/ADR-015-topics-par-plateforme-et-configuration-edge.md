@@ -2,9 +2,8 @@
 
 ## Statut
 
-Proposed, mis en œuvre dans le dépôt le 2026-11-03 (lots 0 à 4 du
-[backlog](backlog.md)), en attente de la migration (lot 5). Voir la note de
-mise en œuvre en fin de document.
+Accepted, déployé le 2026-11-03 ([backlog](backlog.md)). Voir la note de mise
+en œuvre et la vérification en fin de document.
 
 Remplace la note du 2026-11-02 d'[ADR-007](ADR-007-namespace-data-stream-par-topic.md)
 (le topic porte le dataset) et les règles de topic d'[ADR-009](ADR-009-namespaces-supermarche-et-k8s.md)
@@ -317,3 +316,43 @@ log envoyé avec un `k8s.namespace.name` inconnu est rejeté par l'Edge.
 - **Playbook `validation/otel`** : la métrique de validation porte
   `host.name` = `otel-edge-01` et arrive dans
   `metrics-generic.otel-homologation` avec `platform.id` = `elk`.
+
+## Vérification du 2026-11-03
+
+Migration en trois étapes : `make otel-backend-vm-provision` (neuf topics
+créés, souscription transitoire), `make otel-edge-vm-provision`,
+`make elastic-agent-vm-provision` et `make kubernetes-observability-deploy`
+(bascule des producteurs, agent EDOT installé sur `k3s-01`), puis
+`otel_backend_legacy_topics: false` et nouveau provisionnement du backend
+après lag nul sur les six anciens topics.
+
+- `make otel-config-validate`, `make kubernetes-validate` et
+  `make ansible-validate` réussissent.
+- `make otel-routing-verify` réussit : logs et métriques de `k3s`,
+  `supermarche` et `elk` avec `platform.id`, traces dans
+  `traces-apm-supermarche_homologation` sans label indexé, aucun document
+  OTel récent en `default`, aucun `otel.kafka.topic` indexé, aucun rejet.
+- `make otel-validation`, `make trace-context-verify`,
+  `make observability-schema-verify`, `make dashboards-verify` et
+  `make kubernetes-otel-dashboards-verify` réussissent.
+- Test d'usurpation : un log envoyé depuis `elastic-stack` avec
+  `data_stream.namespace`, `data_stream.dataset` et `platform.id` à `pirate`
+  est arrivé dans `logs-generic.otel-homologation` avec `platform.id` = `k3s`
+  et `k8s.cluster.name` = `k3s-01` ; un log avec un `k8s.namespace.name`
+  inconnu a été rejeté et `otelcol_processor_filter_logs.filtered` est passé
+  à 1. Les documents de test ont été supprimés.
+- Les noms des data streams applicatifs et Kubernetes n'ont pas changé ; les
+  signaux des VM et des collecteurs sont passés de `*-default` à
+  `*-homologation`. Les quatorze data streams `*-default` OTel et APM
+  devenus inactifs ont été supprimés.
+
+Deux corrections ont été nécessaires pendant la migration : l'adresse de
+l'Edge dans les agents est `hostvars[otel_edge].ansible_host`, car `node_ip`
+est une extra var Vagrant globale ; et pendant la fenêtre transitoire, la
+règle de dataset de l'ancien topic `supermarche-homologation` s'appliquait
+aussi aux signaux de la VM `supermarket-middleware-01`, dont 1861 documents
+ont été retirés des flux applicatifs.
+
+Reste à faire par un opérateur : supprimer les six anciens topics vidés
+(`otel-{logs,metrics,traces}` et `otel-{logs,metrics,traces}-homologation`)
+avec `kafka-topics.sh --delete` sur `otel-backend-01`.
