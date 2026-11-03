@@ -18,6 +18,23 @@ command -v openssl >/dev/null 2>&1 || {
   return 1
 }
 
+# Clés Bearer des clients du collecteur Edge (ADR-015) : une par VM,
+# OTEL_EDGE_KEY_<HOST>, plus une par collecteur Kubernetes. Puis les mots de
+# passe du lab. Un fichier existant est complété des entrées manquantes.
+_observability_credentials_keys=(
+  OTEL_EDGE_KEY_KUBERNETES
+  OTEL_EDGE_KEY_KUBERNETES_CLUSTER
+  OTEL_EDGE_KEY_K3S_01
+  OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE_01
+  OTEL_EDGE_KEY_ELK_01
+  OTEL_EDGE_KEY_OTEL_EDGE_01
+  KAFKA_OTEL_PUBLISHER_PASSWORD
+  KAFKA_OTEL_CONSUMER_PASSWORD
+  POSTGRESQL_PASSWORD
+  MONGODB_PASSWORD
+  ELASTIC_PASSWORD
+)
+
 _observability_credentials_file="${OBSERVABILITY_CREDENTIALS_FILE:-.observability-credentials.env}"
 _observability_legacy_file="${OTEL_EDGE_KEYS_FILE:-.otel-edge-keys.env}"
 
@@ -49,16 +66,9 @@ else
   }
   umask 077
   {
-    printf 'export OTEL_EDGE_KEY_KUBERNETES=%q\n' "$(openssl rand -hex 32)"
-    printf 'export OTEL_EDGE_KEY_KUBERNETES_CLUSTER=%q\n' "$(openssl rand -hex 32)"
-    printf 'export OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE=%q\n' "$(openssl rand -hex 32)"
-    printf 'export OTEL_EDGE_KEY_EDGE_AGENT=%q\n' "$(openssl rand -hex 32)"
-    printf 'export OTEL_EDGE_KEY_ELK_AGENT=%q\n' "$(openssl rand -hex 32)"
-    printf 'export KAFKA_OTEL_PUBLISHER_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    printf 'export KAFKA_OTEL_CONSUMER_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    printf 'export POSTGRESQL_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    printf 'export MONGODB_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    printf 'export ELASTIC_PASSWORD=%q\n' "$(openssl rand -hex 32)"
+    for _observability_credentials_key in "${_observability_credentials_keys[@]}"; do
+      printf 'export %s=%q\n' "${_observability_credentials_key}" "$(openssl rand -hex 32)"
+    done
   } >"${_observability_credentials_tmp}" || {
     rm -f "${_observability_credentials_tmp}"
     _observability_credentials_fail 'impossible d’écrire les identifiants générés.'
@@ -78,21 +88,18 @@ else
   printf 'Identifiants d’observabilité générés dans %s.\n' "${_observability_credentials_file}"
 fi
 
-# Compléter un fichier existant avec les identifiants ajoutés au périmètre.
-# Les valeurs sont ajoutées sans jamais être affichées.
-if [[ -z "${KAFKA_OTEL_PUBLISHER_PASSWORD:-}" || -z "${KAFKA_OTEL_CONSUMER_PASSWORD:-}" || -z "${POSTGRESQL_PASSWORD:-}" || -z "${MONGODB_PASSWORD:-}" || -z "${ELASTIC_PASSWORD:-}" ]]; then
+# Compléter un fichier existant avec les identifiants ajoutés au périmètre,
+# par exemple les clés par VM d'ADR-015. Les valeurs ne sont jamais affichées.
+_observability_credentials_missing=()
+for _observability_credentials_key in "${_observability_credentials_keys[@]}"; do
+  [[ -n "${!_observability_credentials_key:-}" ]] || _observability_credentials_missing+=("${_observability_credentials_key}")
+done
+if [[ ${#_observability_credentials_missing[@]} -gt 0 ]]; then
   umask 077
   {
-    [[ -n "${KAFKA_OTEL_PUBLISHER_PASSWORD:-}" ]] ||
-      printf 'export KAFKA_OTEL_PUBLISHER_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    [[ -n "${KAFKA_OTEL_CONSUMER_PASSWORD:-}" ]] ||
-      printf 'export KAFKA_OTEL_CONSUMER_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    [[ -n "${POSTGRESQL_PASSWORD:-}" ]] ||
-      printf 'export POSTGRESQL_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    [[ -n "${MONGODB_PASSWORD:-}" ]] ||
-      printf 'export MONGODB_PASSWORD=%q\n' "$(openssl rand -hex 32)"
-    [[ -n "${ELASTIC_PASSWORD:-}" ]] ||
-      printf 'export ELASTIC_PASSWORD=%q\n' "$(openssl rand -hex 32)"
+    for _observability_credentials_key in "${_observability_credentials_missing[@]}"; do
+      printf 'export %s=%q\n' "${_observability_credentials_key}" "$(openssl rand -hex 32)"
+    done
   } >>"${_observability_credentials_file}" || {
     _observability_credentials_fail "impossible d'ajouter les identifiants à ${_observability_credentials_file}."
     return 1
@@ -102,51 +109,14 @@ if [[ -z "${KAFKA_OTEL_PUBLISHER_PASSWORD:-}" || -z "${KAFKA_OTEL_CONSUMER_PASSW
     _observability_credentials_fail "impossible de recharger ${_observability_credentials_file}."
     return 1
   }
+  printf 'Identifiants ajoutés à %s : %s.\n' "${_observability_credentials_file}" "${_observability_credentials_missing[*]}"
 fi
 
-export OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER
-export OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT
-export OTEL_EDGE_KEY_ELK_AGENT
-export KAFKA_OTEL_PUBLISHER_PASSWORD KAFKA_OTEL_CONSUMER_PASSWORD
-export POSTGRESQL_PASSWORD MONGODB_PASSWORD ELASTIC_PASSWORD
-
-[[ -n "${OTEL_EDGE_KEY_KUBERNETES:-}" ]] || {
-  _observability_credentials_fail 'OTEL_EDGE_KEY_KUBERNETES est absente du fichier d’identifiants.'
-  return 1
-}
-[[ -n "${OTEL_EDGE_KEY_KUBERNETES_CLUSTER:-}" ]] || {
-  _observability_credentials_fail 'OTEL_EDGE_KEY_KUBERNETES_CLUSTER est absente du fichier d’identifiants.'
-  return 1
-}
-[[ -n "${OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE:-}" ]] || {
-  _observability_credentials_fail 'OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE est absente du fichier d’identifiants.'
-  return 1
-}
-[[ -n "${OTEL_EDGE_KEY_EDGE_AGENT:-}" ]] || {
-  _observability_credentials_fail 'OTEL_EDGE_KEY_EDGE_AGENT est absente du fichier d’identifiants.'
-  return 1
-}
-[[ -n "${OTEL_EDGE_KEY_ELK_AGENT:-}" ]] || {
-  _observability_credentials_fail 'OTEL_EDGE_KEY_ELK_AGENT est absente du fichier d’identifiants.'
-  return 1
-}
-[[ -n "${KAFKA_OTEL_PUBLISHER_PASSWORD:-}" ]] || {
-  _observability_credentials_fail 'KAFKA_OTEL_PUBLISHER_PASSWORD est absente du fichier d’identifiants.'
-  return 1
-}
-[[ -n "${KAFKA_OTEL_CONSUMER_PASSWORD:-}" ]] || {
-  _observability_credentials_fail 'KAFKA_OTEL_CONSUMER_PASSWORD est absente du fichier d’identifiants.'
-  return 1
-}
-
-for _observability_password in POSTGRESQL_PASSWORD MONGODB_PASSWORD ELASTIC_PASSWORD; do
-  case "${_observability_password}" in
-    POSTGRESQL_PASSWORD) _observability_password_value="${POSTGRESQL_PASSWORD:-}" ;;
-    MONGODB_PASSWORD) _observability_password_value="${MONGODB_PASSWORD:-}" ;;
-    ELASTIC_PASSWORD) _observability_password_value="${ELASTIC_PASSWORD:-}" ;;
-  esac
-  [[ -n "${_observability_password_value}" ]] || {
-    _observability_credentials_fail "${_observability_password} est absent du fichier d’identifiants."
+for _observability_credentials_key in "${_observability_credentials_keys[@]}"; do
+  # shellcheck disable=SC2163
+  export "${_observability_credentials_key}"
+  [[ -n "${!_observability_credentials_key:-}" ]] || {
+    _observability_credentials_fail "${_observability_credentials_key} est absente du fichier d’identifiants."
     return 1
   }
 done
@@ -155,4 +125,4 @@ printf 'Identifiants d’observabilité disponibles dans le shell courant.\n'
 
 unset _observability_credentials_file _observability_legacy_file
 unset _observability_credentials_directory _observability_credentials_tmp
-unset _observability_password _observability_password_value
+unset _observability_credentials_keys _observability_credentials_missing _observability_credentials_key

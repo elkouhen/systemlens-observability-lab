@@ -42,6 +42,10 @@ ZSCALER_CA_CERT ?=
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 C4_PAGES_BASE ?= ./
 OBSERVABILITY_CREDENTIALS_FILE ?= $(ARCH_ROOT)/.observability-credentials.env
+# Clés Bearer des clients du collecteur Edge (ADR-015) : une par VM rattachée
+# à l'Edge (OTEL_EDGE_KEY_<HOST>) et une par collecteur Kubernetes.
+OTEL_EDGE_KEYS := OTEL_EDGE_KEY_K3S_01 OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE_01 OTEL_EDGE_KEY_ELK_01 OTEL_EDGE_KEY_OTEL_EDGE_01 \
+	OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER
 
 # Interface opérateur principale. Les cibles techniques non listées restent
 # disponibles pour les dépendances et les diagnostics ciblés, sans apparaître
@@ -49,16 +53,16 @@ OBSERVABILITY_CREDENTIALS_FILE ?= $(ARCH_ROOT)/.observability-credentials.env
 HELP_TARGETS := help architecture-status credentials-show credentials-generate cluster-show \
 	platform-status kubernetes-status vm-status vm-services-status vm-services-restart time-sync-verify \
 	apps-build apps-test command-center-build \
-	kubernetes-validate ansible-validate elastic-version-validate ci-run \
+	kubernetes-validate ansible-validate otel-config-validate elastic-version-validate ci-run \
 	vms-start vms-restart vms-destroy \
 	architecture-deploy \
 	elk-deploy fleet-assets-deploy apps-deploy \
 	application-data-verify order-service-command \
-	dashboards-verify trace-context-verify observability-schema-verify \
+	dashboards-verify trace-context-verify observability-schema-verify otel-routing-verify \
 	otel-validate retention-validate retention-deploy retention-verify \
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
-.PHONY: help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy apm-ingest-pipelines-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
@@ -414,7 +418,7 @@ vms-up:
 	@set -euo pipefail; \
 	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
-	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
+	for key in $(OTEL_EDGE_KEYS); do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	postgresql_password="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}"; \
 	mongodb_password="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}"; \
 	kafka_otel_publisher_password="$${KAFKA_OTEL_PUBLISHER_PASSWORD:?Set KAFKA_OTEL_PUBLISHER_PASSWORD outside Git}"; \
@@ -447,10 +451,10 @@ elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des ag
 	@set -euo pipefail; \
 	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
-	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
+	for key in $(OTEL_EDGE_KEYS); do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
-	for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
+	for node in $(K3S_VM_NAME) supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
 	  OTEL_ELASTICSEARCH_API_KEY="$$api_key" DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
@@ -495,11 +499,30 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/render-otel-configs.yml
+
+OTEL_RENDER_DIR ?= $(ARCH_ROOT)/.otel-render
+OTEL_COLLECTOR_IMAGE ?= docker.elastic.co/elastic-agent/elastic-otel-collector:$(ELASTIC_STACK_VERSION)
+
+otel-config-validate: ## Rendre les configurations Edge, backend et agents depuis l'inventaire et les valider avec EDOT
+	@set -euo pipefail; \
+	rm -rf '$(OTEL_RENDER_DIR)'; \
+	OTEL_RENDER_DIR='$(abspath $(OTEL_RENDER_DIR))' ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/render-otel-configs.yml >/dev/null; \
+	for file in '$(OTEL_RENDER_DIR)'/elastic-agent-*.yaml; do sed '1,/^$$/d' "$$file" > "$${file%.yaml}.collector.yaml"; done; \
+	for file in '$(OTEL_RENDER_DIR)'/otel-edge-*.yaml '$(OTEL_RENDER_DIR)'/otel-backend-*.yaml '$(OTEL_RENDER_DIR)'/elastic-agent-*.collector.yaml; do \
+	  docker run --rm --tmpfs /var/lib/otel-edge --tmpfs /var/lib/otel \
+	    -e OTEL_KAFKA_PUBLISHER_USERNAME=render -e OTEL_KAFKA_PUBLISHER_PASSWORD=render \
+	    -e OTEL_KAFKA_CONSUMER_USERNAME=render -e OTEL_KAFKA_CONSUMER_PASSWORD=render \
+	    -e ELASTICSEARCH_API_KEY=render -e APM_SERVER_SECRET_TOKEN=render \
+	    -v "$(abspath $(OTEL_RENDER_DIR)):/render:ro" '$(OTEL_COLLECTOR_IMAGE)' validate --config="/render/$$(basename "$$file")"; \
+	  echo "OK      $$(basename "$$file")"; \
+	done; \
+	echo "Topics attendus : $$(tr '\n' ' ' < '$(OTEL_RENDER_DIR)/otel-topics.txt')"
 
 ansible-deploy: ## Déployer toute l'architecture via un seul orchestrateur Ansible
 	@test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
-	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
+	for key in $(OTEL_EDGE_KEYS); do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
 otel-validation:
@@ -553,7 +576,7 @@ otel-edge-vm-provision: ## Provisionner le Collecteur EDOT Edge sur otel-edge-01
 	@set -euo pipefail; \
 	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
-	for key in OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE OTEL_EDGE_KEY_EDGE_AGENT OTEL_EDGE_KEY_ELK_AGENT OTEL_EDGE_KEY_KUBERNETES OTEL_EDGE_KEY_KUBERNETES_CLUSTER; do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
+	for key in $(OTEL_EDGE_KEYS); do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	$(VAGRANT) up otel-edge-01 --no-provision; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" KAFKA_OTEL_PUBLISHER_PASSWORD="$${KAFKA_OTEL_PUBLISHER_PASSWORD:?Set KAFKA_OTEL_PUBLISHER_PASSWORD outside Git}" KAFKA_OTEL_CONSUMER_PASSWORD="$${KAFKA_OTEL_CONSUMER_PASSWORD:?Set KAFKA_OTEL_CONSUMER_PASSWORD outside Git}" $(VAGRANT) provision otel-edge-01 --provision-with ansible
 
@@ -655,6 +678,15 @@ observability-schema-verify: ## Vérifier le contrat OTel des événements index
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
 	 ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" ./$(ARCH_ROOT)/platform/elk/scripts/verify-observability-contracts.sh schema
+
+# Plateformes lues dans l'inventaire (otel_platforms du backend, ADR-015).
+OTEL_PLATFORMS ?= $(shell ANSIBLE_LOCAL_TEMP=/tmp ansible-inventory -i ansible/inventory/vagrant.yml --host otel-backend-01 2>/dev/null | python3 -c 'import json,sys; print(" ".join(sorted({p["platform"] for p in json.load(sys.stdin)["otel_platforms"]})))')
+
+otel-routing-verify: ## Vérifier le routage par plateforme (platform.id, namespaces, rejets de l'Edge) sur les documents récents
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
+	 test -n "$(OTEL_PLATFORMS)" || { echo 'OTEL_PLATFORMS introuvable dans l’inventaire.' >&2; exit 1; }; \
+	 ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" OTEL_PLATFORMS='$(OTEL_PLATFORMS)' ./$(ARCH_ROOT)/platform/elk/scripts/verify-otel-routing.sh
 
 ##@ Identifiants et clés d'accès
 

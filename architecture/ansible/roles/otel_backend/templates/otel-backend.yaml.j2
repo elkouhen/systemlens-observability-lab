@@ -15,19 +15,19 @@ receivers:
     # fois le minimum et le maximum de chaque requête à cette version.
     group_id: otel-backend
     # Souscription par expression régulière (un topic commençant par « ^ »
-    # est interprété comme une regex) : le backend consomme le topic de base
-    # d'un signal et toute déclinaison « <topic>-<suffixe> », par exemple
-    # otel-logs-equipe-a. Les nouveaux topics sont découverts à chaque
-    # rafraîchissement des métadonnées, sans redémarrage du collecteur.
-    traces:
-      topics: ["^otel-traces(-.+)?$"]
+    # est interprété comme une regex) : un topic par plateforme et
+    # environnement, otel-<signal>-<plateforme>-<environnement> (ADR-015).
+    # Les nouveaux topics sont découverts à chaque rafraîchissement des
+    # métadonnées, sans redémarrage du collecteur.
+{% if otel_backend_legacy_topics | default(false) %}
+    # Transition ADR-015 : les anciens topics otel-<signal> et
+    # otel-<signal>-homologation sont lus jusqu'à leur suppression.
+{% endif %}
+{% for signal in ['traces', 'metrics', 'logs'] %}
+    {{ signal }}:
+      topics: ["^otel-{{ signal }}-[a-z0-9_]+-[a-z0-9_]+$"{% if otel_backend_legacy_topics | default(false) %}, "^otel-{{ signal }}(-homologation)?$"{% endif %}]
       encoding: otlp_proto
-    metrics:
-      topics: ["^otel-metrics(-.+)?$"]
-      encoding: otlp_proto
-    logs:
-      topics: ["^otel-logs(-.+)?$"]
-      encoding: otlp_proto
+{% endfor %}
     # Une partition sans offset commité (topic nouvellement découvert) est
     # lue depuis le début : les premiers messages publiés avant la découverte
     # ne sont pas perdus. Les partitions déjà commitées reprennent à leur offset.
@@ -88,8 +88,8 @@ processors:
     error_mode: ignore
     metric_conditions:
       - (metric.type == METRIC_DATA_TYPE_GAUGE or metric.type == METRIC_DATA_TYPE_SUM) and datapoint.value_double - datapoint.value_double != 0.0
-  # Routage par topic (ADR-007, note du 2026-11-02) : le nom du topic porte
-  # toute la cible. Le receiver Kafka expose le topic d'origine dans le
+  # Routage par topic (ADR-015) : le nom du topic porte la plateforme et
+  # l'environnement. Le receiver Kafka expose le topic d'origine dans le
   # contexte (kafka.topic) ; il est copié en attribut de ressource, car la
   # file de l'exporteur, qui regroupe les lots, ne conserve pas ce contexte.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourceprocessor
@@ -98,29 +98,36 @@ processors:
       - key: otel.kafka.topic
         from_context: metadata.kafka.topic
         action: upsert
-  #   otel-<signal>-<dataset>-<namespace> : logs et métriques reçoivent
-  #     data_stream.dataset et data_stream.namespace ; les traces gardent les
-  #     datasets apm d'APM Server et reçoivent le namespace
-  #     <dataset>_<namespace>, recopié dans apm.route.namespace (label global
-  #     apm_route_namespace, que le pipeline Elasticsearch apm-route-namespace
-  #     applique aux métriques APM agrégées puis retire).
-  #   otel-<signal>-<namespace> : data_stream.namespace seul ; le dataset reste
-  #     celui de la source ou du receiver.
-  #   otel-<signal> : rien n'est posé.
-  # Les noms sont contraints par celui du topic (dataset [a-z0-9_.] sans « - »,
-  # namespace [a-z0-9_]) : aucune normalisation à l'exécution. Un topic hors
-  # de ces formes ne pose rien. otel.kafka.topic est supprimé ensuite.
+  # Routage par plateforme (ADR-015) : le nom du topic,
+  # otel-<signal>-<plateforme>-<environnement>, est la preuve de provenance.
+  # Le backend en tire platform.id et data_stream.namespace. Le dataset est
+  # celui posé par l'Edge pour une application, sinon celui que l'exporteur
+  # dérive du receiver. Les traces gardent les datasets apm d'APM Server et
+  # reçoivent le namespace <plateforme>_<environnement>, recopié dans
+  # apm.route.namespace (label global apm_route_namespace, que le pipeline
+  # Elasticsearch apm-route-namespace applique aux métriques APM agrégées
+  # puis retire, ADR-010). Un topic hors format ne pose rien.
+  # otel.kafka.topic est supprimé ensuite.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
   transform/data-stream-route:
     error_mode: ignore
     log_statements: &data_stream_route
       - context: resource
         conditions:
-          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-([a-z0-9_.]+-)?[a-z0-9_]+$")
+          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-[a-z0-9_]+-[a-z0-9_]+$")
         statements:
-          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-((?P<dataset>[a-z0-9_.]+)-)?(?P<namespace>[a-z0-9_]+)$"), "upsert")
-          - set(resource.attributes["data_stream.dataset"], resource.cache["dataset"]) where resource.cache["dataset"] != nil and resource.cache["dataset"] != ""
+          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-(?P<platform>[a-z0-9_]+)-(?P<namespace>[a-z0-9_]+)$"), "upsert")
+          - set(resource.attributes["platform.id"], resource.cache["platform"])
           - set(resource.attributes["data_stream.namespace"], resource.cache["namespace"])
+{% if otel_backend_legacy_topics | default(false) %}
+      # Transition ADR-015 : ancienne sémantique des topics encore lus, le
+      # dataset de l'ancienne route applicative et le namespace de l'ancienne
+      # route Kubernetes. Supprimé avec otel_backend_legacy_topics.
+      - context: resource
+        statements:
+          - set(resource.attributes["data_stream.dataset"], "supermarche") where IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-supermarche-homologation$")
+          - set(resource.attributes["data_stream.namespace"], "homologation") where IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-homologation$")
+{% endif %}
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
@@ -132,12 +139,17 @@ processors:
           - delete_key(resource.attributes, "apm.route.namespace")
       - context: resource
         conditions:
-          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-([a-z0-9_.]+-)?[a-z0-9_]+$")
+          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-[a-z0-9_]+-[a-z0-9_]+$")
         statements:
-          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-traces-((?P<dataset>[a-z0-9_.]+)-)?(?P<namespace>[a-z0-9_]+)$"), "upsert")
-          - set(resource.attributes["data_stream.namespace"], resource.cache["namespace"])
-          - set(resource.attributes["data_stream.namespace"], Concat([resource.cache["dataset"], resource.cache["namespace"]], "_")) where resource.cache["dataset"] != nil and resource.cache["dataset"] != ""
-          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"]) where resource.cache["dataset"] != nil and resource.cache["dataset"] != ""
+          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-traces-(?P<platform>[a-z0-9_]+)-(?P<namespace>[a-z0-9_]+)$"), "upsert")
+          - set(resource.attributes["platform.id"], resource.cache["platform"])
+          - set(resource.attributes["data_stream.namespace"], Concat([resource.cache["platform"], resource.cache["namespace"]], "_"))
+          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"])
+{% if otel_backend_legacy_topics | default(false) %}
+      - context: resource
+        statements:
+          - set(resource.attributes["data_stream.namespace"], "homologation") where IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-homologation$")
+{% endif %}
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
@@ -195,7 +207,9 @@ service:
   # Télémétrie interne (ADR-013) : niveau normal, export toutes les 30 s,
   # logs au niveau info (défaut), sans traces. La ressource remplace le
   # processor resource/internal-telemetry : data stream
-  # metrics|logs-collectortelemetry.otel-default, instance stable.
+  # metrics|logs-collectortelemetry.otel-{{ otel_environment }}, instance
+  # stable. Cette télémétrie ne passe pas par Kafka : la plateforme et
+  # l'environnement de la VM sont posés ici (ADR-015).
   telemetry:
     resource:
       attributes:
@@ -206,9 +220,13 @@ service:
         - name: service.instance.id
           value: "{{ inventory_hostname }}"
         - name: deployment.environment.name
-          value: homologation
+          value: "{{ otel_environment }}"
+        - name: platform.id
+          value: "{{ otel_platform }}"
         - name: data_stream.dataset
           value: collectortelemetry
+        - name: data_stream.namespace
+          value: "{{ otel_environment }}"
     metrics:
       level: normal
       readers:

@@ -42,50 +42,68 @@ processors:
     send_batch_max_size: 50
 
 {#
-  Choix du topic par ressource (ADR-009 ; ADR-007, note du 2026-11-02). Le
-  topic porte toute la cible du flux : otel-<signal>-<dataset>-<namespace>
-  pour une route applicative, otel-<signal>-<namespace> pour la route
-  Kubernetes. Le collecteur backend en tire data_stream.dataset,
-  data_stream.namespace et apm.route.namespace. Les routes viennent de
-  inventory/group_vars/otel_edge_nodes.yml, dont le rôle valide le format.
+  Choix du topic par ressource (ADR-015). Le topic porte la plateforme et
+  l'environnement, otel-<signal>-<plateforme>-<environnement> ; le backend en
+  tire platform.id et data_stream.namespace. Les tables viennent de
+  inventory/group_vars/otel_edge_nodes.yml (cluster, namespaces) et de
+  l'inventaire des VM (hôtes dont otel_edge désigne cet Edge) ; routes.yml
+  valide leur format.
   1. Un client ne choisit jamais son topic ni ses attributs de data stream :
-     otel.kafka.topic, data_stream.namespace et apm.route.namespace reçus sont
-     supprimés pour toute ressource. Aucun client VM ne pose de namespace.
-  2. Choix du topic, lu par topic_from_attribute de l'exporteur Kafka ; sans
-     attribut, topic de base. Les logs suivent le namespace Kubernetes de leur
-     pod : la route applicative passe avant le marqueur Kubernetes. Les
-     métriques et les traces suivent leur émetteur : le marqueur passe avant.
-  3. Plateforme et environnement des applications : pour une ressource d'une
-     route applicative, l'Edge pose k8s.cluster.name et
-     deployment.environment.name depuis la route, en écrasant la valeur
-     envoyée. Les autres ressources gardent les leurs.
-  4. Le data_stream.dataset reçu est supprimé pour tout flux routé et toute
-     ressource qui porte k8s.namespace.name, mais conservé ailleurs : les
-     agents EDOT des VM posent légitimement collectortelemetry sur leur
-     télémétrie interne, et rien ne les distingue d'un autre client OTLP.
+     otel.kafka.topic, data_stream.namespace, apm.route.namespace et
+     platform.id reçus sont supprimés, ainsi que data_stream.dataset, sauf
+     collectortelemetry que les agents EDOT et les collecteurs posent sur
+     leur télémétrie interne.
+  2. Marqueur otel.edge.source=kubernetes des collecteurs Kubernetes : les
+     métriques et les traces suivent leur émetteur et vont dans la plateforme
+     du cluster avant la règle des namespaces, car les métriques kubeletstats
+     d'un pod applicatif portent le namespace du pod. Les logs suivent le
+     namespace de leur pod : le marqueur passe après.
+  3. Namespace Kubernetes connu (celui des collecteurs, puis les plateformes
+     hébergées) : topic de sa plateforme.
+  4. host.name d'une VM rattachée : topic de sa plateforme.
+  5. Dataset d'une route applicative sur les logs et les métriques de son
+     namespace, jamais sur les traces (APM Server impose apm).
+     deployment.environment.name suit le topic choisi, en écrasant la valeur
+     reçue. k8s.cluster.name du cluster sur toute ressource Kubernetes. Le
+     marqueur n'est pas indexé.
+  Une ressource sans topic est rejetée ensuite par filter/unrouted.
 #}
+{% set cluster_route = {'kubernetes_namespace': otel_edge_cluster.kubernetes_namespace, 'platform': otel_edge_cluster.platform, 'environment': otel_edge_cluster.environment, 'dataset': 'receiver'} %}
+{% set namespace_routes = [cluster_route] + otel_edge_namespace_routes %}
 {% macro kafka_topic_statements(signal) %}
+{% set cluster_topic = 'otel-' ~ signal ~ '-' ~ otel_edge_cluster.platform ~ '-' ~ otel_edge_cluster.environment %}
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
           - delete_key(resource.attributes, "data_stream.namespace")
           - delete_key(resource.attributes, "apm.route.namespace")
+          - delete_key(resource.attributes, "platform.id")
+          - delete_key(resource.attributes, "data_stream.dataset") where resource.attributes["data_stream.dataset"] != "collectortelemetry"
 {% if signal != 'logs' %}
-          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_route.kafka_topic }}") where resource.attributes["otel.edge.source"] == "kubernetes"
+          - set(resource.attributes["otel.kafka.topic"], "{{ cluster_topic }}") where resource.attributes["otel.edge.source"] == "kubernetes"
 {% endif %}
-{% for route in otel_edge_application_routes %}
-          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ route.kafka_topic }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
-          - set(resource.attributes["k8s.cluster.name"], "{{ route.platform }}") where resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
-          - set(resource.attributes["deployment.environment.name"], "{{ route.environment }}") where resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
+{% for route in namespace_routes %}
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ route.platform }}-{{ route.environment }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
 {% endfor %}
 {% if signal == 'logs' %}
-          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ otel_edge_kubernetes_route.kafka_topic }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"
+          - set(resource.attributes["otel.kafka.topic"], "{{ cluster_topic }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["otel.edge.source"] == "kubernetes"
 {% endif %}
-          - delete_key(resource.attributes, "data_stream.dataset") where resource.attributes["otel.kafka.topic"] != nil or resource.attributes["k8s.namespace.name"] != nil
+{% for host in otel_edge_hosts %}
+          - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ hostvars[host].otel_platform }}-{{ hostvars[host].otel_environment }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["host.name"] == "{{ host }}"
+{% endfor %}
+{% if signal != 'traces' %}
+{% for route in otel_edge_namespace_routes if route.dataset != 'receiver' %}
+          - set(resource.attributes["data_stream.dataset"], "{{ route.dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.platform }}-{{ route.environment }}" and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
+{% endfor %}
+{% endif %}
+{% for key in otel_edge_platform_keys %}
+          - set(resource.attributes["deployment.environment.name"], "{{ key.split('-')[1] }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ key }}"
+{% endfor %}
+          - set(resource.attributes["k8s.cluster.name"], "{{ otel_edge_cluster.name }}") where resource.attributes["k8s.namespace.name"] != nil or resource.attributes["otel.edge.source"] == "kubernetes"
           # Le marqueur des collecteurs Kubernetes n'est pas indexé.
           - delete_key(resource.attributes, "otel.edge.source")
 {% endmacro %}
-  # Topic Kafka par ressource, depuis la table de routage (ADR-009, ADR-007).
+  # Topic Kafka par ressource, depuis les tables de routage (ADR-015).
   # otel.kafka.topic reste sur la ressource jusqu'à l'exporteur ; le backend
   # le réécrit depuis le topic lu, puis le supprime avant l'indexation.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
@@ -97,6 +115,22 @@ processors:
 {{ kafka_topic_statements('metrics') | trim('\n') }}
     log_statements:
 {{ kafka_topic_statements('logs') | trim('\n') }}
+  # Rejet des ressources hors tables (ADR-015) : ni namespace Kubernetes
+  # connu, ni marqueur des collecteurs, ni host.name d'une VM rattachée. Les
+  # compteurs otelcol_processor_filter_{logs,datapoints,spans}_filtered de ce
+  # collecteur rendent l'oubli visible (make otel-routing-verify).
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/filterprocessor
+  filter/unrouted:
+    error_mode: ignore
+    traces:
+      span:
+        - resource.attributes["otel.kafka.topic"] == nil
+    metrics:
+      metric:
+        - resource.attributes["otel.kafka.topic"] == nil
+    logs:
+      log_record:
+        - resource.attributes["otel.kafka.topic"] == nil
   # Nom des spans HTTP client (ADR-011). La convention sémantique HTTP nomme un
   # span client « {méthode} » seul, faute de gabarit d'URL : l'appel
   # order-service → inventory-service apparaît comme « POST ». Ce processor
@@ -138,8 +172,9 @@ exporters:
         username: "${env:OTEL_KAFKA_PUBLISHER_USERNAME}"
         password: "${env:OTEL_KAFKA_PUBLISHER_PASSWORD}"
         mechanism: PLAIN
-    # Topic posé par transform/kafka-topic ; à défaut, topic de base du signal.
-    # L'exporteur publie chaque ressource séparément dans son topic.
+    # Topic posé par transform/kafka-topic, une ressource par topic. Les
+    # topics par défaut ne reçoivent rien : filter/unrouted rejette avant
+    # toute ressource sans topic (ADR-015).
     topic_from_attribute: otel.kafka.topic
     traces:
       topic: otel-traces
@@ -155,8 +190,9 @@ service:
   extensions: [health_check, file_storage, bearertokenauth/clients]
   # Télémétrie interne (ADR-013) : niveau normal, export toutes les 30 s,
   # logs au niveau info (défaut), sans traces. La ressource remplace le
-  # processor resource/internal-telemetry ; le backend conserve
-  # data_stream.dataset du topic de base (collectortelemetry.otel-default).
+  # processor resource/internal-telemetry ; host.name la fait router par la
+  # table des VM vers la plateforme de cette VM (ADR-015), avec le dataset
+  # collectortelemetry conservé.
   telemetry:
     resource:
       attributes:
@@ -166,8 +202,10 @@ service:
           value: "{{ elastic_agent_version }}"
         - name: service.instance.id
           value: "{{ inventory_hostname }}"
+        - name: host.name
+          value: "{{ inventory_hostname }}"
         - name: deployment.environment.name
-          value: homologation
+          value: "{{ otel_environment }}"
         - name: data_stream.dataset
           value: collectortelemetry
     metrics:
@@ -191,21 +229,21 @@ service:
   pipelines:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, transform/kafka-topic, filter/unrouted, batch]
       exporters: [kafka/otlp]
     logs/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, batch/logs]
+      processors: [memory_limiter, transform/kafka-topic, filter/unrouted, batch/logs]
       exporters: [kafka/otlp]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, transform/http-client-span-name, transform/kafka-topic, batch]
+      processors: [memory_limiter, transform/http-client-span-name, transform/kafka-topic, filter/unrouted, batch]
       exporters: [kafka/otlp]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, transform/kafka-topic, batch]
+      processors: [memory_limiter, transform/kafka-topic, filter/unrouted, batch]
       exporters: [kafka/otlp]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, transform/kafka-topic, batch/logs]
+      processors: [memory_limiter, transform/kafka-topic, filter/unrouted, batch/logs]
       exporters: [kafka/otlp]

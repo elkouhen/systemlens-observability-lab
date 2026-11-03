@@ -113,8 +113,9 @@ backend pour publier ; le compte `otel_consumer` est utilisé par le backend et
 la collecte des métriques Kafka pour consommer. Définir
 `KAFKA_OTEL_PUBLISHER_PASSWORD` et `KAFKA_OTEL_CONSUMER_PASSWORD` dans
 l'environnement avant `make vms-up` ou `make ansible-deploy`. Les mots de passe
-ne sont ni versionnés ni écrits dans les manifests Kubernetes ; le Job de
-création des topics reçoit son secret par `otel-kafka-credentials-apply`.
+ne sont ni versionnés ni écrits dans les manifests Kubernetes. Les topics OTel
+sont créés par le rôle `otel_backend` ; le Job Kubernetes
+`otel-telemetry-topics` ne crée plus que les topics métier.
 
 La cible `make vms-restart` redémarre séquentiellement les cinq VM
 (`supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`) sans
@@ -133,7 +134,8 @@ Après une modification de la configuration du collecteur backend, utiliser
 du provisionnement et ne crée pas la VM si elle n’existe pas encore.
 
 Les agents EDOT qui envoient leurs signaux vers Edge utilisent une clé Bearer
-distincte par client. Les cibles Makefile qui provisionnent l'architecture
+distincte par VM, `OTEL_EDGE_KEY_<HOST>`, et les collecteurs Kubernetes leurs
+deux clés propres. Les cibles Makefile qui provisionnent l'architecture
 chargent automatiquement `.observability-credentials.env` et vérifient les
 identifiants avant d'exécuter Ansible. Pour lancer Ansible directement, charger
 le fichier dans le shell courant avec `source ./.observability-credentials.env`.
@@ -156,7 +158,8 @@ avec `make credentials-generate`, puis le fichier peut être chargé avec
 Le script conserve les clés Edge et les mots de passe dans
 `.observability-credentials.env`, ignoré par Git et protégé par le mode `0600`.
 Le fichier contient `POSTGRESQL_PASSWORD`, `MONGODB_PASSWORD`,
-`ELASTIC_PASSWORD`, les mots de passe Kafka OTel et les cinq clés Edge. Pour
+`ELASTIC_PASSWORD`, les mots de passe Kafka OTel et les six clés Edge. Un
+fichier existant est complété des clés manquantes à chaque chargement. Pour
 remplacer tous les identifiants, utiliser
 `OBSERVABILITY_CREDENTIALS_ROTATE=1 source ./platform/elk/scripts/generate-otel-edge-keys.sh`.
 
@@ -186,108 +189,153 @@ ce qui conserve un retour arrière possible vers `3.9.2` en restaurant l'image
 dans `roles/otel_backend/templates/kafka.container.j2`. Le Kafka métier de
 `supermarket-middleware-01` reste en `3.9.2`.
 
-## Routage des data streams par topic Kafka
+## Routage par plateforme
 
-Le dataset nomme l'application ou la plateforme, le namespace l'environnement
-([ADR-010](../docs/ADR-010-dataset-application-namespace-environnement.md)).
-Le nom du topic porte toute la cible : le collecteur backend la lit et la
-reporte sur chaque ressource
-([ADR-007](../docs/ADR-007-namespace-data-stream-par-topic.md), note du
-2026-11-02) :
+Une plateforme est un namespace Kubernetes ou un groupe de VM dans un
+environnement ([ADR-015](../docs/ADR-015-topics-par-plateforme-et-configuration-edge.md)).
+Chaque plateforme a trois topics `otel-{logs,metrics,traces}-<plateforme>-<environnement>`,
+créés par le rôle `otel_backend` depuis `otel_platforms`
+(`inventory/group_vars/otel_backend_nodes.yml`). Le dataset nomme
+l'application ou le receiver, le namespace l'environnement
+([ADR-010](../docs/ADR-010-dataset-application-namespace-environnement.md)) ;
+la plateforme est le champ `platform.id`.
 
-| Topic consommé | Logs et métriques | Traces (APM Server) |
+| Plateforme | Contenu | Chemin |
 | --- | --- | --- |
-| `otel-logs`, `otel-metrics`, `otel-traces` | dataset et namespace de la source, sinon receiver et `default` | idem |
-| `otel-<signal>-<namespace>` | `data_stream.namespace` = `<namespace>` | `data_stream.namespace` = `<namespace>` |
-| `otel-<signal>-<dataset>-<namespace>` | `data_stream.dataset` = `<dataset>`, `data_stream.namespace` = `<namespace>` | `data_stream.namespace` et `apm.route.namespace` = `<dataset>_<namespace>` |
+| `k3s` | Collecteurs `otel-kubernetes*` (namespace `elastic-stack`), VM `k3s-01` | Edge `otel-edge-01` |
+| `supermarche` | Namespace `h0tl-supermarche-app`, VM `supermarket-middleware-01` | Edge `otel-edge-01` |
+| `elk` | VM `elk-01`, `otel-edge-01`, `otel-backend-01`, collecteurs Edge et backend | Edge pour `elk-01` et `otel-edge-01`, Kafka local pour `otel-backend-01` (ADR-005) |
+
+### Déclaration par VM
+
+Chaque VM déclare dans ses `group_vars` sa plateforme, son environnement et
+l'Edge auquel elle envoie, ou `kafka-local` pour une publication directe
+dans le Kafka OTel local :
+
+```yaml
+otel_platform: supermarche
+otel_environment: homologation
+otel_edge: otel-edge-01
+```
+
+Le rôle `elastic_agent` en tire l'endpoint OTLP et la clé
+`OTEL_EDGE_KEY_<HOST>` de la VM (hôte en majuscules, `-` remplacé par `_`),
+et refuse une VM à laquelle il manque une des trois variables ou sa clé.
+`k3s-01` reçoit un agent EDOT comme les autres VM : il collecte le système et
+les logs du nœud, le DaemonSet `otel-kubernetes` ne collecte plus que
+`kubeletstats`.
+
+### Tables du collecteur Edge
+
+L'Edge est associé à un cluster Kubernetes. `inventory/group_vars/otel_edge_nodes.yml`
+déclare le cluster et les plateformes qu'il héberge :
+
+```yaml
+otel_edge_cluster:
+  name: k3s-01                       # k8s.cluster.name
+  kubernetes_namespace: elastic-stack  # namespace des collecteurs
+  platform: k3s
+  environment: homologation
+otel_edge_namespace_routes:
+  - kubernetes_namespace: h0tl-supermarche-app
+    platform: supermarche
+    environment: homologation
+    dataset: supermarche             # ou receiver
+```
+
+La table des VM n'est pas saisie : `roles/otel_edge/tasks/routes.yml` la
+rend depuis l'inventaire, avec les hôtes dont `otel_edge` désigne cet Edge.
+Le rôle vérifie les formats (`[a-z0-9_]`, dataset `receiver` ou
+`[a-z0-9_.]`), l'unicité des namespaces et la présence de chaque plateforme
+dans `otel_platforms`.
+
+Le processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
+`topic_from_attribute` de l'exporteur Kafka, selon ces règles :
+
+1. Les attributs de routage reçus sont supprimés : `otel.kafka.topic`,
+   `data_stream.namespace`, `apm.route.namespace`, `platform.id` et
+   `data_stream.dataset`, sauf la valeur `collectortelemetry` de la
+   télémétrie interne des agents et des collecteurs.
+2. Métriques et traces marquées `otel.edge.source=kubernetes` par les
+   collecteurs Kubernetes : plateforme du cluster. Les métriques
+   `kubeletstats` d'un pod applicatif, qui portent le namespace du pod,
+   suivent ainsi leur émetteur. Les logs suivent le namespace de leur pod :
+   pour eux, le marqueur passe après la règle suivante.
+3. `k8s.namespace.name` connu (celui des collecteurs, puis les plateformes
+   hébergées) : topic de sa plateforme.
+4. `host.name` d'une VM rattachée : topic de sa plateforme.
+5. Le dataset d'une plateforme applicative est posé sur ses logs et ses
+   métriques, jamais sur ses traces (APM Server impose `apm`).
+   `deployment.environment.name` suit le topic choisi et `k8s.cluster.name`
+   est posé sur toute ressource Kubernetes, en écrasant la valeur reçue.
+   Le marqueur n'est pas indexé.
+
+Une ressource sans topic est rejetée par `filter/unrouted` ; les compteurs
+`otelcol_processor_filter_*` de l'Edge, lus par `make otel-routing-verify`,
+rendent l'oubli visible.
+
+| Ressource reçue par l'Edge | Topic | Data stream |
+| --- | --- | --- |
+| Log, métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche-homologation` | `logs-supermarche.otel-homologation`, `metrics-supermarche.otel-homologation`, `traces-apm-supermarche_homologation` |
+| Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k3s-homologation` | `metrics-<receiver>.otel-homologation`, `platform.id` = `k3s` |
+| Signal d'une VM (`host.name` = `elk-01`) | `otel-<signal>-elk-homologation` | `<type>-<receiver>.otel-homologation`, `platform.id` = `elk` |
+| Télémétrie interne de l'Edge (`host.name` = `otel-edge-01`) | `otel-<signal>-elk-homologation` | `metrics-collectortelemetry.otel-homologation` |
+| Ressource sans namespace ni hôte connu | aucun | rejetée |
+
+### Backend générique
+
+Le backend ne porte aucune table. Il souscrit à
+`^otel-(logs|metrics|traces)-[a-z0-9_]+-[a-z0-9_]+$` et lit dans le nom du
+topic, preuve de provenance, la plateforme et l'environnement :
+
+| Signal | Posé depuis `otel-<signal>-<plateforme>-<env>` |
+| --- | --- |
+| Logs et métriques | `platform.id` = `<plateforme>`, `data_stream.namespace` = `<env>` ; dataset posé par l'Edge ou dérivé du receiver par l'exporteur |
+| Traces | `platform.id` = `<plateforme>`, `data_stream.namespace` et `apm.route.namespace` = `<plateforme>_<env>` |
 
 Chemin : producteur → topic du Kafka OTel → receiver `kafka/otlp`
 (souscription par regex) → `resource/kafka-topic` (copie de `kafka.topic`)
 → `transform/data-stream-route` (`ExtractPatterns` sur le topic, puis
 suppression de `otel.kafka.topic`) → exporteur Elasticsearch ou APM Server.
-Le backend ne lit pas l'environnement de la ressource et ne normalise rien :
-le format du topic contraint les noms (dataset `[a-z0-9_.]` sans `-`,
-namespace `[a-z0-9_]`). Un topic hors de ces formes ne pose rien.
-
-Tous les flux sont en mode de mapping OTel : l'exporteur ajoute `.otel` au
-dataset des logs et des métriques
-([ADR-012](../docs/ADR-012-logs-otel-natifs-sans-ecs.md)). Les logs des VM
-arrivent ainsi dans `logs-generic.otel-default` et les logs internes des
-collecteurs dans `logs-collectortelemetry.otel-default`.
-
-### Topics choisis par le collecteur Edge
-
-Le collecteur Edge choisit le topic de chaque ressource
-([ADR-009](../docs/ADR-009-namespaces-supermarche-et-k8s.md)). Le
-processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
-`topic_from_attribute` de l'exporteur Kafka ; sans attribut, le topic de base
-s'applique. La table de routage de `inventory/group_vars/otel_edge_nodes.yml`
-est le seul endroit qui fixe la cible d'un flux :
-
-```yaml
-otel_edge_application_routes:
-  - kubernetes_namespace: h0tl-supermarche-app
-    kafka_topic: supermarche-homologation   # <dataset>-<namespace>
-    platform: k3s-01                        # k8s.cluster.name
-    environment: homologation               # deployment.environment.name
-otel_edge_kubernetes_route:
-  kafka_topic: homologation                 # <namespace>
-```
-
-Le rôle `otel_edge` vérifie le format (`[a-z0-9_]` de part et d'autre du
-`-`) et l'unicité des topics avant de déployer la configuration, ainsi que
-la présence de `platform` et d'`environment`, égal au `<namespace>` du topic.
-
-Pour les applications déployées, l'Edge est la référence de la plateforme et
-de l'environnement : il pose `k8s.cluster.name` = `platform` et
-`deployment.environment.name` = `environment` sur toute ressource de la
-route, en écrasant la valeur envoyée. Les manifests applicatifs ne déclarent
-plus `deployment.environment.name`. APM Server en tire `service.environment`.
-
-| Ressource reçue par l'Edge | Topic | Data stream |
-| --- | --- | --- |
-| Log avec `k8s.namespace.name` = `h0tl-supermarche-app` (agent OTel) | `otel-logs-supermarche-homologation` | `logs-supermarche.otel-homologation` |
-| Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-homologation` | `metrics-<receiver>.otel-homologation` |
-| Métrique avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-metrics-supermarche-homologation` | `metrics-supermarche.otel-homologation` |
-| Trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-traces-supermarche-homologation` | `traces-apm-supermarche_homologation`, `logs-apm.error-supermarche_homologation`, `metrics-apm.<métrique>.1m-supermarche_homologation` |
-| Log avec `otel.edge.source` = `kubernetes` (autre namespace, si un receiver `filelog` est rétabli) | `otel-logs-homologation` | `logs-<receiver>.otel-homologation` |
-| Autre ressource (VM, Edge, Fleet) | topic de base | inchangé, namespace `default` |
-
-Avant le choix du topic, l'Edge supprime les attributs de routage fournis
-par le client : `otel.kafka.topic`, `data_stream.namespace` et
-`apm.route.namespace` sur toute ressource, `data_stream.dataset` sur toute
-ressource routée ou qui porte `k8s.namespace.name`. Les agents EDOT des VM
-gardent ainsi le dataset `collectortelemetry` de leur télémétrie interne.
+Un topic hors format ne pose rien. Tous les flux sont en mode de mapping
+OTel : l'exporteur ajoute `.otel` au dataset des logs et des métriques
+([ADR-012](../docs/ADR-012-logs-otel-natifs-sans-ecs.md)).
 
 Les traces gardent les datasets `apm`, `apm.error` et `apm.*` d'APM Server.
-Leur namespace porte donc l'application et l'environnement
-(`<dataset>_<namespace>`), recopié dans `apm.route.namespace`. APM Server en
-fait le label global `apm_route_namespace`, reporté sur ses métriques
-agrégées. Le pipeline Elasticsearch `apm-route-namespace`, appelé par les
-pipelines `@custom` des data streams APM, range ces agrégats dans ce
+Leur namespace `<plateforme>_<env>` est recopié dans `apm.route.namespace`.
+APM Server en fait le label global `apm_route_namespace`, reporté sur ses
+métriques agrégées. Le pipeline Elasticsearch `apm-route-namespace`, appelé
+par les pipelines `@custom` des data streams APM, range ces agrégats dans ce
 namespace et retire le label de tous les documents APM
-(`make apm-ingest-pipelines-deploy`). Une trace d'un topic à un seul segment
-(Kubernetes) ou de base (VM) n'a pas ce label.
+(`make apm-ingest-pipelines-deploy`).
 
-Les signaux Kubernetes gardent le dataset de leur receiver
-(`kubeletstatsreceiver`, `k8sclusterreceiver`, `hostmetricsreceiver`,
-`prometheusreceiver`), lu par les dashboards Fleet `[Kubernetes OTel]`. Les
-collecteurs Kubernetes posent le marqueur `otel.edge.source=kubernetes`,
-supprimé par l'Edge. Un log suit le namespace de son pod, une métrique ou une
-trace suit son émetteur : les métriques `kubeletstats` d'un pod applicatif
-vont donc dans `metrics-kubeletstatsreceiver.otel-homologation`.
+La télémétrie interne du collecteur backend ne passe pas par Kafka : sa
+ressource porte `platform.id` et `data_stream.namespace` de la VM. L'agent
+EDOT de `otel-backend-01` publie directement dans les topics de sa plateforme
+(`otel_edge: kafka-local`).
 
-Les six topics routés sont créés par le job `otel-telemetry-topics`, avec
-trois partitions et la rétention d'un jour des topics de base. Les
-collecteurs Kubernetes n'émettent que des métriques ; les topics de logs et
-de traces de leur route servent un receiver `filelog` rétabli. Un autre
-producteur peut publier directement dans un topic du Kafka OTel
-(`192.168.33.20:9092`, SASL PLAIN, compte `otel_publisher`) et choisit ainsi
-sa cible. Le broker crée alors le topic avec ses valeurs par défaut, jusqu'au
-passage de `make retention-deploy`, et le backend le découvre en moins d'une
-minute.
+Pendant la migration vers ADR-015, `otel_backend_legacy_topics: true` fait
+lire au backend les anciens topics `otel-<signal>` et
+`otel-<signal>-homologation` avec leur ancienne sémantique. Le passer à
+`false` une fois ces topics vidés et supprimés.
 
-Vérification après publication (remplacer `<namespace>`) :
+### Ajouter une plateforme
+
+1. Ajouter le couple à `otel_platforms` dans
+   `inventory/group_vars/otel_backend_nodes.yml`.
+2. Déclarer la plateforme : une entrée de `otel_edge_namespace_routes` pour un
+   namespace Kubernetes, ou les trois variables `otel_*` pour des VM.
+3. `make otel-config-validate` rend et valide les configurations, puis
+   `make otel-backend-vm-provision` crée les topics, et le provisionnement de
+   l'Edge ou des agents applique les tables.
+
+Un autre producteur peut publier directement dans un topic du Kafka OTel
+(`192.168.33.20:9092`, SASL PLAIN, compte `otel_publisher`) : le nom du topic
+fixe sa plateforme et son environnement. Le broker crée alors le topic avec
+ses valeurs par défaut, jusqu'au passage de `make otel-backend-vm-provision`
+si la plateforme est listée, et le backend le découvre en moins d'une minute.
+
+Vérification après publication :
 
 ```bash
 vagrant ssh otel-backend-01 -c 'sudo podman exec -e KAFKA_OPTS= observability-otel-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --command-config /opt/kafka/config/otel-kafka-client.properties --describe --group otel-backend'

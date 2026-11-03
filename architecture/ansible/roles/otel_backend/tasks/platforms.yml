@@ -1,0 +1,51 @@
+---
+# Liste des plateformes (ADR-015) : contrôle du format, unicité des couples
+# plateforme-environnement, et cohérence avec les déclarations des VM
+# (otel_platform, otel_environment) et des tables de l'Edge
+# (otel_edge_namespace_routes, otel_edge_cluster). Les topics en découlent.
+- name: Déterminer les plateformes et les topics OTel
+  ansible.builtin.set_fact:
+    otel_platform_keys: >-
+      {{ otel_platforms | map(attribute='platform', default='')
+         | zip(otel_platforms | map(attribute='environment', default=''))
+         | map('join', '-') | list }}
+
+- name: Vérifier la liste des plateformes
+  ansible.builtin.assert:
+    that:
+      - otel_platforms | length > 0
+      - otel_platform_keys | select('match', '^[a-z0-9_]+-[a-z0-9_]+$') | list | length == otel_platforms | length
+      - otel_platform_keys | unique | list | length == otel_platforms | length
+    fail_msg: >-
+      otel_platforms invalide : chaque entrée déclare platform et environment
+      en [a-z0-9_], et le couple est unique.
+    quiet: true
+
+- name: Vérifier que les plateformes déclarées par les VM et l'Edge sont listées
+  vars:
+    otel_vm_hostvars: "{{ groups['all'] | map('extract', hostvars) | selectattr('otel_platform', 'defined') | list }}"
+    otel_vm_keys: >-
+      {{ otel_vm_hostvars | map(attribute='otel_platform')
+         | zip(otel_vm_hostvars | map(attribute='otel_environment', default=''))
+         | map('join', '-') | list }}
+    otel_edge_hostvars: "{{ groups.get('otel_edge_nodes', []) | map('extract', hostvars) | list }}"
+    otel_edge_entries: >-
+      {{ (otel_edge_hostvars | map(attribute='otel_edge_namespace_routes', default=[]) | flatten)
+         + (otel_edge_hostvars | selectattr('otel_edge_cluster', 'defined') | map(attribute='otel_edge_cluster') | list) }}
+    otel_edge_keys: >-
+      {{ otel_edge_entries | map(attribute='platform', default='')
+         | zip(otel_edge_entries | map(attribute='environment', default=''))
+         | map('join', '-') | list }}
+  ansible.builtin.assert:
+    that:
+      - (otel_vm_keys + otel_edge_keys) | difference(otel_platform_keys) | length == 0
+    fail_msg: >-
+      Plateformes déclarées mais absentes de otel_platforms :
+      {{ (otel_vm_keys + otel_edge_keys) | difference(otel_platform_keys) | join(', ') }}.
+    quiet: true
+
+- name: Déterminer les topics OTel à créer
+  ansible.builtin.set_fact:
+    otel_topics: >-
+      {{ ['logs', 'metrics', 'traces'] | product(otel_platform_keys)
+         | map('join', '-') | map('regex_replace', '^', 'otel-') | list }}

@@ -1,5 +1,28 @@
 ---
-otel_edge_client_key_env: ''
+# Rattachement des VM du groupe (ADR-015) : plateforme, environnement et
+# Edge cible. otel_edge désigne un hôte de otel_edge_nodes, ou kafka-local
+# pour l'agent qui publie directement dans le Kafka OTel local (ADR-005).
+otel_platform: elk
+otel_environment: homologation
+otel_edge: kafka-local
 firewall_tcp_ports: [9092, 9093, 8778, 9999, 4319, 4320]
 firewall_udp_ports: []
 middleware_credentials_required: false
+# Plateformes du lab (ADR-015). Chaque entrée reçoit trois topics
+# otel-{logs,metrics,traces}-<platform>-<environment>, créés par le rôle
+# otel_backend. Toute plateforme déclarée par une VM (otel_platform) ou par
+# une table de l'Edge doit figurer ici : le rôle le vérifie.
+otel_platforms:
+  - platform: k3s
+    environment: homologation
+  - platform: supermarche
+    environment: homologation
+  - platform: elk
+    environment: homologation
+# Rétention des topics OTel : un jour et 512 Mio par partition.
+otel_kafka_topic_retention_ms: 86400000
+otel_kafka_topic_retention_bytes: 536870912
+# Migration ADR-015 : tant que les anciens topics otel-<signal> et
+# otel-<signal>-homologation ne sont pas vidés puis supprimés, le backend les
+# lit encore avec leur ancienne sémantique. Passer à false à l'étape 3.
+otel_backend_legacy_topics: true

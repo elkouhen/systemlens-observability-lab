@@ -66,11 +66,22 @@
 
 - name: Déployer la configuration EDOT de l’agent
   block:
-    - name: Vérifier la clé d'accès Edge de l'agent
+    # Chaque VM déclare sa plateforme, son environnement et son Edge
+    # (ADR-015). kafka-local désigne la publication directe dans le Kafka
+    # OTel local (ADR-005) ; toute autre valeur est un hôte de otel_edge_nodes
+    # dont la VM détient la clé OTEL_EDGE_KEY_<HOST>.
+    - name: Vérifier le rattachement de la VM à sa plateforme et à son Edge
       ansible.builtin.assert:
         that:
-          - inventory_hostname in groups.get('otel_backend_nodes', []) or (otel_edge_client_key | default('') | length > 0)
-        fail_msg: "La clé OTEL_EDGE_KEY du client {{ inventory_hostname }} est absente."
+          - otel_platform | default('') is match('^[a-z0-9_]+$')
+          - otel_environment | default('') is match('^[a-z0-9_]+$')
+          - otel_edge | default('') == 'kafka-local' or otel_edge | default('') in groups.get('otel_edge_nodes', [])
+          - otel_edge | default('') == 'kafka-local' or otel_edge_client_key | default('') | length > 0
+        fail_msg: >-
+          Rattachement de {{ inventory_hostname }} invalide : otel_platform et
+          otel_environment ([a-z0-9_]) et otel_edge (hôte de otel_edge_nodes
+          ou kafka-local) sont requis, avec la clé
+          {{ otel_edge_client_key_env | default('OTEL_EDGE_KEY_<HOST>') }} hors Git.
         quiet: true
 
     - name: Lire l’identifiant OpAMP persistant

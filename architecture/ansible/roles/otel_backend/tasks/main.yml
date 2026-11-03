@@ -89,6 +89,36 @@
   delay: 3
   until: otel_kafka_ready.rc == 0
 
+- name: Vérifier la liste des plateformes et en déduire les topics
+  ansible.builtin.import_tasks: platforms.yml
+
+# Topics par plateforme et environnement (ADR-015) : trois partitions, un
+# jour et 512 Mio de rétention. --if-not-exists rend la création idempotente ;
+# la rétention est réappliquée à chaque passage sur un topic existant.
+- name: Créer les topics OTel de chaque plateforme
+  ansible.builtin.command: >-
+    podman exec --env KAFKA_OPTS= observability-otel-kafka
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092
+    --command-config /opt/kafka/config/otel-kafka-client.properties
+    --create --if-not-exists --topic {{ item }}
+    --partitions 3 --replication-factor 1
+    --config min.insync.replicas=1
+    --config retention.ms={{ otel_kafka_topic_retention_ms }}
+    --config retention.bytes={{ otel_kafka_topic_retention_bytes }}
+  loop: "{{ otel_topics }}"
+  register: otel_topic_creation
+  changed_when: "'Created topic' in otel_topic_creation.stdout"
+
+- name: Appliquer la rétention des topics OTel
+  ansible.builtin.command: >-
+    podman exec --env KAFKA_OPTS= observability-otel-kafka
+    /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092
+    --command-config /opt/kafka/config/otel-kafka-client.properties
+    --entity-type topics --entity-name {{ item }} --alter
+    --add-config retention.ms={{ otel_kafka_topic_retention_ms }},retention.bytes={{ otel_kafka_topic_retention_bytes }}
+  loop: "{{ otel_topics }}"
+  changed_when: false
+
 - name: Arrêter l’ancien Gateway OTEL du backend
   ansible.builtin.systemd_service:
     name: observability-otel-gateway.service

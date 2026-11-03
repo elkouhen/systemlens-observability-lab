@@ -6,26 +6,8 @@
     mode: '0644'
     validate: haproxy -c -f %s
 
-# Le topic porte le dataset et le namespace lus par le backend : son format
-# est validé ici plutôt que normalisé à l'exécution.
-- name: Vérifier la table de routage du Collecteur EDOT Edge
-  ansible.builtin.assert:
-    that:
-      - otel_edge_kubernetes_route.kafka_topic | default('') is match('^[a-z0-9_]+$')
-      - otel_edge_application_routes | map(attribute='kubernetes_namespace') | select | list | length == otel_edge_application_routes | length
-      - otel_edge_application_routes | map(attribute='kafka_topic') | select('match', '^[a-z0-9_]+-[a-z0-9_]+$') | list | length == otel_edge_application_routes | length
-      - otel_edge_application_routes | map(attribute='kafka_topic') | unique | list | length == otel_edge_application_routes | length
-      - otel_edge_application_routes | map(attribute='kubernetes_namespace') | unique | list | length == otel_edge_application_routes | length
-      - otel_edge_application_routes | map(attribute='platform') | select | list | length == otel_edge_application_routes | length
-      - otel_edge_application_routes | rejectattr('environment', 'undefined') | selectattr('environment', 'match', '^[a-z0-9_]+$') | list | length == otel_edge_application_routes | length
-      - otel_edge_application_routes | selectattr('environment', 'defined') | map(attribute='kafka_topic') | map('regex_replace', '^[^-]*-', '') | list == otel_edge_application_routes | map(attribute='environment', default='') | list
-    fail_msg: >-
-      Table de routage Edge invalide : kafka_topic vaut <dataset>-<namespace>
-      pour une route applicative et <namespace> pour la route Kubernetes
-      ([a-z0-9_]), unique par route, avec un kubernetes_namespace, une
-      platform et un environment par route ; environment est le <namespace>
-      du kafka_topic.
-    quiet: true
+- name: Vérifier les tables de routage du Collecteur EDOT Edge
+  ansible.builtin.import_tasks: routes.yml
 
 - name: Déployer la configuration du Collecteur EDOT Edge
   ansible.builtin.template:
@@ -42,25 +24,25 @@
     mode: '0600'
   no_log: true
 
+# Chaque VM rattachée (routes.yml) apporte sa clé OTEL_EDGE_KEY_<HOST> ; les
+# deux collecteurs Kubernetes gardent leurs clés propres.
 - name: Vérifier les clés des clients Edge
   ansible.builtin.assert:
     that:
-      - otel_edge_key_supermarket_middleware | default('') | length > 0
-      - otel_edge_key_edge_agent | default('') | length > 0
-      - otel_edge_key_elk_agent | default('') | length > 0
+      - otel_edge_hosts | length > 0
+      - otel_edge_hosts | map('extract', hostvars, 'otel_edge_client_key') | select | list | length == otel_edge_hosts | length
       - otel_edge_key_kubernetes | default('') | length > 0
       - otel_edge_key_kubernetes_cluster | default('') | length > 0
-    fail_msg: "Les cinq clés OTEL_EDGE_KEY_* des clients Edge sont requises pour le collecteur Edge."
+    fail_msg: >-
+      Chaque VM rattachée à {{ inventory_hostname }}
+      ({{ otel_edge_hosts | join(', ') }}) fournit sa clé OTEL_EDGE_KEY_<HOST>,
+      et OTEL_EDGE_KEY_KUBERNETES et OTEL_EDGE_KEY_KUBERNETES_CLUSTER sont
+      requises.
     quiet: true
 
 - name: Déployer les clés des clients Edge
-  ansible.builtin.copy:
-    content: |
-      {{ otel_edge_key_supermarket_middleware }} # supermarket-middleware-01
-      {{ otel_edge_key_edge_agent }} # otel-edge-01 agent
-      {{ otel_edge_key_elk_agent }} # elk-01 agent
-      {{ otel_edge_key_kubernetes }} # otel-kubernetes
-      {{ otel_edge_key_kubernetes_cluster }} # otel-kubernetes-cluster
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/otel-edge.tokens.j2"
     dest: /etc/observability/otel-edge.tokens
     # L'image EDOT s'exécute avec elastic-agent (UID/GID 1000). Conserver
     # 0600 tout en permettant au processus du conteneur de lire le secret.

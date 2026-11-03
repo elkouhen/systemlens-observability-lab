@@ -31,15 +31,13 @@ apm_server_version: 9.5.4
 elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('', true) }}"
 apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"
 otel_elasticsearch_api_key: "{{ lookup('env', 'OTEL_ELASTICSEARCH_API_KEY') | default('', true) }}"
-otel_edge_key_supermarket_middleware: "{{ lookup('env', 'OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE') | default('', true) }}"
-otel_edge_key_edge_agent: "{{ lookup('env', 'OTEL_EDGE_KEY_EDGE_AGENT') | default('', true) }}"
-otel_edge_key_elk_agent: "{{ lookup('env', 'OTEL_EDGE_KEY_ELK_AGENT') | default('', true) }}"
+# Clé Bearer de chaque VM auprès de son Edge (ADR-015) : OTEL_EDGE_KEY_<HOST>,
+# hôte en majuscules, tirets remplacés par des soulignés, fournie hors Git.
+# Les collecteurs Kubernetes gardent leurs deux clés propres.
+otel_edge_client_key_env: "OTEL_EDGE_KEY_{{ inventory_hostname | upper | replace('-', '_') }}"
+otel_edge_client_key: "{{ lookup('env', otel_edge_client_key_env) | default('', true) }}"
 otel_edge_key_kubernetes: "{{ lookup('env', 'OTEL_EDGE_KEY_KUBERNETES') | default('', true) }}"
 otel_edge_key_kubernetes_cluster: "{{ lookup('env', 'OTEL_EDGE_KEY_KUBERNETES_CLUSTER') | default('', true) }}"
-otel_edge_client_key: >-
-  {% if otel_edge_client_key_env | default('') | length > 0 %}
-  {{ lookup('env', otel_edge_client_key_env) | default('password', true) }}
-  {% else %}password{% endif %}
 fleet_enrollment_token: "{{ lookup('env', 'FLEET_ENROLLMENT_TOKEN') | default('', true) }}"
 zscaler_ca_cert_content: "{{ lookup('env', 'ZSCALER_CA_CERT_CONTENT') | default('', true) }}"
 fleet_url: "http://{{ elk_ip }}:8220"
