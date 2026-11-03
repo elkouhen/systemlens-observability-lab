@@ -182,9 +182,11 @@ exporters:
 {% if agent_exporter == 'otlphttp/edge' %}
   # L'Edge déclaré par la VM (otel_edge), avec la clé OTEL_EDGE_KEY_<HOST>.
   # L'Edge route les signaux par host.name vers la plateforme de la VM.
+  # L'adresse est ansible_host de l'Edge : node_ip est une extra var Vagrant,
+  # globale, qui vaudrait l'adresse de la VM provisionnée.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
   otlphttp/edge:
-    endpoint: http://{{ hostvars[otel_edge].node_ip }}:4318
+    endpoint: http://{{ hostvars[otel_edge].ansible_host }}:4318
     headers:
       Authorization: "Bearer {{ otel_edge_client_key }}"
 {% else %}

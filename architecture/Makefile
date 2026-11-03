@@ -447,14 +447,18 @@ k3s-kubeconfig: ## Exporter le kubeconfig k3s vers un fichier local non versionn
 vms-destroy: ## Détruire les cinq VM Vagrant et leurs disques locaux (DESTRUCTIF)
 	@$(VAGRANT) destroy -f supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME)
 
-elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des agents VM
+# VM dont l'agent EDOT est provisionné ; restreindre avec
+# make elastic-agent-vm-provision ELASTIC_AGENT_VMS="elk-01".
+ELASTIC_AGENT_VMS ?= $(K3S_VM_NAME) supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01
+
+elastic-agent-vm-provision: ## Déployer la configuration EDOT standalone des agents VM (ELASTIC_AGENT_VMS)
 	@set -euo pipefail; \
 	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
 	for key in $(OTEL_EDGE_KEYS); do test -n "$${!key:-}" || { echo "Clé Edge absente : $$key." >&2; exit 1; }; done; \
 	api_key="$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret otel-elasticsearch-credentials -o jsonpath='{.data.api-key}' 2>/dev/null | base64 --decode )"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
-	for node in $(K3S_VM_NAME) supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01; do \
+	for node in $(ELASTIC_AGENT_VMS); do \
 	  echo "Provisionnement Elastic Agent EDOT : $$node"; \
 	  OTEL_ELASTICSEARCH_API_KEY="$$api_key" DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' POSTGRESQL_PASSWORD="$${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD outside Git}" MONGODB_PASSWORD="$${MONGODB_PASSWORD:?Set MONGODB_PASSWORD outside Git}" $(VAGRANT) provision "$$node" --provision-with ansible; \
 	done
