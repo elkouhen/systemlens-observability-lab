@@ -641,10 +641,13 @@ otel-edge-client-keys-apply: ## Créer les clés Bearer des clients OTLP Edge da
 		--from-literal=otel-kubernetes-cluster="$$cluster_key" \
 		--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
 	$(KUBECTL) apply -f $(APP_MANIFEST_ROOT)/base/namespace.yaml; \
-	$(KUBECTL) -n $(APP_NAMESPACE) create secret generic otel-edge-client-keys \
+	$(KUBECTL) apply -f $(DEMO_API_MANIFEST_ROOT)/base/namespace.yaml; \
+	for namespace in $(APP_NAMESPACE) $(DEMO_API_NAMESPACE); do \
+	  $(KUBECTL) -n "$$namespace" create secret generic otel-edge-client-keys \
 		--from-literal=otel-kubernetes="$$kubernetes_key" \
 		--from-literal=otel-kubernetes-cluster="$$cluster_key" \
-		--dry-run=client -o yaml | $(KUBECTL) apply -f -
+		--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+	done
 
 otel-gateway-vm-status: ## Vérifier HAProxy, le Collecteur EDOT Edge et le backend OTel
 	@set -euo pipefail; $(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo systemctl is-active observability-otel-edge && curl --fail --silent http://127.0.0.1:13135/'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-backend && curl --fail --silent http://127.0.0.1:13134/'
