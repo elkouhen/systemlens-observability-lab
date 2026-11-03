@@ -73,4 +73,5 @@ distinctes, une pour `otel-kubernetes` et une pour
 `otel-kubernetes-cluster`. Les fournir hors Git avec
 `OTEL_EDGE_KEY_KUBERNETES` et `OTEL_EDGE_KEY_KUBERNETES_CLUSTER`, puis exécuter
 `make otel-edge-client-keys-apply` avant `make kubernetes-observability-deploy`.
-Les clés sont stockées dans le Secret Kubernetes `otel-edge-client-keys`.
+Les clés sont stockées dans le Secret Kubernetes `otel-edge-client-keys`. Les
+VM utilisent chacune leur clé `OTEL_EDGE_KEY_<HOST>` (ADR-015).

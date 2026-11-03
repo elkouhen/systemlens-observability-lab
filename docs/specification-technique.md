@@ -65,40 +65,42 @@ interface utilisateur.
 
 ### 3.2 Interfaces Kafka
 
-Les topics OTLP sont séparés par type de signal :
+Les topics OTLP sont séparés par type de signal, par plateforme et par
+environnement, `otel-<signal>-<plateforme>-<environnement>`
+([ADR-015](../architecture/docs/ADR-015-topics-par-plateforme-et-configuration-edge.md)) :
 
 | Topic | Producteurs principaux | Consommateur |
 | --- | --- | --- |
-| `otel-traces` | Collecteur Edge et collecte de traces | Collector backend |
-| `otel-logs` | Collecteur Edge, logs des VM et des collecteurs | Collector backend |
-| `otel-metrics` | Collecteur Edge et collecte des métriques | Collector backend |
-| `otel-<signal>-supermarche-homologation` | Collecteur Edge, signaux des services `supermarket-demo` | Collector backend |
-| `otel-<signal>-homologation` | Collecteur Edge, signaux des collecteurs Kubernetes | Collector backend |
+| `otel-<signal>-supermarche-homologation` | Collecteur Edge : services `supermarket-demo` (namespace `h0tl-supermarche-app`) et VM `supermarket-middleware-01` | Collector backend |
+| `otel-<signal>-k3s-homologation` | Collecteur Edge : collecteurs Kubernetes et VM `k3s-01` | Collector backend |
+| `otel-<signal>-elk-homologation` | Collecteur Edge : VM `elk-01` et `otel-edge-01`, télémétrie de l'Edge ; agent EDOT de `otel-backend-01` en direct | Collector backend |
 
-Le collecteur Edge choisit le topic par ressource selon sa table de routage
-([ADR-009](../architecture/docs/ADR-009-namespaces-supermarche-et-k8s.md)).
-Le nom du topic porte la cible : le backend tire d'un topic
-`otel-<signal>-<dataset>-<namespace>` le dataset et le namespace des logs et
-métriques, d'un topic `otel-<signal>-<namespace>` le namespace seul
-([ADR-007](../architecture/docs/ADR-007-namespace-data-stream-par-topic.md),
-[ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
+Le collecteur Edge choisit le topic par ressource selon sa table des
+namespaces Kubernetes et la déclaration de chaque VM (`otel_platform`,
+`otel_environment`, `otel_edge`), pose le dataset des applications et
+rejette toute ressource hors table. Le backend tire du nom du topic la
+plateforme (`platform.id`) et le namespace ; le dataset nomme l'application
+ou le receiver
+([ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
 `logs-supermarche.otel-homologation` (ADR-012), `metrics-supermarche.otel-homologation`,
-`metrics-kubeletstatsreceiver.otel-homologation`. Les signaux APM d'une route
-applicative prennent le namespace `<dataset>_<environnement>` :
+`metrics-kubeletstatsreceiver.otel-homologation`,
+`metrics-hostmetricsreceiver.otel-homologation`. Les signaux APM prennent le
+namespace `<plateforme>_<environnement>` :
 `traces-apm-supermarche_homologation`,
 `logs-apm.error-supermarche_homologation` et
 `metrics-apm.<métrique>.1m-supermarche_homologation`, ces derniers rangés par
 le pipeline Elasticsearch `apm-route-namespace`.
-Les topics de base portent les signaux des VM, écrits dans `default`.
 Le groupe de consommation du backend est `otel-backend`. La séparation des
-topics évite de décoder des payloads de types différents dans un même flux.
+topics évite de décoder des payloads de types différents dans un même flux
+et isole chaque plateforme dans Kafka.
 
 ### 3.3 Flux VM
 
-Chaque VM active exécute un Elastic Agent EDOT standalone. Il collecte les
-logs locaux et les métriques hôte, puis les publie en OTLP vers le Collecteur
-Edge ; les signaux suivent ensuite `otel-logs`, `otel-metrics` ou
-`otel-traces` jusqu’au Collector backend.
+Chaque VM active, `k3s-01` comprise, exécute un Elastic Agent EDOT
+standalone. Il collecte les logs locaux et les métriques hôte, puis les
+publie en OTLP vers l'Edge déclaré par la VM ; les signaux suivent ensuite
+les topics de la plateforme de la VM jusqu’au Collector backend.
+`otel-backend-01` publie directement dans son Kafka local.
 
 ## 4. Configuration et sources IaC
 

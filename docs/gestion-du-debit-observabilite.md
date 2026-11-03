@@ -47,7 +47,7 @@ Agent Java OpenTelemetry -> Collecteur Edge -> Kafka otel-traces
   contenir un nombre variable de spans.
 - Conserver `memory_limiter` et `batch` dans le Collecteur Edge et le Collector
   backend.
-- Surveiller le débit du topic `otel-traces`, le consumer lag et les erreurs
+- Surveiller le débit des topics `otel-traces-*`, le consumer lag et les erreurs
   d’export.
 
 ## Logs applicatifs
@@ -64,11 +64,11 @@ Logback -> agent Java OTel (OTLP) -> Edge -> Kafka otel-logs-supermarche-homolog
 - Filtrer les logs répétitifs dans le pipeline du collecteur Edge ou backend
   avant l’indexation.
 - Régler `batch`, `memory_limiter` et la queue du Collector backend.
-- Surveiller le débit du topic `otel-logs`, le consumer lag et les rejets du
+- Surveiller le débit des topics `otel-logs-*`, le consumer lag et les rejets du
   backend.
 
 Les logs VM suivent le même chemin Edge et Kafka avec Elastic Agent EDOT
-standalone. Ils sont publiés dans `otel-logs`.
+standalone. Ils sont publiés dans `otel-logs-<plateforme>-<environnement>`.
 
 ## Métriques applicatives et Kubernetes
 
@@ -84,7 +84,7 @@ les composants EDOT prévus dans les manifests.
 - Utiliser `collection_interval` pour les métriques hôte et techniques.
 - Réduire la cardinalité avant Kafka avec les processeurs OTel `filter` ou
   `transform`, en conservant les champs utilisés par Kibana.
-- Dimensionner le topic `otel-metrics` à partir du nombre de séries actives et
+- Dimensionner les topics `otel-metrics-*` à partir du nombre de séries actives et
   non du seul nombre de messages.
 - Conserver `batch` et `memory_limiter` sur les étages de collecte et de
   traitement.
@@ -118,7 +118,7 @@ Créer des alertes sur les signaux suivants :
 
 - taux de rejet ou d’erreur de l’agent, du Collecteur Edge et du Collector backend ;
 - remplissage des queues locales ;
-- consumer lag des topics `otel-traces`, `otel-logs` et `otel-metrics` ;
+- consumer lag des topics `otel-traces-*`, `otel-logs-*` et `otel-metrics-*` ;
 - taux de réponse `429` et erreurs d’indexation Elasticsearch ;
 - volume d’événements par `service.name`, `kubernetes.namespace.name` et
   `host.name` ;

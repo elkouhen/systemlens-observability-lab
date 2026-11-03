@@ -62,37 +62,38 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces` | EDOT backend, APM Server |
-| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, Edge, Kafka `otel-logs` | EDOT backend, Elasticsearch |
-| Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet | OTLP, Edge, Kafka `otel-metrics` | EDOT backend, Elasticsearch |
-| Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka par signal | EDOT backend, Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces-supermarche-homologation` | EDOT backend, APM Server |
+| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, Edge, Kafka `otel-logs-supermarche-homologation` | EDOT backend, Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics-supermarche-homologation` | EDOT backend, Elasticsearch |
+| Métriques Kubernetes | EDOT DaemonSet et Deployment | OTLP, Edge, Kafka `otel-metrics-k3s-homologation` | EDOT backend, Elasticsearch |
+| Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka de la plateforme de la VM | EDOT backend, Elasticsearch |
 
-Les topics OTLP sont séparés par signal : `otel-traces`, `otel-logs` et
-`otel-metrics`. Le nom du topic porte la cible du flux (ADR-007, note du
-2026-11-02). L'Edge publie les signaux applicatifs dans
-`otel-<signal>-supermarche-homologation` (`<dataset>-<namespace>`) et ceux
-des collecteurs Kubernetes dans `otel-<signal>-homologation` (`<namespace>`),
-selon sa table de routage (ADR-009). Le backend en tire le dataset
-`supermarche` et le namespace `homologation` des logs et métriques. Les
-signaux Kubernetes gardent le dataset de leur receiver (ADR-010). Les traces,
-erreurs et métriques APM de l'application prennent le namespace
-`supermarche_homologation`, APM Server imposant le dataset `apm`. Les signaux
-des VM restent dans `default`.
-Le Collector backend applique le traitement nécessaire avant l’export vers
-Elastic.
+Les topics sont séparés par signal, par plateforme et par environnement :
+`otel-<signal>-<plateforme>-<environnement>` (ADR-015). Le lab compte trois
+plateformes en `homologation` : `k3s` (cluster et collecteurs Kubernetes, VM
+`k3s-01`), `supermarche` (namespace `h0tl-supermarche-app`, VM
+`supermarket-middleware-01`) et `elk` (VM d'observabilité, collecteurs Edge
+et backend). L'Edge, associé au cluster, choisit le topic de chaque ressource
+depuis sa table des namespaces et depuis la déclaration de chaque VM
+(`otel_platform`, `otel_environment`, `otel_edge`), et pose le dataset des
+applications. Le backend lit dans le nom du topic la plateforme (`platform.id`)
+et le namespace. Le dataset nomme l'application ou le receiver, le namespace
+l'environnement (ADR-010) : `logs-supermarche.otel-homologation`,
+`metrics-kubeletstatsreceiver.otel-homologation`,
+`traces-apm-supermarche_homologation`. Le Collector backend applique le
+traitement nécessaire avant l’export vers Elastic.
 
 ## Responsabilités des composants
 
 | Composant | Responsabilité | Source de configuration |
 | --- | --- | --- |
 | `otel-edge-01` | Recevoir l’OTLP Kubernetes et VM puis publier dans Kafka | `architecture/ansible/roles/otel_edge/` |
-| EDOT DaemonSet | Collecter les métriques Kubernetes | `architecture/platform/kubernetes/base/observability/` |
+| EDOT DaemonSet | Collecter les métriques `kubeletstats` du nœud | `architecture/platform/kubernetes/base/observability/` |
 | `supermarket-middleware-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
 | `otel-backend-01` | Consommer Kafka et exporter les signaux vers Elastic | `architecture/ansible/` |
 | `otel-edge-01` | Exposer les points d’entrée et héberger le Collecteur Edge | `architecture/ansible/` et `architecture/platform/kubernetes/` |
 | `elk-01` | Fournir Elasticsearch, Kibana et Fleet Server | `architecture/ansible/` |
-| Elastic Agent EDOT | Collecter les logs et métriques des VM et les exporter en OTLP | `architecture/ansible/roles/elastic_agent/` |
+| Elastic Agent EDOT | Collecter les logs et métriques des cinq VM, `k3s-01` compris, et les exporter vers l'Edge déclaré par la VM | `architecture/ansible/roles/elastic_agent/` |
 
 Les collecteurs Kubernetes et les applications envoient leurs signaux au
 Collecteur Edge via le Service `otel-edge-vm`. Les agents EDOT standalone des
@@ -107,9 +108,13 @@ Les contrôles et évolutions de l'architecture doivent conserver les invariants
    `elastic-stack` pour les composants de la plateforme.
 2. Les signaux OTLP applicatifs et Kubernetes passent par Kafka avant le
    traitement backend.
-3. Les topics Kafka distinguent les traces, les logs et les métriques.
-4. Les VM utilisent Elastic Agent EDOT et exportent en OTLP vers le Collecteur
-   Edge avant Kafka et le traitement backend.
+3. Les topics Kafka distinguent les traces, les logs et les métriques, et
+   chaque plateforme dans son environnement ; le backend ne porte aucune
+   table de routage.
+4. Les VM utilisent Elastic Agent EDOT, déclarent leur plateforme, leur
+   environnement et leur Edge, et exportent en OTLP vers ce Collecteur Edge
+   avant Kafka et le traitement backend, `otel-backend-01` publiant
+   directement dans son Kafka local.
 5. Les secrets et jetons restent hors Git et sont fournis par les mécanismes
    prévus par le dépôt.
 6. Les changements durables de Kubernetes, Fleet, Elastic et Ansible restent
@@ -124,6 +129,7 @@ manifests sans appliquer de ressource :
 make architecture-status
 make kubernetes-validate
 make ansible-validate
+make otel-config-validate
 ```
 
 Pour déployer l’architecture complète, fournir les secrets hors Git puis
@@ -146,6 +152,7 @@ Les contrôles fonctionnels de la chaîne sont :
 
 ```bash
 make otel-validation
+make otel-routing-verify
 make dashboards-verify
 ```
 

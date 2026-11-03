@@ -6,7 +6,8 @@ portée par l'Edge, backend générique.
 
 Règles de travail :
 
-- un commit par item, message décrivant l'intention ;
+- un commit par item, ou par lot quand les items partagent les mêmes
+  fichiers, message décrivant l'intention ;
 - les lots 0 à 4 se font sans déploiement, chaque item cite son contrôle ;
 - le lot 5 déploie et détruit des topics : il attend l'accord explicite de
   l'utilisateur, item par item ;
@@ -14,7 +15,7 @@ Règles de travail :
 
 ## Lot 0 : inventaire et secrets
 
-- [ ] **B01 Déclarer plateforme, environnement et Edge par VM.**
+- [x] **B01 Déclarer plateforme, environnement et Edge par VM.**
   `inventory/group_vars/{k3s,supermarket_middleware,elk,otel_edge,otel_backend}_nodes.yml` :
   `otel_platform`, `otel_environment`, `otel_edge` selon le tableau d'ADR-015,
   `kafka-local` pour `otel-backend-01`. Le rôle `elastic_agent` échoue si
@@ -22,7 +23,7 @@ Règles de travail :
   `otel_edge_nodes` ni `kafka-local`.
   Contrôle : `make ansible-validate`, puis `ansible-inventory --list` affiche
   les trois variables pour chaque VM.
-- [ ] **B02 Déclarer la liste des plateformes au backend.**
+- [x] **B02 Déclarer la liste des plateformes au backend.**
   `inventory/group_vars/otel_backend_nodes.yml` : `otel_platforms` avec
   `k3s`, `supermarche`, `elk` en `homologation`. Assertion dans le rôle
   `otel_backend` : toute plateforme référencée par une VM (`hostvars`) ou
@@ -30,7 +31,7 @@ Règles de travail :
   `[a-z0-9_]+`.
   Contrôle : `make ansible-validate` ; un nom hors format ou absent fait
   échouer la validation.
-- [ ] **B03 Une clé Edge par VM.**
+- [x] **B03 Une clé Edge par VM.**
   `platform/elk/scripts/generate-otel-edge-keys.sh`, `inventory/group_vars/all.yml`,
   `otel_edge_client_key_env` par groupe, listes de clés requises dans
   `architecture/Makefile` (`vms-up`, `otel-edge-vm-provision`). Clés
@@ -41,7 +42,7 @@ Règles de travail :
   le désignent plus les deux clés Kubernetes.
   Contrôle : `make ansible-validate` ; le script régénère un fichier avec
   six clés ; `make otel-edge-vm-provision` refuse une clé absente.
-- [ ] **B04 Ajouter `k3s-01` au groupe `elastic_agent_nodes`.**
+- [x] **B04 Ajouter `k3s-01` au groupe `elastic_agent_nodes`.**
   `inventory/vagrant.yml`, `inventory/group_vars/k3s_nodes.yml`
   (`otel_edge_client_key_env`), ports sortants si le rôle `common` les
   restreint.
@@ -50,7 +51,7 @@ Règles de travail :
 
 ## Lot 1 : backend
 
-- [ ] **B05 Créer les topics depuis `otel_platforms` dans le rôle `otel_backend`.**
+- [x] **B05 Créer les topics depuis `otel_platforms` dans le rôle `otel_backend`.**
   Tâche idempotente `kafka-topics.sh --create --if-not-exists` et
   `kafka-configs.sh` dans le conteneur `observability-otel-kafka`, trois
   partitions, rétention actuelle, pour `otel-{logs,metrics,traces}-<plateforme>-<env>`.
@@ -59,7 +60,7 @@ Règles de travail :
   que les topics métier.
   Contrôle : `make ansible-validate`, `make kubernetes-validate` ; après
   B19, `kafka-topics.sh --list` affiche les neuf topics.
-- [ ] **B06 Routage backend par plateforme et environnement.**
+- [x] **B06 Routage backend par plateforme et environnement.**
   `roles/otel_backend/templates/otel-backend.yaml.j2` :
   `transform/data-stream-route` extrait `platform` et `namespace` de
   `^otel-(logs|metrics|traces)-(?P<platform>[a-z0-9_]+)-(?P<namespace>[a-z0-9_]+)$`,
@@ -71,13 +72,13 @@ Règles de travail :
   variable `otel_backend_legacy_topics: true`, retirée en B21.
   Contrôle : rendu du template puis `elastic-otel-collector validate` sur
   la configuration rendue.
-- [ ] **B07 Télémétrie interne du backend rattachée à `elk`.**
+- [x] **B07 Télémétrie interne du backend rattachée à `elk`.**
   `service.telemetry.resource` : `platform.id: elk` et
   `data_stream.namespace` = environnement de la VM.
   Contrôle : même validation qu'en B06 ; après B19, un point récent dans
   `metrics-collectortelemetry.otel-homologation` avec `platform.id: elk`
   pour `service.name: otel-backend`.
-- [ ] **B08 Agent EDOT de `otel-backend-01` vers les topics de sa plateforme.**
+- [x] **B08 Agent EDOT de `otel-backend-01` vers les topics de sa plateforme.**
   `roles/elastic_agent/templates/elastic-agent.yml.j2` : l'exporteur
   `kafka/backend` cible `otel-<signal>-{{ otel_platform }}-{{ otel_environment }}`,
   activé par `otel_edge == 'kafka-local'` au lieu de `is_otel_backend`.
@@ -85,7 +86,7 @@ Règles de travail :
 
 ## Lot 2 : Edge et agents VM
 
-- [ ] **B09 Tables de l'Edge.**
+- [x] **B09 Tables de l'Edge.**
   `inventory/group_vars/otel_edge_nodes.yml` : `otel_edge_cluster_name`,
   `otel_edge_namespace_routes` (`h0tl-supermarche-app` vers `supermarche`,
   dataset `supermarche` ; `elastic-stack` vers `k3s`, dataset `receiver`).
@@ -96,7 +97,7 @@ Règles de travail :
   `otel_platforms`, `dataset` égal à `receiver` ou à `[a-z0-9_.]+`.
   Contrôle : `make ansible-validate` ; une route invalide fait échouer la
   validation.
-- [ ] **B10 Règles de routage de l'Edge.**
+- [x] **B10 Règles de routage de l'Edge.**
   `roles/otel_edge/templates/otel-edge.yaml.j2`, macro
   `kafka_topic_statements` : règle 1 nettoyage (`data_stream.dataset`
   conservé seulement pour `collectortelemetry`), règle 2 namespaces avec
@@ -104,14 +105,15 @@ Règles de travail :
   règle 3 hôtes par `host.name`, suppression du marqueur `otel.edge.source`.
   Nouveau processor `filter/unrouted` sur `otel.kafka.topic == nil`, placé
   avant `batch` dans les trois pipelines.
-  Contrôle : rendu puis `elastic-otel-collector validate` ; relecture du
-  rendu pour l'ordre des règles.
-- [ ] **B11 Télémétrie interne de l'Edge rattachée par `host.name`.**
+  Contrôle : `make otel-config-validate` ; relecture du rendu pour l'ordre
+  des règles. Le marqueur `otel.edge.source` est conservé (note de mise en
+  œuvre d'ADR-015).
+- [x] **B11 Télémétrie interne de l'Edge rattachée par `host.name`.**
   `service.telemetry.resource` reçoit `host.name: {{ inventory_hostname }}`,
   ce qui la fait passer par la règle 3 vers `elk`.
   Contrôle : rendu validé ; après B20, `metrics-collectortelemetry.otel-homologation`
   reçoit `service.name: otel-edge` avec `platform.id: elk`.
-- [ ] **B12 Agents VM : endpoint et clé depuis `otel_edge`.**
+- [x] **B12 Agents VM : endpoint et clé depuis `otel_edge`.**
   `roles/elastic_agent/templates/elastic-agent.yml.j2` et tâches :
   `otlphttp/edge` cible l'adresse de l'hôte `otel_edge` (`hostvars[...]`
   ou `otel_edge_ip`), la clé est `OTEL_EDGE_KEY_<HOST>` ; `resource/agent`
@@ -123,7 +125,7 @@ Règles de travail :
 
 ## Lot 3 : Kubernetes et validation OTLP
 
-- [ ] **B13 Collecteurs Kubernetes sans `hostmetrics` ni marqueur.**
+- [x] **B13 Collecteurs Kubernetes sans `hostmetrics` ni marqueur.**
   `platform/kubernetes/base/observability/otel-kafka.yaml` : retirer le
   receiver `hostmetrics` du DaemonSet et les processors `resource/edge-source`
   et `resource/environment` des deux collecteurs ; conserver
@@ -132,7 +134,7 @@ Règles de travail :
   Contrôle : `make kubernetes-validate` ; après B20,
   `metrics-hostmetricsreceiver.otel-homologation` reçoit `k3s-01` depuis
   `service.name: elastic-agent-otel` uniquement.
-- [ ] **B14 Playbook `validation/otel` compatible avec le rejet des inconnus.**
+- [x] **B14 Playbook `validation/otel` compatible avec le rejet des inconnus.**
   La métrique marqueur envoyée depuis `otel-edge-01` porte `host.name` =
   `otel-edge-01` dans sa ressource, sinon l'Edge la rejette. Le README du
   playbook décrit le data stream attendu, `metrics-*.otel-homologation` avec
@@ -141,7 +143,7 @@ Règles de travail :
 
 ## Lot 4 : contrôles et documentation
 
-- [ ] **B15 Cible `make otel-routing-verify`.**
+- [x] **B15 Cible `make otel-routing-verify`.**
   Script `platform/elk/scripts/verify-otel-routing.sh` appelé par
   `architecture/Makefile`, lisant `otel_platforms` : sur quinze minutes,
   documents avec `platform.id` pour chaque plateforme dans `logs-*` et
@@ -151,15 +153,16 @@ Règles de travail :
   nul.
   Contrôle : `bash -n` et `shellcheck` si disponible ; exécution réelle
   en B21.
-- [ ] **B16 Requêtes et alertes sur `*-default`.**
+- [x] **B16 Requêtes et alertes sur `*-default`.**
   Inventorier dans `platform/elk/` (dashboards, `observability-policies.json`,
   data views, scripts `verify-*`) toute requête qui vise un namespace
   `default` ou dépend du marqueur Kubernetes, et la faire pointer sur
   `homologation` ou sur `platform.id`. Les dashboards Kibana actifs ne sont
   pas modifiés sans accord : versionner la correction, déployer en B21.
   Contrôle : `grep -rn -- '-default' platform/elk` ne laisse que des
-  occurrences justifiées ; `make dashboards-verify` après B21.
-- [ ] **B17 Documentation.**
+  occurrences justifiées ; `make dashboards-verify` après B21. Constat du
+  2026-11-03 : aucune requête versionnée ne vise un namespace `default`.
+- [x] **B17 Documentation.**
   `docs/architecture.md` (flux, topics, invariants 2 à 4),
   `docs/briques-remontee-telemetrie.md`, `architecture/ansible/README.md`
   (variables par VM, onboarding d'une plateforme), `apps/ADDING_APPLICATION.md`

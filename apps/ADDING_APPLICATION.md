@@ -13,8 +13,9 @@ application Java → agent Java OTel → Collecteur Edge → Kafka → Collector
 
 L'agent Java OTel produit les traces et les logs, Micrometer les métriques
 applicatives. Les logs sont OTel natifs, sans format ECS (ADR-012).
-Le Collecteur Edge reçoit l'OTLP et choisit le topic Kafka ; le Collector
-backend range ensuite chaque flux dans le data stream que nomme son topic.
+Le Collecteur Edge reçoit l'OTLP, choisit le topic Kafka de la plateforme
+du namespace et pose le dataset ; le Collector backend lit la plateforme et
+l'environnement dans le nom du topic (ADR-015).
 
 ## Préparer l'application
 
@@ -54,13 +55,13 @@ env:
 
 Le patch réel complète `OTEL_RESOURCE_ATTRIBUTES` avec le pod et le nœud,
 fournis par la Downward API. Ces attributs forment la ressource des traces,
-des métriques et des logs : `k8s.namespace.name` choisit la route Edge.
+des métriques et des logs : `k8s.namespace.name` choisit la plateforme.
 L'application ne déclare ni sa plateforme ni son environnement : le
 collecteur Edge pose `k8s.cluster.name` et `deployment.environment.name`
-depuis la route du namespace (`platform` et `environment` dans
-`architecture/ansible/inventory/group_vars/otel_edge_nodes.yml`) et écrase
-toute valeur envoyée. Un nouveau namespace applicatif demande donc une
-nouvelle route.
+depuis l'entrée du namespace dans `otel_edge_namespace_routes`
+(`architecture/ansible/inventory/group_vars/otel_edge_nodes.yml`) et écrase
+toute valeur envoyée. Un namespace inconnu de l'Edge est rejeté : un nouveau
+namespace applicatif demande donc une nouvelle entrée.
 
 Le fichier `otel.properties` active l'export des logs :
 
@@ -95,14 +96,15 @@ par `k8s.namespace.name` et indexé en `kubernetes.namespace`.
 
 ## Data streams alimentés
 
-Le dataset nomme l'application, le namespace nomme l'environnement (ADR-010).
-Le collecteur Edge publie les signaux dont la ressource porte
-`k8s.namespace.name` = `h0tl-supermarche-app` dans les topics
-`otel-<signal>-supermarche-homologation` (ADR-009). Le nom du topic porte la
-cible, `<dataset>-<namespace>` : le collecteur backend en tire le dataset
-`supermarche` et le namespace `homologation` (ADR-007, note du 2026-11-02).
-APM Server impose les datasets `apm`, `apm.error` et `apm.*` : le namespace
-des signaux APM porte donc aussi l'application, `<dataset>_<namespace>` :
+Le dataset nomme l'application, le namespace nomme l'environnement (ADR-010),
+la plateforme est le champ `platform.id`. Le collecteur Edge publie les
+signaux dont la ressource porte `k8s.namespace.name` = `h0tl-supermarche-app`
+dans les topics `otel-<signal>-supermarche-homologation` de la plateforme
+`supermarche` et pose le dataset `supermarche` sur les logs et les métriques
+(ADR-015). Le collecteur backend lit dans le nom du topic la plateforme et
+le namespace `homologation`. APM Server impose les datasets `apm`,
+`apm.error` et `apm.*` : le namespace des signaux APM porte donc aussi la
+plateforme, `<plateforme>_<environnement>` :
 
 | Signal | Data stream |
 | --- | --- |
@@ -121,32 +123,42 @@ intervalles `10m` et `60m`, s'ils sont produits, suivent la même règle. Les
 métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`) gardent le
 dataset de leur receiver, en namespace `homologation`.
 
-### Donner son propre dataset à une nouvelle application
+### Déclarer une nouvelle application comme plateforme
 
-Une nouvelle application demande une entrée de route et ses trois topics.
+Un namespace Kubernetes est une plateforme dans un environnement (ADR-015).
+Une nouvelle application demande une plateforme et son entrée de namespace.
 
-1. Ajouter une entrée à `otel_edge_application_routes` dans
+1. Ajouter le couple à `otel_platforms` dans
+   `architecture/ansible/inventory/group_vars/otel_backend_nodes.yml` :
+
+   ```yaml
+   - platform: caisse
+     environment: homologation
+   ```
+
+2. Ajouter une entrée à `otel_edge_namespace_routes` dans
    `architecture/ansible/inventory/group_vars/otel_edge_nodes.yml` :
 
    ```yaml
    - kubernetes_namespace: h0tl-caisse-app
-     kafka_topic: caisse-homologation   # <dataset>-<namespace>, [a-z0-9_]
+     platform: caisse
+     environment: homologation
+     dataset: caisse          # [a-z0-9_.], ou receiver
    ```
 
    Ses logs et métriques iront dans `logs-caisse.otel-homologation` et
    `metrics-caisse.otel-homologation`, ses signaux APM dans
-   `traces-apm-caisse_homologation`. Le rôle `otel_edge` refuse un topic hors
-   format ou déjà utilisé.
-2. Ajouter les trois topics `otel-{traces,metrics,logs}-<kafka_topic>` à la
-   boucle du job `otel-telemetry-topics` dans
-   `architecture/platform/kubernetes/base/observability/otel-kafka.yaml`.
-3. Appliquer `make kubernetes-observability-deploy` (création des topics),
-   puis `make otel-edge-vm-provision`.
+   `traces-apm-caisse_homologation`, tous avec `platform.id` = `caisse`. Le
+   rôle `otel_edge` refuse un namespace dupliqué, un format invalide ou une
+   plateforme absente de `otel_platforms`.
+3. Valider avec `make otel-config-validate`, créer les topics avec
+   `make otel-backend-vm-provision`, puis appliquer la table avec
+   `make otel-edge-vm-provision`.
 
-Les attributs `data_stream.dataset`, `data_stream.namespace` et
-`apm.route.namespace` posés par l'application sont supprimés par l'Edge.
-Sans entrée dédiée, les signaux de l'application partent dans les topics de
-base, avec le dataset de leur source et le namespace `default`.
+Les attributs `data_stream.dataset`, `data_stream.namespace`,
+`apm.route.namespace` et `platform.id` posés par l'application sont supprimés
+par l'Edge. Sans entrée dédiée, les signaux de l'application sont rejetés par
+l'Edge et comptés par `make otel-routing-verify`.
 
 Les traces et métriques APM portent `agent.name` égal à
 `opentelemetry/java/opentelemetry-java-instrumentation`. Les logs portent la

@@ -2,7 +2,9 @@
 
 ## Statut
 
-Proposed
+Proposed, mis en œuvre dans le dépôt le 2026-11-03 (lots 0 à 4 du
+[backlog](backlog.md)), en attente de la migration (lot 5). Voir la note de
+mise en œuvre en fin de document.
 
 Remplace la note du 2026-11-02 d'[ADR-007](ADR-007-namespace-data-stream-par-topic.md)
 (le topic porte le dataset) et les règles de topic d'[ADR-009](ADR-009-namespaces-supermarche-et-k8s.md)
@@ -265,10 +267,15 @@ Ordre de migration, sans perte :
 ```bash
 make kubernetes-validate
 make ansible-validate
+make otel-config-validate
 make otel-validation
 make otel-routing-verify
 make trace-context-verify observability-schema-verify dashboards-verify kubernetes-otel-dashboards-verify
 ```
+
+`otel-config-validate` rend les configurations Edge, backend et agents depuis
+l'inventaire (`ansible/render-otel-configs.yml`) et les valide avec le
+binaire EDOT de la version de la stack.
 
 `otel-routing-verify` contrôle, sur les quinze dernières minutes : des
 documents portant `platform.id` égal à chacune des plateformes de
@@ -280,3 +287,33 @@ nul. Le test d'ADR-009 est rejoué : trois logs envoyés depuis un pod de
 `elastic-stack` avec `data_stream.namespace` = `pirate` et `platform.id` =
 `pirate` arrivent dans `*-homologation` avec `platform.id` = `k3s`, et un
 log envoyé avec un `k8s.namespace.name` inconnu est rejeté par l'Edge.
+
+## Note de mise en œuvre du 2026-11-03
+
+Écarts avec la décision, constatés à l'implémentation :
+
+- **Le marqueur `otel.edge.source=kubernetes` est conservé.** Les métriques
+  `kubeletstats` d'un pod applicatif portent le `k8s.namespace.name` du pod :
+  sans marqueur, elles iraient dans la plateforme de l'application avec son
+  dataset. Comme dans ADR-009, les métriques et les traces marquées suivent
+  leur émetteur, avant la règle des namespaces ; les logs suivent le namespace
+  de leur pod, le marqueur passe après. Le marqueur reste supprimé avant
+  l'indexation.
+- **Forme des tables de l'Edge.** `otel_edge_cluster` (`name`,
+  `kubernetes_namespace`, `platform`, `environment`) décrit le cluster et le
+  namespace de ses collecteurs ; `otel_edge_namespace_routes` les plateformes
+  hébergées. `deployment.environment.name` suit le topic choisi, ce qui
+  couvre les namespaces, le marqueur et les VM d'une seule règle.
+- **`host.name` sur la télémétrie interne des agents EDOT** des VM, comme
+  sur celle de l'Edge, pour qu'elle soit routée par la table des VM.
+- **Souscription transitoire** portée par `otel_backend_legacy_topics`
+  (`inventory/group_vars/otel_backend_nodes.yml`) : le backend lit encore
+  `otel-<signal>` et `otel-<signal>-homologation` avec leur ancienne
+  sémantique. Le topic `otel-<signal>-supermarche-homologation` garde son nom.
+- **Validation hors VM** : `make otel-config-validate` rend et valide les
+  sept configurations ; la cohérence des plateformes entre l'inventaire, les
+  tables de l'Edge et `otel_platforms` est vérifiée par
+  `roles/otel_backend/tasks/platforms.yml` et `roles/otel_edge/tasks/routes.yml`.
+- **Playbook `validation/otel`** : la métrique de validation porte
+  `host.name` = `otel-edge-01` et arrive dans
+  `metrics-generic.otel-homologation` avec `platform.id` = `elk`.

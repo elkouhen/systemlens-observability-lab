@@ -5,42 +5,51 @@ métriques vers Elastic.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces` | Collector backend → APM Server |
-| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → Edge → Kafka `otel-logs` | Collector backend → Elasticsearch |
-| Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet `hostmetrics` | OTLP → Edge → Kafka `otel-metrics` | Collector backend → Elasticsearch |
-| Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka par signal | Collector backend → Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces-supermarche-homologation` | Collector backend → APM Server |
+| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → Edge → Kafka `otel-logs-supermarche-homologation` | Collector backend → Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics-supermarche-homologation` | Collector backend → Elasticsearch |
+| Métriques Kubernetes | EDOT DaemonSet `kubeletstats`, Deployment `k8s_cluster` | OTLP → Edge → Kafka `otel-metrics-k3s-homologation` | Collector backend → Elasticsearch |
+| Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka `otel-<signal>-<plateforme>-homologation` | Collector backend → Elasticsearch |
 
-Kafka absorbe les pics entre les producteurs et le Collector backend. Les
-topics `otel-traces`, `otel-logs` et `otel-metrics`, et leurs déclinaisons
-`-supermarche-homologation` (applications) et `-homologation` (collecteurs
-Kubernetes) choisies par le collecteur Edge (ADR-009), sont consommés par le
-groupe `otel-backend`. Le suffixe porte le dataset et le namespace, que le
-Collector backend reporte sur les signaux (ADR-007, note du 2026-11-02). Le Collector applique le batch, la limitation mémoire
-et la queue disque avant l'export Elasticsearch.
+Kafka absorbe les pics entre les producteurs et le Collector backend. Chaque
+plateforme a ses trois topics `otel-{logs,metrics,traces}-<plateforme>-<environnement>`
+(ADR-015), créés par le rôle Ansible `otel_backend` et consommés par le
+groupe `otel-backend`. Le collecteur Edge choisit le topic d'une ressource
+depuis sa table des namespaces Kubernetes et depuis la déclaration des VM
+(`otel_platform`, `otel_environment`, `otel_edge`), et rejette toute
+ressource hors table. Le Collector backend lit la plateforme et
+l'environnement dans le nom du topic, pose `platform.id` et
+`data_stream.namespace`, puis applique la limitation mémoire et la queue
+disque avant l'export Elasticsearch.
 
-Les flux routés suivent la convention Elastic (ADR-010) : le dataset nomme
-l'application, le namespace l'environnement. Les services `supermarket-demo`
+Les flux suivent la convention Elastic (ADR-010) : le dataset nomme
+l'application ou le receiver, le namespace l'environnement, la plateforme est
+le champ `platform.id`. Les services `supermarket-demo`
 écrivent dans `logs-supermarche.otel-homologation` (logs OTel natifs, ADR-012),
 `metrics-supermarche.otel-homologation`,
 `traces-apm-supermarche_homologation`,
 `logs-apm.error-supermarche_homologation` et
 `metrics-apm.<métrique>.1m-supermarche_homologation` : APM Server impose le
-dataset `apm`, le namespace porte donc l'application et l'environnement. Les
-collecteurs Kubernetes gardent le dataset
-de leur receiver, par exemple `metrics-kubeletstatsreceiver.otel-homologation`.
-Les signaux des VM restent dans le namespace `default`.
+dataset `apm`, le namespace porte donc la plateforme et l'environnement. Les
+collecteurs Kubernetes et les agents des VM gardent le dataset de leur
+receiver, par exemple `metrics-kubeletstatsreceiver.otel-homologation` et
+`metrics-hostmetricsreceiver.otel-homologation`, où `platform.id` distingue
+`k3s`, `supermarche` et `elk`.
 
-Les VM exécutent Elastic Agent en mode EDOT standalone. La configuration
-locale collecte les logs système et les métriques hôte, puis exporte en OTLP
-vers le Collecteur Edge. Les anciennes policies Fleet de collecte VM ne doivent
-pas être actives en parallèle.
+Les cinq VM, `k3s-01` comprise, exécutent Elastic Agent en mode EDOT
+standalone. La configuration locale collecte les logs système et les
+métriques hôte, puis exporte en OTLP vers l'Edge déclaré par la VM ;
+`otel-backend-01` publie directement dans son Kafka local (ADR-005). Les
+anciennes policies Fleet de collecte VM ne doivent pas être actives en
+parallèle.
 
 ## Contrôles
 
 ```bash
 kubectl -n elastic-stack get deployment,daemonset,pods
+make otel-config-validate
 make otel-validation
+make otel-routing-verify
 make otel-gateway-vm-status
 vagrant ssh supermarket-middleware-01 -c 'sudo /opt/Elastic/Agent/elastic-agent status'
 ```
