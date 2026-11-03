@@ -68,17 +68,11 @@ Vagrant.configure("2") do |config|
       end
 
       # L'Elastic Agent est enrôlé dans Fleet après le déploiement de Kibana.
-      otel_edge_client_key_env = {
-        supermarket_middleware: "OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE",
-        otel_backend: "",
-        otel_edge: "OTEL_EDGE_KEY_EDGE_AGENT",
-        elk: "OTEL_EDGE_KEY_ELK_AGENT",
-        k3s: ""
-      }.fetch(node_config[:role], "")
-      otel_edge_client_key = otel_edge_client_key_env.empty? ? "" : ENV.fetch(otel_edge_client_key_env, "")
+      # Les clés Edge par VM (OTEL_EDGE_KEY_<HOST>, ADR-015) sont lues par
+      # l'inventaire depuis l'environnement, pour chaque hôte : elles ne
+      # passent pas par les extra vars, globales à tous les hôtes.
       ansible_extra_vars = {
         "node_ip" => node_config[:ip],
-        "otel_edge_client_key_env" => otel_edge_client_key_env,
         "kafka_controller_voters" => KAFKA_CONTROLLER_VOTERS,
         "postgresql_password" => postgresql_password || "",
         "mongodb_password" => mongodb_password || "",
@@ -89,12 +83,8 @@ Vagrant.configure("2") do |config|
         "otel_kafka_publisher_password" => kafka_otel_publisher_password,
         "otel_kafka_consumer_password" => kafka_otel_consumer_password,
         "zscaler_ca_cert_content" => zscaler_ca_cert_content,
-        "otel_edge_key_supermarket_middleware" => ENV.fetch("OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE", ""),
-        "otel_edge_key_edge_agent" => ENV.fetch("OTEL_EDGE_KEY_EDGE_AGENT", ""),
-        "otel_edge_key_elk_agent" => ENV.fetch("OTEL_EDGE_KEY_ELK_AGENT", ""),
         "otel_edge_key_kubernetes" => ENV.fetch("OTEL_EDGE_KEY_KUBERNETES", ""),
-        "otel_edge_key_kubernetes_cluster" => ENV.fetch("OTEL_EDGE_KEY_KUBERNETES_CLUSTER", ""),
-        "otel_edge_client_key" => otel_edge_client_key
+        "otel_edge_key_kubernetes_cluster" => ENV.fetch("OTEL_EDGE_KEY_KUBERNETES_CLUSTER", "")
       }
 
       node.vm.provision "ansible" do |ansible|
