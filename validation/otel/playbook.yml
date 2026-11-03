@@ -59,6 +59,12 @@
                   - key: deployment.environment.name
                     value:
                       stringValue: "{{ otel_deployment_environment }}"
+                  # host.name d'une VM rattachée à l'Edge : sans lui, l'Edge
+                  # rejette la ressource (ADR-015). La métrique est indexée
+                  # dans la plateforme de cette VM avec platform.id.
+                  - key: host.name
+                    value:
+                      stringValue: "{{ inventory_hostname }}"
               scopeMetrics:
                 - scope:
                     name: validation.ansible

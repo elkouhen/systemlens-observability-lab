@@ -99,31 +99,12 @@ data:
     # applications Java exportent leurs logs en OTLP par l'agent OTel
     # (ADR-012). apps/ADDING_APPLICATION.md décrit le receiver filelog à
     # rétablir pour une application d'un autre namespace qui ne peut écrire
-    # que sur stdout.
+    # que sur stdout. Il ne collecte plus non plus les métriques de l'hôte :
+    # l'agent EDOT de la VM k3s-01 s'en charge, comme pour toute VM (ADR-015).
     extensions:
       health_check:
         endpoint: 0.0.0.0:13133
     receivers:
-      hostmetrics:
-        root_path: /hostfs
-        collection_interval: 15s
-        scrapers:
-          cpu:
-            metrics:
-              system.cpu.utilization:
-                enabled: true
-              system.cpu.logical.count:
-                enabled: true
-          disk: {}
-          filesystem: {}
-          load: {}
-          memory:
-            metrics:
-              system.memory.utilization:
-                enabled: true
-          network: {}
-          paging: {}
-          processes: {}
       # Télémétrie interne du collecteur, lue sur son propre endpoint
       # Prometheus toutes les 30 s (ADR-013).
       prometheus/internal:
@@ -169,22 +150,15 @@ data:
           - key: host.name
             value: ${env:K8S_NODE_NAME}
             action: upsert
-      # Marqueur lu puis supprimé par le collecteur Edge (ADR-009) : les
-      # signaux de ce collecteur vont dans le topic de la route Kubernetes,
-      # otel-<signal>-homologation.
+      # Marqueur lu puis supprimé par le collecteur Edge (ADR-015) : les
+      # métriques de ce collecteur, y compris celles des pods applicatifs,
+      # vont dans la plateforme du cluster. L'Edge pose aussi
+      # deployment.environment.name et k8s.cluster.name.
       resource/edge-source:
         attributes:
           - key: otel.edge.source
             value: kubernetes
             action: upsert
-      # Environnement des signaux collectés, indexé avec la ressource. Le
-      # namespace de data stream vient du topic de la route Kubernetes
-      # (ADR-007). Une valeur déjà posée par la source est conservée.
-      resource/environment:
-        attributes:
-          - key: deployment.environment.name
-            value: homologation
-            action: insert
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
@@ -208,8 +182,8 @@ data:
                     port: 8888
       pipelines:
         metrics:
-          receivers: [hostmetrics, kubeletstats, prometheus/internal]
-          processors: [memory_limiter, resource/k8s_cluster, resource/environment, resource/edge-source, batch]
+          receivers: [kubeletstats, prometheus/internal]
+          processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
           exporters: [otlp/edge]
 
   cluster.yaml: |
@@ -242,20 +216,13 @@ data:
           - key: k8s.cluster.name
             value: ${env:K8S_CLUSTER_NAME}
             action: upsert
-      # Marqueur lu puis supprimé par le collecteur Edge (ADR-009).
+      # Marqueur lu puis supprimé par le collecteur Edge (ADR-015) : les
+      # métriques de ce collecteur vont dans la plateforme du cluster.
       resource/edge-source:
         attributes:
           - key: otel.edge.source
             value: kubernetes
             action: upsert
-      # Environnement des signaux collectés, indexé avec la ressource. Le
-      # namespace de data stream vient du topic de la route Kubernetes
-      # (ADR-007). Une valeur déjà posée par la source est conservée.
-      resource/environment:
-        attributes:
-          - key: deployment.environment.name
-            value: homologation
-            action: insert
     exporters:
       otlp/edge:
         endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
@@ -268,7 +235,7 @@ data:
       pipelines:
         metrics:
           receivers: [k8s_cluster]
-          processors: [memory_limiter, resource/k8s_cluster, resource/environment, resource/edge-source, batch]
+          processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
           exporters: [otlp/edge]
 
 ---
@@ -317,7 +284,6 @@ spec:
             - {name: metrics, containerPort: 8888}
           volumeMounts:
             - {name: config, mountPath: /etc/otel, readOnly: true}
-            - {name: hostfs, mountPath: /hostfs, readOnly: true}
           readinessProbe: {httpGet: {path: /, port: health}}
           livenessProbe: {httpGet: {path: /, port: health}}
           resources:
@@ -326,8 +292,6 @@ spec:
       volumes:
         - name: config
           configMap: {name: otel-kafka-config}
-        - name: hostfs
-          hostPath: {path: /}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -395,36 +359,9 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - >-
-              printf 'security.protocol=SASL_PLAINTEXT\nsasl.mechanism=PLAIN\nsasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="%s" password="%s";\n' "$KAFKA_OTEL_PUBLISHER_USERNAME" "$KAFKA_OTEL_PUBLISHER_PASSWORD" > /tmp/otel-kafka-client.properties;
               for topic in supermarket.order.placed supermarket.stock.depleted supermarket.stock.restock-requested; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server
               192.168.33.10:9092 --create --if-not-exists --topic "$topic"
               --partitions 1 --replication-factor 1
               --config min.insync.replicas=1;
-              done;
-              for topic in otel-traces otel-metrics otel-logs
-              otel-traces-supermarche-homologation otel-metrics-supermarche-homologation otel-logs-supermarche-homologation
-              otel-traces-homologation otel-metrics-homologation otel-logs-homologation; do
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server
-              192.168.33.20:9092 --create --if-not-exists --topic "$topic"
-              --partitions 3 --replication-factor 1
-              --command-config /tmp/otel-kafka-client.properties
-              --config min.insync.replicas=1
-              --config retention.ms=86400000
-              --config retention.bytes=536870912;
-              /opt/kafka/bin/kafka-configs.sh --bootstrap-server
-              192.168.33.20:9092 --entity-type topics --entity-name "$topic"
-              --command-config /tmp/otel-kafka-client.properties
-              --alter --add-config retention.ms=86400000,retention.bytes=536870912;
               done
-          env:
-            - name: KAFKA_OTEL_PUBLISHER_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: otel-kafka-credentials
-                  key: publisher-username
-            - name: KAFKA_OTEL_PUBLISHER_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: otel-kafka-credentials
-                  key: publisher-password

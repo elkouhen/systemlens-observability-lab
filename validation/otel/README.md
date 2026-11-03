@@ -9,9 +9,11 @@ dans Discover.
 Le parcours validé dans l’architecture active est :
 
 - `edge-directe-ssh` : playbook SSH sur `otel-edge-01` → Collecteur EDOT Edge
-  via HAProxy `127.0.0.1:4318` → Kafka `otel-metrics` → exporteur OTel
-  `otel-backend-01` → data stream
-  `metrics-*` → Kibana.
+  via HAProxy `127.0.0.1:4318` → Kafka `otel-metrics-elk-homologation` →
+  exporteur OTel `otel-backend-01` → data stream
+  `metrics-generic.otel-homologation` avec `platform.id` = `elk` → Kibana.
+  La métrique porte `host.name` = `otel-edge-01`, VM rattachée à l'Edge :
+  sans hôte ni namespace Kubernetes connu, l'Edge la rejetterait (ADR-015).
 
 ## Prérequis
 
