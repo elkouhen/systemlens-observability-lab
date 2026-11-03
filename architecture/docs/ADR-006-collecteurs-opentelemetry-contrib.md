@@ -2,7 +2,9 @@
 
 ## Statut
 
-Accepted, amende ADR-002 pour la distribution des collecteurs
+Superseded par [ADR-014](ADR-014-retour-collecteurs-edot.md) : les quatre
+collecteurs sont revenus sur EDOT le 2026-11-02. La souscription par regex
+décrite ici est conservée.
 
 ## Date
 

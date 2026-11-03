@@ -3,7 +3,7 @@
 Les playbooks de ce répertoire créent l'infrastructure de données partagée.
 L’architecture crée cinq VM séparées : `supermarket-middleware-01` pour MongoDB, Kafka métier et PostgreSQL,
 `otel-backend-01` pour le broker Kafka dédié OTel et le collecteur backend OTel, `otel-edge-01` pour HAProxy et le
-Collecteur Edge (OpenTelemetry Collector Contrib) et
+Collecteur Edge (EDOT Collector) et
 `elk-01` pour Elasticsearch, Kibana et Fleet Server, et `k3s-01` pour le serveur
 k3s et les workloads Kubernetes.
 Chaque VM reçoit un Elastic Agent en mode EDOT standalone. Il collecte les logs

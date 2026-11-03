@@ -163,7 +163,7 @@ service:
         - name: service.name
           value: otel-edge
         - name: service.version
-          value: "{{ otel_collector_contrib_version }}"
+          value: "{{ elastic_agent_version }}"
         - name: service.instance.id
           value: "{{ inventory_hostname }}"
         - name: deployment.environment.name

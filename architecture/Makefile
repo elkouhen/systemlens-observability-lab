@@ -549,7 +549,7 @@ otel-gateway-vm-provision: ## Provisionner les gateways OTEL sur otel-backend-01
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
 	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01 --provision-with ansible
 
-otel-edge-vm-provision: ## Provisionner le Collecteur Edge (OpenTelemetry Contrib) sur otel-edge-01
+otel-edge-vm-provision: ## Provisionner le Collecteur EDOT Edge sur otel-edge-01
 	@set -euo pipefail; \
 	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
 	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \

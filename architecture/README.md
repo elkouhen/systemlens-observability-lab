@@ -2,8 +2,8 @@
 
 Architecture de référence avec Elastic Stack `9.5.4`. Les applications,
 Kubernetes et les VM utilisent OpenTelemetry avec Kafka comme tampon : les
-collecteurs Kubernetes, Edge et backend utilisent OpenTelemetry Collector
-Contrib (ADR-006), les agents VM restent en EDOT. Le
+collecteurs Kubernetes, Edge et backend comme les agents VM utilisent la
+distribution Elastic EDOT `9.5.4` (ADR-014). Le
 cluster Kubernetes de référence est k3s sur `k3s-01` ; k3d reste disponible
 uniquement pour la comparaison pendant la migration.
 Les agents VM restent standalone et sont supervisés par Fleet via OpAMP, sans

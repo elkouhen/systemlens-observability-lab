@@ -1,13 +1,13 @@
 ---
 - name: Autoriser le collecteur backend OTEL à écrire son file_storage
-  # L'image OpenTelemetry Contrib s'exécute avec l'UID/GID 10001. La propriété
+  # L'image EDOT s'exécute avec elastic-agent (UID/GID 1000). La propriété
   # est appliquée récursivement afin de reprendre les files d'attente déjà
-  # persistées par une version précédente du collecteur (UID différent).
+  # persistées par la distribution précédente (contrib, UID 10001).
   ansible.builtin.file:
     path: /var/lib/observability/otel-backend
     state: directory
-    owner: '10001'
-    group: '10001'
+    owner: '1000'
+    group: '1000'
     mode: 'u=rwX,g=rX,o='
     recurse: true
 

@@ -8,7 +8,7 @@
 
 # Le topic porte le dataset et le namespace lus par le backend : son format
 # est validé ici plutôt que normalisé à l'exécution.
-- name: Vérifier la table de routage du Collecteur Edge
+- name: Vérifier la table de routage du Collecteur EDOT Edge
   ansible.builtin.assert:
     that:
       - otel_edge_kubernetes_route.kafka_topic | default('') is match('^[a-z0-9_]+$')
@@ -27,7 +27,7 @@
       du kafka_topic.
     quiet: true
 
-- name: Déployer la configuration du Collecteur Edge
+- name: Déployer la configuration du Collecteur EDOT Edge
   ansible.builtin.template:
     src: "{{ role_path }}/templates/otel-edge.yaml.j2"
     dest: /etc/observability/otel-edge.yaml
@@ -62,21 +62,21 @@
       {{ otel_edge_key_kubernetes }} # otel-kubernetes
       {{ otel_edge_key_kubernetes_cluster }} # otel-kubernetes-cluster
     dest: /etc/observability/otel-edge.tokens
-    # L'image OpenTelemetry Contrib s'exécute avec l'UID/GID 10001. Conserver
+    # L'image EDOT s'exécute avec elastic-agent (UID/GID 1000). Conserver
     # 0600 tout en permettant au processus du conteneur de lire le secret.
-    owner: '10001'
-    group: '10001'
+    owner: '1000'
+    group: '1000'
     mode: '0600'
   no_log: true
 
-- name: Créer le répertoire d’état du Collecteur Edge
+- name: Créer le répertoire d’état du Collecteur EDOT Edge
   ansible.builtin.file:
     path: /var/lib/observability/otel-edge
     state: directory
     owner: root
     mode: '0755'
 
-- name: Déployer l'unité du Collecteur Edge
+- name: Déployer l'unité du Collecteur EDOT Edge
   ansible.builtin.template:
     src: "{{ role_path }}/templates/otel-edge.container.j2"
     dest: /etc/containers/systemd/observability-otel-edge.container
@@ -105,7 +105,7 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
-- name: Démarrer le Collecteur Edge
+- name: Démarrer le Collecteur EDOT Edge
   ansible.builtin.systemd_service:
     name: observability-otel-edge.service
     state: restarted
@@ -120,7 +120,7 @@
   ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
   changed_when: false
 
-- name: Vérifier la santé du Collecteur Edge
+- name: Vérifier la santé du Collecteur EDOT Edge
   ansible.builtin.uri:
     url: http://127.0.0.1:13135/
     status_code: 200

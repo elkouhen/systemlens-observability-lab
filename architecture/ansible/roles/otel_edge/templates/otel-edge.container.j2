@@ -1,10 +1,10 @@
 [Unit]
-Description=Collecteur OpenTelemetry Contrib Edge du lab
+Description=Collecteur EDOT Edge du lab
 After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=docker.io/otel/opentelemetry-collector-contrib:{{ otel_collector_contrib_version }}
+Image=docker.elastic.co/elastic-agent/elastic-otel-collector:{{ elastic_agent_version }}
 ContainerName=observability-otel-edge
 EnvironmentFile=/etc/observability/otel-edge.env
 Network=host
