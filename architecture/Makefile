@@ -20,7 +20,7 @@ APP_IMAGE_TAG ?= 1.1.6
 # API de démonstration de la remontée de signaux (apps/demo-api), plateforme demo.
 DEMO_API_MANIFEST_ROOT ?= ../kubernetes/apps/demo-api
 DEMO_API_NAMESPACE ?= h0tl-demo-app
-DEMO_API_IMAGE_TAG ?= 1.0.0
+DEMO_API_IMAGE_TAG ?= 1.0.1
 DEMO_API_PATH ?= /api/hello?name=lab
 OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G

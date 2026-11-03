@@ -1,5 +1,7 @@
 package io.systemlens.demo;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -52,9 +54,17 @@ public class SignalController {
         return Map.of("message", "unreachable");
     }
 
+    /**
+     * L'exception étant traitée ici, elle n'atteint pas l'instrumentation
+     * servlet de l'agent : elle est enregistrée sur le span courant pour
+     * produire l'erreur APM et marquer la transaction en échec.
+     */
     @ExceptionHandler(SignalService.DemoFailureException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     Map<String, String> handleFailure(SignalService.DemoFailureException exception) {
+        Span span = Span.current();
+        span.recordException(exception);
+        span.setStatus(StatusCode.ERROR, exception.getMessage());
         return Map.of("error", exception.getMessage());
     }
 }

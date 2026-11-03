@@ -30,7 +30,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-          image: demo-api:1.0.0
+          image: demo-api:1.0.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

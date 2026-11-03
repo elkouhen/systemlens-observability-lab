@@ -12,7 +12,7 @@ Elasticsearch.
 | `GET /api/hello?name=` | Une transaction, un log INFO avec les attributs `demo.name` et `event.action`, le compteur `demo.requests{endpoint=hello}` |
 | `GET /api/work?ms=` | Un span dont la durée varie, le timer `demo.work.duration` avec histogramme de percentiles |
 | `GET /api/chain?name=` | Un appel HTTP sortant vers sa propre API : trace distribuée sur deux transactions, span client renommé `GET /api/hello` (ADR-011) |
-| `GET /api/fail?reason=` | Un log ERROR avec pile, une transaction en échec HTTP 500 et une erreur APM |
+| `GET /api/fail?reason=` | Un log ERROR, une transaction en échec HTTP 500 et une erreur APM : l'exception, traitée par un `@ExceptionHandler`, est enregistrée sur le span courant via l'API OpenTelemetry |
 | `GET /api/health` | Sonde des probes Kubernetes |
 
 Un battement de cœur toutes les 30 secondes émet un log et la jauge
@@ -54,7 +54,7 @@ make demo-api-call DEMO_API_PATH='/api/work?ms=500'
 make demo-api-logs-follow
 ```
 
-`DEMO_API_IMAGE_TAG` fixe le tag de l'image (`1.0.0` par défaut) ; un tag est
+`DEMO_API_IMAGE_TAG` fixe le tag de l'image (`1.0.1` par défaut) ; un tag est
 immuable, en choisir un nouveau à chaque image, en cohérence avec
 `kubernetes/apps/demo-api/default/kustomization.yaml`.
 

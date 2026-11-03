@@ -83,6 +83,14 @@ jamais l'inscrire dans un manifest ou dans Git.
 Ne pas ajouter `-javaagent` dans `JAVA_TOOL_OPTIONS` : l'agent serait attaché
 deux fois, par l'`ENTRYPOINT` et par cette variable.
 
+Une exception traitée par un `@ExceptionHandler` n'atteint pas
+l'instrumentation servlet de l'agent et ne produit pas d'erreur APM, même si
+la réponse est un 500. Pour qu'elle apparaisse dans l'UI APM, l'enregistrer
+sur le span courant avec l'API OpenTelemetry, reliée à l'agent
+(`io.opentelemetry:opentelemetry-api`, version gérée par le BOM de Spring
+Boot) : `Span.current().recordException(e)` puis
+`setStatus(StatusCode.ERROR, ...)`, comme le fait `demo-api`.
+
 ## Convention d'environnement
 
 Le namespace Kubernetes suit le format

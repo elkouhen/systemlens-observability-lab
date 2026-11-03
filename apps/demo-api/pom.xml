@@ -34,6 +34,13 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-otlp</artifactId>
         </dependency>
+        <!-- API OpenTelemetry, reliée à l'agent Java : enregistre l'exception
+             contrôlée de /api/fail sur le span courant (erreur APM). Version
+             gérée par le BOM de Spring Boot. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
