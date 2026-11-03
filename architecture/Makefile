@@ -530,7 +530,10 @@ ansible-deploy: ## Déployer toute l'architecture via un seul orchestrateur Ansi
 	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/deploy-all.yml
 
 otel-validation:
-	@inventory="$${INVENTORY:-$(VALIDATION_ROOT)/inventory/hosts.yml}"; \
+	@test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' || { echo "Fichier d’identifiants introuvable : $(OBSERVABILITY_CREDENTIALS_FILE). Exécuter source ./platform/elk/scripts/generate-otel-edge-keys.sh." >&2; exit 1; }; \
+	source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
+	export ELASTICSEARCH_PASSWORD="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	inventory="$${INVENTORY:-$(VALIDATION_ROOT)/inventory/hosts.yml}"; \
 	validation_tags="$${VALIDATION_TAGS:-}"; \
 	case "$$inventory" in /*|../*) ;; *) inventory="../$$inventory";; esac; \
 	if [ -z "$${INVENTORY:-}" ]; then \

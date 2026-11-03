@@ -238,6 +238,7 @@ service:
       service.instance.id: "{{ opamp_instance_uid | default(inventory_hostname) }}"
       service.namespace: systemlens-vm
       host.name: {{ inventory_hostname }}
+      deployment.environment.name: {{ otel_environment }}
       elastic.collector.group_name: SystemLens VM
       elastic.collector.group: systemlens-vm
       elastic.display.name: {{ inventory_hostname }}

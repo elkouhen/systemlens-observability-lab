@@ -6,6 +6,9 @@
   vars:
     otel_service_name: otel-validation
     otel_deployment_environment: homologation
+    # Clé Bearer de la VM otel-edge-01 auprès de son Edge (ADR-015), fournie
+    # hors Git par le fichier d'identifiants du lab.
+    otel_edge_client_key: "{{ lookup('ansible.builtin.env', 'OTEL_EDGE_KEY_OTEL_EDGE_01') }}"
     kibana_url: http://kibana.observability.test:5601
     elasticsearch_url: http://elasticsearch.observability.test:9200
     elasticsearch_username: elastic
@@ -26,9 +29,10 @@
           - kibana_url is defined
           - elasticsearch_url is defined
           - elasticsearch_password | length > 0
+          - otel_edge_client_key | length > 0
         fail_msg: >-
           Renseigner les URL dans le playbook et exporter ELASTICSEARCH_PASSWORD
-          avant d'exécuter ce playbook.
+          et OTEL_EDGE_KEY_OTEL_EDGE_01 avant d'exécuter ce playbook.
       no_log: true
 
     - name: Vérifier que Kibana est joignable
@@ -49,6 +53,7 @@
         body_format: json
         headers:
           Content-Type: application/json
+          Authorization: "Bearer {{ otel_edge_client_key }}"
         body:
           resourceMetrics:
             - resource:
@@ -81,6 +86,7 @@
                                 value:
                                   stringValue: "{{ validation_marker }}"
         status_code: [200, 202]
+      no_log: true
 
     - name: Attendre l'indexation de la métrique dans Elasticsearch exploité par Kibana
       ansible.builtin.uri:

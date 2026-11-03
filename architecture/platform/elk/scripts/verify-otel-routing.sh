@@ -71,9 +71,11 @@ count="$(count_query "traces-apm*,logs-apm*,metrics-apm*" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"exists\":{\"field\":\"labels.apm_route_namespace\"}}]}}}")"
 check_zero "label apm_route_namespace indexé" "${count}"
 
-count="$(count_query "logs-*-default,metrics-*-default,traces-*-default" \
+# Seuls les flux OTel et APM sont concernés : Fleet Server écrit ses propres
+# data streams metrics-fleet_server.*-default.
+count="$(count_query "logs-*.otel-default,metrics-*.otel-default,traces-apm*-default,logs-apm*-default,metrics-apm*-default" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter)]}}}")"
-check_zero "documents récents dans un namespace default" "${count}"
+check_zero "documents OTel ou APM récents dans un namespace default" "${count}"
 
 count="$(count_query "logs-*,metrics-*" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"exists\":{\"field\":\"resource.attributes.otel.kafka.topic\"}}]}}}")"

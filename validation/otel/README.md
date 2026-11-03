@@ -19,10 +19,15 @@ Le parcours validé dans l’architecture active est :
 
 - Ansible, Vagrant et la VM `supermarket-middleware-01` démarrée ;
 - un compte Elasticsearch ayant le droit de lire `metrics-*` ;
-- le mot de passe fourni uniquement par l'environnement :
+- le mot de passe Elasticsearch et la clé Bearer `OTEL_EDGE_KEY_OTEL_EDGE_01`
+  de la VM `otel-edge-01` auprès de son Edge, fournis uniquement par
+  l'environnement. `make otel-validation` les charge depuis le fichier
+  d'identifiants du lab et le secret Kubernetes ; pour lancer le playbook
+  directement :
 
   ```bash
   source ./architecture/platform/elk/scripts/load-credentials.sh
+  source ./architecture/.observability-credentials.env
   ```
 
 ## Paramétrage de l'inventaire

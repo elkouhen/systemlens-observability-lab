@@ -219,6 +219,8 @@ service:
           value: "{{ elastic_agent_version }}"
         - name: service.instance.id
           value: "{{ inventory_hostname }}"
+        - name: host.name
+          value: "{{ inventory_hostname }}"
         - name: deployment.environment.name
           value: "{{ otel_environment }}"
         - name: platform.id

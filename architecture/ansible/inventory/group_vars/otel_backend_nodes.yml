@@ -25,4 +25,4 @@ otel_kafka_topic_retention_bytes: 536870912
 # Migration ADR-015 : tant que les anciens topics otel-<signal> et
 # otel-<signal>-homologation ne sont pas vidés puis supprimés, le backend les
 # lit encore avec leur ancienne sémantique. Passer à false à l'étape 3.
-otel_backend_legacy_topics: true
+otel_backend_legacy_topics: false
