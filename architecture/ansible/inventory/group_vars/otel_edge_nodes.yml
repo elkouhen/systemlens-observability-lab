@@ -30,3 +30,7 @@ otel_edge_namespace_routes:
     platform: supermarche
     environment: homologation
     dataset: supermarche
+  - kubernetes_namespace: h0tl-demo-app
+    platform: demo
+    environment: homologation
+    dataset: demo

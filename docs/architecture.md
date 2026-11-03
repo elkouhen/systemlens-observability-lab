@@ -69,11 +69,12 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka de la plateforme de la VM | EDOT backend, Elasticsearch |
 
 Les topics sont séparés par signal, par plateforme et par environnement :
-`otel-<signal>-<plateforme>-<environnement>` (ADR-015). Le lab compte trois
+`otel-<signal>-<plateforme>-<environnement>` (ADR-015). Le lab compte quatre
 plateformes en `homologation` : `k3s` (cluster et collecteurs Kubernetes, VM
 `k3s-01`), `supermarche` (namespace `h0tl-supermarche-app`, VM
-`supermarket-middleware-01`) et `elk` (VM d'observabilité, collecteurs Edge
-et backend). L'Edge, associé au cluster, choisit le topic de chaque ressource
+`supermarket-middleware-01`), `demo` (namespace `h0tl-demo-app`, API de
+démonstration `demo-api`) et `elk` (VM d'observabilité, collecteurs Edge et
+backend). L'Edge, associé au cluster, choisit le topic de chaque ressource
 depuis sa table des namespaces et depuis la déclaration de chaque VM
 (`otel_platform`, `otel_environment`, `otel_edge`), et pose le dataset des
 applications. Le backend lit dans le nom du topic la plateforme (`platform.id`)

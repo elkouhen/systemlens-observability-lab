@@ -1,0 +1,50 @@
+# Raccordement à la chaîne d'observabilité (apps/ADDING_APPLICATION.md) :
+# clé Bearer du collecteur Edge, export Micrometer OTLP, attributs de
+# ressource et configuration de l'agent Java OTel attaché par l'ENTRYPOINT.
+# k8s.namespace.name choisit la plateforme ; l'Edge pose k8s.cluster.name et
+# deployment.environment.name depuis sa table (ADR-015).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+  namespace: h0tl-demo-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: demo-api
+          env:
+            - name: OTEL_EDGE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: otel-edge-client-keys
+                  key: otel-kubernetes-cluster
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: Authorization=Bearer $(OTEL_EDGE_KEY)
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
+              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
+              value: 15s
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef: {fieldPath: metadata.name}
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef: {fieldPath: metadata.uid}
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef: {fieldPath: spec.nodeName}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name=demo-api,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-demo-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
+            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
+              value: /opt/opentelemetry/otel.properties
+          volumeMounts:
+            - name: demo-api-otel-config
+              mountPath: /opt/opentelemetry
+              readOnly: true
+      volumes:
+        - name: demo-api-otel-config
+          configMap:
+            name: demo-api-otel-config

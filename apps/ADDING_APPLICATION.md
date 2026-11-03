@@ -17,6 +17,9 @@ Le Collecteur Edge reçoit l'OTLP, choisit le topic Kafka de la plateforme
 du namespace et pose le dataset ; le Collector backend lit la plateforme et
 l'environnement dans le nom du topic (ADR-015).
 
+L'application `apps/demo-api` est l'exemple minimal de ce guide : un seul
+service, sa plateforme `demo`, ses manifests sous `kubernetes/apps/demo-api/`.
+
 ## Préparer l'application
 
 L'image doit contenir l'agent Java OpenTelemetry et démarrer la JVM avec

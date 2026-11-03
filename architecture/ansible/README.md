@@ -204,6 +204,7 @@ la plateforme est le champ `platform.id`.
 | --- | --- | --- |
 | `k3s` | Collecteurs `otel-kubernetes*` (namespace `elastic-stack`), VM `k3s-01` | Edge `otel-edge-01` |
 | `supermarche` | Namespace `h0tl-supermarche-app`, VM `supermarket-middleware-01` | Edge `otel-edge-01` |
+| `demo` | Namespace `h0tl-demo-app`, API `demo-api` (`apps/demo-api`) | Edge `otel-edge-01` |
 | `elk` | VM `elk-01`, `otel-edge-01`, `otel-backend-01`, collecteurs Edge et backend | Edge pour `elk-01` et `otel-edge-01`, Kafka local pour `otel-backend-01` (ADR-005) |
 
 ### Déclaration par VM
@@ -241,6 +242,10 @@ otel_edge_namespace_routes:
     platform: supermarche
     environment: homologation
     dataset: supermarche             # ou receiver
+  - kubernetes_namespace: h0tl-demo-app
+    platform: demo
+    environment: homologation
+    dataset: demo
 ```
 
 La table des VM n'est pas saisie : `roles/otel_edge/tasks/routes.yml` la

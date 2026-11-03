@@ -1,0 +1,7 @@
+# Un namespace est une plateforme dans un environnement (ADR-015) :
+# h0tl-demo-app est la plateforme demo en homologation, déclarée dans la
+# table du collecteur Edge (otel_edge_namespace_routes).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: h0tl-demo-app

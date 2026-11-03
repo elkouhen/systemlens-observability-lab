@@ -19,6 +19,8 @@ otel_platforms:
     environment: homologation
   - platform: elk
     environment: homologation
+  - platform: demo
+    environment: homologation
 # Rétention des topics OTel : un jour et 512 Mio par partition.
 otel_kafka_topic_retention_ms: 86400000
 otel_kafka_topic_retention_bytes: 536870912

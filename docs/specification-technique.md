@@ -73,6 +73,7 @@ environnement, `otel-<signal>-<plateforme>-<environnement>`
 | --- | --- | --- |
 | `otel-<signal>-supermarche-homologation` | Collecteur Edge : services `supermarket-demo` (namespace `h0tl-supermarche-app`) et VM `supermarket-middleware-01` | Collector backend |
 | `otel-<signal>-k3s-homologation` | Collecteur Edge : collecteurs Kubernetes et VM `k3s-01` | Collector backend |
+| `otel-<signal>-demo-homologation` | Collecteur Edge : `demo-api` (namespace `h0tl-demo-app`) | Collector backend |
 | `otel-<signal>-elk-homologation` | Collecteur Edge : VM `elk-01` et `otel-edge-01`, télémétrie de l'Edge ; agent EDOT de `otel-backend-01` en direct | Collector backend |
 
 Le collecteur Edge choisit le topic par ressource selon sa table des

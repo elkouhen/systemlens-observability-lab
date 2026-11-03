@@ -17,6 +17,11 @@ ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
 APP_IMAGE_TAG ?= 1.1.6
+# API de démonstration de la remontée de signaux (apps/demo-api), plateforme demo.
+DEMO_API_MANIFEST_ROOT ?= ../kubernetes/apps/demo-api
+DEMO_API_NAMESPACE ?= h0tl-demo-app
+DEMO_API_IMAGE_TAG ?= 1.0.0
+DEMO_API_PATH ?= /api/hello?name=lab
 OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
@@ -57,12 +62,12 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	vms-start vms-restart vms-destroy \
 	architecture-deploy \
 	elk-deploy fleet-assets-deploy apps-deploy \
-	application-data-verify order-service-command \
+	application-data-verify order-service-command demo-api-build demo-api-deploy demo-api-call demo-api-scenario \
 	dashboards-verify trace-context-verify observability-schema-verify otel-routing-verify \
 	otel-validate retention-validate retention-deploy retention-verify \
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
-.PHONY: help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: demo-api-test demo-api-build demo-api-import demo-api-deploy demo-api-call demo-api-scenario demo-api-logs-follow help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy apm-ingest-pipelines-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
@@ -152,6 +157,42 @@ java-version-verify: ## Vérifier que Maven utilise Java 21
 
 apps-test: java-version-verify ## Exécuter les tests unitaires et d'intégration Maven des applications
 	@mvn --batch-mode verify -f ../apps/supermarket-demo/pom.xml
+	@mvn --batch-mode verify -f ../apps/demo-api/pom.xml
+
+##@ API de démonstration des signaux (apps/demo-api)
+
+demo-api-test: java-version-verify ## Exécuter les tests Maven de demo-api
+	@mvn --batch-mode verify -f ../apps/demo-api/pom.xml
+
+demo-api-build: ## Construire l'image demo-api avec l'agent Java OpenTelemetry
+	@zscaler_ca_b64=""; \
+	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
+	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
+	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
+	fi; \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target demo-api -t demo-api:$(DEMO_API_IMAGE_TAG) ../apps/demo-api
+
+demo-api-import: ## Importer l'image demo-api dans k3s
+	@docker save demo-api:$(DEMO_API_IMAGE_TAG) | $(VAGRANT) ssh $(K3S_VM_NAME) -c 'sudo /usr/local/bin/k3s ctr images import -'
+
+demo-api-deploy: otel-edge-client-keys-apply ## Déployer demo-api dans h0tl-demo-app et attendre son rollout
+	@$(KUBECTL) apply -k $(DEMO_API_MANIFEST_ROOT)/default
+	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) set image deployment/demo-api demo-api=demo-api:$(DEMO_API_IMAGE_TAG)
+	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) rollout status deployment/demo-api --timeout=180s
+
+demo-api-call: ## Appeler demo-api depuis le cluster (DEMO_API_PATH=/api/hello|/api/work?ms=300|/api/chain|/api/fail)
+	@pod_name="demo-api-call-$$(date +%s)"; \
+	$(KUBECTL) -n $(DEMO_API_NAMESPACE) run "$$pod_name" --image=curlimages/curl:8.12.1 \
+		--restart=Never --rm --attach -i --command -- \
+		curl --silent --show-error -w '\nHTTP %{http_code}\n' "http://demo-api:3010$(DEMO_API_PATH)"
+
+demo-api-scenario: ## Enchaîner hello, work, chain et fail pour produire les quatre types de signaux
+	@for path in '/api/hello?name=lab' '/api/work?ms=300' '/api/chain?name=lab' '/api/fail?reason=demo'; do \
+	  $(MAKE) --no-print-directory demo-api-call DEMO_API_PATH="$$path"; \
+	done
+
+demo-api-logs-follow: ## Suivre les logs de demo-api
+	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) logs -f deployment/demo-api
 
 command-center-build: ## Construire l'interface Vue.js de commandes
 	@npm --prefix apps/command-center install --no-audit --no-fund
@@ -499,6 +540,7 @@ deployment-finalize: deploy-post ## Finaliser les services VM et le monitoring O
 kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize $(APP_MANIFEST_ROOT)/default >/dev/null
+	@$(KUBECTL) kustomize $(DEMO_API_MANIFEST_ROOT)/default >/dev/null
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
