@@ -24,12 +24,12 @@ RUN curl --fail --location --silent --show-error \
   -o /opt/opentelemetry-javaagent.jar
 
 # L'agent Java OpenTelemetry est le seul agent d'instrumentation, attaché par
-# l'ENTRYPOINT (traces et logs). Le déploiement Kubernetes ne fait que le
+# l'ENTRYPOINT (traces, logs et métriques JVM). Le déploiement Kubernetes ne fait que le
 # configurer. Hors Kubernetes, OTEL_SERVICE_NAME donne l'identité du service.
 FROM eclipse-temurin:21.0.7_6-jre-noble AS demo-api
 
 WORKDIR /app
-COPY --from=build /workspace/target/demo-api-1.0.0.jar application.jar
+COPY --from=build /workspace/target/demo-api-1.1.0.jar application.jar
 ENV OTEL_SERVICE_NAME=demo-api
 COPY --from=build /opt/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
 USER 10001

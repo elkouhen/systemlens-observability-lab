@@ -17,10 +17,10 @@ ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
 APP_IMAGE_TAG ?= 1.1.6
-# API de démonstration de la remontée de signaux (apps/demo-api), plateforme demo.
+# API de démonstration hello world (apps/demo-api), plateforme demo.
 DEMO_API_MANIFEST_ROOT ?= ../kubernetes/apps/demo-api
 DEMO_API_NAMESPACE ?= h0tl-demo-app
-DEMO_API_IMAGE_TAG ?= 1.0.1
+DEMO_API_IMAGE_TAG ?= 1.1.1
 DEMO_API_PATH ?= /api/hello?name=lab
 OTEL_JAVA_AGENT_VERSION ?= 2.28.1
 ORDER_PRODUCT_ID ?= PASTA-500G
@@ -62,12 +62,12 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	vms-start vms-restart vms-destroy \
 	architecture-deploy \
 	elk-deploy fleet-assets-deploy apps-deploy \
-	application-data-verify order-service-command demo-api-build demo-api-deploy demo-api-call demo-api-scenario \
+	application-data-verify order-service-command demo-api-build demo-api-deploy demo-api-call demo-api-jvm-metrics-verify \
 	dashboards-verify trace-context-verify observability-schema-verify otel-routing-verify \
 	otel-validate retention-validate retention-deploy retention-verify \
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
-.PHONY: demo-api-test demo-api-build demo-api-import demo-api-deploy demo-api-call demo-api-scenario demo-api-logs-follow help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: demo-api-test demo-api-build demo-api-import demo-api-deploy demo-api-call demo-api-jvm-metrics-verify demo-api-logs-follow help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy apm-ingest-pipelines-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
@@ -180,16 +180,25 @@ demo-api-deploy: otel-edge-client-keys-apply ## Déployer demo-api dans h0tl-dem
 	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) set image deployment/demo-api demo-api=demo-api:$(DEMO_API_IMAGE_TAG)
 	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) rollout status deployment/demo-api --timeout=180s
 
-demo-api-call: ## Appeler demo-api depuis le cluster (DEMO_API_PATH=/api/hello|/api/work?ms=300|/api/chain|/api/fail)
+demo-api-call: ## Appeler demo-api depuis le cluster (DEMO_API_PATH=/api/hello?name=lab|/api/fail?reason=demo)
 	@pod_name="demo-api-call-$$(date +%s)"; \
 	$(KUBECTL) -n $(DEMO_API_NAMESPACE) run "$$pod_name" --image=curlimages/curl:8.12.1 \
 		--restart=Never --rm --attach -i --command -- \
 		curl --silent --show-error -w '\nHTTP %{http_code}\n' "http://demo-api:3010$(DEMO_API_PATH)"
 
-demo-api-scenario: ## Enchaîner hello, work, chain et fail pour produire les quatre types de signaux
-	@for path in '/api/hello?name=lab' '/api/work?ms=300' '/api/chain?name=lab' '/api/fail?reason=demo'; do \
-	  $(MAKE) --no-print-directory demo-api-call DEMO_API_PATH="$$path"; \
-	done
+demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM de l'agent OTel de demo-api (5 dernières minutes)
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
+	 status=0; \
+	 for metric in jvm.memory.used jvm.memory.limit jvm.gc.duration jvm.thread.count jvm.class.count jvm.cpu.recent_utilization; do \
+	   count="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+	     -u "elastic:$$es_password" -H 'Content-Type: application/json' \
+	     '$(ELASTICSEARCH_URL)/metrics-demo.otel-*/_count' \
+	     --data "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"service.name\":\"demo-api\"}},{\"exists\":{\"field\":\"metrics.$$metric\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-5m\"}}}]}}}" \
+	     | jq -r '.count')"; \
+	   if [ "$$count" -gt 0 ]; then echo "OK   $$metric : $$count documents"; else echo "KO   $$metric : aucun document" >&2; status=1; fi; \
+	 done; \
+	 exit $$status
 
 demo-api-logs-follow: ## Suivre les logs de demo-api
 	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) logs -f deployment/demo-api

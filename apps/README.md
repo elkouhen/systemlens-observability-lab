@@ -10,9 +10,9 @@ Lire [`supermarket-demo/README.md`](supermarket-demo/README.md), puis la base
 commune et l’overlay par défaut sous `../kubernetes/apps/`, et enfin les modules Maven
 communs. L’application est raccordée à l’architecture d’observabilité active.
 
-[`demo-api/README.md`](demo-api/README.md) décrit l'API de démonstration de
-la remontée de signaux : une application minimale qui forme la plateforme
-`demo` et produit traces, logs, métriques et erreurs à la demande.
+[`demo-api/README.md`](demo-api/README.md) décrit l'API de démonstration :
+un hello world qui forme la plateforme `demo` et produit traces, logs et
+métriques JVM par le seul agent Java OTel.
 
 Pour intégrer une nouvelle application Java dans les chaînes APM et OTel
 (traces, métriques et logs), suivre [Ajouter une application Java observée](ADDING_APPLICATION.md) ;

@@ -1,6 +1,6 @@
 # Raccordement à la chaîne d'observabilité (apps/ADDING_APPLICATION.md) :
-# clé Bearer du collecteur Edge, export Micrometer OTLP, attributs de
-# ressource et configuration de l'agent Java OTel attaché par l'ENTRYPOINT.
+# clé Bearer du collecteur Edge, attributs de ressource et configuration de
+# l'agent Java OTel attaché par l'ENTRYPOINT (traces, logs, métriques JVM).
 # k8s.namespace.name choisit la plateforme ; l'Edge pose k8s.cluster.name et
 # deployment.environment.name depuis sa table (ADR-015).
 apiVersion: apps/v1
@@ -21,12 +21,6 @@ spec:
                   key: otel-kubernetes-cluster
             - name: OTEL_EXPORTER_OTLP_HEADERS
               value: Authorization=Bearer $(OTEL_EDGE_KEY)
-            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
-              value: "true"
-            - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
-            - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
-              value: 15s
             - name: K8S_POD_NAME
               valueFrom:
                 fieldRef: {fieldPath: metadata.name}

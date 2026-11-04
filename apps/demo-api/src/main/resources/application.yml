@@ -1,25 +1,2 @@
 server:
   port: 3010
-
-demo-api:
-  # Adresse de sa propre API pour /api/chain : le Service Kubernetes en
-  # cluster, l'instance locale hors Kubernetes.
-  self-url: ${DEMO_API_SELF_URL:http://localhost:3010}
-  heartbeat-ms: 30000
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  metrics:
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      percentiles:
-        http.server.requests: 0.5,0.95,0.99
-  otlp:
-    metrics:
-      export:
-        # Activé par le déploiement Kubernetes (MANAGEMENT_OTLP_METRICS_EXPORT_*).
-        enabled: false

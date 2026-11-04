@@ -1,30 +1,43 @@
-# demo-api : API de démonstration de la remontée de signaux
+# demo-api : hello world instrumenté par l'agent Java OTel
 
-API Spring Boot minimale, sans base de données ni Kafka, dont chaque point
-d'entrée produit un type de signal. Elle forme à elle seule la plateforme
-`demo` du lab (namespace `h0tl-demo-app`, ADR-015) : ses signaux suivent le
-chemin complet, agent Java OTel et Micrometer → collecteur Edge → Kafka
+API Spring Boot minimale, sans base de données ni Kafka, avec un point
+d'entrée par signal. Elle forme à elle seule la plateforme `demo` du lab (namespace
+`h0tl-demo-app`, ADR-015). Aucun code d'instrumentation : l'agent Java
+OpenTelemetry, attaché par l'`ENTRYPOINT`, produit les trois signaux, qui
+suivent le chemin agent → collecteur Edge → Kafka
 `otel-<signal>-demo-homologation` → collecteur backend → APM Server et
 Elasticsearch.
 
-| Point d'entrée | Signal démontré |
+| Point d'entrée | Signaux |
 | --- | --- |
-| `GET /api/hello?name=` | Une transaction, un log INFO avec les attributs `demo.name` et `event.action`, le compteur `demo.requests{endpoint=hello}` |
-| `GET /api/work?ms=` | Un span dont la durée varie, le timer `demo.work.duration` avec histogramme de percentiles |
-| `GET /api/chain?name=` | Un appel HTTP sortant vers sa propre API : trace distribuée sur deux transactions, span client renommé `GET /api/hello` (ADR-011) |
-| `GET /api/fail?reason=` | Un log ERROR, une transaction en échec HTTP 500 et une erreur APM : l'exception, traitée par un `@ExceptionHandler`, est enregistrée sur le span courant via l'API OpenTelemetry |
-| `GET /api/health` | Sonde des probes Kubernetes |
+| `GET /api/hello?name=` | Une transaction APM, un log INFO corrélé (`trace_id`, `span_id`) |
+| `GET /api/fail?reason=` | Un log ERROR, une transaction en échec HTTP 500 et une erreur APM : l'exception n'est pas traitée et l'instrumentation servlet de l'agent l'enregistre |
 
-Un battement de cœur toutes les 30 secondes émet un log et la jauge
-`demo.heartbeat.count`, pour que les data streams restent alimentés sans
-trafic.
+En continu, sans trafic, l'agent exporte toutes les 15 secondes les
+métriques runtime JVM de la sémantique OTel, celles de l'onglet *Metrics*
+de l'UI APM pour un service Java OTel :
+
+| Métrique | Contenu |
+| --- | --- |
+| `jvm.memory.used`, `jvm.memory.committed`, `jvm.memory.limit`, `jvm.memory.used_after_last_gc` | Mémoire par `jvm.memory.type` (heap, non_heap) et `jvm.memory.pool.name` |
+| `jvm.gc.duration` | Histogramme des pauses GC par `jvm.gc.name` et `jvm.gc.action` |
+| `jvm.thread.count` | Threads par `jvm.thread.state` et `jvm.thread.daemon` |
+| `jvm.class.count`, `jvm.class.loaded`, `jvm.class.unloaded` | Classes chargées |
+| `jvm.cpu.recent_utilization`, `jvm.cpu.time`, `jvm.cpu.count` | CPU du processus JVM |
+| `jvm.system.cpu.utilization`, `jvm.buffer.memory.used` | Expérimentales, activées par `otel.instrumentation.runtime-telemetry.emit-experimental-telemetry` |
+| `http.server.request.duration` | Histogramme des requêtes HTTP entrantes |
+
+La configuration de l'agent est dans
+`kubernetes/apps/demo-api/default/otel/demo-api.properties`
+(`otel.metrics.exporter=otlp`, `otel.metric.export.interval=15000`). Les
+sondes Kubernetes sont TCP pour ne pas créer de transactions.
 
 ## Data streams alimentés
 
 | Signal | Data stream | Filtre |
 | --- | --- | --- |
 | Logs | `logs-demo.otel-homologation` | `platform.id: demo`, `service.name: demo-api` |
-| Métriques Micrometer et JVM | `metrics-demo.otel-homologation` | idem |
+| Métriques JVM et HTTP de l'agent | `metrics-demo.otel-homologation` | idem |
 | Traces et erreurs | `traces-apm-demo_homologation`, `logs-apm.error-demo_homologation` | `service.environment: homologation` |
 | Métriques APM agrégées | `metrics-apm.*.1m-demo_homologation` | rangées par le pipeline `apm-route-namespace` |
 
@@ -45,43 +58,44 @@ trafic.
 Depuis `architecture/` :
 
 ```bash
-make demo-api-test        # tests Maven (Java 21)
-make demo-api-build       # image demo-api:1.0.0 avec l'agent Java OTel
-make demo-api-import      # import de l'image dans k3s
-make demo-api-deploy      # applique kubernetes/apps/demo-api/default et attend le rollout
-make demo-api-scenario    # hello, work, chain puis fail
-make demo-api-call DEMO_API_PATH='/api/work?ms=500'
+make demo-api-test                # test Maven (Java 21)
+make demo-api-build               # image demo-api:1.1.1 avec l'agent Java OTel
+make demo-api-import              # import de l'image dans k3s
+make demo-api-deploy              # applique kubernetes/apps/demo-api/default et attend le rollout
+make demo-api-call                # GET /api/hello?name=lab depuis le cluster
+make demo-api-call DEMO_API_PATH='/api/fail?reason=demo'
+make demo-api-jvm-metrics-verify  # métriques JVM des 5 dernières minutes
 make demo-api-logs-follow
 ```
 
-`DEMO_API_IMAGE_TAG` fixe le tag de l'image (`1.0.1` par défaut) ; un tag est
+`DEMO_API_IMAGE_TAG` fixe le tag de l'image (`1.1.1` par défaut) ; un tag est
 immuable, en choisir un nouveau à chaque image, en cohérence avec
 `kubernetes/apps/demo-api/default/kustomization.yaml`.
 
 ## Vérification
 
 ```bash
+make demo-api-jvm-metrics-verify
 make otel-routing-verify
 ```
 
-Le contrôle attend des logs et des métriques portant `platform.id: demo`.
-Dans Kibana : l'UI APM liste `demo-api` en `homologation` avec ses quatre
-transactions et l'erreur de `/api/fail` ; Discover sur `logs-*` avec
-`service.name: demo-api` montre les logs, `trace_id` renseigné pour ceux
-émis dans une requête ; `metrics-*` avec `data_stream.dataset: demo.otel`
-montre `demo.requests`, `demo.work.duration` et `demo.heartbeat.count`.
+`demo-api-jvm-metrics-verify` affiche `OK` pour `jvm.memory.used`,
+`jvm.memory.limit`, `jvm.gc.duration`, `jvm.thread.count`, `jvm.class.count`
+et `jvm.cpu.recent_utilization`. Dans Kibana : l'UI APM liste `demo-api` en
+`homologation`, ses transactions `GET /api/hello` et `GET /api/fail`,
+l'erreur `DemoFailureException` et l'onglet *Metrics* (mémoire
+heap et non-heap, GC, threads, CPU) ; Discover sur `metrics-*` avec
+`service.name: demo-api` montre les champs `metrics.jvm.*`.
 
 ## Structure
 
 ```text
 apps/demo-api/
-  pom.xml                       Spring Boot 3.4.5, Java 21, Micrometer OTLP
+  pom.xml                       Spring Boot 3.4.5, Java 21, starter web seul
   Dockerfile                    build Maven, agent Java OTel attaché par l'ENTRYPOINT
   src/main/java/io/systemlens/demo/
-    DemoApiApplication.java     démarrage, RestTemplate
-    SignalController.java       points d'entrée HTTP
-    SignalService.java          logs, métriques, appel sortant, erreur contrôlée
-    HeartbeatScheduler.java     battement de cœur
+    DemoApiApplication.java     démarrage
+    HelloController.java        GET /api/hello, GET /api/fail
 kubernetes/apps/demo-api/
   base/                         namespace h0tl-demo-app, Deployment, Service
   default/                      overlay : otel.properties, patch d'instrumentation

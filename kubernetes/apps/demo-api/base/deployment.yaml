@@ -30,25 +30,20 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-          image: demo-api:1.0.1
+          image: demo-api:1.1.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3010
-          env:
-            - name: DEMO_API_SELF_URL
-              value: http://demo-api:3010
+          # Sondes TCP : aucune transaction APM parasite.
           readinessProbe:
-            httpGet:
-              path: /api/health
+            tcpSocket:
               port: http
           livenessProbe:
-            httpGet:
-              path: /api/health
+            tcpSocket:
               port: http
           startupProbe:
-            httpGet:
-              path: /api/health
+            tcpSocket:
               port: http
             periodSeconds: 5
             failureThreshold: 60

@@ -19,6 +19,8 @@ l'environnement dans le nom du topic (ADR-015).
 
 L'application `apps/demo-api` est l'exemple minimal de ce guide : un seul
 service, sa plateforme `demo`, ses manifests sous `kubernetes/apps/demo-api/`.
+Sans Micrometer, elle laisse l'agent exporter aussi les métriques JVM
+(`otel.metrics.exporter=otlp`), au format sémantique OTel lu par l'UI APM.
 
 ## Préparer l'application
 
@@ -89,7 +91,7 @@ la réponse est un 500. Pour qu'elle apparaisse dans l'UI APM, l'enregistrer
 sur le span courant avec l'API OpenTelemetry, reliée à l'agent
 (`io.opentelemetry:opentelemetry-api`, version gérée par le BOM de Spring
 Boot) : `Span.current().recordException(e)` puis
-`setStatus(StatusCode.ERROR, ...)`, comme le fait `demo-api`.
+`setStatus(StatusCode.ERROR, ...)`.
 
 ## Convention d'environnement
 
