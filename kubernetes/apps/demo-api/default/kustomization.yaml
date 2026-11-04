@@ -6,8 +6,6 @@ resources:
 images:
   - name: demo-api
     newTag: 1.1.1
-generatorOptions:
-  disableNameSuffixHash: true
 configMapGenerator:
   - name: demo-api-otel-config
     files:

@@ -29,7 +29,9 @@ de l'UI APM pour un service Java OTel :
 
 La configuration de l'agent est dans
 `kubernetes/apps/demo-api/default/otel/demo-api.properties`
-(`otel.metrics.exporter=otlp`, `otel.metric.export.interval=15000`). Les
+(`otel.metrics.exporter=otlp`, `otel.metric.export.interval=15000`). Les trois
+signaux partent en OTLP gRPC sur le port `4317` du Service `otel-edge-vm`
+(`otel.exporter.otlp.protocol=grpc`). Les
 sondes Kubernetes sont TCP pour ne pas créer de transactions.
 
 ## Data streams alimentés
