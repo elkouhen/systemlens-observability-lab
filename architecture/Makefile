@@ -56,7 +56,7 @@ OTEL_EDGE_KEYS := OTEL_EDGE_KEY_K3S_01 OTEL_EDGE_KEY_SUPERMARKET_MIDDLEWARE_01 O
 # disponibles pour les dépendances et les diagnostics ciblés, sans apparaître
 # dans l'aide courante.
 HELP_TARGETS := help architecture-status credentials-show credentials-generate cluster-show \
-	platform-status kubernetes-status vm-status vm-services-status vm-services-restart time-sync-verify \
+	platform-status kubernetes-status vm-status vm-services-status vm-services-restart time-sync-apply time-sync-verify \
 	apps-build apps-test command-center-build \
 	kubernetes-validate ansible-validate otel-config-validate elastic-version-validate ci-run \
 	vms-start vms-restart vms-destroy \
@@ -127,6 +127,9 @@ vm-services-status: ## Afficher l'état des services de chaque VM et des workloa
 
 vm-services-restart: ## Redémarrer les services des VM puis les workloads Kubernetes
 	@./scripts/vm-services-restart.sh
+
+time-sync-apply: ## Appliquer la configuration chrony et le timer de reprise après suspension sur les cinq VM
+	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i $(ARCH_ROOT)/ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/time-sync.yml
 
 time-sync-verify: ## Vérifier la synchronisation chrony des cinq VM
 	@set -euo pipefail; for node in supermarket-middleware-01 otel-backend-01 otel-edge-01 elk-01 $(K3S_VM_NAME); do \

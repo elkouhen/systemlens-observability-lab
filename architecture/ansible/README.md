@@ -42,8 +42,16 @@ hostmetricsreceiver.otel`.
 
 Le rôle `common` configure chrony avec `makestep 1.0 -1` et `maxpoll 6` sur
 chaque source : chrony interroge ses sources au moins toutes les 64 s et saute
-l’horloge dès qu’elle dérive de plus d’une seconde. Une VM VirtualBox mise en
-pause par la veille de l’hôte se recale ainsi en trois minutes environ. Cette
+l’horloge dès qu’elle dérive de plus d’une seconde. Ce réglage ne suffit pas
+après une veille de l’hôte : la VM reprend avec des minutes de retard, chrony
+mêle des mesures d’avant et d’après le saut, marque toutes ses sources trop
+variables (`~`) et, sans source sélectionnée, ne saute jamais l’horloge
+(constaté le 2026-11-07 : jusqu’à 1 024 s de retard sur les cinq VM). Le timer
+`chrony-resume-check.timer` vérifie donc chaque minute qu’une source est
+sélectionnée ; sinon, il exécute `chronyc reset sources` puis `chronyc burst`,
+et `makestep` recale l’horloge en une à deux minutes. Les tâches chrony sont
+dans `roles/common/tasks/chrony.yml` ; `make time-sync-apply` les applique
+seules aux cinq VM, sans redéployer le reste. Cette
 synchronisation continue est nécessaire aux fenêtres temporelles des dashboards
 et au chemin OTLP → Kafka → Elasticsearch. `rtcsync` maintient également
 l’horloge matérielle alignée sur l’horloge système. Vérifier les cinq VM avec
