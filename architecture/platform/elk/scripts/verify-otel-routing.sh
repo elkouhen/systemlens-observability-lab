@@ -55,10 +55,19 @@ check_positive() {
   fi
 }
 
+# Les métriques de l'agent Java OTel passent par APM Server (ADR-016) :
+# metrics-apm.app.<service>-<plateforme>_<environnement>, où platform.id
+# devient le label platform_id. Elles comptent pour leur plateforme.
 for platform in ${OTEL_PLATFORMS}; do
   for type in logs metrics; do
-    count="$(count_query "${type}-*.otel-${environment}" \
-      "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"term\":{\"resource.attributes.platform.id\":\"${platform}\"}}]}}}")"
+    indices="${type}-*.otel-${environment}"
+    platform_filter="{\"term\":{\"resource.attributes.platform.id\":\"${platform}\"}}"
+    if [[ "${type}" == metrics ]]; then
+      indices="${indices},metrics-apm.app.*-${platform}_${environment}"
+      platform_filter="{\"bool\":{\"should\":[${platform_filter},{\"term\":{\"labels.platform_id\":\"${platform}\"}}],\"minimum_should_match\":1}}"
+    fi
+    count="$(count_query "${indices}" \
+      "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),${platform_filter}]}}}")"
     check_positive "${type} de la plateforme ${platform} (platform.id)" "${count}"
   done
 done
