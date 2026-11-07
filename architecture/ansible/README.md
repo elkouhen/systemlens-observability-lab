@@ -314,6 +314,15 @@ par les pipelines `@custom` des data streams APM, range ces agrégats dans ce
 namespace et retire le label de tous les documents APM
 (`make apm-ingest-pipelines-deploy`).
 
+Les métriques sont partagées par le connecteur `routing/metrics`
+([ADR-016](../docs/ADR-016-metriques-agent-otel-vers-apm-server.md)) : celles
+des scopes `io.opentelemetry.*`, émises par l'agent Java OTel (runtime JVM,
+HTTP, SDK), passent par `transform/apm-metrics` (retrait du dataset,
+namespace `<plateforme>_<env>`) puis APM Server, qui les range dans
+`metrics-apm.app.<service>-<plateforme>_<env>` pour l'onglet *Metrics* de
+l'UI APM. Les autres (Micrometer, Kubernetes, hôtes, télémétrie interne)
+restent sur l'exporteur Elasticsearch en mapping OTel.
+
 La télémétrie interne du collecteur backend ne passe pas par Kafka : sa
 ressource porte `platform.id` et `data_stream.namespace` de la VM. L'agent
 EDOT de `otel-backend-01` publie directement dans les topics de sa plateforme

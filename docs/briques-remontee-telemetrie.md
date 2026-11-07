@@ -8,6 +8,7 @@ métriques vers Elastic.
 | Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces-supermarche-homologation` | Collector backend → APM Server |
 | Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → Edge → Kafka `otel-logs-supermarche-homologation` | Collector backend → Elasticsearch |
 | Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics-supermarche-homologation` | Collector backend → Elasticsearch |
+| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry (scopes `io.opentelemetry.*`) | OTLP → Edge → Kafka `otel-metrics-<plateforme>-homologation` | Collector backend → APM Server (ADR-016) |
 | Métriques Kubernetes | EDOT DaemonSet `kubeletstats`, Deployment `k8s_cluster` | OTLP → Edge → Kafka `otel-metrics-k3s-homologation` | Collector backend → Elasticsearch |
 | Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka `otel-<signal>-<plateforme>-homologation` | Collector backend → Elasticsearch |
 

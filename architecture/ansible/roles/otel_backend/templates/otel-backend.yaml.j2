@@ -153,6 +153,44 @@ processors:
       - context: resource
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
+  # Métriques de l'agent Java OTel vers APM Server (ADR-016) : elles suivent le
+  # modèle des traces du même service. APM Server les range dans
+  # metrics-apm.app.<service>-<plateforme>_<environnement>, lu par l'onglet
+  # Metrics de l'UI APM. Le dataset applicatif posé par l'Edge est retiré
+  # (APM Server garde apm.app) et le namespace reprend la composition des
+  # traces, <plateforme>_<environnement>. Un apm.route.namespace reçu est
+  # écarté : seul ce collecteur le pose.
+  transform/apm-metrics:
+    error_mode: ignore
+    metric_statements:
+      - context: resource
+        statements:
+          - delete_key(resource.attributes, "data_stream.dataset")
+          - delete_key(resource.attributes, "apm.route.namespace")
+      - context: resource
+        conditions:
+          - resource.attributes["platform.id"] != nil and resource.attributes["data_stream.namespace"] != nil
+        statements:
+          - set(resource.attributes["data_stream.namespace"], Concat([resource.attributes["platform.id"], resource.attributes["data_stream.namespace"]], "_"))
+          # APM Server calcule aussi des agrégats (service_summary) depuis les
+          # métriques : le label de routage les range dans le namespace des
+          # traces (ADR-010), comme pour les agrégats issus des traces.
+          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"])
+
+connectors:
+  # Partage du flux de métriques (ADR-016). Les métriques des scopes
+  # io.opentelemetry.* sont émises par l'agent Java OTel (runtime JVM,
+  # instrumentation HTTP, SDK) : elles vont à APM Server. Toutes les autres
+  # (Micrometer, collecteurs Kubernetes, hôtes, télémétrie interne) restent
+  # indexées en mapping OTel natif.
+  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/routingconnector
+  routing/metrics:
+    error_mode: ignore
+    default_pipelines: [metrics/elasticsearch]
+    table:
+      - context: metric
+        condition: IsMatch(instrumentation_scope.name, "^io\\.opentelemetry\\.")
+        pipelines: [metrics/apm]
 
 exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
@@ -184,7 +222,8 @@ exporters:
   # Mode de mapping OTel natif (défaut de l'exporteur) pour tous les signaux
   # indexés ici : les data streams prennent le suffixe .otel, par exemple
   # logs-supermarche.otel-homologation (ADR-012). Aucun flux n'est forcé en
-  # ECS ; les traces passent par APM Server et gardent son modèle.
+  # ECS ; les traces et les métriques de l'agent Java OTel passent par APM
+  # Server et gardent son modèle (ADR-016).
   elasticsearch/otel:
     endpoints: ["{{ elasticsearch_url }}"]
     api_key: ${env:ELASTICSEARCH_API_KEY}
@@ -263,6 +302,13 @@ service:
     metrics:
       receivers: [kafka/otlp]
       processors: [memory_limiter, filter/invalid-double, resource/kafka-topic, transform/data-stream-route, cumulativetodelta]
+      exporters: [routing/metrics]
+    metrics/apm:
+      receivers: [routing/metrics]
+      processors: [transform/apm-metrics]
+      exporters: [otlphttp/apm-server]
+    metrics/elasticsearch:
+      receivers: [routing/metrics]
       exporters: [elasticsearch/otel]
     logs:
       receivers: [kafka/otlp]

@@ -63,7 +63,8 @@ l'environnement. Les topics `otel-<signal>-supermarche` et
 | Signal | Data stream |
 | --- | --- |
 | Logs des services `supermarket-demo` | `logs-supermarche.otel-homologation` (ADR-012) |
-| Métriques Micrometer et JVM | `metrics-supermarche.otel-homologation` |
+| Métriques Micrometer | `metrics-supermarche.otel-homologation` |
+| Métriques runtime de l'agent Java OTel | `metrics-apm.app.<service>-<plateforme>_<environnement>` ([ADR-016](ADR-016-metriques-agent-otel-vers-apm-server.md)) |
 | Traces | `traces-apm-supermarche_homologation` (note du 2026-11-02) |
 | Erreurs APM | `logs-apm.error-supermarche_homologation` (note du 2026-11-02) |
 | Métriques Kubernetes | `metrics-{kubeletstatsreceiver,k8sclusterreceiver,hostmetricsreceiver,prometheusreceiver}.otel-homologation` |

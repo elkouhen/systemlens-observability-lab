@@ -186,15 +186,15 @@ demo-api-call: ## Appeler demo-api depuis le cluster (DEMO_API_PATH=/api/hello?n
 		--restart=Never --rm --attach -i --command -- \
 		curl --silent --show-error -w '\nHTTP %{http_code}\n' "http://demo-api:3010$(DEMO_API_PATH)"
 
-demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM de l'agent OTel de demo-api (5 dernières minutes)
+demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM de l'agent OTel de demo-api dans APM Server (5 dernières minutes, ADR-016)
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
 	 status=0; \
 	 for metric in jvm.memory.used jvm.memory.limit jvm.gc.duration jvm.thread.count jvm.class.count jvm.cpu.recent_utilization; do \
 	   count="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 	     -u "elastic:$$es_password" -H 'Content-Type: application/json' \
-	     '$(ELASTICSEARCH_URL)/metrics-demo.otel-*/_count' \
-	     --data "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"service.name\":\"demo-api\"}},{\"exists\":{\"field\":\"metrics.$$metric\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-5m\"}}}]}}}" \
+	     '$(ELASTICSEARCH_URL)/metrics-apm.app.demo_api-*,metrics-apm.internal-*/_count' \
+	     --data "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"service.name\":\"demo-api\"}},{\"exists\":{\"field\":\"$$metric\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-5m\"}}}]}}}" \
 	     | jq -r '.count')"; \
 	   if [ "$$count" -gt 0 ]; then echo "OK   $$metric : $$count documents"; else echo "KO   $$metric : aucun document" >&2; status=1; fi; \
 	 done; \
@@ -441,6 +441,14 @@ apps-deploy: ## Déployer uniquement l'application de démonstration
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/inventory-service --timeout=180s
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/restock-service --timeout=180s
+
+apps-restart: ## Redémarrer les services supermarket-demo pour recharger la configuration de l'agent OTel (ConfigMap sans suffixe de hash)
+	@for deployment in order-service inventory-service restock-service; do \
+	  $(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/$$deployment; \
+	done
+	@for deployment in order-service inventory-service restock-service; do \
+	  $(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/$$deployment --timeout=240s; \
+	done
 
 application-data-verify: ## Vérifier le schéma et le catalogue avant une charge de test
 	@set -euo pipefail; \

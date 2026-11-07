@@ -65,6 +65,7 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 | Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces-supermarche-homologation` | EDOT backend, APM Server |
 | Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, Edge, Kafka `otel-logs-supermarche-homologation` | EDOT backend, Elasticsearch |
 | Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics-supermarche-homologation` | EDOT backend, Elasticsearch |
+| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry | OTLP, Edge, Kafka de la plateforme | EDOT backend, APM Server (ADR-016) |
 | Métriques Kubernetes | EDOT DaemonSet et Deployment | OTLP, Edge, Kafka `otel-metrics-k3s-homologation` | EDOT backend, Elasticsearch |
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka de la plateforme de la VM | EDOT backend, Elasticsearch |
 

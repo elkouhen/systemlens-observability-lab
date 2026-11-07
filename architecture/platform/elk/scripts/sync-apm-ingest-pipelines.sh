@@ -25,8 +25,9 @@ curl "${elasticsearch_args[@]}" -X PUT \
 printf 'Ingest pipeline updated: apm-route-namespace\n'
 
 # Data streams APM qui peuvent porter le label : traces, erreurs, logs
-# applicatifs dérivés des traces et métriques agrégées (tous intervalles).
-for pipeline in traces-apm@custom logs-apm.error@custom logs-apm.app@custom \
+# applicatifs dérivés des traces, métriques de l'agent OTel (ADR-016) et
+# métriques agrégées (tous intervalles).
+for pipeline in traces-apm@custom logs-apm.error@custom logs-apm.app@custom metrics-apm.app@custom metrics-apm.internal@custom \
   metrics-apm.transaction@custom metrics-apm.service_transaction@custom \
   metrics-apm.service_destination@custom metrics-apm.service_summary@custom; do
   jq -n --arg pipeline "${pipeline}" '{

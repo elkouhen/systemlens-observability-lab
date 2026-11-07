@@ -21,6 +21,9 @@ L'application `apps/demo-api` est l'exemple minimal de ce guide : un seul
 service, sa plateforme `demo`, ses manifests sous `kubernetes/apps/demo-api/`.
 Sans Micrometer, elle laisse l'agent exporter aussi les métriques JVM
 (`otel.metrics.exporter=otlp`), au format sémantique OTel lu par l'UI APM.
+Le collecteur backend envoie à APM Server les métriques des scopes
+`io.opentelemetry.*` de l'agent (ADR-016) ; les métriques Micrometer restent
+indexées en mapping OTel natif dans `metrics-<dataset>.otel-<environnement>`.
 
 ## Préparer l'application
 
