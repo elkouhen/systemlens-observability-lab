@@ -189,6 +189,27 @@ if [[ "${mode}" == schema ]]; then
   otel_log_missing="$(count_query 'logs-supermarche.otel-*' "${otel_log_missing_query}")"
   check_zero "logs applicatifs sans severity_text, body.text ou service.name" "${otel_log_missing}"
 
+  # Corrélation : un log de niveau INFO ou inférieur (severity_number < 13)
+  # est émis par le code applicatif pendant un traitement et porte donc le
+  # trace_id de sa trace. Les frameworks n'émettent qu'à partir de WARN
+  # (kubernetes/apps/supermarket-demo/default/logging.yaml). Seule exception :
+  # la ligne de démarrage de la classe principale (*Application), émise
+  # avant toute requête.
+  untraced_log_query="$(jq -cn --arg window "${window}" '{
+    query: {bool: {
+      filter: [
+        {range: {"@timestamp": {gte: ("now-" + $window)}}},
+        {range: {severity_number: {lt: 13}}}
+      ],
+      must_not: [
+        {exists: {field: "trace_id"}},
+        {wildcard: {"scope.name": "*Application"}}
+      ]
+    }}
+  }')"
+  untraced_logs="$(count_query 'logs-supermarche.otel-*' "${untraced_log_query}")"
+  check_zero "logs applicatifs INFO sans trace_id" "${untraced_logs}"
+
   ecs_log_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {
       filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],

@@ -1,0 +1,11 @@
+# Niveaux de log des trois services. Les logs OTel doivent porter le
+# trace_id du traitement qui les émet : seuls les loggers applicatifs
+# (io.systemlens) restent en INFO. Les frameworks (Spring, Tomcat, client
+# Kafka, Flyway, Hikari, Micrometer) n'émettent qu'à partir de WARN, hors de
+# toute requête. make observability-schema-verify contrôle cette règle.
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value: {name: LOGGING_LEVEL_ROOT, value: WARN}
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value: {name: LOGGING_LEVEL_IO_SYSTEMLENS, value: INFO}

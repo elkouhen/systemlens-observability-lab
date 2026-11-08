@@ -89,6 +89,13 @@ les requêtes existantes sur `logs-*` fonctionnent sans copie de champ.
 
 - Les logs applicatifs ne dépendent plus du format de stdout ni du runtime de
   conteneurs. Un log émis hors span n'a pas de `trace_id`.
+- Note du 2026-11-08 : les loggers des frameworks (Spring, Tomcat, client
+  Kafka, Flyway, Hikari, Micrometer) n'émettent qu'à partir de `WARN`, seuls
+  ceux de `io.systemlens` restent en `INFO`
+  (`kubernetes/apps/supermarket-demo/default/logging.yaml`). Tout log `INFO`
+  porte donc un `trace_id`, hormis la ligne de démarrage de la classe
+  `*Application` ; `make observability-schema-verify` le contrôle. Les logs
+  sans `trace_id` restants signalent un problème hors requête.
 - Une application non Java, ou sans agent OTel, d'un autre namespace doit
   rétablir un receiver `filelog` dans le DaemonSet
   ([apps/ADDING_APPLICATION.md](../../apps/ADDING_APPLICATION.md)).
