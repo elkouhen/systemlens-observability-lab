@@ -109,12 +109,12 @@ if [[ "${mode}" == trace-context ]]; then
       ]}},
       aggs: {trace_ids: {terms: {field: "trace_id", size: 1}}}
     }')"
-    logs_response="$(request POST '/logs-supermarche.otel-*/_search?allow_no_indices=true' "${logs_query}")"
+    logs_response="$(request POST '/logs-generic.otel-supermarche_*/_search?allow_no_indices=true' "${logs_query}")"
     correlated="$(jq -r '.aggregations.trace_ids.buckets[0] // empty | "\(.key) : \(.doc_count)"' <<<"${logs_response}")"
     if [[ -n "${correlated}" ]]; then
       printf 'OK      logs OTel corrélés (trace_id) avec la trace %s document(s)\n' "${correlated}"
     else
-      printf 'KO      aucun log de logs-supermarche.otel-* ne porte le trace_id des traces REST/Kafka\n' >&2
+      printf 'KO      aucun log de logs-generic.otel-supermarche_* ne porte le trace_id des traces REST/Kafka\n' >&2
       failures=1
     fi
   fi
@@ -159,7 +159,7 @@ if [[ "${mode}" == schema ]]; then
       must_not: [{exists: {field: "service.name"}}]
     }}
   }')"
-  service_missing="$(count_query 'traces-*,metrics-supermarche.otel-*,metrics-generic.otel-*,logs-generic.otel-*' "${service_missing_query}")"
+  service_missing="$(count_query 'traces-*,metrics-generic.otel-supermarche_*,logs-generic.otel-supermarche_*' "${service_missing_query}")"
   check_zero "documents OTel applicatifs sans service.name" "${service_missing}"
 
   # Logs applicatifs OTel natifs (ADR-012) : présents, avec sévérité, corps
@@ -167,11 +167,11 @@ if [[ "${mode}" == schema ]]; then
   app_logs_query="$(jq -cn --arg window "${window}" '{
     query: {range: {"@timestamp": {gte: ("now-" + $window)}}}
   }')"
-  app_logs="$(count_query 'logs-supermarche.otel-*' "${app_logs_query}")"
+  app_logs="$(count_query 'logs-generic.otel-supermarche_*' "${app_logs_query}")"
   if (( app_logs > 0 )); then
     printf 'OK      logs applicatifs OTel natifs : %s document(s)\n' "${app_logs}"
   else
-    printf 'KO      aucun log applicatif dans logs-supermarche.otel-*\n' >&2
+    printf 'KO      aucun log applicatif dans logs-generic.otel-supermarche_*\n' >&2
     failures=1
   fi
 
@@ -186,7 +186,7 @@ if [[ "${mode}" == schema ]]; then
       minimum_should_match: 1
     }}
   }')"
-  otel_log_missing="$(count_query 'logs-supermarche.otel-*' "${otel_log_missing_query}")"
+  otel_log_missing="$(count_query 'logs-generic.otel-supermarche_*' "${otel_log_missing_query}")"
   check_zero "logs applicatifs sans severity_text, body.text ou service.name" "${otel_log_missing}"
 
   # Corrélation : un log de niveau INFO ou inférieur (severity_number < 13)
@@ -207,8 +207,20 @@ if [[ "${mode}" == schema ]]; then
       ]
     }}
   }')"
-  untraced_logs="$(count_query 'logs-supermarche.otel-*' "${untraced_log_query}")"
+  untraced_logs="$(count_query 'logs-generic.otel-supermarche_*' "${untraced_log_query}")"
   check_zero "logs applicatifs INFO sans trace_id" "${untraced_logs}"
+
+  # L'UI APM filtre les signaux d'un service par service.environment, alias
+  # de resource.attributes.deployment.environment dans les templates OTel
+  # d'Elasticsearch. Le collecteur backend le pose depuis le topic (ADR-018).
+  no_environment_query="$(jq -cn --arg window "${window}" '{
+    query: {bool: {
+      filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],
+      must_not: [{exists: {field: "service.environment"}}]
+    }}
+  }')"
+  no_environment="$(count_query 'logs-generic.otel-supermarche_*,metrics-generic.otel-supermarche_*,traces-generic.otel-supermarche_*' "${no_environment_query}")"
+  check_zero "signaux applicatifs sans service.environment (filtre de l'UI APM)" "${no_environment}"
 
   ecs_log_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {

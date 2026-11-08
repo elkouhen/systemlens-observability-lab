@@ -5,6 +5,10 @@
 Accepted, déployé le 2026-11-03 ([backlog](backlog.md)). Voir la note de mise
 en œuvre et la vérification en fin de document.
 
+La section « Plateforme : un champ, pas un data stream » est remplacée par
+[ADR-019](ADR-019-namespace-par-plateforme.md) : le namespace des data
+streams vaut `<plateforme>_<environnement>`.
+
 Remplace la note du 2026-11-02 d'[ADR-007](ADR-007-namespace-data-stream-par-topic.md)
 (le topic porte le dataset) et les règles de topic d'[ADR-009](ADR-009-namespaces-supermarche-et-k8s.md)
 (route Kubernetes, marqueur `otel.edge.source`). Conserve

@@ -77,12 +77,12 @@ plateformes en `homologation` : `k3s` (cluster et collecteurs Kubernetes, VM
 démonstration `demo-api`) et `elk` (VM d'observabilité, collecteurs Edge et
 backend). L'Edge, associé au cluster, choisit le topic de chaque ressource
 depuis sa table des namespaces et depuis la déclaration de chaque VM
-(`otel_platform`, `otel_environment`, `otel_edge`), et pose le dataset des
-applications. Le backend lit dans le nom du topic la plateforme (`platform.id`)
-et le namespace. Le dataset nomme l'application ou le receiver, le namespace
-l'environnement (ADR-010) : `logs-supermarche.otel-homologation`,
-`metrics-kubeletstatsreceiver.otel-homologation`,
-`traces-supermarche.otel-homologation`. Le Collector backend applique le
+(`otel_platform`, `otel_environment`, `otel_edge`). Le backend lit dans le
+nom du topic la plateforme (`platform.id`) et le namespace
+`<plateforme>_<environnement>` (ADR-019) ; le dataset est celui du receiver, ou `generic` pour les signaux OTLP des applications :
+`logs-generic.otel-supermarche_homologation`,
+`metrics-kubeletstatsreceiver.otel-k3s_homologation`,
+`traces-generic.otel-supermarche_homologation`. Le Collector backend applique le
 traitement nécessaire avant l’export vers Elastic, sans conversion ECS : le
 processeur `elasticapm` enrichit les traces et le connecteur `elasticapm` en
 tire les métriques agrégées de l'UI APM (ADR-018).

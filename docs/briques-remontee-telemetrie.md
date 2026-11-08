@@ -23,17 +23,17 @@ l'environnement dans le nom du topic, pose `platform.id` et
 `data_stream.namespace`, puis applique la limitation mémoire et la queue
 disque avant l'export Elasticsearch.
 
-Les flux suivent la convention Elastic (ADR-010) : le dataset nomme
-l'application ou le receiver, le namespace l'environnement, la plateforme est
-le champ `platform.id`. Les services `supermarket-demo`
-écrivent dans `logs-supermarche.otel-homologation` (logs OTel natifs, ADR-012),
-`metrics-supermarche.otel-homologation`,
-`traces-supermarche.otel-homologation` et les métriques agrégées de l'UI APM
-`metrics-<métrique>.1m.otel-homologation`, toutes en OTel natif (ADR-018). Les
+Les flux suivent la convention Elastic : le dataset est celui du receiver, ou `generic` pour les signaux OTLP des applications, le namespace
+vaut `<plateforme>_<environnement>` (ADR-019) et la plateforme est aussi le
+champ `platform.id`. Les services `supermarket-demo`
+écrivent dans `logs-generic.otel-supermarche_homologation` (logs OTel natifs, ADR-012),
+`metrics-generic.otel-supermarche_homologation`,
+`traces-generic.otel-supermarche_homologation` et les métriques agrégées de l'UI APM
+`metrics-<métrique>.1m.otel-supermarche_homologation`, toutes en OTel natif (ADR-018). Les
 collecteurs Kubernetes et les agents des VM gardent le dataset de leur
-receiver, par exemple `metrics-kubeletstatsreceiver.otel-homologation` et
-`metrics-hostmetricsreceiver.otel-homologation`, où `platform.id` distingue
-`k3s`, `supermarche` et `elk`.
+receiver, par exemple `metrics-kubeletstatsreceiver.otel-k3s_homologation` et
+`metrics-hostmetricsreceiver.otel-<plateforme>_homologation` : le namespace
+sépare `k3s`, `supermarche` et `elk` (ADR-019), comme le champ `platform.id`.
 
 Les cinq VM, `k3s-01` comprise, exécutent Elastic Agent en mode EDOT
 standalone. La configuration locale collecte les logs système et les

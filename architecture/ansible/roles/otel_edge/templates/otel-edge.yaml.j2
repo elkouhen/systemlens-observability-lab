@@ -61,15 +61,15 @@ processors:
   3. Namespace Kubernetes connu (celui des collecteurs, puis les plateformes
      hébergées) : topic de sa plateforme.
   4. host.name d'une VM rattachée : topic de sa plateforme.
-  5. Dataset d'une route applicative sur les trois signaux de son
-     namespace : traces-<dataset>.otel-<environnement> comme les logs et
-     les métriques (ADR-018).
+  5. Aucun dataset n'est posé : celui du receiver, lu par les vues Kibana et
+     Fleet, ou generic pour les signaux OTLP des applications (ADR-019).
      k8s.cluster.name du cluster sur toute ressource Kubernetes. Le marqueur
      n'est pas indexé. Le backend tire du topic platform.id,
-     data_stream.namespace et deployment.environment.name.
+     data_stream.namespace (<plateforme>_<environnement>, ADR-019) et
+     deployment.environment.name.
   Une ressource sans topic est rejetée ensuite par filter/unrouted.
 #}
-{% set cluster_route = {'kubernetes_namespace': otel_edge_cluster.kubernetes_namespace, 'platform': otel_edge_cluster.platform, 'environment': otel_edge_cluster.environment, 'dataset': 'receiver'} %}
+{% set cluster_route = {'kubernetes_namespace': otel_edge_cluster.kubernetes_namespace, 'platform': otel_edge_cluster.platform, 'environment': otel_edge_cluster.environment} %}
 {% set namespace_routes = [cluster_route] + otel_edge_namespace_routes %}
 {% macro kafka_topic_statements(signal) %}
 {% set cluster_topic = 'otel-' ~ signal ~ '-' ~ otel_edge_cluster.platform ~ '-' ~ otel_edge_cluster.environment %}
@@ -90,9 +90,6 @@ processors:
 {% endif %}
 {% for host in otel_edge_hosts %}
           - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ hostvars[host].otel_platform }}-{{ hostvars[host].otel_environment }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["host.name"] == "{{ host }}"
-{% endfor %}
-{% for route in otel_edge_namespace_routes if route.dataset != 'receiver' %}
-          - set(resource.attributes["data_stream.dataset"], "{{ route.dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.platform }}-{{ route.environment }}" and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
 {% endfor %}
           - set(resource.attributes["k8s.cluster.name"], "{{ otel_edge_cluster.name }}") where resource.attributes["k8s.namespace.name"] != nil or resource.attributes["otel.edge.source"] == "kubernetes"
           # Le marqueur des collecteurs Kubernetes n'est pas indexé.
@@ -173,6 +170,22 @@ exporters:
     # reçoivent rien : filter/unrouted rejette avant toute ressource sans
     # topic (ADR-015).
     topic_from_attribute: otel.kafka.topic
+    # File persistante (ADR-013) : un lot accepté par l'Edge est écrit dans
+    # file_storage avant l'envoi à Kafka. Il survit à un redémarrage du
+    # collecteur et à une panne de Kafka ; pleine, la file refuse les données
+    # et les clients OTLP réessaient. Après 30 min de réessais, un lot est
+    # abandonné : un refus durable (ACL Kafka, ADR-017) ne bloque pas la file
+    # des autres plateformes et reste visible dans
+    # otelcol_exporter_send_failed_*.
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 30m
 
 service:
   extensions: [health_check, file_storage, bearertokenauth/clients]

@@ -97,23 +97,54 @@ processors:
   # Routage par plateforme (ADR-015) : le nom du topic,
   # otel-<signal>-<plateforme>-<environnement>, est la preuve de provenance.
   # La souscription garantit ce format. Le backend en tire platform.id,
-  # data_stream.namespace et deployment.environment.name (valeur reçue
-  # écrasée). Le dataset est celui posé par l'Edge pour une application,
-  # sinon celui que l'exporteur dérive du receiver. otel.kafka.topic est
-  # ensuite supprimé.
+  # data_stream.namespace = <plateforme>_<environnement> (ADR-019),
+  # deployment.environment.name et deployment.environment = <environnement>
+  # (valeurs reçues écrasées). Le dataset est celui que l'exporteur dérive du
+  # receiver, ou generic pour les signaux OTLP des applications : les
+  # vues Kibana et Fleet (Infrastructure, dashboards d'intégration, APM)
+  # sélectionnent le dataset, la plateforme sépare les data streams par
+  # namespace, donc par motif d'index.
+  # Les data_stream.* posés sur un log, un span ou un point, prioritaires
+  # sur ceux de la ressource dans l'exporteur, sont supprimés.
+  # otel.kafka.topic est ensuite supprimé.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
   transform/data-stream-route:
     error_mode: ignore
-    trace_statements: &data_stream_route
-      - context: resource
+    trace_statements:
+      - &data_stream_route_resource
+        context: resource
         statements:
           - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-(?P<platform>[a-z0-9_]+)-(?P<environment>[a-z0-9_]+)$"), "upsert")
           - set(resource.attributes["platform.id"], resource.cache["platform"])
-          - set(resource.attributes["data_stream.namespace"], resource.cache["environment"])
+          - set(resource.attributes["data_stream.namespace"], Concat([resource.cache["platform"], resource.cache["environment"]], "_"))
           - set(resource.attributes["deployment.environment.name"], resource.cache["environment"])
+          # Ancien nom de la convention sémantique : les templates OTel
+          # d'Elasticsearch en font l'alias service.environment, par lequel
+          # l'UI APM filtre les logs, métriques et traces d'un service.
+          - set(resource.attributes["deployment.environment"], resource.cache["environment"])
           - delete_key(resource.attributes, "otel.kafka.topic")
-    metric_statements: *data_stream_route
-    log_statements: *data_stream_route
+      - context: scope
+        statements:
+          - delete_matching_keys(scope.attributes, "^data_stream\\.")
+      - context: span
+        statements:
+          - delete_matching_keys(span.attributes, "^data_stream\\.")
+    metric_statements:
+      - *data_stream_route_resource
+      - context: scope
+        statements:
+          - delete_matching_keys(scope.attributes, "^data_stream\\.")
+      - context: datapoint
+        statements:
+          - delete_matching_keys(datapoint.attributes, "^data_stream\\.")
+    log_statements:
+      - *data_stream_route_resource
+      - context: scope
+        statements:
+          - delete_matching_keys(scope.attributes, "^data_stream\\.")
+      - context: log
+        statements:
+          - delete_matching_keys(log.attributes, "^data_stream\\.")
   # Enrichissement des traces pour l'UI APM, en OTel natif (ADR-018) :
   # transactions, spans, service et environnement, sans conversion ECS.
   # Documentation : https://www.elastic.co/docs/reference/edot-collector/components/elasticapmprocessor
@@ -128,8 +159,8 @@ connectors:
 exporters:
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter
   # Mode de mapping OTel natif pour tous les signaux : les data streams
-  # prennent le suffixe .otel, par exemple logs-supermarche.otel-homologation
-  # (ADR-012). Aucun flux n'est converti en ECS, traces comprises (ADR-018).
+  # prennent le suffixe .otel, par exemple
+  # logs-generic.otel-supermarche_homologation (ADR-012, ADR-019). Aucun flux n'est converti en ECS, traces comprises (ADR-018).
   # La file persistante survit à un redémarrage du collecteur et à une panne
   # d'Elasticsearch ; pleine, elle refuse les données et le receiver Kafka
   # relit le message (ADR-013).
@@ -157,7 +188,7 @@ service:
   # Télémétrie interne (ADR-013) : niveau normal, export toutes les 30 s,
   # logs au niveau info (défaut), sans traces. La ressource remplace le
   # processor resource/internal-telemetry : data stream
-  # metrics|logs-collectortelemetry.otel-{{ otel_environment }}, instance
+  # metrics|logs-collectortelemetry.otel-{{ otel_platform }}_{{ otel_environment }}, instance
   # stable. Cette télémétrie ne passe pas par Kafka : la plateforme et
   # l'environnement de la VM sont posés ici (ADR-015).
   telemetry:
@@ -178,7 +209,7 @@ service:
         - name: data_stream.dataset
           value: collectortelemetry
         - name: data_stream.namespace
-          value: "{{ otel_environment }}"
+          value: "{{ otel_platform }}_{{ otel_environment }}"
     metrics:
       level: normal
       readers:

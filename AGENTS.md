@@ -158,7 +158,7 @@ commandes de validation.
   l'environnement et les dépendances observables.
 - Les logs applicatifs sont OTel natifs : l'agent les exporte en OTLP
   (`otel.logs.exporter=otlp`) avec `trace_id` et `span_id`, vers
-  `logs-supermarche.otel-homologation` (ADR-012). Ne pas réintroduire de
+  `logs-generic.otel-supermarche_homologation` (ADR-012). Ne pas réintroduire de
   format ECS sur stdout, de collecte des fichiers des pods applicatifs ni de
   mode de mapping ECS dans le collecteur backend.
 - Après une modification Java ou Maven, exécuter depuis

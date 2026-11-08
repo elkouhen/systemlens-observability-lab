@@ -78,14 +78,15 @@ environnement, `otel-<signal>-<plateforme>-<environnement>`
 
 Le collecteur Edge choisit le topic par ressource selon sa table des
 namespaces Kubernetes et la déclaration de chaque VM (`otel_platform`,
-`otel_environment`, `otel_edge`), pose le dataset des applications et
-rejette toute ressource hors table. Le backend tire du nom du topic la
-plateforme (`platform.id`) et le namespace ; le dataset nomme l'application
-ou le receiver
-([ADR-010](../architecture/docs/ADR-010-dataset-application-namespace-environnement.md)) :
-`logs-supermarche.otel-homologation` (ADR-012), `metrics-supermarche.otel-homologation`,
-`metrics-kubeletstatsreceiver.otel-homologation`,
-`metrics-hostmetricsreceiver.otel-homologation`. Les signaux APM prennent le
+`otel_environment`, `otel_edge`) et rejette toute ressource hors table. Le backend tire du nom du topic la
+plateforme (`platform.id`) et le namespace `<plateforme>_<environnement>`
+([ADR-019](../architecture/docs/ADR-019-namespace-par-plateforme.md)) ; le
+dataset est celui du receiver, ou `generic` pour les signaux OTLP des
+applications :
+`logs-generic.otel-supermarche_homologation` (ADR-012),
+`metrics-generic.otel-supermarche_homologation`,
+`metrics-kubeletstatsreceiver.otel-k3s_homologation`,
+`metrics-hostmetricsreceiver.otel-elk_homologation`. Les signaux APM prennent le
 namespace `<plateforme>_<environnement>` :
 `traces-apm-supermarche_homologation`,
 `logs-apm.error-supermarche_homologation` et

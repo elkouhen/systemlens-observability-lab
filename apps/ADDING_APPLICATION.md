@@ -14,7 +14,7 @@ application Java → agent Java OTel → Collecteur Edge → Kafka → Collector
 L'agent Java OTel produit les traces et les logs, Micrometer les métriques
 applicatives. Les logs sont OTel natifs, sans format ECS (ADR-012).
 Le Collecteur Edge reçoit l'OTLP, choisit le topic Kafka de la plateforme
-du namespace et pose le dataset ; le Collector backend lit la plateforme et
+du namespace ; le Collector backend lit la plateforme et
 l'environnement dans le nom du topic (ADR-015).
 
 L'application `apps/demo-api` est l'exemple minimal de ce guide : un seul
@@ -22,7 +22,7 @@ service, sa plateforme `demo`, ses manifests sous `kubernetes/apps/demo-api/`.
 Sans Micrometer, elle laisse l'agent exporter aussi les métriques JVM
 (`otel.metrics.exporter=otlp`), au format sémantique OTel. Toutes les
 métriques, celles de l'agent comme celles de Micrometer, sont indexées en
-mapping OTel natif dans `metrics-<dataset>.otel-<environnement>` (ADR-018).
+mapping OTel natif dans `metrics-<dataset>.otel-<plateforme>_<environnement>` (ADR-018, ADR-019).
 
 ## Préparer l'application
 
@@ -111,27 +111,28 @@ par `k8s.namespace.name` et indexé en `kubernetes.namespace`.
 
 ## Data streams alimentés
 
-Le dataset nomme l'application, le namespace nomme l'environnement (ADR-010),
-la plateforme est le champ `platform.id`. Le collecteur Edge publie les
+Le dataset est `generic`, celui que l'exporteur donne aux signaux OTLP d'une
+application ; le namespace nomme la plateforme et l'environnement (ADR-019),
+ce qui évite de répéter la plateforme dans le nom. La plateforme est aussi le
+champ `platform.id`. Le collecteur Edge publie les
 signaux dont la ressource porte `k8s.namespace.name` = `h0tl-supermarche-app`
 dans les topics `otel-<signal>-supermarche-homologation` de la plateforme
-`supermarche` et pose le dataset `supermarche` sur les trois signaux
-(ADR-015). Le collecteur backend lit dans le nom du topic la plateforme et
-le namespace `homologation`. Tous les signaux sont OTel natifs, sans
+`supermarche` (ADR-015). Le collecteur backend lit dans le nom du topic la plateforme et
+l'environnement, dont il fait le namespace `supermarche_homologation`. Tous les signaux sont OTel natifs, sans
 conversion ECS (ADR-018) :
 
 | Signal | Data stream |
 | --- | --- |
-| Traces | `traces-supermarche.otel-homologation` |
-| Métriques APM agrégées | `metrics-{transaction,service_transaction,service_destination,service_summary}.1m.otel-homologation` |
-| Métriques Micrometer et JVM | `metrics-supermarche.otel-homologation` |
-| Logs applicatifs | `logs-supermarche.otel-homologation` |
+| Traces | `traces-generic.otel-supermarche_homologation` |
+| Métriques APM agrégées | `metrics-{transaction,service_transaction,service_destination,service_summary}.1m.otel-supermarche_homologation` |
+| Métriques Micrometer et JVM | `metrics-generic.otel-supermarche_homologation` |
+| Logs applicatifs | `logs-generic.otel-supermarche_homologation` |
 
 Les trois signaux reçoivent le suffixe `.otel` du mode de mapping OTel. Le
 processeur `elasticapm` du collecteur backend enrichit les traces pour l'UI
 APM, et le connecteur `elasticapm` en tire les métriques agrégées ; les
 intervalles `10m` et `60m` suivent la même règle. Les métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`) gardent le
-dataset de leur receiver, en namespace `homologation`.
+dataset de leur receiver, en namespace `k3s_homologation`.
 
 ### Déclarer une nouvelle application comme plateforme
 
@@ -153,11 +154,11 @@ Une nouvelle application demande une plateforme et son entrée de namespace.
    - kubernetes_namespace: h0tl-caisse-app
      platform: caisse
      environment: homologation
-     dataset: caisse          # [a-z0-9_.], ou receiver
    ```
 
-   Ses signaux iront dans `logs-caisse.otel-homologation`,
-   `metrics-caisse.otel-homologation` et `traces-caisse.otel-homologation`,
+   Ses signaux iront dans `logs-generic.otel-caisse_homologation`,
+   `metrics-generic.otel-caisse_homologation` et
+   `traces-generic.otel-caisse_homologation`,
    tous avec `platform.id` = `caisse`. Le
    rôle `otel_edge` refuse un namespace dupliqué, un format invalide ou une
    plateforme absente de `otel_platforms`.
@@ -237,9 +238,9 @@ and agent.name:"opentelemetry/java/opentelemetry-java-instrumentation"
 ```
 
 ```kql
-# Logs applicatifs (data view sur logs-supermarche.otel-*)
-data_stream.dataset:"supermarche.otel"
-and data_stream.namespace:"homologation"
+# Logs applicatifs (data view sur logs-generic.otel-supermarche_*)
+data_stream.dataset:"generic.otel"
+and data_stream.namespace:"supermarche_homologation"
 and service.name:"my-service"
 and k8s.namespace.name:"h0tl-supermarche-app"
 ```

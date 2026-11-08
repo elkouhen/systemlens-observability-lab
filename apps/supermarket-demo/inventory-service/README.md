@@ -32,7 +32,7 @@ Lorsqu'une réservation épuise le stock, le service publie
 `supermarket.stock.restock-requested`, appliquée ici afin que ce module reste
 propriétaire du catalogue PostgreSQL.
 L'agent OTel exporte ces logs en OTLP vers
-`logs-supermarche.otel-homologation` (ADR-012), avec le `trace_id` et le
+`logs-generic.otel-supermarche_homologation` (ADR-012), avec le `trace_id` et le
 `span_id` du span courant. Les paires `addKeyValue` (`event.action`,
 `product.id`, `business.units_sold`...) deviennent des attributs du log. La
 vue Logs des transactions APM les retrouve par l'alias `trace.id`.

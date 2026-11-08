@@ -27,7 +27,6 @@
       - otel_edge_cluster.kubernetes_namespace | default('') | length > 0
       - otel_edge_namespace_routes | map(attribute='kubernetes_namespace', default='') | select | list | length == otel_edge_namespace_routes | length
       - (otel_edge_namespace_routes | map(attribute='kubernetes_namespace', default='') | list + [otel_edge_cluster.kubernetes_namespace]) | unique | list | length == otel_edge_namespace_routes | length + 1
-      - otel_edge_namespace_routes | map(attribute='dataset', default='') | select('match', '^(receiver|[a-z0-9_.]+)$') | list | length == otel_edge_namespace_routes | length
       - otel_edge_platforms | select('match', '^[a-z0-9_]+$') | list | length == otel_edge_platforms | length
       - otel_edge_environments | select('match', '^[a-z0-9_]+$') | list | length == otel_edge_environments | length
       - otel_edge_hosts | length > 0
@@ -35,7 +34,6 @@
       Tables de routage Edge invalides : otel_edge_cluster déclare name,
       kubernetes_namespace, platform et environment ; chaque entrée de
       otel_edge_namespace_routes déclare un kubernetes_namespace unique,
-      platform, environment ([a-z0-9_]) et dataset (receiver ou
-      [a-z0-9_.]) ; chaque VM rattachée ({{ otel_edge_hosts | join(', ') }})
+      platform et environment ([a-z0-9_]) ; chaque VM rattachée ({{ otel_edge_hosts | join(', ') }})
       déclare otel_platform et otel_environment ([a-z0-9_]).
     quiet: true

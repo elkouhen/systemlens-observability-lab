@@ -38,10 +38,10 @@ sondes Kubernetes sont TCP pour ne pas créer de transactions.
 
 | Signal | Data stream | Filtre |
 | --- | --- | --- |
-| Logs et erreurs | `logs-demo.otel-homologation` ; une erreur est un événement `exception` avec `attributes.processor.event: error` | `platform.id: demo`, `service.name: demo-api` |
-| Métriques JVM et HTTP de l'agent | `metrics-demo.otel-homologation`, champs `metrics.jvm.*` | `service.name: demo-api` |
-| Traces | `traces-demo.otel-homologation` | `platform.id: demo` |
-| Métriques APM agrégées | `metrics-{transaction,service_transaction,service_destination,service_summary}.1m.otel-homologation` | `service.name: demo-api` |
+| Logs et erreurs | `logs-generic.otel-demo_homologation` ; une erreur est un événement `exception` avec `attributes.processor.event: error` | `platform.id: demo`, `service.name: demo-api` |
+| Métriques JVM et HTTP de l'agent | `metrics-generic.otel-demo_homologation`, champs `metrics.jvm.*` | `service.name: demo-api` |
+| Traces | `traces-generic.otel-demo_homologation` | `platform.id: demo` |
+| Métriques APM agrégées | `metrics-{transaction,service_transaction,service_destination,service_summary}.1m.otel-demo_homologation` | `service.name: demo-api` |
 
 ## Prérequis
 
@@ -87,7 +87,7 @@ make otel-routing-verify
 et `jvm.cpu.recent_utilization`. Dans Kibana : l'UI APM liste `demo-api` en
 `homologation`, ses transactions `GET /api/hello` et `GET /api/fail`,
 l'erreur `DemoFailureException` et l'onglet *Metrics* (tableau JVM, mémoire
-heap et non-heap, GC, threads, CPU) ; Discover sur `metrics-demo.otel-*` avec
+heap et non-heap, GC, threads, CPU) ; Discover sur `metrics-generic.otel-demo_*` avec
 `service.name: demo-api` montre les champs `metrics.jvm.*`.
 
 ## Structure

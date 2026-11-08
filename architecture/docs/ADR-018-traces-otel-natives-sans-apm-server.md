@@ -41,6 +41,11 @@ aucune conversion ECS.
   namespace est l'environnement, la plateforme est `platform.id`.
 - Le label `apm.route.namespace` et les pipelines Elasticsearch
   `apm-route-namespace` sont retirés du dépôt.
+- Le backend pose aussi l'ancien attribut `deployment.environment` sur les
+  trois signaux. Les templates OTel d'Elasticsearch en font l'alias
+  `service.environment`, par lequel l'UI APM filtre les logs, métriques et
+  traces d'un service ; sans lui, l'onglet Logs d'un service est vide.
+  `make observability-schema-verify` le contrôle.
 
 | Signal | Data stream |
 | --- | --- |

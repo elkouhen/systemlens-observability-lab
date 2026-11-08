@@ -200,7 +200,7 @@ demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM OTel natives de dem
 	 for metric in jvm.memory.used jvm.memory.limit jvm.gc.duration jvm.thread.count jvm.class.count jvm.cpu.recent_utilization; do \
 	   count="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 	     -u "elastic:$$es_password" -H 'Content-Type: application/json' \
-	     '$(ELASTICSEARCH_URL)/metrics-demo.otel-*/_count' \
+	     '$(ELASTICSEARCH_URL)/metrics-generic.otel-demo_*/_count' \
 	     --data "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"resource.attributes.service.name\":\"demo-api\"}},{\"exists\":{\"field\":\"metrics.$$metric\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-5m\"}}}]}}}" \
 	     | jq -r '.count')"; \
 	   if [ "$$count" -gt 0 ]; then echo "OK   $$metric : $$count documents"; else echo "KO   $$metric : aucun document" >&2; status=1; fi; \

@@ -35,10 +35,20 @@ un redémarrage peut rejouer des messages, mais n'en perd pas. Si
 Elasticsearch est indisponible, la file se remplit puis le lag du groupe
 `otel-backend` augmente : Kafka sert de tampon (ADR-013).
 
+En amont, l'exporteur Kafka de l'Edge a lui aussi une file persistante
+(`sending_queue` sur `file_storage`, `/var/lib/observability/otel-edge` sur
+`otel-edge-01`, propriété UID 1000) : un lot accepté survit à un redémarrage
+de l'Edge et à une panne de Kafka. Les réessais durent au plus 30 min ; au-delà
+le lot est abandonné et compté dans `otelcol_exporter_send_failed_*`, pour
+qu'un refus durable (ACL, ADR-017) ne bloque pas les autres plateformes. Seul
+le lot en cours dans le processor `batch` (1 s au plus) est perdu sur arrêt
+brutal. File pleine, l'Edge refuse les données et les clients OTLP réessaient.
+
 Le receiver `hostmetrics` active explicitement `system.cpu.utilization` et
 `system.memory.utilization`. Ces métriques alimentent la vue Infrastructure
-Inventory avec les champs `host.name` et `data_stream.dataset:
-hostmetricsreceiver.otel`.
+Hosts/Inventory avec les champs `host.name` et `data_stream.dataset:
+hostmetricsreceiver.otel`, dans le namespace de la plateforme de la VM
+(`metrics-hostmetricsreceiver.otel-elk_homologation`, ADR-019).
 
 Le rôle `common` configure chrony avec `makestep 1.0 -1` et `maxpoll 6` sur
 chaque source : chrony interroge ses sources au moins toutes les 64 s et saute
@@ -93,8 +103,9 @@ Le receiver PostgreSQL OTel émet aussi les événements `db.server.query_sample
 et `db.server.top_query`. L'extension `pg_stat_statements` est créée dans la
 base applicative et dans la base `postgres`, que le receiver utilise pour les
 top queries. Le collecteur backend les indexe en mode OTel natif, comme tous
-ses flux (ADR-012), afin qu'ils arrivent dans `logs-postgresqlreceiver.otel-*`,
-le data stream lu par les dashboards du package `postgresql_otel`. Contrôle :
+ses flux (ADR-012), afin qu'ils arrivent dans `logs-postgresqlreceiver.otel-*`
+(namespace `supermarche_homologation`, ADR-019), le data stream lu par les
+dashboards du package `postgresql_otel`. Contrôle :
 `make postgresql-otel-dashboards-verify`.
 
 Lors du premier provisionnement, les images Elastic sont pré-téléchargées sur
@@ -205,10 +216,11 @@ Une plateforme est un namespace Kubernetes ou un groupe de VM dans un
 environnement ([ADR-015](../docs/ADR-015-topics-par-plateforme-et-configuration-edge.md)).
 Chaque plateforme a trois topics `otel-{logs,metrics,traces}-<plateforme>-<environnement>`,
 créés par le rôle `otel_backend` depuis `otel_platforms`
-(`inventory/group_vars/otel_backend_nodes.yml`). Le dataset nomme
-l'application ou le receiver, le namespace l'environnement
-([ADR-010](../docs/ADR-010-dataset-application-namespace-environnement.md)) ;
-la plateforme est le champ `platform.id`.
+(`inventory/group_vars/otel_backend_nodes.yml`). Le dataset est celui du
+receiver, ou `generic` pour les signaux OTLP des applications ; le namespace
+vaut `<plateforme>_<environnement>`
+([ADR-019](../docs/ADR-019-namespace-par-plateforme.md)) ; la plateforme est
+aussi le champ `platform.id`.
 
 | Plateforme | Contenu | Chemin |
 | --- | --- | --- |
@@ -251,17 +263,14 @@ otel_edge_namespace_routes:
   - kubernetes_namespace: h0tl-supermarche-app
     platform: supermarche
     environment: homologation
-    dataset: supermarche             # ou receiver
   - kubernetes_namespace: h0tl-demo-app
     platform: demo
     environment: homologation
-    dataset: demo
 ```
 
 La table des VM n'est pas saisie : `roles/otel_edge/tasks/routes.yml` la
 rend depuis l'inventaire, avec les hôtes dont `otel_edge` désigne cet Edge.
-Le rôle vérifie les formats (`[a-z0-9_]`, dataset `receiver` ou
-`[a-z0-9_.]`), l'unicité des namespaces et la présence de chaque plateforme
+Le rôle vérifie les formats (`[a-z0-9_]`), l'unicité des namespaces et la présence de chaque plateforme
 dans `otel_platforms`.
 
 Le processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
@@ -279,8 +288,7 @@ Le processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
 3. `k8s.namespace.name` connu (celui des collecteurs, puis les plateformes
    hébergées) : topic de sa plateforme.
 4. `host.name` d'une VM rattachée : topic de sa plateforme.
-5. Le dataset d'une plateforme applicative est posé sur ses logs, ses
-   métriques et ses traces.
+5. Aucun dataset n'est posé (ADR-019).
    `k8s.cluster.name` est posé sur toute ressource Kubernetes, en écrasant
    la valeur reçue. Le marqueur n'est pas indexé. Le backend tire ensuite
    du topic `platform.id`, `data_stream.namespace` et
@@ -292,10 +300,10 @@ rendent l'oubli visible.
 
 | Ressource reçue par l'Edge | Topic | Data stream |
 | --- | --- | --- |
-| Log, métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche-homologation` | `logs-supermarche.otel-homologation`, `metrics-supermarche.otel-homologation`, `traces-supermarche.otel-homologation` |
-| Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k3s-homologation` | `metrics-<receiver>.otel-homologation`, `platform.id` = `k3s` |
-| Signal d'une VM (`host.name` = `elk-01`) | `otel-<signal>-elk-homologation` | `<type>-<receiver>.otel-homologation`, `platform.id` = `elk` |
-| Télémétrie interne de l'Edge (`host.name` = `otel-edge-01`) | `otel-<signal>-elk-homologation` | `metrics-collectortelemetry.otel-homologation` |
+| Log, métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche-homologation` | `logs-generic.otel-supermarche_homologation`, `metrics-generic.otel-supermarche_homologation`, `traces-generic.otel-supermarche_homologation` |
+| Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k3s-homologation` | `metrics-<receiver>.otel-k3s_homologation`, `platform.id` = `k3s` |
+| Signal d'une VM (`host.name` = `elk-01`) | `otel-<signal>-elk-homologation` | `<type>-<receiver>.otel-elk_homologation`, `platform.id` = `elk` |
+| Télémétrie interne de l'Edge (`host.name` = `otel-edge-01`) | `otel-<signal>-elk-homologation` | `metrics-collectortelemetry.otel-elk_homologation` |
 | Ressource sans namespace ni hôte connu | aucun | rejetée |
 
 ### Backend générique
@@ -306,7 +314,16 @@ topic, preuve de provenance, la plateforme et l'environnement :
 
 | Signal | Posé depuis `otel-<signal>-<plateforme>-<env>` |
 | --- | --- |
-| Logs, métriques et traces | `platform.id` = `<plateforme>`, `data_stream.namespace` et `deployment.environment.name` = `<env>` ; dataset posé par l'Edge ou dérivé du receiver par l'exporteur |
+| Logs, métriques et traces | `platform.id` = `<plateforme>`, `data_stream.namespace` = `<plateforme>_<env>`, `deployment.environment.name` et `deployment.environment` = `<env>` ; dataset dérivé du receiver par l'exporteur, ou `generic` pour l'OTLP des applications |
+
+Les data streams sont donc nommés `<type>-<dataset>.otel-<plateforme>_<env>`
+([ADR-019](../docs/ADR-019-namespace-par-plateforme.md)) : le dataset reste
+celui que sélectionnent les vues intégrées de Kibana (Infrastructure,
+dashboards Fleet, APM), et chaque plateforme a ses propres data streams,
+séparables par motif d'index (`*-*.otel-supermarche_*`). Le nom ne répète
+pas la plateforme : `logs-generic.otel-supermarche_homologation`. Les `data_stream.*`
+posés sur un log, un span, un point ou un scope sont supprimés, car
+l'exporteur les ferait primer sur ceux de la ressource.
 
 Chemin : producteur → topic du Kafka OTel → receiver `kafka/otlp`
 (souscription par regex) → `resource/kafka-topic` (copie de `kafka.topic`)
@@ -320,9 +337,9 @@ ajoute `.otel` au dataset
 Les traces passent par le processeur `elasticapm` (classification
 transaction/span, résultat, dépendances). Le connecteur `elasticapm` en tire
 les métriques agrégées lues par l'UI APM :
-`metrics-{transaction,service_transaction,service_destination,service_summary}.<intervalle>.otel-<env>`.
+`metrics-{transaction,service_transaction,service_destination,service_summary}.<intervalle>.otel-<plateforme>_<env>`.
 Les métriques de l'agent Java (runtime JVM, HTTP) suivent la règle commune
-et arrivent dans `metrics-<dataset>.otel-<env>`.
+et arrivent dans `metrics-<dataset>.otel-<plateforme>_<env>`.
 
 La télémétrie interne du collecteur backend ne passe pas par Kafka : sa
 ressource porte `platform.id` et `data_stream.namespace` de la VM. L'agent

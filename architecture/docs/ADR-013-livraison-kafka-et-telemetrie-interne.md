@@ -92,3 +92,20 @@ make dashboards-verify
 Résultat attendu : les quatre collecteurs démarrent sans erreur, le lag du
 groupe `otel-backend` reste proche de 0 et `metrics-collectortelemetry*`
 reçoit un point toutes les 30 s par collecteur.
+
+## Note du 2026-11-08 : file persistante de l'Edge
+
+Le collecteur Edge déclarait l'extension `file_storage` sans l'utiliser : son
+exporteur `kafka/otlp` gardait les lots en mémoire, perdus sur redémarrage ou
+panne prolongée de Kafka. L'exporteur a désormais une `sending_queue`
+persistante (`storage: file_storage`, 1 000 lots) et des réessais bornés à
+30 min (`retry_on_failure.max_elapsed_time`). La borne évite qu'un refus
+durable du broker, par exemple une ACL d'ADR-017 sur le topic d'une seule
+plateforme, occupe la file de toutes les plateformes. Le rôle `otel_edge` donne
+le répertoire d'état à l'UID 1000 de l'image EDOT. Le processor `batch` reste
+avant l'exporteur : il acquitte au client avant la persistance, la perte sur
+arrêt brutal se limite à son lot en cours (1 s).
+
+Vérification : `make otel-config-validate`, `make otel-edge-vm-provision`,
+puis la présence de fichiers de file dans `/var/lib/observability/otel-edge`
+et `make otel-routing-verify`.

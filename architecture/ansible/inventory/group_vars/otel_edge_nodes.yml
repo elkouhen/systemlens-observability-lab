@@ -12,7 +12,7 @@ middleware_credentials_required: false
 # reçoit k8s.cluster.name = name. Les signaux des collecteurs Kubernetes
 # (marqueur otel.edge.source=kubernetes) et ceux de leur namespace vont dans
 # la plateforme du cluster, avec le dataset de leur receiver, lu par les
-# dashboards [Kubernetes OTel] et [OTel] Host.
+# dashboards [Kubernetes OTel], [OTel] Host et la vue Infrastructure.
 otel_edge_cluster:
   name: k3s-01
   kubernetes_namespace: elastic-stack
@@ -20,17 +20,16 @@ otel_edge_cluster:
   environment: homologation
 # Plateformes hébergées par le cluster : un namespace Kubernetes est une
 # plateforme dans un environnement. Les signaux du namespace vont dans
-# otel-<signal>-<platform>-<environment> ; dataset ([a-z0-9_.]) est posé sur
-# les logs et les métriques, ou receiver pour garder celui du receiver. Les
-# traces gardent les datasets apm d'APM Server. L'Edge pose aussi
-# deployment.environment.name, en écrasant la valeur envoyée.
+# otel-<signal>-<platform>-<environment>. Le backend tire du topic
+# platform.id, data_stream.namespace (<platform>_<environment>, ADR-019) et
+# deployment.environment.name, en écrasant les valeurs envoyées. Le dataset
+# n'est pas déclaré : generic pour les applications, celui du receiver sinon,
+# par exemple logs-generic.otel-supermarche_homologation.
 # Les VM rattachées à cet Edge sont lues dans l'inventaire (otel_edge).
 otel_edge_namespace_routes:
   - kubernetes_namespace: h0tl-supermarche-app
     platform: supermarche
     environment: homologation
-    dataset: supermarche
   - kubernetes_namespace: h0tl-demo-app
     platform: demo
     environment: homologation
-    dataset: demo

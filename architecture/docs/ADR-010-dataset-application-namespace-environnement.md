@@ -6,7 +6,10 @@ Accepted. La partie traces (namespace `<plateforme>_<environnement>`,
 `apm.route.namespace`, pipeline `apm-route-namespace`) est remplacée par
 [ADR-018](ADR-018-traces-otel-natives-sans-apm-server.md) : les traces
 suivent la règle commune, dataset de l'application et namespace de
-l'environnement.
+l'environnement. La règle de namespace est remplacée par
+[ADR-019](ADR-019-namespace-par-plateforme.md) : le namespace vaut
+`<plateforme>_<environnement>`, et une application n'a plus de dataset
+propre : ses signaux OTLP gardent `generic`.
 
 Remplace la partie « nommage des data streams » de
 [ADR-009](ADR-009-namespaces-supermarche-et-k8s.md). Le choix du topic Kafka

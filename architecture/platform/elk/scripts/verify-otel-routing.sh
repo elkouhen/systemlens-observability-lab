@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Vérifie le routage par plateforme (ADR-015) sur les documents récents :
-# chaque plateforme reçoit des logs et des métriques portant platform.id,
-# les traces de l'application sont dans leur namespace sans label de
-# routage, plus aucun document n'arrive dans un namespace default, aucun ne
+# chaque plateforme reçoit des logs et des métriques portant platform.id
+# dans son namespace <plateforme>_<environnement> (ADR-019), les traces de
+# l'application sont dans ce namespace, plus aucun document n'arrive dans un
+# namespace default ou d'environnement seul, aucun ne
 # porte otel.kafka.topic, et le collecteur Edge n'a rejeté aucune ressource.
 set -euo pipefail
 
@@ -58,28 +59,28 @@ check_positive() {
 # de ressource, métriques de l'agent Java et traces comprises.
 for platform in ${OTEL_PLATFORMS}; do
   for type in logs metrics; do
-    indices="${type}-*.otel-${environment}"
+    indices="${type}-*.otel-${platform}_${environment}"
     platform_filter="{\"term\":{\"resource.attributes.platform.id\":\"${platform}\"}}"
     count="$(count_query "${indices}" \
       "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),${platform_filter}]}}}")"
-    check_positive "${type} de la plateforme ${platform} (platform.id)" "${count}"
+    check_positive "${type} de la plateforme ${platform} dans ${indices} (platform.id)" "${count}"
   done
 done
 
-count="$(count_query "traces-supermarche.otel-${environment}" \
+count="$(count_query "traces-generic.otel-supermarche_${environment}" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"term\":{\"resource.attributes.platform.id\":\"supermarche\"}}]}}}")"
-check_positive "traces OTel natives dans traces-supermarche.otel-${environment}" "${count}"
+check_positive "traces OTel natives dans traces-generic.otel-supermarche_${environment}" "${count}"
 
 # Métriques agrégées de l'UI APM, calculées par le connecteur elasticapm.
-count="$(count_query "metrics-service_transaction.1m.otel-${environment}" \
+count="$(count_query "metrics-service_transaction.1m.otel-supermarche_${environment}" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter)]}}}")"
-check_positive "métriques APM agrégées dans metrics-service_transaction.1m.otel-${environment}" "${count}"
+check_positive "métriques APM agrégées dans metrics-service_transaction.1m.otel-supermarche_${environment}" "${count}"
 
 # Aucun flux OTel ne passe plus par APM Server ni ne reste en namespace
 # default. Fleet Server écrit ses propres data streams *-default.
-count="$(count_query "logs-*.otel-default,metrics-*.otel-default,traces-*.otel-default,traces-apm*,metrics-apm*,logs-apm*" \
+count="$(count_query "logs-*.otel-default,metrics-*.otel-default,traces-*.otel-default,logs-*.otel-${environment},metrics-*.otel-${environment},traces-*.otel-${environment},traces-apm*,metrics-apm*,logs-apm*" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter)]}}}")"
-check_zero "documents récents en namespace default ou au format APM Server (ECS)" "${count}"
+check_zero "documents récents en namespace default, sans plateforme ou au format APM Server (ECS)" "${count}"
 
 count="$(count_query "logs-*,metrics-*" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"exists\":{\"field\":\"resource.attributes.otel.kafka.topic\"}}]}}}")"

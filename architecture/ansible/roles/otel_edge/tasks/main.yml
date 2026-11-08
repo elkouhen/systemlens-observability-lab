@@ -51,12 +51,16 @@
     mode: '0600'
   no_log: true
 
-- name: Créer le répertoire d’état du Collecteur EDOT Edge
+# File persistante de l'exporteur Kafka (file_storage). L'image EDOT
+# s'exécute avec elastic-agent (UID/GID 1000), qui doit pouvoir y écrire.
+- name: Autoriser le Collecteur EDOT Edge à écrire son file_storage
   ansible.builtin.file:
     path: /var/lib/observability/otel-edge
     state: directory
-    owner: root
-    mode: '0755'
+    owner: '1000'
+    group: '1000'
+    mode: 'u=rwX,g=rX,o='
+    recurse: true
 
 - name: Déployer l'unité du Collecteur EDOT Edge
   ansible.builtin.template:
