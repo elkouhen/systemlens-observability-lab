@@ -116,9 +116,11 @@ les variables sensibles viennent de l’environnement. Les données Kafka sont c
 `kafka-data`, monté sur le répertoire déclaré par `KAFKA_LOG_DIRS`.
 
 Le broker Kafka OTel protège les échanges de logs, métriques et traces avec
-SASL/PLAIN. Le compte `otel_publisher` est utilisé par Edge et l'agent EDOT du
-backend pour publier ; le compte `otel_consumer` est utilisé par le backend et
-la collecte des métriques Kafka pour consommer. Définir
+SASL/PLAIN et des ACL. Chaque producteur, Edge ou agent EDOT du backend,
+publie avec son compte `otel_publisher_<hôte>`, dont le mot de passe est dérivé
+du secret racine `KAFKA_OTEL_PUBLISHER_PASSWORD` ; le compte `otel_consumer`
+est utilisé par le backend et la collecte des métriques Kafka pour consommer
+(voir « Isolation des plateformes dans Kafka »). Définir
 `KAFKA_OTEL_PUBLISHER_PASSWORD` et `KAFKA_OTEL_CONSUMER_PASSWORD` dans
 l'environnement avant `make vms-up` ou `make ansible-deploy`. Les mots de passe
 ne sont ni versionnés ni écrits dans les manifests Kubernetes. Les topics OTel
@@ -340,18 +342,43 @@ EDOT de `otel-backend-01` publie directement dans les topics de sa plateforme
 ### Ajouter une plateforme
 
 1. Ajouter le couple à `otel_platforms` dans
-   `inventory/group_vars/otel_backend_nodes.yml`.
+   `inventory/group_vars/otel_backend_nodes.yml`, avec ses `publishers` :
+   l'Edge qui la sert, ou l'hôte dont l'agent publie en `kafka-local`.
 2. Déclarer la plateforme : une entrée de `otel_edge_namespace_routes` pour un
    namespace Kubernetes, ou les trois variables `otel_*` pour des VM.
-3. `make otel-config-validate` rend et valide les configurations, puis
-   `make otel-backend-vm-provision` crée les topics, et le provisionnement de
-   l'Edge ou des agents applique les tables.
+3. `make otel-config-validate` rend et valide les configurations, et refuse
+   une plateforme servie mais absente du registre ou de ses `publishers`.
+4. `make otel-backend-vm-provision` crée les topics, les comptes et les ACL,
+   puis le provisionnement de l'Edge ou des agents applique les tables.
+5. `make otel-kafka-acl-verify` contrôle l'isolation.
 
-Un autre producteur peut publier directement dans un topic du Kafka OTel
-(`192.168.33.20:9092`, SASL PLAIN, compte `otel_publisher`) : le nom du topic
-fixe sa plateforme et son environnement. Le broker crée alors le topic avec
-ses valeurs par défaut, jusqu'au passage de `make otel-backend-vm-provision`
-si la plateforme est listée, et le backend le découvre en moins d'une minute.
+### Isolation des plateformes dans Kafka
+
+Chaque producteur a son compte `otel_publisher_<hôte>` et ne peut écrire que
+dans les topics des plateformes qui lui sont attribuées
+([ADR-017](../docs/ADR-017-isolation-kafka-des-plateformes.md)). Le broker
+applique les ACL (`StandardAuthorizer`), ne crée aucun topic à la demande et
+authentifie tous ses listeners. `otel_admin`, seul super-utilisateur, sert au
+broker et aux outils d'administration (`otel-kafka-client.properties`).
+
+| Compte | Droits |
+| --- | --- |
+| `otel_publisher_otel_edge_01` | Écriture sur les topics `k3s`, `supermarche`, `elk` et `demo` |
+| `otel_publisher_otel_backend_01` | Écriture sur les topics `elk` (agent EDOT kafka-local) |
+| `otel_consumer` | Lecture des topics `otel-*`, groupe `otel-backend`, description du cluster |
+| `otel_admin` | Super-utilisateur |
+
+Les mots de passe des producteurs et d'`otel_admin` sont dérivés de
+`KAFKA_OTEL_PUBLISHER_PASSWORD`, qui reste sur le poste de l'opérateur.
+
+```bash
+source ./platform/elk/scripts/load-credentials.sh
+make otel-kafka-acl-verify
+```
+
+Résultat attendu : une ligne par producteur indiquant ses topics autorisés,
+puis `refusé` pour chaque tentative d'écriture dans un topic hors registre ou
+d'une plateforme qui ne lui est pas attribuée. Aucun message n'est écrit.
 
 Vérification après publication :
 

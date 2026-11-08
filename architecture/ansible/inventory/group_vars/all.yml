@@ -22,8 +22,18 @@ kafka_controller_voters: 1@192.168.33.10:9093
 otel_kafka_cluster_id: otelQ1Sh-9_ISia_zwGINzRvyQ
 otel_kafka_controller_voters: 2@192.168.33.20:9093
 otel_gateway_kafka_broker: 192.168.33.20:9092
-otel_kafka_publisher_username: otel_publisher
-otel_kafka_publisher_password: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') | default('', true) }}"
+# Identifiants Kafka OTel (ADR-017). Chaque producteur (Edge ou agent EDOT
+# kafka-local) a son utilisateur otel_publisher_<hôte>, limité par ACL aux
+# topics des plateformes qui lui sont attribuées (otel_platforms). Son mot de
+# passe est dérivé du secret racine KAFKA_OTEL_PUBLISHER_PASSWORD, qui reste
+# sur le poste de l'opérateur ; l'utilisateur otel_admin (broker, outils
+# d'administration) en dérive aussi, comme les comptes de tous les
+# producteurs déclarés par le broker (roles/otel_backend/tasks/platforms.yml).
+otel_kafka_secret: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') | default('', true) }}"
+otel_kafka_publisher_username: "otel_publisher_{{ inventory_hostname | replace('-', '_') }}"
+otel_kafka_publisher_password: "{{ (otel_kafka_secret ~ ':' ~ otel_kafka_publisher_username) | hash('sha256') if otel_kafka_secret else '' }}"
+otel_kafka_admin_username: otel_admin
+otel_kafka_admin_password: "{{ (otel_kafka_secret ~ ':' ~ otel_kafka_admin_username) | hash('sha256') if otel_kafka_secret else '' }}"
 otel_kafka_consumer_username: otel_consumer
 otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') | default('', true) }}"
 elastic_agent_version: 9.5.4

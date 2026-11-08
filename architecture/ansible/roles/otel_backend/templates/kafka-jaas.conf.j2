@@ -1,7 +1,15 @@
+// Comptes SASL/PLAIN du broker Kafka OTel (ADR-017). otel_admin sert au
+// broker (inter-broker, contrôleur KRaft) et aux outils d'administration ;
+// chaque producteur a son compte, limité par ACL aux topics de ses
+// plateformes ; otel_consumer est le groupe du collecteur backend.
 KafkaServer {
   org.apache.kafka.common.security.plain.PlainLoginModule required
-  username="{{ otel_kafka_publisher_username }}"
-  password="{{ otel_kafka_publisher_password }}"
-  user_{{ otel_kafka_publisher_username }}="{{ otel_kafka_publisher_password }}"
-  user_{{ otel_kafka_consumer_username }}="{{ otel_kafka_consumer_password }}";
+  username="{{ otel_kafka_admin_username }}"
+  password="{{ otel_kafka_admin_password }}"
+  user_{{ otel_kafka_admin_username }}="{{ otel_kafka_admin_password }}"
+  user_{{ otel_kafka_consumer_username }}="{{ otel_kafka_consumer_password }}"
+{% for publisher in otel_kafka_publishers %}
+  user_{{ publisher.username }}="{{ (otel_kafka_secret ~ ':' ~ publisher.username) | hash('sha256') }}"
+{% endfor %}
+  ;
 };

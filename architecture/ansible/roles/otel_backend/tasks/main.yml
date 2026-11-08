@@ -28,10 +28,13 @@
 - name: Vérifier les identifiants Kafka OTel de publication et consommation
   ansible.builtin.assert:
     that:
-      - otel_kafka_publisher_password | default('') | length > 0
+      - otel_kafka_secret | default('') | length > 0
       - otel_kafka_consumer_password | default('') | length > 0
     fail_msg: "Définir KAFKA_OTEL_PUBLISHER_PASSWORD et KAFKA_OTEL_CONSUMER_PASSWORD hors Git."
     quiet: true
+
+- name: Vérifier le registre des plateformes et en déduire topics et producteurs
+  ansible.builtin.import_tasks: platforms.yml
 
 - name: Déployer la configuration JAAS du broker Kafka OTel
   ansible.builtin.template:
@@ -89,9 +92,6 @@
   delay: 3
   until: otel_kafka_ready.rc == 0
 
-- name: Vérifier la liste des plateformes et en déduire les topics
-  ansible.builtin.import_tasks: platforms.yml
-
 # Topics par plateforme et environnement (ADR-015) : trois partitions, un
 # jour et 512 Mio de rétention. --if-not-exists rend la création idempotente ;
 # la rétention est réappliquée à chaque passage sur un topic existant.
@@ -117,6 +117,53 @@
     --entity-type topics --entity-name {{ item }} --alter
     --add-config retention.ms={{ otel_kafka_topic_retention_ms }},retention.bytes={{ otel_kafka_topic_retention_bytes }}
   loop: "{{ otel_topics }}"
+  changed_when: false
+
+# ACL (ADR-017), réconciliées à chaque passage sur les topics du registre :
+# chaque producteur écrit dans les topics de ses plateformes et perd ses
+# droits sur les autres ; otel_consumer lit tous les topics otel- avec le
+# groupe otel-backend et décrit le cluster (kafkametrics de l'agent EDOT).
+# kafka-acls.sh ignore un ajout ou un retrait déjà en place.
+- name: Autoriser chaque producteur sur les topics de ses plateformes
+  ansible.builtin.command:
+    argv: >-
+      {{ ['podman', 'exec', '--env', 'KAFKA_OPTS=', 'observability-otel-kafka',
+          '/opt/kafka/bin/kafka-acls.sh', '--bootstrap-server', 'localhost:9092',
+          '--command-config', '/opt/kafka/config/otel-kafka-client.properties',
+          '--add', '--allow-principal', 'User:' ~ item.username,
+          '--operation', 'Write', '--operation', 'Describe']
+         + (item.topics | map('regex_replace', '^', '--topic=') | list) }}
+  loop: "{{ otel_kafka_publishers }}"
+  loop_control:
+    label: "{{ item.username }}"
+  changed_when: false
+
+- name: Retirer à chaque producteur les topics des autres plateformes
+  ansible.builtin.command:
+    argv: >-
+      {{ ['podman', 'exec', '--env', 'KAFKA_OPTS=', 'observability-otel-kafka',
+          '/opt/kafka/bin/kafka-acls.sh', '--bootstrap-server', 'localhost:9092',
+          '--command-config', '/opt/kafka/config/otel-kafka-client.properties',
+          '--remove', '--force', '--allow-principal', 'User:' ~ item.username,
+          '--operation', 'Write', '--operation', 'Describe']
+         + (otel_topics | difference(item.topics) | map('regex_replace', '^', '--topic=') | list) }}
+  loop: "{{ otel_kafka_publishers | rejectattr('topics', 'equalto', otel_topics) | list }}"
+  loop_control:
+    label: "{{ item.username }}"
+  changed_when: false
+
+- name: Autoriser le collecteur backend à lire les topics OTel
+  ansible.builtin.command:
+    argv: "{{ ['podman', 'exec', '--env', 'KAFKA_OPTS=', 'observability-otel-kafka',
+               '/opt/kafka/bin/kafka-acls.sh', '--bootstrap-server', 'localhost:9092',
+               '--command-config', '/opt/kafka/config/otel-kafka-client.properties',
+               '--add', '--allow-principal', 'User:' ~ otel_kafka_consumer_username] + item }}"
+  loop:
+    - [--operation, Read, --operation, Describe, --topic, otel-, --resource-pattern-type, prefixed]
+    - [--operation, Read, --group, otel-backend]
+    - [--operation, Describe, --operation, DescribeConfigs, --cluster]
+  loop_control:
+    label: "{{ item | join(' ') }}"
   changed_when: false
 
 - name: Arrêter l’ancien Gateway OTEL du backend

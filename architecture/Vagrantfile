@@ -80,7 +80,7 @@ Vagrant.configure("2") do |config|
         "elastic_password" => elastic_password || "",
         "apm_server_secret_token" => apm_server_secret_token || "",
         "fleet_enrollment_token" => fleet_enrollment_token || "",
-        "otel_kafka_publisher_password" => kafka_otel_publisher_password,
+        "otel_kafka_secret" => kafka_otel_publisher_password,
         "otel_kafka_consumer_password" => kafka_otel_consumer_password,
         "zscaler_ca_cert_content" => zscaler_ca_cert_content,
         "otel_edge_key_kubernetes" => ENV.fetch("OTEL_EDGE_KEY_KUBERNETES", ""),

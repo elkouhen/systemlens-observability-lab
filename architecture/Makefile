@@ -63,7 +63,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	architecture-deploy \
 	elk-deploy fleet-assets-deploy apps-deploy \
 	application-data-verify order-service-command demo-api-build demo-api-deploy demo-api-call demo-api-jvm-metrics-verify \
-	dashboards-verify trace-context-verify observability-schema-verify otel-routing-verify \
+	dashboards-verify trace-context-verify observability-schema-verify otel-routing-verify otel-kafka-acl-verify \
 	otel-validate retention-validate retention-deploy retention-verify \
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
@@ -753,6 +753,12 @@ observability-schema-verify: ## Vérifier le contrat OTel des événements index
 
 # Plateformes lues dans l'inventaire (otel_platforms du backend, ADR-015).
 OTEL_PLATFORMS ?= $(shell ANSIBLE_LOCAL_TEMP=/tmp ansible-inventory -i ansible/inventory/vagrant.yml --host otel-backend-01 2>/dev/null | python3 -c 'import json,sys; print(" ".join(sorted({p["platform"] for p in json.load(sys.stdin)["otel_platforms"]})))')
+
+otel-kafka-acl-verify: ## Vérifier que chaque producteur n'écrit que dans les topics Kafka OTel de ses plateformes (ADR-017)
+	@set -euo pipefail; \
+	test -r '$(OBSERVABILITY_CREDENTIALS_FILE)' && source '$(OBSERVABILITY_CREDENTIALS_FILE)'; \
+	KAFKA_OTEL_PUBLISHER_PASSWORD="$${KAFKA_OTEL_PUBLISHER_PASSWORD:?Set KAFKA_OTEL_PUBLISHER_PASSWORD outside Git}" \
+	ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/otel-kafka-acl-verify.yml
 
 otel-routing-verify: ## Vérifier le routage par plateforme (platform.id, namespaces, rejets de l'Edge) sur les documents récents
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \

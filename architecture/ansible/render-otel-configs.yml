@@ -11,7 +11,7 @@
   vars:
     otel_render_dir: "{{ lookup('env', 'OTEL_RENDER_DIR') | default('/tmp/otel-render', true) }}"
     otel_elasticsearch_api_key: "{{ lookup('env', 'OTEL_ELASTICSEARCH_API_KEY') | default('render', true) }}"
-    otel_kafka_publisher_password: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') | default('render', true) }}"
+    otel_kafka_secret: "{{ lookup('env', 'KAFKA_OTEL_PUBLISHER_PASSWORD') | default('render', true) }}"
     otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') | default('render', true) }}"
     otel_edge_client_key: "{{ lookup('env', otel_edge_client_key_env) | default('render', true) }}"
     otel_edge_key_kubernetes: "{{ lookup('env', 'OTEL_EDGE_KEY_KUBERNETES') | default('render', true) }}"
@@ -56,6 +56,12 @@
       ansible.builtin.include_role:
         name: otel_backend
         tasks_from: platforms.yml
+      when: inventory_hostname in groups.get('otel_backend_nodes', [])
+
+    - name: Vérifier que les Edge et les VM restent dans le registre du backend
+      ansible.builtin.include_role:
+        name: otel_backend
+        tasks_from: inventory-check.yml
       when: inventory_hostname in groups.get('otel_backend_nodes', [])
 
     - name: Rendre la configuration du collecteur backend OTEL
