@@ -31,14 +31,12 @@ Makefile n'utilise plus de valeur par défaut pour ces secrets.
 Optionnel, uniquement derrière un proxy TLS d'entreprise (Zscaler) : les VM
 ne peuvent alors pas télécharger les images `docker.elastic.co` sans sa
 racine de confiance (`x509: certificate signed by unknown authority` dans le
-journal d'`observability-elasticsearch`). Dans ce cas seulement, exporter
-avant `make vms-start` un chemin absolu vers le certificat racine PEM local
-décrit dans [certs/README.md](certs/README.md). Sans interception TLS, laisser
-`ZSCALER_CA_CERT` non défini : aucun certificat n'est alors installé.
+journal d’`observability-elasticsearch`). Dans ce cas seulement,
+déposer le certificat racine PEM dans `certs/zscaler-root-ca.crt`, décrit
+dans [certs/README.md](certs/README.md) : le `Makefile` l'utilise
+automatiquement. `ZSCALER_CA_CERT` permet d'indiquer un autre chemin absolu.
+Sans interception TLS, ne déposer aucun certificat : rien n'est installé.
 
-```bash
-export ZSCALER_CA_CERT="$PWD/certs/zscaler-root-ca.crt"
-```
 
 Le [guide d’architecture et de déploiement](docs/architecture.md) décrit les
 prérequis, l’ordre des opérations et la recette fonctionnelle.

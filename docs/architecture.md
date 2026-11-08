@@ -148,13 +148,23 @@ make deploy
 ```
 
 Les variables de mot de passe doivent être fournies hors Git. Les commandes de
-déploiement échouent si un secret requis est absent.
+déploiement échouent si un secret requis est absent. Derrière un proxy TLS
+d'entreprise, le certificat local `certs/zscaler-root-ca.crt` est installé
+automatiquement sur les VM et dans les images.
+
+Sur des VM neuves, `make vms-up` ne déploie pas encore le collecteur backend :
+sa clé API Elasticsearch n'existe qu'après Elasticsearch. `make deploy`
+déploie ensuite Elastic, Fleet, les collecteurs Kubernetes, `supermarket-demo`
+et `demo-api`, puis termine le collecteur backend et le monitoring OpAMP.
 
 Les contrôles fonctionnels de la chaîne sont :
 
 ```bash
 make otel-validation
+make otel-kafka-acl-verify
 make otel-routing-verify
+make trace-context-verify
+make observability-schema-verify
 make dashboards-verify
 ```
 

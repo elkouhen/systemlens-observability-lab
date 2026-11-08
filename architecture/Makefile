@@ -43,7 +43,11 @@ FLEET_URL ?= http://fleet.observability.test:8220
 FLEET_CURL_RESOLVE ?= fleet.observability.test:8220:192.168.33.40
 # Certificat racine Zscaler (ou proxy TLS d'entreprise équivalent) au format
 # PEM. Laisser vide sur une machine sans interception TLS : voir certs/README.md.
-ZSCALER_CA_CERT ?=
+# Racine de confiance du proxy TLS d'entreprise : le certificat local
+# certs/zscaler-root-ca.crt (ignoré par Git) est utilisé s'il existe, sauf
+# valeur explicite de ZSCALER_CA_CERT. Vide sans interception TLS.
+ZSCALER_CA_CERT ?= $(wildcard $(abspath $(CURDIR)/../certs/zscaler-root-ca.crt))
+export ZSCALER_CA_CERT
 K3D_CA_DEST ?= /usr/local/share/ca-certificates/zscaler-root-ca.crt
 C4_PAGES_BASE ?= ./
 OBSERVABILITY_CREDENTIALS_FILE ?= $(ARCH_ROOT)/.observability-credentials.env
@@ -546,6 +550,9 @@ deploy:
 	$(MAKE) apps-build; \
 	$(MAKE) images-import; \
 	$(MAKE) apps-deploy; \
+	$(MAKE) demo-api-build; \
+	$(MAKE) demo-api-import; \
+	$(MAKE) demo-api-deploy; \
 	$(MAKE) deploy-post
 
 architecture-deploy: deploy ## Déployer Elastic, Fleet, Kubernetes et les applications

@@ -64,6 +64,7 @@ make demo-api-test                # test Maven (Java 21)
 make demo-api-build               # image demo-api:1.1.1 avec l'agent Java OTel
 make demo-api-import              # import de l'image dans k3s
 make demo-api-deploy              # applique kubernetes/apps/demo-api/default et attend le rollout
+                                  # (build, import et déploiement sont inclus dans make deploy)
 make demo-api-call                # GET /api/hello?name=lab depuis le cluster
 make demo-api-call DEMO_API_PATH='/api/fail?reason=demo'
 make demo-api-jvm-metrics-verify  # métriques JVM des 5 dernières minutes

@@ -200,18 +200,27 @@
     elasticsearch_url: "http://{{ elk_ip }}:9200"
     apm_server_url: "http://{{ elk_ip }}:8200"
 
-- name: Vérifier la clé API Elasticsearch du collecteur backend OTEL
-  # Une clé vide réécrirait otel-backend.env et ferait échouer chaque export
-  # Elasticsearch en 401 : le provisionnement s'arrête plutôt. La clé est
-  # fournie par OTEL_ELASTICSEARCH_API_KEY (cibles make qui provisionnent
-  # otel-backend-01).
-  ansible.builtin.assert:
-    that: otel_elasticsearch_api_key | length > 0
-    fail_msg: >-
-      OTEL_ELASTICSEARCH_API_KEY est vide : provisionner otel-backend-01 via
-      make otel-backend-vm-provision ou make elastic-agent-vm-provision.
-    quiet: true
-  no_log: true
+# Clé API Elasticsearch du collecteur (OTEL_ELASTICSEARCH_API_KEY). Elle
+# n'existe qu'après le déploiement d'Elasticsearch : au premier make vms-up,
+# le collecteur n'est pas installé et make deploy le termine
+# (otel-backend-vm-provision). Sans clé, un otel-backend.env existant est
+# conservé : le réécrire avec une clé vide ferait échouer chaque export
+# Elasticsearch en 401.
+- name: Lire les identifiants déjà déployés du collecteur backend OTEL
+  ansible.builtin.stat:
+    path: /etc/observability/otel-backend.env
+  register: otel_backend_env
+
+- name: Déterminer si le collecteur backend OTEL peut être déployé
+  ansible.builtin.set_fact:
+    otel_backend_collector_ready: "{{ otel_elasticsearch_api_key | length > 0 or otel_backend_env.stat.exists }}"
+
+- name: Signaler le report du collecteur backend OTEL
+  ansible.builtin.debug:
+    msg: >-
+      Clé API Elasticsearch absente au premier provisionnement : le collecteur
+      backend OTel sera déployé par make deploy (otel-backend-vm-provision).
+  when: not otel_backend_collector_ready
 
 - name: Déployer les identifiants du collecteur backend OTEL
   ansible.builtin.copy:
@@ -222,6 +231,7 @@
       OTEL_KAFKA_CONSUMER_PASSWORD={{ otel_kafka_consumer_password }}
     dest: /etc/observability/otel-backend.env
     mode: '0600'
+  when: otel_elasticsearch_api_key | length > 0
   no_log: true
 
 - name: Déployer l'unité du collecteur backend OTEL
@@ -231,6 +241,7 @@
     mode: '0644'
   loop:
     - {template: otel-backend, unit: observability-otel-backend}
+  when: otel_backend_collector_ready
 
 - name: Recharger systemd pour les unités OTEL backend
   ansible.builtin.systemd_service:
@@ -248,6 +259,7 @@
     name: "{{ item }}.service"
     state: restarted
   loop: [observability-otel-backend]
+  when: otel_backend_collector_ready
 
 - name: Vérifier la santé du collecteur backend OTEL
   ansible.builtin.uri:
@@ -257,3 +269,4 @@
   retries: 30
   delay: 2
   until: otel_backend_health.status == 200
+  when: otel_backend_collector_ready
