@@ -38,7 +38,6 @@
     postgresql_otel_user: otel
     postgresql_otel_password: "{{ postgresql_password }}"
     elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('password', true) }}"
-    apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"
     fleet_enrollment_token: ""
 
 - name: Déployer Kubernetes, Elastic, Fleet et l'application

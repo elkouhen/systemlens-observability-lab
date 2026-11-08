@@ -8,7 +8,7 @@ Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
 d'observabilité du lab. Le chemin des signaux est le suivant :
 
 ```text
-application Java → agent Java OTel → Collecteur Edge → Kafka → Collector backend → APM Server / Elasticsearch
+application Java → agent Java OTel → Collecteur Edge → Kafka → Collector backend → Elasticsearch (OTel natif)
 ```
 
 L'agent Java OTel produit les traces et les logs, Micrometer les métriques
@@ -20,10 +20,9 @@ l'environnement dans le nom du topic (ADR-015).
 L'application `apps/demo-api` est l'exemple minimal de ce guide : un seul
 service, sa plateforme `demo`, ses manifests sous `kubernetes/apps/demo-api/`.
 Sans Micrometer, elle laisse l'agent exporter aussi les métriques JVM
-(`otel.metrics.exporter=otlp`), au format sémantique OTel lu par l'UI APM.
-Le collecteur backend envoie à APM Server les métriques des scopes
-`io.opentelemetry.*` de l'agent (ADR-016) ; les métriques Micrometer restent
-indexées en mapping OTel natif dans `metrics-<dataset>.otel-<environnement>`.
+(`otel.metrics.exporter=otlp`), au format sémantique OTel. Toutes les
+métriques, celles de l'agent comme celles de Micrometer, sont indexées en
+mapping OTel natif dans `metrics-<dataset>.otel-<environnement>` (ADR-018).
 
 ## Préparer l'application
 
@@ -116,27 +115,22 @@ Le dataset nomme l'application, le namespace nomme l'environnement (ADR-010),
 la plateforme est le champ `platform.id`. Le collecteur Edge publie les
 signaux dont la ressource porte `k8s.namespace.name` = `h0tl-supermarche-app`
 dans les topics `otel-<signal>-supermarche-homologation` de la plateforme
-`supermarche` et pose le dataset `supermarche` sur les logs et les métriques
+`supermarche` et pose le dataset `supermarche` sur les trois signaux
 (ADR-015). Le collecteur backend lit dans le nom du topic la plateforme et
-le namespace `homologation`. APM Server impose les datasets `apm`,
-`apm.error` et `apm.*` : le namespace des signaux APM porte donc aussi la
-plateforme, `<plateforme>_<environnement>` :
+le namespace `homologation`. Tous les signaux sont OTel natifs, sans
+conversion ECS (ADR-018) :
 
 | Signal | Data stream |
 | --- | --- |
-| Traces | `traces-apm-supermarche_homologation` |
-| Erreurs APM | `logs-apm.error-supermarche_homologation` |
-| Métriques APM agrégées | `metrics-apm.{transaction,service_transaction,service_destination,service_summary}.1m-supermarche_homologation` |
+| Traces | `traces-supermarche.otel-homologation` |
+| Métriques APM agrégées | `metrics-{transaction,service_transaction,service_destination,service_summary}.1m.otel-homologation` |
 | Métriques Micrometer et JVM | `metrics-supermarche.otel-homologation` |
 | Logs applicatifs | `logs-supermarche.otel-homologation` |
 
-Les traces gardent le dataset `apm` d'APM Server, lu par l'UI APM. Les
-métriques et les logs reçoivent le suffixe `.otel` du mode de mapping OTel
-(ADR-012). APM Server range ses métriques agrégées
-dans `default` ; le pipeline Elasticsearch `apm-route-namespace` les déplace
-dans le namespace des traces (`make apm-ingest-pipelines-deploy`). Les
-intervalles `10m` et `60m`, s'ils sont produits, suivent la même règle. Les
-métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`) gardent le
+Les trois signaux reçoivent le suffixe `.otel` du mode de mapping OTel. Le
+processeur `elasticapm` du collecteur backend enrichit les traces pour l'UI
+APM, et le connecteur `elasticapm` en tire les métriques agrégées ; les
+intervalles `10m` et `60m` suivent la même règle. Les métriques Kubernetes des pods (`kubeletstats`, `k8s_cluster`) gardent le
 dataset de leur receiver, en namespace `homologation`.
 
 ### Déclarer une nouvelle application comme plateforme
@@ -162,23 +156,22 @@ Une nouvelle application demande une plateforme et son entrée de namespace.
      dataset: caisse          # [a-z0-9_.], ou receiver
    ```
 
-   Ses logs et métriques iront dans `logs-caisse.otel-homologation` et
-   `metrics-caisse.otel-homologation`, ses signaux APM dans
-   `traces-apm-caisse_homologation`, tous avec `platform.id` = `caisse`. Le
+   Ses signaux iront dans `logs-caisse.otel-homologation`,
+   `metrics-caisse.otel-homologation` et `traces-caisse.otel-homologation`,
+   tous avec `platform.id` = `caisse`. Le
    rôle `otel_edge` refuse un namespace dupliqué, un format invalide ou une
    plateforme absente de `otel_platforms`.
 3. Valider avec `make otel-config-validate`, créer les topics avec
    `make otel-backend-vm-provision`, puis appliquer la table avec
    `make otel-edge-vm-provision`.
 
-Les attributs `data_stream.dataset`, `data_stream.namespace`,
-`apm.route.namespace` et `platform.id` posés par l'application sont supprimés
+Les attributs `data_stream.dataset`, `data_stream.namespace` et
+`platform.id` posés par l'application sont supprimés
 par l'Edge. Sans entrée dédiée, les signaux de l'application sont rejetés par
 l'Edge et comptés par `make otel-routing-verify`.
 
-Les traces et métriques APM portent `agent.name` égal à
-`opentelemetry/java/opentelemetry-java-instrumentation`. Les logs portent la
-ressource de l'agent sous `resource.attributes` (`service.name`,
+Les trois signaux portent la ressource de l'agent sous `resource.attributes`
+(`service.name`,
 `service.version`, `deployment.environment.name`, `k8s.*`, `telemetry.distro.*`).
 
 ### Noms des spans HTTP client

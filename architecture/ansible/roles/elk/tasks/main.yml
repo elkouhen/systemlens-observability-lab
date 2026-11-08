@@ -38,26 +38,27 @@
     mode: '0644'
   loop:
     - {template: elasticsearch, unit: observability-elasticsearch}
-    - {template: apm-server, unit: observability-apm-server}
     - {template: kibana, unit: observability-kibana}
     - {template: fleet-server, unit: observability-fleet-server}
   notify: Redémarrer Kibana après modification de sa définition
 
-- name: Déployer la configuration APM Server
-  ansible.builtin.template:
-    src: "{{ role_path }}/templates/apm-server.yml.j2"
-    dest: /etc/observability/apm-server.yml
-    mode: '0644'
+# APM Server est retiré (ADR-018) : les traces sont indexées en OTel natif
+# par le collecteur backend. Ces tâches retirent l'ancien service d'une VM
+# déjà provisionnée ; elles sont sans effet sur une VM neuve.
+- name: Arrêter l'ancien APM Server
+  ansible.builtin.systemd_service:
+    name: observability-apm-server.service
+    state: stopped
+  failed_when: false
 
-- name: Écrire les identifiants APM Server
-  ansible.builtin.copy:
-    content: |
-      ELASTICSEARCH_USERNAME=elastic
-      ELASTICSEARCH_PASSWORD={{ elastic_password }}
-      APM_SERVER_SECRET_TOKEN={{ apm_server_secret_token | default(elastic_password | hash('sha256'), true) }}
-    dest: /etc/observability/apm-server.env
-    mode: '0600'
-  no_log: true
+- name: Retirer l'unité et la configuration de l'ancien APM Server
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/containers/systemd/observability-apm-server.container
+    - /etc/observability/apm-server.yml
+    - /etc/observability/apm-server.env
 
 - name: Déployer la configuration Kibana
   ansible.builtin.template:
@@ -93,7 +94,6 @@
     - docker.elastic.co/elasticsearch/elasticsearch:9.5.4
     - docker.elastic.co/kibana/kibana:9.5.4
     - docker.elastic.co/elastic-agent/elastic-agent:9.5.4
-    - docker.elastic.co/apm/apm-server:{{ apm_server_version }}
   register: elastic_image_pull
   changed_when: elastic_image_pull.stdout != 'present'
   retries: 3
@@ -218,22 +218,13 @@
   when: fleet_server_env.stat.exists
   notify: Redémarrer Fleet Server après modification de ses identifiants
 
-- name: Redémarrer APM Server et Kibana sur elk-01
+- name: Redémarrer Kibana sur elk-01
   ansible.builtin.systemd_service:
-    name: "{{ item }}.service"
+    name: observability-kibana.service
+    daemon_reload: true
     state: restarted
-  loop: [observability-apm-server, observability-kibana]
 
 - name: Démarrer Fleet Server sur elk-01
   ansible.builtin.systemd_service:
     name: observability-fleet-server.service
     state: stopped
-
-- name: Attendre APM Server sur elk-01
-  ansible.builtin.uri:
-    url: http://127.0.0.1:8200/
-    status_code: 200
-  register: apm_server_ready
-  retries: 30
-  delay: 2
-  until: apm_server_ready.status == 200

@@ -49,7 +49,7 @@ processors:
   l'inventaire des VM (hôtes dont otel_edge désigne cet Edge) ; routes.yml
   valide leur format.
   1. Un client ne choisit jamais son topic ni ses attributs de data stream :
-     otel.kafka.topic, data_stream.namespace, apm.route.namespace et
+     otel.kafka.topic, data_stream.namespace et
      platform.id reçus sont supprimés, ainsi que data_stream.dataset, sauf
      collectortelemetry que les agents EDOT et les collecteurs posent sur
      leur télémétrie interne.
@@ -61,8 +61,9 @@ processors:
   3. Namespace Kubernetes connu (celui des collecteurs, puis les plateformes
      hébergées) : topic de sa plateforme.
   4. host.name d'une VM rattachée : topic de sa plateforme.
-  5. Dataset d'une route applicative sur les logs et les métriques de son
-     namespace, jamais sur les traces (APM Server impose apm).
+  5. Dataset d'une route applicative sur les trois signaux de son
+     namespace : traces-<dataset>.otel-<environnement> comme les logs et
+     les métriques (ADR-018).
      k8s.cluster.name du cluster sur toute ressource Kubernetes. Le marqueur
      n'est pas indexé. Le backend tire du topic platform.id,
      data_stream.namespace et deployment.environment.name.
@@ -76,7 +77,6 @@ processors:
         statements:
           - delete_key(resource.attributes, "otel.kafka.topic")
           - delete_key(resource.attributes, "data_stream.namespace")
-          - delete_key(resource.attributes, "apm.route.namespace")
           - delete_key(resource.attributes, "platform.id")
           - delete_key(resource.attributes, "data_stream.dataset") where resource.attributes["data_stream.dataset"] != "collectortelemetry"
 {% if signal != 'logs' %}
@@ -91,11 +91,9 @@ processors:
 {% for host in otel_edge_hosts %}
           - set(resource.attributes["otel.kafka.topic"], "otel-{{ signal }}-{{ hostvars[host].otel_platform }}-{{ hostvars[host].otel_environment }}") where resource.attributes["otel.kafka.topic"] == nil and resource.attributes["host.name"] == "{{ host }}"
 {% endfor %}
-{% if signal != 'traces' %}
 {% for route in otel_edge_namespace_routes if route.dataset != 'receiver' %}
           - set(resource.attributes["data_stream.dataset"], "{{ route.dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.platform }}-{{ route.environment }}" and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
 {% endfor %}
-{% endif %}
           - set(resource.attributes["k8s.cluster.name"], "{{ otel_edge_cluster.name }}") where resource.attributes["k8s.namespace.name"] != nil or resource.attributes["otel.edge.source"] == "kubernetes"
           # Le marqueur des collecteurs Kubernetes n'est pas indexé.
           - delete_key(resource.attributes, "otel.edge.source")
@@ -144,7 +142,8 @@ processors:
   # règle est appliquée deux fois : une passe consomme la barre qui suit un
   # identifiant et saute donc un identifiant sur deux d'une suite contiguë.
   # Les attributs (url.full, http.request.method, server.address) ne changent
-  # pas : APM Server en tire toujours span.destination.service.resource.
+  # pas : le processeur elasticapm du backend en tire toujours la
+  # dépendance (span.destination.service.resource).
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
   transform/http-client-span-name:
     error_mode: ignore

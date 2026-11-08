@@ -62,10 +62,10 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces-supermarche-homologation` | EDOT backend, APM Server |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces-supermarche-homologation` | EDOT backend (`elasticapm`), Elasticsearch en OTel natif (ADR-018) |
 | Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, Edge, Kafka `otel-logs-supermarche-homologation` | EDOT backend, Elasticsearch |
 | Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics-supermarche-homologation` | EDOT backend, Elasticsearch |
-| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry | OTLP, Edge, Kafka de la plateforme | EDOT backend, APM Server (ADR-016) |
+| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry | OTLP, Edge, Kafka de la plateforme | EDOT backend, Elasticsearch |
 | Métriques Kubernetes | EDOT DaemonSet et Deployment | OTLP, Edge, Kafka `otel-metrics-k3s-homologation` | EDOT backend, Elasticsearch |
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka de la plateforme de la VM | EDOT backend, Elasticsearch |
 
@@ -82,8 +82,10 @@ applications. Le backend lit dans le nom du topic la plateforme (`platform.id`)
 et le namespace. Le dataset nomme l'application ou le receiver, le namespace
 l'environnement (ADR-010) : `logs-supermarche.otel-homologation`,
 `metrics-kubeletstatsreceiver.otel-homologation`,
-`traces-apm-supermarche_homologation`. Le Collector backend applique le
-traitement nécessaire avant l’export vers Elastic.
+`traces-supermarche.otel-homologation`. Le Collector backend applique le
+traitement nécessaire avant l’export vers Elastic, sans conversion ECS : le
+processeur `elasticapm` enrichit les traces et le connecteur `elasticapm` en
+tire les métriques agrégées de l'UI APM (ADR-018).
 
 ## Responsabilités des composants
 

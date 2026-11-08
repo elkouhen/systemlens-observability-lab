@@ -37,9 +37,7 @@ otel_kafka_admin_password: "{{ (otel_kafka_secret ~ ':' ~ otel_kafka_admin_usern
 otel_kafka_consumer_username: otel_consumer
 otel_kafka_consumer_password: "{{ lookup('env', 'KAFKA_OTEL_CONSUMER_PASSWORD') | default('', true) }}"
 elastic_agent_version: 9.5.4
-apm_server_version: 9.5.4
 elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('', true) }}"
-apm_server_secret_token: "{{ lookup('env', 'APM_SERVER_SECRET_TOKEN') | default('', true) }}"
 otel_elasticsearch_api_key: "{{ lookup('env', 'OTEL_ELASTICSEARCH_API_KEY') | default('', true) }}"
 # Clé Bearer de chaque VM auprès de son Edge (ADR-015) : OTEL_EDGE_KEY_<HOST>,
 # hôte en majuscules, tirets remplacés par des soulignés, fournie hors Git.

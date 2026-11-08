@@ -2,6 +2,9 @@
 
 ## Statut
 
+Superseded par [ADR-018](ADR-018-traces-otel-natives-sans-apm-server.md) le
+2026-11-08 : les métriques de l'agent sont indexées en OTel natif.
+
 Accepted, déployé le 2026-11-07.
 
 Amende [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md) (tous les flux indexés

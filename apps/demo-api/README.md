@@ -5,8 +5,8 @@ d'entrée par signal. Elle forme à elle seule la plateforme `demo` du lab (name
 `h0tl-demo-app`, ADR-015). Aucun code d'instrumentation : l'agent Java
 OpenTelemetry, attaché par l'`ENTRYPOINT`, produit les trois signaux, qui
 suivent le chemin agent → collecteur Edge → Kafka
-`otel-<signal>-demo-homologation` → collecteur backend → APM Server et
-Elasticsearch.
+`otel-<signal>-demo-homologation` → collecteur backend → Elasticsearch, en
+OTel natif sans conversion ECS (ADR-018).
 
 | Point d'entrée | Signaux |
 | --- | --- |
@@ -38,10 +38,10 @@ sondes Kubernetes sont TCP pour ne pas créer de transactions.
 
 | Signal | Data stream | Filtre |
 | --- | --- | --- |
-| Logs | `logs-demo.otel-homologation` | `platform.id: demo`, `service.name: demo-api` |
-| Métriques JVM et HTTP de l'agent | `metrics-apm.app.demo_api-demo_homologation` (via APM Server, ADR-016) | `service.name: demo-api` |
-| Traces et erreurs | `traces-apm-demo_homologation`, `logs-apm.error-demo_homologation` | `service.environment: homologation` |
-| Métriques APM agrégées | `metrics-apm.*.1m-demo_homologation` | rangées par le pipeline `apm-route-namespace` |
+| Logs et erreurs | `logs-demo.otel-homologation` ; une erreur est un événement `exception` avec `attributes.processor.event: error` | `platform.id: demo`, `service.name: demo-api` |
+| Métriques JVM et HTTP de l'agent | `metrics-demo.otel-homologation`, champs `metrics.jvm.*` | `service.name: demo-api` |
+| Traces | `traces-demo.otel-homologation` | `platform.id: demo` |
+| Métriques APM agrégées | `metrics-{transaction,service_transaction,service_destination,service_summary}.1m.otel-homologation` | `service.name: demo-api` |
 
 ## Prérequis
 
@@ -87,8 +87,8 @@ make otel-routing-verify
 et `jvm.cpu.recent_utilization`. Dans Kibana : l'UI APM liste `demo-api` en
 `homologation`, ses transactions `GET /api/hello` et `GET /api/fail`,
 l'erreur `DemoFailureException` et l'onglet *Metrics* (tableau JVM, mémoire
-heap et non-heap, GC, threads, CPU) ; Discover sur `metrics-apm.app.*` avec
-`service.name: demo-api` montre les champs `jvm.*`.
+heap et non-heap, GC, threads, CPU) ; Discover sur `metrics-demo.otel-*` avec
+`service.name: demo-api` montre les champs `metrics.jvm.*`.
 
 ## Structure
 

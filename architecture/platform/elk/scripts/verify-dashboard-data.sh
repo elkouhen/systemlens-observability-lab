@@ -18,7 +18,7 @@ response="$(curl --fail --silent --show-error --insecure \
 
 expected_datasets=(
   hostmetricsreceiver.otel kubeletstatsreceiver.otel k8sclusterreceiver.otel supermarche.otel
-  apm.service_transaction.1m
+  service_transaction.1m.otel
   kafkametricsreceiver.otel mongodbreceiver.otel postgresqlreceiver.otel
 )
 expected_metrics=(
@@ -49,12 +49,13 @@ expected_metrics=(
   'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.checkpoint.count'
   'metrics-postgresqlreceiver.otel-*|postgresql.bgwriter.duration'
 )
+# Attributs de ressource des traces OTel natives (ADR-018) lus par l'UI APM.
 expected_apm_fields=(
-  service.name
-  service.node.name
-  host.name
-  kubernetes.pod.name
-  kubernetes.pod.uid
+  resource.attributes.service.name
+  resource.attributes.service.node.name
+  resource.attributes.host.name
+  resource.attributes.k8s.pod.name
+  resource.attributes.k8s.pod.uid
 )
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 dashboard_file="${script_dir}/../dashboards/business-metrics-dashboard.json"
@@ -136,7 +137,7 @@ for field in "${expected_apm_fields[@]}"; do
     --resolve "${elasticsearch_resolve}" \
     -u "${elasticsearch_user}:${ELASTICSEARCH_PASSWORD}" \
     -H 'Content-Type: application/json' \
-    -X POST "${elasticsearch_url}/traces-apm-*/_count" \
+    -X POST "${elasticsearch_url}/traces-*.otel-*/_count" \
     --data "{\"query\":{\"bool\":{\"filter\":[{\"range\":{\"@timestamp\":{\"gte\":\"now-${window}\"}}},{\"exists\":{\"field\":\"${field}\"}}]}}}")"
   count="$(jq -r '.count // 0' <<<"${apm_response}")"
   if (( count > 0 )); then

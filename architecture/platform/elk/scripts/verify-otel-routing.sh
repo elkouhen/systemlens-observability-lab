@@ -14,7 +14,6 @@ elasticsearch_user="${ELASTICSEARCH_USERNAME:-elastic}"
 elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"
 window="${OBSERVABILITY_VERIFY_WINDOW:-15m}"
 environment="${OTEL_ENVIRONMENT:-homologation}"
-application_namespace="${OTEL_APPLICATION_NAMESPACE:-supermarche_${environment}}"
 
 request() {
   local method="$1" path="$2" body="${3:-}"
@@ -55,36 +54,32 @@ check_positive() {
   fi
 }
 
-# Les métriques de l'agent Java OTel passent par APM Server (ADR-016) :
-# metrics-apm.app.<service>-<plateforme>_<environnement>, où platform.id
-# devient le label platform_id. Elles comptent pour leur plateforme.
+# Tous les signaux sont OTel natifs (ADR-018) : platform.id est un attribut
+# de ressource, métriques de l'agent Java et traces comprises.
 for platform in ${OTEL_PLATFORMS}; do
   for type in logs metrics; do
     indices="${type}-*.otel-${environment}"
     platform_filter="{\"term\":{\"resource.attributes.platform.id\":\"${platform}\"}}"
-    if [[ "${type}" == metrics ]]; then
-      indices="${indices},metrics-apm.app.*-${platform}_${environment}"
-      platform_filter="{\"bool\":{\"should\":[${platform_filter},{\"term\":{\"labels.platform_id\":\"${platform}\"}}],\"minimum_should_match\":1}}"
-    fi
     count="$(count_query "${indices}" \
       "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),${platform_filter}]}}}")"
     check_positive "${type} de la plateforme ${platform} (platform.id)" "${count}"
   done
 done
 
-count="$(count_query "traces-apm-${application_namespace}" \
-  "{\"query\":{\"bool\":{\"filter\":[$(recent_filter)]}}}")"
-check_positive "traces dans traces-apm-${application_namespace}" "${count}"
+count="$(count_query "traces-supermarche.otel-${environment}" \
+  "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"term\":{\"resource.attributes.platform.id\":\"supermarche\"}}]}}}")"
+check_positive "traces OTel natives dans traces-supermarche.otel-${environment}" "${count}"
 
-count="$(count_query "traces-apm*,logs-apm*,metrics-apm*" \
-  "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"exists\":{\"field\":\"labels.apm_route_namespace\"}}]}}}")"
-check_zero "label apm_route_namespace indexé" "${count}"
-
-# Seuls les flux OTel et APM sont concernés : Fleet Server écrit ses propres
-# data streams metrics-fleet_server.*-default.
-count="$(count_query "logs-*.otel-default,metrics-*.otel-default,traces-apm*-default,logs-apm*-default,metrics-apm*-default" \
+# Métriques agrégées de l'UI APM, calculées par le connecteur elasticapm.
+count="$(count_query "metrics-service_transaction.1m.otel-${environment}" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter)]}}}")"
-check_zero "documents OTel ou APM récents dans un namespace default" "${count}"
+check_positive "métriques APM agrégées dans metrics-service_transaction.1m.otel-${environment}" "${count}"
+
+# Aucun flux OTel ne passe plus par APM Server ni ne reste en namespace
+# default. Fleet Server écrit ses propres data streams *-default.
+count="$(count_query "logs-*.otel-default,metrics-*.otel-default,traces-*.otel-default,traces-apm*,metrics-apm*,logs-apm*" \
+  "{\"query\":{\"bool\":{\"filter\":[$(recent_filter)]}}}")"
+check_zero "documents récents en namespace default ou au format APM Server (ECS)" "${count}"
 
 count="$(count_query "logs-*,metrics-*" \
   "{\"query\":{\"bool\":{\"filter\":[$(recent_filter),{\"exists\":{\"field\":\"resource.attributes.otel.kafka.topic\"}}]}}}")"

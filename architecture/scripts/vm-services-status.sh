@@ -53,7 +53,7 @@ run_remote_status otel-edge-01 \
 
 run_remote_status elk-01 \
   observability-elasticsearch.service observability-kibana.service \
-  observability-apm-server.service observability-fleet-server.service \
+  observability-fleet-server.service \
   elastic-agent.service
 
 run_remote_status k3s-01 k3s.service

@@ -65,7 +65,7 @@ wait_remote_command otel-edge-01 'collecteur Edge OTel' \
 
 restart_remote_services elk-01 \
   observability-elasticsearch.service observability-kibana.service \
-  observability-apm-server.service observability-fleet-server.service \
+  observability-fleet-server.service \
   elastic-agent.service
 
 restart_remote_services k3s-01 k3s.service

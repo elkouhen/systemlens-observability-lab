@@ -63,7 +63,7 @@ processors:
     check_interval: 1s
     limit_mib: 700
     spike_limit_mib: 150
-  cumulativetodelta:
+  cumulative_to_delta:
     include:
       metric_types:
         - histogram
@@ -100,8 +100,7 @@ processors:
   # data_stream.namespace et deployment.environment.name (valeur reçue
   # écrasée). Le dataset est celui posé par l'Edge pour une application,
   # sinon celui que l'exporteur dérive du receiver. otel.kafka.topic est
-  # ensuite supprimé, ainsi qu'un apm.route.namespace reçu : seul
-  # transform/apm-route le pose.
+  # ensuite supprimé.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
   transform/data-stream-route:
     error_mode: ignore
@@ -113,76 +112,32 @@ processors:
           - set(resource.attributes["data_stream.namespace"], resource.cache["environment"])
           - set(resource.attributes["deployment.environment.name"], resource.cache["environment"])
           - delete_key(resource.attributes, "otel.kafka.topic")
-          - delete_key(resource.attributes, "apm.route.namespace")
     metric_statements: *data_stream_route
     log_statements: *data_stream_route
-  # Signaux envoyés à APM Server : traces et métriques de l'agent Java OTel
-  # (ADR-010, ADR-016). APM Server impose ses datasets (apm, apm.app…) : un
-  # dataset posé par l'Edge est retiré. Le namespace devient
-  # <plateforme>_<environnement>, recopié dans apm.route.namespace : APM
-  # Server en fait le label global apm_route_namespace, reporté sur ses
-  # agrégats, que le pipeline Elasticsearch apm-route-namespace range dans ce
-  # namespace puis retire.
-  transform/apm-route:
-    error_mode: ignore
-    trace_statements: &apm_route
-      - context: resource
-        statements:
-          - delete_key(resource.attributes, "data_stream.dataset")
-          - set(resource.attributes["data_stream.namespace"], Concat([resource.attributes["platform.id"], resource.attributes["data_stream.namespace"]], "_"))
-          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"])
-    metric_statements: *apm_route
+  # Enrichissement des traces pour l'UI APM, en OTel natif (ADR-018) :
+  # transactions, spans, service et environnement, sans conversion ECS.
+  # Documentation : https://www.elastic.co/docs/reference/edot-collector/components/elasticapmprocessor
+  elasticapm: {}
 
 connectors:
-  # Partage du flux de métriques (ADR-016). Les métriques des scopes
-  # io.opentelemetry.* sont émises par l'agent Java OTel (runtime JVM,
-  # instrumentation HTTP, SDK) : elles vont à APM Server. Toutes les autres
-  # (Micrometer, collecteurs Kubernetes, hôtes, télémétrie interne) restent
-  # indexées en mapping OTel natif.
-  # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/routingconnector
-  routing/metrics:
-    error_mode: ignore
-    default_pipelines: [metrics/elasticsearch]
-    table:
-      - context: metric
-        condition: IsMatch(instrumentation_scope.name, "^io\\.opentelemetry\\.")
-        pipelines: [metrics/apm]
+  # Métriques agrégées de l'UI APM (débit, latence, erreurs, dépendances),
+  # calculées depuis les traces et indexées en OTel natif (ADR-018).
+  # Documentation : https://www.elastic.co/docs/reference/edot-collector/components/elasticapmconnector
+  elasticapm: {}
 
 exporters:
-  # Documentation : https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
-  otlphttp/apm-server:
-    endpoint: "{{ apm_server_url }}"
-    headers:
-      Authorization: "Bearer ${env:APM_SERVER_SECRET_TOKEN}"
-    # File persistante (ADR-013) : les traces acquittées au receiver Kafka
-    # survivent à un redémarrage du collecteur et à une panne d'APM Server.
-    # Pleine, la file refuse les données : le receiver Kafka ne marque pas
-    # le message et le relit, Kafka reste le tampon.
-    sending_queue:
-      enabled: true
-      storage: file_storage
-      sizer: requests
-      queue_size: 1000
-      batch:
-        flush_timeout: 1s
-        sizer: items
-        min_size: 512
-    # Réessais sans limite de durée : seule une erreur permanente (4xx hors
-    # 429) abandonne un lot.
-    retry_on_failure:
-      enabled: true
-      initial_interval: 1s
-      max_interval: 30s
-      max_elapsed_time: 0s
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter
-  # Mode de mapping OTel natif (défaut de l'exporteur) pour tous les signaux
-  # indexés ici : les data streams prennent le suffixe .otel, par exemple
-  # logs-supermarche.otel-homologation (ADR-012). Aucun flux n'est forcé en
-  # ECS ; les traces et les métriques de l'agent Java OTel passent par APM
-  # Server et gardent son modèle (ADR-016).
+  # Mode de mapping OTel natif pour tous les signaux : les data streams
+  # prennent le suffixe .otel, par exemple logs-supermarche.otel-homologation
+  # (ADR-012). Aucun flux n'est converti en ECS, traces comprises (ADR-018).
+  # La file persistante survit à un redémarrage du collecteur et à une panne
+  # d'Elasticsearch ; pleine, elle refuse les données et le receiver Kafka
+  # relit le message (ADR-013).
   elasticsearch/otel:
     endpoints: ["{{ elasticsearch_url }}"]
     api_key: ${env:ELASTICSEARCH_API_KEY}
+    mapping:
+      mode: otel
     sending_queue:
       enabled: true
       queue_size: 1000
@@ -245,7 +200,7 @@ service:
   pipelines:
     metrics/internal-telemetry:
       receivers: [otlp/internal]
-      processors: [memory_limiter, cumulativetodelta, batch]
+      processors: [memory_limiter, cumulative_to_delta, batch]
       exporters: [elasticsearch/otel]
     logs/internal-telemetry:
       receivers: [otlp/internal]
@@ -253,18 +208,14 @@ service:
       exporters: [elasticsearch/otel]
     traces:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, transform/apm-route]
-      exporters: [otlphttp/apm-server]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, elasticapm]
+      exporters: [elasticapm, elasticsearch/otel]
+    metrics/aggregated-otel-metrics:
+      receivers: [elasticapm]
+      exporters: [elasticsearch/otel]
     metrics:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, filter/invalid-double, resource/kafka-topic, transform/data-stream-route, cumulativetodelta]
-      exporters: [routing/metrics]
-    metrics/apm:
-      receivers: [routing/metrics]
-      processors: [transform/apm-route]
-      exporters: [otlphttp/apm-server]
-    metrics/elasticsearch:
-      receivers: [routing/metrics]
+      processors: [memory_limiter, filter/invalid-double, resource/kafka-topic, transform/data-stream-route, cumulative_to_delta]
       exporters: [elasticsearch/otel]
     logs:
       receivers: [kafka/otlp]

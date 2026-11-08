@@ -31,7 +31,7 @@ les dashboards peuvent suivre les erreurs et la performance des pipelines.
 
 Le collecteur backend ne commite un offset Kafka qu'après l'écriture du
 message dans la file persistante de son exporteur (`message_marking.after`) :
-un redémarrage peut rejouer des messages, mais n'en perd pas. Si APM Server ou
+un redémarrage peut rejouer des messages, mais n'en perd pas. Si
 Elasticsearch est indisponible, la file se remplit puis le lag du groupe
 `otel-backend` augmente : Kafka sert de tampon (ADR-013).
 
@@ -185,9 +185,9 @@ une rotation de clé ou une modification de configuration.
 | VM | Collecteur | Acheminement |
 | --- | --- | --- |
 | `supermarket-middleware-01` | MongoDB, Kafka métier, PostgreSQL | Middlewares du scénario applicatif |
-| `otel-backend-01` | Kafka OTel, backend OTel | Métriques, logs et traces locales → Kafka OTel local → APM Server / Elasticsearch |
+| `otel-backend-01` | Kafka OTel, backend OTel | Métriques, logs et traces locales → Kafka OTel local → Elasticsearch (OTel natif) |
 | `otel-edge-01` | Collecteur Edge (Contrib) ; HAProxy | OTLP Kubernetes et VM → Kafka |
-| `elk-01` | Elasticsearch, APM Server, Kibana, Fleet Server | Stockage, ingestion des traces, consultation et enrôlement |
+| `elk-01` | Elasticsearch, Kibana, Fleet Server | Stockage, consultation et enrôlement |
 | `k3s-01` | Serveur k3s | Cluster Kubernetes et workloads du lab |
 
 ## Version du Kafka OTel
@@ -268,7 +268,7 @@ Le processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
 `topic_from_attribute` de l'exporteur Kafka, selon ces règles :
 
 1. Les attributs de routage reçus sont supprimés : `otel.kafka.topic`,
-   `data_stream.namespace`, `apm.route.namespace`, `platform.id` et
+   `data_stream.namespace`, `platform.id` et
    `data_stream.dataset`, sauf la valeur `collectortelemetry` de la
    télémétrie interne des agents et des collecteurs.
 2. Métriques et traces marquées `otel.edge.source=kubernetes` par les
@@ -279,8 +279,8 @@ Le processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
 3. `k8s.namespace.name` connu (celui des collecteurs, puis les plateformes
    hébergées) : topic de sa plateforme.
 4. `host.name` d'une VM rattachée : topic de sa plateforme.
-5. Le dataset d'une plateforme applicative est posé sur ses logs et ses
-   métriques, jamais sur ses traces (APM Server impose `apm`).
+5. Le dataset d'une plateforme applicative est posé sur ses logs, ses
+   métriques et ses traces.
    `k8s.cluster.name` est posé sur toute ressource Kubernetes, en écrasant
    la valeur reçue. Le marqueur n'est pas indexé. Le backend tire ensuite
    du topic `platform.id`, `data_stream.namespace` et
@@ -292,7 +292,7 @@ rendent l'oubli visible.
 
 | Ressource reçue par l'Edge | Topic | Data stream |
 | --- | --- | --- |
-| Log, métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche-homologation` | `logs-supermarche.otel-homologation`, `metrics-supermarche.otel-homologation`, `traces-apm-supermarche_homologation` |
+| Log, métrique ou trace avec `k8s.namespace.name` = `h0tl-supermarche-app` | `otel-<signal>-supermarche-homologation` | `logs-supermarche.otel-homologation`, `metrics-supermarche.otel-homologation`, `traces-supermarche.otel-homologation` |
 | Métrique avec `otel.edge.source` = `kubernetes` | `otel-metrics-k3s-homologation` | `metrics-<receiver>.otel-homologation`, `platform.id` = `k3s` |
 | Signal d'une VM (`host.name` = `elk-01`) | `otel-<signal>-elk-homologation` | `<type>-<receiver>.otel-homologation`, `platform.id` = `elk` |
 | Télémétrie interne de l'Edge (`host.name` = `otel-edge-01`) | `otel-<signal>-elk-homologation` | `metrics-collectortelemetry.otel-homologation` |
@@ -306,33 +306,23 @@ topic, preuve de provenance, la plateforme et l'environnement :
 
 | Signal | Posé depuis `otel-<signal>-<plateforme>-<env>` |
 | --- | --- |
-| Logs et métriques | `platform.id` = `<plateforme>`, `data_stream.namespace` = `<env>` ; dataset posé par l'Edge ou dérivé du receiver par l'exporteur |
-| Traces | `platform.id` = `<plateforme>`, `data_stream.namespace` et `apm.route.namespace` = `<plateforme>_<env>` |
+| Logs, métriques et traces | `platform.id` = `<plateforme>`, `data_stream.namespace` et `deployment.environment.name` = `<env>` ; dataset posé par l'Edge ou dérivé du receiver par l'exporteur |
 
 Chemin : producteur → topic du Kafka OTel → receiver `kafka/otlp`
 (souscription par regex) → `resource/kafka-topic` (copie de `kafka.topic`)
 → `transform/data-stream-route` (`ExtractPatterns` sur le topic, puis
-suppression de `otel.kafka.topic`) → exporteur Elasticsearch ou APM Server.
-Un topic hors format ne pose rien. Tous les flux sont en mode de mapping
-OTel : l'exporteur ajoute `.otel` au dataset des logs et des métriques
-([ADR-012](../docs/ADR-012-logs-otel-natifs-sans-ecs.md)).
+suppression de `otel.kafka.topic`) → exporteur Elasticsearch. Tous les
+signaux sont en mode de mapping OTel, sans conversion ECS : l'exporteur
+ajoute `.otel` au dataset
+([ADR-012](../docs/ADR-012-logs-otel-natifs-sans-ecs.md),
+[ADR-018](../docs/ADR-018-traces-otel-natives-sans-apm-server.md)).
 
-Les traces gardent les datasets `apm`, `apm.error` et `apm.*` d'APM Server.
-Leur namespace `<plateforme>_<env>` est recopié dans `apm.route.namespace`.
-APM Server en fait le label global `apm_route_namespace`, reporté sur ses
-métriques agrégées. Le pipeline Elasticsearch `apm-route-namespace`, appelé
-par les pipelines `@custom` des data streams APM, range ces agrégats dans ce
-namespace et retire le label de tous les documents APM
-(`make apm-ingest-pipelines-deploy`).
-
-Les métriques sont partagées par le connecteur `routing/metrics`
-([ADR-016](../docs/ADR-016-metriques-agent-otel-vers-apm-server.md)) : celles
-des scopes `io.opentelemetry.*`, émises par l'agent Java OTel (runtime JVM,
-HTTP, SDK), passent par `transform/apm-route`, comme les traces (retrait du dataset,
-namespace `<plateforme>_<env>`) puis APM Server, qui les range dans
-`metrics-apm.app.<service>-<plateforme>_<env>` pour l'onglet *Metrics* de
-l'UI APM. Les autres (Micrometer, Kubernetes, hôtes, télémétrie interne)
-restent sur l'exporteur Elasticsearch en mapping OTel.
+Les traces passent par le processeur `elasticapm` (classification
+transaction/span, résultat, dépendances). Le connecteur `elasticapm` en tire
+les métriques agrégées lues par l'UI APM :
+`metrics-{transaction,service_transaction,service_destination,service_summary}.<intervalle>.otel-<env>`.
+Les métriques de l'agent Java (runtime JVM, HTTP) suivent la règle commune
+et arrivent dans `metrics-<dataset>.otel-<env>`.
 
 La télémétrie interne du collecteur backend ne passe pas par Kafka : sa
 ressource porte `platform.id` et `data_stream.namespace` de la VM. L'agent
@@ -418,7 +408,7 @@ Le playbook `site.yml` applique les rôles dans cet ordre, en utilisant les grou
 
 1. `common` : prérequis système, réseau, pare-feu, répertoires et
    résolution des noms des VM ;
-2. `elk` sur `elk_nodes` : Elasticsearch, APM Server, Kibana et Fleet Server ;
+2. `elk` sur `elk_nodes` : Elasticsearch, Kibana et Fleet Server ;
 3. `otel_backend` sur `otel_backend_nodes` : Kafka OTel et backend OTel ;
 4. `otel_edge` sur `otel_edge_nodes` : collecteur Edge et HAProxy ;
 5. `lab` sur `supermarket_middleware_nodes` : MongoDB, Kafka métier et PostgreSQL ;

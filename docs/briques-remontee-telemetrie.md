@@ -5,10 +5,10 @@ métriques vers Elastic.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces-supermarche-homologation` | Collector backend → APM Server |
+| Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces-supermarche-homologation` | Collector backend (`elasticapm`) → Elasticsearch en OTel natif (ADR-018) |
 | Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → Edge → Kafka `otel-logs-supermarche-homologation` | Collector backend → Elasticsearch |
 | Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics-supermarche-homologation` | Collector backend → Elasticsearch |
-| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry (scopes `io.opentelemetry.*`) | OTLP → Edge → Kafka `otel-metrics-<plateforme>-homologation` | Collector backend → APM Server (ADR-016) |
+| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry (scopes `io.opentelemetry.*`) | OTLP → Edge → Kafka `otel-metrics-<plateforme>-homologation` | Collector backend → Elasticsearch |
 | Métriques Kubernetes | EDOT DaemonSet `kubeletstats`, Deployment `k8s_cluster` | OTLP → Edge → Kafka `otel-metrics-k3s-homologation` | Collector backend → Elasticsearch |
 | Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka `otel-<signal>-<plateforme>-homologation` | Collector backend → Elasticsearch |
 
@@ -28,10 +28,8 @@ l'application ou le receiver, le namespace l'environnement, la plateforme est
 le champ `platform.id`. Les services `supermarket-demo`
 écrivent dans `logs-supermarche.otel-homologation` (logs OTel natifs, ADR-012),
 `metrics-supermarche.otel-homologation`,
-`traces-apm-supermarche_homologation`,
-`logs-apm.error-supermarche_homologation` et
-`metrics-apm.<métrique>.1m-supermarche_homologation` : APM Server impose le
-dataset `apm`, le namespace porte donc la plateforme et l'environnement. Les
+`traces-supermarche.otel-homologation` et les métriques agrégées de l'UI APM
+`metrics-<métrique>.1m.otel-homologation`, toutes en OTel natif (ADR-018). Les
 collecteurs Kubernetes et les agents des VM gardent le dataset de leur
 receiver, par exemple `metrics-kubeletstatsreceiver.otel-homologation` et
 `metrics-hostmetricsreceiver.otel-homologation`, où `platform.id` distingue

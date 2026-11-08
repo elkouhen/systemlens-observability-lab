@@ -72,7 +72,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
 .PHONY: demo-api-test demo-api-build demo-api-import demo-api-deploy demo-api-call demo-api-jvm-metrics-verify demo-api-logs-follow help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
-	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy apm-ingest-pipelines-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
+	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
@@ -80,7 +80,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	middleware-vm-provision \
 	vms-up vms-restart vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
 	dashboards-verify otel-flow-dashboard-deploy kubernetes-otel-dashboards-verify trace-context-verify observability-schema-verify apm-report-api-key-create \
-	elastic-password-show kibana-password-show apm-token-show elasticsearch-api-key-create \
+	elastic-password-show kibana-password-show elasticsearch-api-key-create \
 	beats-api-key-create stock-view application-data-verify order-service-command order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow k3d-ca-import k3s-vm-up k3s-vm-provision k3s-kubeconfig public-tls-apply ci
 
 .PHONY: cluster-show elasticsearch-wait kibana-wait fleet-prerequisites-validate fleet-registry-wait \
@@ -193,15 +193,15 @@ demo-api-call: ## Appeler demo-api depuis le cluster (DEMO_API_PATH=/api/hello?n
 		--restart=Never --rm --attach -i --command -- \
 		curl --silent --show-error -w '\nHTTP %{http_code}\n' "http://demo-api:3010$(DEMO_API_PATH)"
 
-demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM de l'agent OTel de demo-api dans APM Server (5 dernières minutes, ADR-016)
+demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM OTel natives de demo-api (5 dernières minutes, ADR-018)
 	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
 	 status=0; \
 	 for metric in jvm.memory.used jvm.memory.limit jvm.gc.duration jvm.thread.count jvm.class.count jvm.cpu.recent_utilization; do \
 	   count="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
 	     -u "elastic:$$es_password" -H 'Content-Type: application/json' \
-	     '$(ELASTICSEARCH_URL)/metrics-apm.app.demo_api-*,metrics-apm.internal-*/_count' \
-	     --data "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"service.name\":\"demo-api\"}},{\"exists\":{\"field\":\"$$metric\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-5m\"}}}]}}}" \
+	     '$(ELASTICSEARCH_URL)/metrics-demo.otel-*/_count' \
+	     --data "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"resource.attributes.service.name\":\"demo-api\"}},{\"exists\":{\"field\":\"metrics.$$metric\"}},{\"range\":{\"@timestamp\":{\"gte\":\"now-5m\"}}}]}}}" \
 	     | jq -r '.count')"; \
 	   if [ "$$count" -gt 0 ]; then echo "OK   $$metric : $$count documents"; else echo "KO   $$metric : aucun document" >&2; status=1; fi; \
 	 done; \
@@ -379,7 +379,6 @@ elk-deploy: elastic-stack-deploy otel-edge-client-keys-apply otel-kafka-credenti
 	@$(MAKE) postgresql-credentials-apply
 	@$(MAKE) elasticsearch-ready
 	@$(MAKE) otel-elasticsearch-credentials-apply
-	@$(MAKE) apm-ingest-pipelines-deploy
 	@echo "Plateforme Elastic prête ; déploiement du backend OTel puis de l'Edge"
 	@$(MAKE) otel-backend-vm-provision
 	@$(MAKE) otel-edge-vm-provision
@@ -399,12 +398,6 @@ apm-data-view-deploy: ## Importer le data view APM versionné
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
 	KIBANA_URL='$(KIBANA_URL)' KIBANA_CURL_RESOLVE='$(KIBANA_CURL_RESOLVE)' KIBANA_PASSWORD="$$kibana_password" \
 		./$(ARCH_ROOT)/platform/elk/scripts/deploy-kibana-dashboard.sh $(ARCH_ROOT)/platform/elk/dashboards/apm-data-view.ndjson
-
-apm-ingest-pipelines-deploy: ## Installer le routage Elasticsearch des métriques APM agrégées (ADR-010)
-	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
-		test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la stack Elastic Quadlet.' >&2; exit 1; }; \
-	ELASTICSEARCH_URL='$(ELASTICSEARCH_URL)' ELASTICSEARCH_CURL_RESOLVE='$(ELASTICSEARCH_CURL_RESOLVE)' ELASTICSEARCH_PASSWORD="$$es_password" \
-		./$(ARCH_ROOT)/platform/elk/scripts/sync-apm-ingest-pipelines.sh
 
 business-dashboard-deploy: ## Importer le dashboard des métriques métier
 	@kibana_password="$$($(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)"; \
@@ -586,7 +579,7 @@ otel-config-validate: ## Rendre les configurations Edge, backend et agents depui
 	  docker run --rm --tmpfs /var/lib/otel-edge --tmpfs /var/lib/otel \
 	    -e OTEL_KAFKA_PUBLISHER_USERNAME=render -e OTEL_KAFKA_PUBLISHER_PASSWORD=render \
 	    -e OTEL_KAFKA_CONSUMER_USERNAME=render -e OTEL_KAFKA_CONSUMER_PASSWORD=render \
-	    -e ELASTICSEARCH_API_KEY=render -e APM_SERVER_SECRET_TOKEN=render \
+	    -e ELASTICSEARCH_API_KEY=render \
 	    -v "$(abspath $(OTEL_RENDER_DIR)):/render:ro" '$(OTEL_COLLECTOR_IMAGE)' validate --config="/render/$$(basename "$$file")"; \
 	  echo "OK      $$(basename "$$file")"; \
 	done; \
@@ -710,11 +703,9 @@ otel-backend-vm-provision: ## Provisionner le collecteur backend OTel sur otel-b
 	password="$${ELASTIC_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
 	publisher_password="$${KAFKA_OTEL_PUBLISHER_PASSWORD:?Set KAFKA_OTEL_PUBLISHER_PASSWORD outside Git}"; \
 	consumer_password="$${KAFKA_OTEL_CONSUMER_PASSWORD:?Set KAFKA_OTEL_CONSUMER_PASSWORD outside Git}"; \
-	apm_token="$$( $(VAGRANT) ssh elk-01 -c 'sudo cat /etc/observability/apm-server.env' | sed -n 's/^APM_SERVER_SECRET_TOKEN=//p' | head -n 1 | tr -d '\r' )"; \
 	test -n "$$api_key" || { echo 'Clé API OTel absente : exécuter d’abord make otel-elasticsearch-credentials-apply.' >&2; exit 1; }; \
 	test -n "$$password" || { echo 'ELASTIC_PASSWORD absent.' >&2; exit 1; }; \
-	test -n "$$apm_token" || { echo 'Token APM absent sur elk-01.' >&2; exit 1; }; \
-	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" KAFKA_OTEL_PUBLISHER_PASSWORD="$$publisher_password" KAFKA_OTEL_CONSUMER_PASSWORD="$$consumer_password" APM_SERVER_SECRET_TOKEN="$$apm_token" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01
+	DEPLOYMENT_PROFILE='$(DEPLOYMENT_PROFILE)' ELASTIC_PASSWORD="$$password" KAFKA_OTEL_PUBLISHER_PASSWORD="$$publisher_password" KAFKA_OTEL_CONSUMER_PASSWORD="$$consumer_password" OTEL_ELASTICSEARCH_API_KEY="$$api_key" $(VAGRANT) provision otel-backend-01
 otel-backend-vm-status: ## Vérifier le collecteur backend OTel exécuté sur otel-backend-01
 	@$(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-backend && curl --fail --silent http://127.0.0.1:13134/'
 
@@ -790,10 +781,6 @@ elastic-password-show: ## Afficher le mot de passe du compte elastic ECK
 		-o go-template='{{.data.elastic | base64decode}}{{"\\n"}}'
 
 kibana-password-show: elastic-password-show ## Afficher le mot de passe Kibana (compte elastic)
-
-apm-token-show: ## Afficher le token d’ingestion APM
-	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret apm-server-apm-token \
-		-o go-template='{{index .data "secret-token" | base64decode}}{{"\\n"}}'
 
 elasticsearch-api-key-create: ## Créer une clé API Base64 pour les rapports APM SystemLens
 	@test -n "$$ELASTICSEARCH_PASSWORD" || { echo "Définir ELASTICSEARCH_PASSWORD (make elastic-password-show)" >&2; exit 1; }

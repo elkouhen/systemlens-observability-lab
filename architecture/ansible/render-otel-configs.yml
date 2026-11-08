@@ -20,7 +20,6 @@
     mongodb_otel_password: render
     otel_kafka_broker: "127.0.0.1:9092"
     elasticsearch_url: "http://{{ elk_ip }}:9200"
-    apm_server_url: "http://{{ elk_ip }}:8200"
   tasks:
     - name: Créer le répertoire de rendu
       ansible.builtin.file:

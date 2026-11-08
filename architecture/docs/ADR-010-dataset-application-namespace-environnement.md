@@ -2,7 +2,11 @@
 
 ## Statut
 
-Accepted
+Accepted. La partie traces (namespace `<plateforme>_<environnement>`,
+`apm.route.namespace`, pipeline `apm-route-namespace`) est remplacée par
+[ADR-018](ADR-018-traces-otel-natives-sans-apm-server.md) : les traces
+suivent la règle commune, dataset de l'application et namespace de
+l'environnement.
 
 Remplace la partie « nommage des data streams » de
 [ADR-009](ADR-009-namespaces-supermarche-et-k8s.md). Le choix du topic Kafka
