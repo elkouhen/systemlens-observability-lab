@@ -2,7 +2,7 @@
 
 ## Statut
 
-Proposed, 2026-11-08. Versionné, non déployé.
+Accepted, déployé le 2026-11-08.
 
 Remplace [ADR-010](ADR-010-dataset-application-namespace-environnement.md)
 (le dataset nomme l'application, le namespace l'environnement) et la section « Plateforme : un champ,
@@ -89,6 +89,10 @@ données par leur dataset, valeur constante par data stream.
   par document.
 - Les vues intégrées de Kibana et de Fleet continuent de fonctionner : elles
   sélectionnent le dataset et lisent tous les namespaces.
+- `logs-generic.otel-<plateforme>_<env>` reçoit aussi les logs fichiers
+  (filelog) des VM de la plateforme, auxquels l'exporteur donne également
+  `generic` : les requêtes applicatives filtrent par
+  `resource.attributes.k8s.namespace.name` ou `service.name`.
 - Le nom ne répète jamais la plateforme. Une application se distingue d'une
   autre de la même plateforme par `service.name`, comme dans l'UI APM.
 - Les data streams `*.otel-homologation` existants ne reçoivent plus rien et
@@ -114,6 +118,11 @@ données par leur dataset, valeur constante par data stream.
 3. `make otel-edge-vm-provision` : l'Edge cesse de poser le dataset des
    applications.
 4. Import du dashboard métier et des règles du dépôt, sur demande explicite.
+5. Après 30 min sans écriture dans les anciens data streams
+   `*-*.otel-<environnement>` : `make otel-legacy-datastreams-delete` liste
+   ceux qui sont inactifs, `make otel-legacy-datastreams-delete CONFIRM=1`
+   les supprime. Un data stream ayant reçu un document depuis
+   `LEGACY_INACTIVE_WINDOW` (30m) est conservé.
 
 ## Vérification
 

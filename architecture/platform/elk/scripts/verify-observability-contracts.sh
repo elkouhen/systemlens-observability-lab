@@ -150,11 +150,15 @@ if [[ "${mode}" == schema ]]; then
   trace_missing="$(count_query 'traces-*' "${trace_missing_query}")"
   check_zero "spans sans trace.id ou span.id" "${trace_missing}"
 
+  # Le dataset generic d'une plateforme reçoit aussi les logs fichiers de ses
+  # VM (filelog, ADR-019) : les contrôles applicatifs se limitent au
+  # namespace Kubernetes de l'application.
   service_missing_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {
       filter: [
         {range: {"@timestamp": {gte: ("now-" + $window)}}},
-        {exists: {field: "data_stream.dataset"}}
+        {exists: {field: "data_stream.dataset"}},
+        {term: {"resource.attributes.k8s.namespace.name": "h0tl-supermarche-app"}}
       ],
       must_not: [{exists: {field: "service.name"}}]
     }}
@@ -165,7 +169,10 @@ if [[ "${mode}" == schema ]]; then
   # Logs applicatifs OTel natifs (ADR-012) : présents, avec sévérité, corps
   # et identité de service, sans champ ECS hérité du format stdout.
   app_logs_query="$(jq -cn --arg window "${window}" '{
-    query: {range: {"@timestamp": {gte: ("now-" + $window)}}}
+    query: {bool: {filter: [
+      {range: {"@timestamp": {gte: ("now-" + $window)}}},
+      {term: {"resource.attributes.k8s.namespace.name": "h0tl-supermarche-app"}}
+    ]}}
   }')"
   app_logs="$(count_query 'logs-generic.otel-supermarche_*' "${app_logs_query}")"
   if (( app_logs > 0 )); then
@@ -177,7 +184,10 @@ if [[ "${mode}" == schema ]]; then
 
   otel_log_missing_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {
-      filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],
+      filter: [
+        {range: {"@timestamp": {gte: ("now-" + $window)}}},
+        {term: {"resource.attributes.k8s.namespace.name": "h0tl-supermarche-app"}}
+      ],
       should: [
         {bool: {must_not: [{exists: {field: "severity_text"}}]}},
         {bool: {must_not: [{exists: {field: "body.text"}}]}},
@@ -199,7 +209,8 @@ if [[ "${mode}" == schema ]]; then
     query: {bool: {
       filter: [
         {range: {"@timestamp": {gte: ("now-" + $window)}}},
-        {range: {severity_number: {lt: 13}}}
+        {range: {severity_number: {lt: 13}}},
+        {term: {"resource.attributes.k8s.namespace.name": "h0tl-supermarche-app"}}
       ],
       must_not: [
         {exists: {field: "trace_id"}},
@@ -215,7 +226,10 @@ if [[ "${mode}" == schema ]]; then
   # d'Elasticsearch. Le collecteur backend le pose depuis le topic (ADR-018).
   no_environment_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {
-      filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],
+      filter: [
+        {range: {"@timestamp": {gte: ("now-" + $window)}}},
+        {term: {"resource.attributes.k8s.namespace.name": "h0tl-supermarche-app"}}
+      ],
       must_not: [{exists: {field: "service.environment"}}]
     }}
   }')"
