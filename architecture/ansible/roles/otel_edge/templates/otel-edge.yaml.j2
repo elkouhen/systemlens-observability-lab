@@ -63,9 +63,9 @@ processors:
   4. host.name d'une VM rattachée : topic de sa plateforme.
   5. Dataset d'une route applicative sur les logs et les métriques de son
      namespace, jamais sur les traces (APM Server impose apm).
-     deployment.environment.name suit le topic choisi, en écrasant la valeur
-     reçue. k8s.cluster.name du cluster sur toute ressource Kubernetes. Le
-     marqueur n'est pas indexé.
+     k8s.cluster.name du cluster sur toute ressource Kubernetes. Le marqueur
+     n'est pas indexé. Le backend tire du topic platform.id,
+     data_stream.namespace et deployment.environment.name.
   Une ressource sans topic est rejetée ensuite par filter/unrouted.
 #}
 {% set cluster_route = {'kubernetes_namespace': otel_edge_cluster.kubernetes_namespace, 'platform': otel_edge_cluster.platform, 'environment': otel_edge_cluster.environment, 'dataset': 'receiver'} %}
@@ -96,9 +96,6 @@ processors:
           - set(resource.attributes["data_stream.dataset"], "{{ route.dataset }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ route.platform }}-{{ route.environment }}" and resource.attributes["k8s.namespace.name"] == "{{ route.kubernetes_namespace }}"
 {% endfor %}
 {% endif %}
-{% for key in otel_edge_platform_keys %}
-          - set(resource.attributes["deployment.environment.name"], "{{ key.split('-')[1] }}") where resource.attributes["otel.kafka.topic"] == "otel-{{ signal }}-{{ key }}"
-{% endfor %}
           - set(resource.attributes["k8s.cluster.name"], "{{ otel_edge_cluster.name }}") where resource.attributes["k8s.namespace.name"] != nil or resource.attributes["otel.edge.source"] == "kubernetes"
           # Le marqueur des collecteurs Kubernetes n'est pas indexé.
           - delete_key(resource.attributes, "otel.edge.source")
@@ -172,19 +169,11 @@ exporters:
         username: "${env:OTEL_KAFKA_PUBLISHER_USERNAME}"
         password: "${env:OTEL_KAFKA_PUBLISHER_PASSWORD}"
         mechanism: PLAIN
-    # Topic posé par transform/kafka-topic, une ressource par topic. Les
-    # topics par défaut ne reçoivent rien : filter/unrouted rejette avant
-    # toute ressource sans topic (ADR-015).
+    # Topic posé par transform/kafka-topic, une ressource par topic, encodage
+    # otlp_proto par défaut. Les topics par défaut de l'exporteur ne
+    # reçoivent rien : filter/unrouted rejette avant toute ressource sans
+    # topic (ADR-015).
     topic_from_attribute: otel.kafka.topic
-    traces:
-      topic: otel-traces
-      encoding: otlp_proto
-    metrics:
-      topic: otel-metrics
-      encoding: otlp_proto
-    logs:
-      topic: otel-logs
-      encoding: otlp_proto
 
 service:
   extensions: [health_check, file_storage, bearertokenauth/clients]
@@ -204,8 +193,6 @@ service:
           value: "{{ inventory_hostname }}"
         - name: host.name
           value: "{{ inventory_hostname }}"
-        - name: deployment.environment.name
-          value: "{{ otel_environment }}"
         - name: data_stream.dataset
           value: collectortelemetry
     metrics:

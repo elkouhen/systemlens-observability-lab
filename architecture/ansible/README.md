@@ -279,9 +279,10 @@ Le processor `transform/kafka-topic` pose `otel.kafka.topic`, lu par
 4. `host.name` d'une VM rattachée : topic de sa plateforme.
 5. Le dataset d'une plateforme applicative est posé sur ses logs et ses
    métriques, jamais sur ses traces (APM Server impose `apm`).
-   `deployment.environment.name` suit le topic choisi et `k8s.cluster.name`
-   est posé sur toute ressource Kubernetes, en écrasant la valeur reçue.
-   Le marqueur n'est pas indexé.
+   `k8s.cluster.name` est posé sur toute ressource Kubernetes, en écrasant
+   la valeur reçue. Le marqueur n'est pas indexé. Le backend tire ensuite
+   du topic `platform.id`, `data_stream.namespace` et
+   `deployment.environment.name`.
 
 Une ressource sans topic est rejetée par `filter/unrouted` ; les compteurs
 `otelcol_processor_filter_*` de l'Edge, lus par `make otel-routing-verify`,
@@ -325,7 +326,7 @@ namespace et retire le label de tous les documents APM
 Les métriques sont partagées par le connecteur `routing/metrics`
 ([ADR-016](../docs/ADR-016-metriques-agent-otel-vers-apm-server.md)) : celles
 des scopes `io.opentelemetry.*`, émises par l'agent Java OTel (runtime JVM,
-HTTP, SDK), passent par `transform/apm-metrics` (retrait du dataset,
+HTTP, SDK), passent par `transform/apm-route`, comme les traces (retrait du dataset,
 namespace `<plateforme>_<env>`) puis APM Server, qui les range dans
 `metrics-apm.app.<service>-<plateforme>_<env>` pour l'onglet *Metrics* de
 l'UI APM. Les autres (Micrometer, Kubernetes, hôtes, télémétrie interne)
@@ -335,11 +336,6 @@ La télémétrie interne du collecteur backend ne passe pas par Kafka : sa
 ressource porte `platform.id` et `data_stream.namespace` de la VM. L'agent
 EDOT de `otel-backend-01` publie directement dans les topics de sa plateforme
 (`otel_edge: kafka-local`).
-
-Pendant la migration vers ADR-015, `otel_backend_legacy_topics: true` fait
-lire au backend les anciens topics `otel-<signal>` et
-`otel-<signal>-homologation` avec leur ancienne sémantique. Le passer à
-`false` une fois ces topics vidés et supprimés.
 
 ### Ajouter une plateforme
 

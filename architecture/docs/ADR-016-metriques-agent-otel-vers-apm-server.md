@@ -41,7 +41,8 @@ data stream.
   d'instrumentation commence par `io.opentelemetry.` (runtime JVM,
   instrumentation HTTP et SDK de l'agent) vont au pipeline `metrics/apm` ;
   toutes les autres vont au pipeline `metrics/elasticsearch`, inchangé.
-- `metrics/apm` applique `transform/apm-metrics` : suppression de
+- `metrics/apm` applique `transform/apm-route`, partagé avec les traces
+  depuis la note du 2026-11-08 d'ADR-015 : suppression de
   `data_stream.dataset` posé par l'Edge (APM Server garde `apm.app`) et
   namespace `<plateforme>_<environnement>`, comme les traces (note du
   2026-11-02 d'ADR-010), recopié dans `apm.route.namespace` : APM Server

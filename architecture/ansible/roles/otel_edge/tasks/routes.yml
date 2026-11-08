@@ -39,16 +39,3 @@
       [a-z0-9_.]) ; chaque VM rattachée ({{ otel_edge_hosts | join(', ') }})
       déclare otel_platform et otel_environment ([a-z0-9_]).
     quiet: true
-
-- name: Déterminer les topics servis par ce collecteur Edge
-  vars:
-    otel_edge_platforms: >-
-      {{ otel_edge_namespace_routes | map(attribute='platform') | list
-         + [otel_edge_cluster.platform]
-         + otel_edge_hosts | map('extract', hostvars, 'otel_platform') | list }}
-    otel_edge_environments: >-
-      {{ otel_edge_namespace_routes | map(attribute='environment') | list
-         + [otel_edge_cluster.environment]
-         + otel_edge_hosts | map('extract', hostvars, 'otel_environment') | list }}
-  ansible.builtin.set_fact:
-    otel_edge_platform_keys: "{{ otel_edge_platforms | zip(otel_edge_environments) | map('join', '-') | unique | list }}"

@@ -359,3 +359,16 @@ ont été retirés des flux applicatifs.
 Reste à faire par un opérateur : supprimer les six anciens topics vidés
 (`otel-{logs,metrics,traces}` et `otel-{logs,metrics,traces}-homologation`)
 avec `kafka-topics.sh --delete` sur `otel-backend-01`.
+
+## Note du 2026-11-08 : simplification des collecteurs
+
+- La souscription transitoire et `otel_backend_legacy_topics` sont retirées :
+  les six anciens topics sont supprimés depuis la migration.
+- `deployment.environment.name` n'est plus posé par l'Edge mais par le
+  backend, depuis le topic, comme `platform.id` et `data_stream.namespace`.
+  Une seule règle couvre ainsi les ressources routées par l'Edge et l'agent
+  EDOT qui publie directement dans Kafka (`otel_edge: kafka-local`).
+- `transform/data-stream-route` applique la même règle aux trois signaux ;
+  la composition `<plateforme>_<environnement>` et `apm.route.namespace`
+  sont posées par `transform/apm-route`, partagé par les traces et les
+  métriques de l'agent Java OTel (ADR-016).

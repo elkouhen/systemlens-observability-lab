@@ -18,15 +18,11 @@ receivers:
     # est interprété comme une regex) : un topic par plateforme et
     # environnement, otel-<signal>-<plateforme>-<environnement> (ADR-015).
     # Les nouveaux topics sont découverts à chaque rafraîchissement des
-    # métadonnées, sans redémarrage du collecteur.
-{% if otel_backend_legacy_topics | default(false) %}
-    # Transition ADR-015 : les anciens topics otel-<signal> et
-    # otel-<signal>-homologation sont lus jusqu'à leur suppression.
-{% endif %}
+    # métadonnées, sans redémarrage du collecteur. Encodage otlp_proto par
+    # défaut.
 {% for signal in ['traces', 'metrics', 'logs'] %}
     {{ signal }}:
-      topics: ["^otel-{{ signal }}-[a-z0-9_]+-[a-z0-9_]+$"{% if otel_backend_legacy_topics | default(false) %}, "^otel-{{ signal }}(-homologation)?$"{% endif %}]
-      encoding: otlp_proto
+      topics: ["^otel-{{ signal }}-[a-z0-9_]+-[a-z0-9_]+$"]
 {% endfor %}
     # Une partition sans offset commité (topic nouvellement découvert) est
     # lue depuis le début : les premiers messages publiés avant la découverte
@@ -100,82 +96,42 @@ processors:
         action: upsert
   # Routage par plateforme (ADR-015) : le nom du topic,
   # otel-<signal>-<plateforme>-<environnement>, est la preuve de provenance.
-  # Le backend en tire platform.id et data_stream.namespace. Le dataset est
-  # celui posé par l'Edge pour une application, sinon celui que l'exporteur
-  # dérive du receiver. Les traces gardent les datasets apm d'APM Server et
-  # reçoivent le namespace <plateforme>_<environnement>, recopié dans
-  # apm.route.namespace (label global apm_route_namespace, que le pipeline
-  # Elasticsearch apm-route-namespace applique aux métriques APM agrégées
-  # puis retire, ADR-010). Un topic hors format ne pose rien.
-  # otel.kafka.topic est supprimé ensuite.
+  # La souscription garantit ce format. Le backend en tire platform.id,
+  # data_stream.namespace et deployment.environment.name (valeur reçue
+  # écrasée). Le dataset est celui posé par l'Edge pour une application,
+  # sinon celui que l'exporteur dérive du receiver. otel.kafka.topic est
+  # ensuite supprimé, ainsi qu'un apm.route.namespace reçu : seul
+  # transform/apm-route le pose.
   # Documentation : https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
   transform/data-stream-route:
     error_mode: ignore
-    log_statements: &data_stream_route
+    trace_statements: &data_stream_route
       - context: resource
-        conditions:
-          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-[a-z0-9_]+-[a-z0-9_]+$")
         statements:
-          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-(?P<platform>[a-z0-9_]+)-(?P<namespace>[a-z0-9_]+)$"), "upsert")
+          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-(?P<platform>[a-z0-9_]+)-(?P<environment>[a-z0-9_]+)$"), "upsert")
           - set(resource.attributes["platform.id"], resource.cache["platform"])
-          - set(resource.attributes["data_stream.namespace"], resource.cache["namespace"])
-{% if otel_backend_legacy_topics | default(false) %}
-      # Transition ADR-015 : ancienne sémantique des topics encore lus, le
-      # dataset de l'ancienne route applicative et le namespace de l'ancienne
-      # route Kubernetes. Supprimé avec otel_backend_legacy_topics.
-      - context: resource
-        statements:
-          - set(resource.attributes["data_stream.dataset"], "supermarche") where IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-supermarche-homologation$")
-          - set(resource.attributes["data_stream.namespace"], "homologation") where IsMatch(resource.attributes["otel.kafka.topic"], "^otel-[a-z]+-homologation$")
-{% endif %}
-      - context: resource
-        statements:
+          - set(resource.attributes["data_stream.namespace"], resource.cache["environment"])
+          - set(resource.attributes["deployment.environment.name"], resource.cache["environment"])
           - delete_key(resource.attributes, "otel.kafka.topic")
-    metric_statements: *data_stream_route
-    trace_statements:
-      - context: resource
-        statements:
-          # Seul ce collecteur pose le label de routage des agrégats APM.
           - delete_key(resource.attributes, "apm.route.namespace")
-      - context: resource
-        conditions:
-          - IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-[a-z0-9_]+-[a-z0-9_]+$")
-        statements:
-          - merge_maps(resource.cache, ExtractPatterns(resource.attributes["otel.kafka.topic"], "^otel-traces-(?P<platform>[a-z0-9_]+)-(?P<namespace>[a-z0-9_]+)$"), "upsert")
-          - set(resource.attributes["platform.id"], resource.cache["platform"])
-          - set(resource.attributes["data_stream.namespace"], Concat([resource.cache["platform"], resource.cache["namespace"]], "_"))
-          - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"])
-{% if otel_backend_legacy_topics | default(false) %}
-      - context: resource
-        statements:
-          - set(resource.attributes["data_stream.namespace"], "homologation") where IsMatch(resource.attributes["otel.kafka.topic"], "^otel-traces-homologation$")
-{% endif %}
-      - context: resource
-        statements:
-          - delete_key(resource.attributes, "otel.kafka.topic")
-  # Métriques de l'agent Java OTel vers APM Server (ADR-016) : elles suivent le
-  # modèle des traces du même service. APM Server les range dans
-  # metrics-apm.app.<service>-<plateforme>_<environnement>, lu par l'onglet
-  # Metrics de l'UI APM. Le dataset applicatif posé par l'Edge est retiré
-  # (APM Server garde apm.app) et le namespace reprend la composition des
-  # traces, <plateforme>_<environnement>. Un apm.route.namespace reçu est
-  # écarté : seul ce collecteur le pose.
-  transform/apm-metrics:
+    metric_statements: *data_stream_route
+    log_statements: *data_stream_route
+  # Signaux envoyés à APM Server : traces et métriques de l'agent Java OTel
+  # (ADR-010, ADR-016). APM Server impose ses datasets (apm, apm.app…) : un
+  # dataset posé par l'Edge est retiré. Le namespace devient
+  # <plateforme>_<environnement>, recopié dans apm.route.namespace : APM
+  # Server en fait le label global apm_route_namespace, reporté sur ses
+  # agrégats, que le pipeline Elasticsearch apm-route-namespace range dans ce
+  # namespace puis retire.
+  transform/apm-route:
     error_mode: ignore
-    metric_statements:
+    trace_statements: &apm_route
       - context: resource
         statements:
           - delete_key(resource.attributes, "data_stream.dataset")
-          - delete_key(resource.attributes, "apm.route.namespace")
-      - context: resource
-        conditions:
-          - resource.attributes["platform.id"] != nil and resource.attributes["data_stream.namespace"] != nil
-        statements:
           - set(resource.attributes["data_stream.namespace"], Concat([resource.attributes["platform.id"], resource.attributes["data_stream.namespace"]], "_"))
-          # APM Server calcule aussi des agrégats (service_summary) depuis les
-          # métriques : le label de routage les range dans le namespace des
-          # traces (ADR-010), comme pour les agrégats issus des traces.
           - set(resource.attributes["apm.route.namespace"], resource.attributes["data_stream.namespace"])
+    metric_statements: *apm_route
 
 connectors:
   # Partage du flux de métriques (ADR-016). Les métriques des scopes
@@ -297,7 +253,7 @@ service:
       exporters: [elasticsearch/otel]
     traces:
       receivers: [kafka/otlp]
-      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route]
+      processors: [memory_limiter, resource/kafka-topic, transform/data-stream-route, transform/apm-route]
       exporters: [otlphttp/apm-server]
     metrics:
       receivers: [kafka/otlp]
@@ -305,7 +261,7 @@ service:
       exporters: [routing/metrics]
     metrics/apm:
       receivers: [routing/metrics]
-      processors: [transform/apm-metrics]
+      processors: [transform/apm-route]
       exporters: [otlphttp/apm-server]
     metrics/elasticsearch:
       receivers: [routing/metrics]
