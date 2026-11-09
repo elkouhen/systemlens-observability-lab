@@ -5,13 +5,15 @@ exclude:
 - .venv/**
 - node_modules/**
 - .systemlens/**
+- .codeql/**
 min_severity: INFO
 root_path: .
 analysis:
   strategy: default
+  call_graph_engine: joern
+  engine_timeout_seconds: 600
+  engine_threads: 0
+  engine_ram_mb: null
+  engine_max_hops: 12
+  engine_edge_confidence: possible
   disabled_extractors: []
-  call_graph_engine: source
-runtime:
-  ignore_services:
-    - elastic-otel-collector
-    - otel-edge
