@@ -53,20 +53,20 @@ check_zero() {
 }
 
 if [[ "${mode}" == trace-context ]]; then
-  properties_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../../kubernetes/apps/supermarket-demo/default/otel" && pwd)"
-  for service in order-service inventory-service restock-service; do
-    properties_file="${properties_dir}/${service}.properties"
-    grep -Eq '^otel\.propagators=tracecontext,baggage$' "${properties_file}" || {
-      printf 'KO      propagateurs W3C absents de %s\n' "${properties_file}" >&2
-      failures=1
-    }
-    grep -Eq '^otel\.logs\.exporter=otlp$' "${properties_file}" || {
-      printf 'KO      export OTLP des logs absent de %s\n' "${properties_file}" >&2
-      failures=1
-    }
-  done
+  # Configuration de l'agent injecté : CR Instrumentation du chart
+  # opentelemetry-kube-stack, commun aux services Java (ADR-019).
+  values_file="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../helm" && pwd)/opentelemetry-kube-stack-values.yaml"
+  instrumentation="$(yq -o=json '.instrumentation' "${values_file}")"
+  jq -e '.propagators == ["tracecontext", "baggage"]' <<<"${instrumentation}" >/dev/null || {
+    printf 'KO      propagateurs W3C absents de l’Instrumentation (%s)\n' "${values_file}" >&2
+    failures=1
+  }
+  jq -e '.java.env[] | select(.name == "OTEL_LOGS_EXPORTER" and .value == "otlp")' <<<"${instrumentation}" >/dev/null || {
+    printf 'KO      export OTLP des logs absent de l’Instrumentation (%s)\n' "${values_file}" >&2
+    failures=1
+  }
   if [[ "${failures}" == 0 ]]; then
-    printf 'OK      propagateurs W3C et export OTLP des logs configurés pour les trois services\n'
+    printf 'OK      propagateurs W3C et export OTLP des logs configurés dans l’Instrumentation Java\n'
   fi
 
   trace_query="$(jq -cn --arg window "${window}" '{
