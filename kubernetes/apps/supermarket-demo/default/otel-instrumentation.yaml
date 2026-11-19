@@ -1,3 +1,10 @@
+# Raccordement à la chaîne d'observabilité (ADR-019) : l'opérateur
+# OpenTelemetry injecte l'agent Java défini par le CR Instrumentation
+# elastic-stack/otel-kube-stack (platform/helm/opentelemetry-kube-stack-values.yaml).
+# L'agent et Micrometer exportent vers le collecteur daemon du nœud, qui pose
+# les attributs k8s.* (k8sattributes) puis transmet à l'Edge ; aucune clé Edge
+# ni attribut Kubernetes n'est déclaré dans le pod. service.version reste la
+# version applicative et non le tag de l'image.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,48 +12,24 @@ metadata:
   namespace: h0tl-supermarche-app
 spec:
   template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack
+        resource.opentelemetry.io/service.version: "1.0.0"
     spec:
       containers:
         - name: order-service
           env:
-            - name: OTEL_EDGE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: otel-edge-client-keys
-                  key: otel-kubernetes-cluster
-            - name: OTEL_EXPORTER_OTLP_HEADERS
-              value: Authorization=Bearer $(OTEL_EDGE_KEY)
+            # Métriques métier Micrometer (metrics-<dataset>.otel-*), vers le
+            # même collecteur daemon que l'agent.
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
+              value: http://otel-kube-stack-daemon-collector.elastic-stack.svc.cluster.local:4318/v1/metrics
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
               value: "false"
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef: {fieldPath: metadata.name}
-            - name: K8S_POD_UID
-              valueFrom:
-                fieldRef: {fieldPath: metadata.uid}
-            - name: K8S_NODE_NAME
-              valueFrom:
-                fieldRef: {fieldPath: spec.nodeName}
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name=order-service,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-supermarche-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
-            # L'ENTRYPOINT de l'image attache déjà l'agent OTel ; ce patch ne
-            # fournit que sa configuration, pour ne pas l'attacher deux fois.
-            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
-              value: /opt/opentelemetry/otel.properties
-          volumeMounts:
-            - name: order-service-otel-config
-              mountPath: /opt/opentelemetry
-              readOnly: true
-      volumes:
-        - name: order-service-otel-config
-          configMap:
-            name: order-service-otel-config
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -55,48 +38,24 @@ metadata:
   namespace: h0tl-supermarche-app
 spec:
   template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack
+        resource.opentelemetry.io/service.version: "1.0.0"
     spec:
       containers:
         - name: inventory-service
           env:
-            - name: OTEL_EDGE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: otel-edge-client-keys
-                  key: otel-kubernetes-cluster
-            - name: OTEL_EXPORTER_OTLP_HEADERS
-              value: Authorization=Bearer $(OTEL_EDGE_KEY)
+            # Métriques métier Micrometer (metrics-<dataset>.otel-*), vers le
+            # même collecteur daemon que l'agent.
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
+              value: http://otel-kube-stack-daemon-collector.elastic-stack.svc.cluster.local:4318/v1/metrics
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
               value: "false"
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef: {fieldPath: metadata.name}
-            - name: K8S_POD_UID
-              valueFrom:
-                fieldRef: {fieldPath: metadata.uid}
-            - name: K8S_NODE_NAME
-              valueFrom:
-                fieldRef: {fieldPath: spec.nodeName}
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name=inventory-service,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-supermarche-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
-            # L'ENTRYPOINT de l'image attache déjà l'agent OTel ; ce patch ne
-            # fournit que sa configuration, pour ne pas l'attacher deux fois.
-            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
-              value: /opt/opentelemetry/otel.properties
-          volumeMounts:
-            - name: inventory-service-otel-config
-              mountPath: /opt/opentelemetry
-              readOnly: true
-      volumes:
-        - name: inventory-service-otel-config
-          configMap:
-            name: inventory-service-otel-config
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -105,45 +64,21 @@ metadata:
   namespace: h0tl-supermarche-app
 spec:
   template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack
+        resource.opentelemetry.io/service.version: "1.0.0"
     spec:
       containers:
         - name: restock-service
           env:
-            - name: OTEL_EDGE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: otel-edge-client-keys
-                  key: otel-kubernetes-cluster
-            - name: OTEL_EXPORTER_OTLP_HEADERS
-              value: Authorization=Bearer $(OTEL_EDGE_KEY)
+            # Métriques métier Micrometer (metrics-<dataset>.otel-*), vers le
+            # même collecteur daemon que l'agent.
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
               value: "true"
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
-              value: http://otel-edge-vm.elastic-stack.svc.cluster.local:4318/v1/metrics
+              value: http://otel-kube-stack-daemon-collector.elastic-stack.svc.cluster.local:4318/v1/metrics
             - name: MANAGEMENT_OTLP_METRICS_EXPORT_STEP
               value: 15s
             - name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
               value: "false"
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef: {fieldPath: metadata.name}
-            - name: K8S_POD_UID
-              valueFrom:
-                fieldRef: {fieldPath: metadata.uid}
-            - name: K8S_NODE_NAME
-              valueFrom:
-                fieldRef: {fieldPath: spec.nodeName}
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name=restock-service,service.node.name=$(K8S_POD_NAME),host.name=$(K8S_NODE_NAME),k8s.namespace.name=h0tl-supermarche-app,k8s.pod.name=$(K8S_POD_NAME),k8s.pod.uid=$(K8S_POD_UID),k8s.node.name=$(K8S_NODE_NAME)
-            # L'ENTRYPOINT de l'image attache déjà l'agent OTel ; ce patch ne
-            # fournit que sa configuration, pour ne pas l'attacher deux fois.
-            - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
-              value: /opt/opentelemetry/otel.properties
-          volumeMounts:
-            - name: restock-service-otel-config
-              mountPath: /opt/opentelemetry
-              readOnly: true
-      volumes:
-        - name: restock-service-otel-config
-          configMap:
-            name: restock-service-otel-config

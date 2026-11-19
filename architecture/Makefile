@@ -16,13 +16,20 @@ ARCH_NAME := Hybride Fleet
 ARCH_ROOT := .
 K8S_NAMESPACE ?= elastic-stack
 APP_NAMESPACE ?= h0tl-supermarche-app
-APP_IMAGE_TAG ?= 1.1.6
+APP_IMAGE_TAG ?= 1.1.7
 # API de démonstration hello world (apps/demo-api), plateforme demo.
 DEMO_API_MANIFEST_ROOT ?= ../kubernetes/apps/demo-api
 DEMO_API_NAMESPACE ?= h0tl-demo-app
-DEMO_API_IMAGE_TAG ?= 1.1.1
+DEMO_API_IMAGE_TAG ?= 1.1.2
 DEMO_API_PATH ?= /api/hello?name=lab
-OTEL_JAVA_AGENT_VERSION ?= 2.28.1
+# Chart open-telemetry/opentelemetry-kube-stack : opérateur, collecteurs
+# Kubernetes et injection de l'agent Java (ADR-019). La version de l'agent
+# Java est fixée dans les values (instrumentation.java.image).
+HELM ?= helm
+OTEL_KUBE_STACK_CHART_REPO ?= https://open-telemetry.github.io/opentelemetry-helm-charts
+OTEL_KUBE_STACK_CHART_VERSION ?= 0.27.2
+OTEL_KUBE_STACK_RELEASE ?= otel-kube-stack
+OTEL_KUBE_STACK_VALUES ?= $(ARCH_ROOT)/platform/helm/opentelemetry-kube-stack-values.yaml
 ORDER_PRODUCT_ID ?= PASTA-500G
 ORDER_QUANTITY ?= 1
 ELASTIC_STACK_VERSION ?= 9.5.4
@@ -66,7 +73,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	vms-start vms-restart vms-destroy \
 	architecture-deploy \
 	elk-deploy fleet-assets-deploy apps-deploy \
-	application-data-verify order-service-command demo-api-build demo-api-deploy demo-api-call demo-api-jvm-metrics-verify \
+	application-data-verify otel-instrumentation-verify order-service-command demo-api-build demo-api-deploy demo-api-call demo-api-jvm-metrics-verify \
 	dashboards-verify trace-context-verify observability-schema-verify otel-routing-verify otel-kafka-acl-verify \
 	otel-validate retention-validate retention-deploy retention-verify \
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
@@ -76,6 +83,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
+	otel-kube-stack-template otel-kube-stack-deploy otel-kubernetes-legacy-remove otel-instrumentation-verify \
 	otel-edge-client-keys-apply otel-edge-vm-provision elastic-agent-vm-provision elastic-agent-backend-provision \
 	middleware-vm-provision \
 	vms-up vms-restart vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
@@ -148,15 +156,15 @@ time-sync-verify: ## Vérifier la synchronisation chrony des cinq VM
 
 ##@ Construction et préparation locale
 
-apps-build: ## Construire les images applicatives avec l'agent Java OpenTelemetry
+apps-build: ## Construire les images applicatives (agent Java injecté par l'opérateur OTel)
 	@zscaler_ca_b64=""; \
 	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
 	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
 	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
 	fi; \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target order-service -t order-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target restock-service -t restock-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target order-service -t order-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target inventory-service -t inventory-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo && \
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target restock-service -t restock-service:$(APP_IMAGE_TAG) ../apps/supermarket-demo
 
 java-version-verify: ## Vérifier que Maven utilise Java 21
 	@major="$$(java -version 2>&1 | sed -n 's/.*version "\([0-9][0-9]*\).*/\1/p' | head -n 1)"; \
@@ -171,18 +179,18 @@ apps-test: java-version-verify ## Exécuter les tests unitaires et d'intégratio
 demo-api-test: java-version-verify ## Exécuter les tests Maven de demo-api
 	@mvn --batch-mode verify -f ../apps/demo-api/pom.xml
 
-demo-api-build: ## Construire l'image demo-api avec l'agent Java OpenTelemetry
+demo-api-build: ## Construire l'image demo-api (agent Java injecté par l'opérateur OTel)
 	@zscaler_ca_b64=""; \
 	if [ -n "$(ZSCALER_CA_CERT)" ]; then \
 	  test -f "$(ZSCALER_CA_CERT)" || { echo "Certificat Zscaler introuvable : $(ZSCALER_CA_CERT)" >&2; exit 1; }; \
 	  zscaler_ca_b64="$$(base64 < "$(ZSCALER_CA_CERT)" | tr -d '\n')"; \
 	fi; \
-	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --build-arg OTEL_JAVA_AGENT_VERSION=$(OTEL_JAVA_AGENT_VERSION) --target demo-api -t demo-api:$(DEMO_API_IMAGE_TAG) ../apps/demo-api
+	docker build --build-arg ZSCALER_CA_CERT_B64="$$zscaler_ca_b64" --target demo-api -t demo-api:$(DEMO_API_IMAGE_TAG) ../apps/demo-api
 
 demo-api-import: ## Importer l'image demo-api dans k3s
 	@docker save demo-api:$(DEMO_API_IMAGE_TAG) | $(VAGRANT) ssh $(K3S_VM_NAME) -c 'sudo /usr/local/bin/k3s ctr images import -'
 
-demo-api-deploy: otel-edge-client-keys-apply ## Déployer demo-api dans h0tl-demo-app et attendre son rollout
+demo-api-deploy: ## Déployer demo-api dans h0tl-demo-app et attendre son rollout
 	@$(KUBECTL) apply -k $(DEMO_API_MANIFEST_ROOT)/default
 	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) set image deployment/demo-api demo-api=demo-api:$(DEMO_API_IMAGE_TAG)
 	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) rollout status deployment/demo-api --timeout=180s
@@ -385,9 +393,7 @@ elk-deploy: elastic-stack-deploy otel-edge-client-keys-apply otel-kafka-credenti
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics --timeout=180s
 	@$(MAKE) otel-gateway-kubernetes-remove
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
+	@$(MAKE) otel-kube-stack-deploy
 	@$(MAKE) kibana-ready
 	@SKIP_KUBERNETES_APPLY=1 $(MAKE) kibana-fleet-config-deploy
 	@$(MAKE) ilm-deploy
@@ -561,6 +567,7 @@ kubernetes-validate: ## Générer les manifests Kustomize sans les appliquer
 	@$(KUBECTL) kustomize $(ARCH_ROOT)/platform/kubernetes/overlays/local >/dev/null
 	@$(KUBECTL) kustomize $(APP_MANIFEST_ROOT)/default >/dev/null
 	@$(KUBECTL) kustomize $(DEMO_API_MANIFEST_ROOT)/default >/dev/null
+	@$(MAKE) --no-print-directory otel-kube-stack-template
 
 ansible-validate: ## Vérifier la syntaxe du playbook Ansible sans provisionner
 	@ANSIBLE_LOCAL_TEMP=/tmp ansible-playbook --syntax-check -i ansible/inventory/vagrant.yml $(ARCH_ROOT)/ansible/site.yml
@@ -659,15 +666,7 @@ otel-edge-client-keys-apply: ## Créer les clés Bearer des clients OTLP Edge da
 	$(KUBECTL) -n $(K8S_NAMESPACE) create secret generic otel-edge-client-keys \
 		--from-literal=otel-kubernetes="$$kubernetes_key" \
 		--from-literal=otel-kubernetes-cluster="$$cluster_key" \
-		--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
-	$(KUBECTL) apply -f $(APP_MANIFEST_ROOT)/base/namespace.yaml; \
-	$(KUBECTL) apply -f $(DEMO_API_MANIFEST_ROOT)/base/namespace.yaml; \
-	for namespace in $(APP_NAMESPACE) $(DEMO_API_NAMESPACE); do \
-	  $(KUBECTL) -n "$$namespace" create secret generic otel-edge-client-keys \
-		--from-literal=otel-kubernetes="$$kubernetes_key" \
-		--from-literal=otel-kubernetes-cluster="$$cluster_key" \
-		--dry-run=client -o yaml | $(KUBECTL) apply -f -; \
-	done
+		--dry-run=client -o yaml | $(KUBECTL) apply -f -
 
 otel-gateway-vm-status: ## Vérifier HAProxy, le Collecteur EDOT Edge et le backend OTel
 	@set -euo pipefail; $(VAGRANT) ssh otel-edge-01 -c 'sudo systemctl is-active haproxy && sudo systemctl is-active observability-otel-edge && curl --fail --silent http://127.0.0.1:13135/'; $(VAGRANT) ssh otel-backend-01 -c 'sudo systemctl is-active observability-otel-backend && curl --fail --silent http://127.0.0.1:13134/'
@@ -677,23 +676,59 @@ otel-gateway-kubernetes-remove: ## Supprimer les anciens objets de la gateway OT
 
 otel-gateway-kubernetes-bascule: otel-gateway-kubernetes-remove otel-edge-client-keys-apply
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
+	@$(MAKE) otel-kube-stack-deploy
 	@$(KUBECTL) apply -k $(APP_MANIFEST_ROOT)/default
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout restart deployment/order-service deployment/inventory-service deployment/restock-service
 	@$(KUBECTL) -n $(APP_NAMESPACE) rollout status deployment/order-service deployment/inventory-service deployment/restock-service --timeout=180s
 
 otel-gateway-kubernetes-switch: otel-gateway-kubernetes-bascule ## Déployer les collecteurs Kubernetes et les applications avec Edge comme endpoint OTLP
 
-kubernetes-observability-deploy: otel-gateway-kubernetes-remove otel-edge-client-keys-apply otel-kafka-credentials-apply ## Appliquer et vérifier les Collectors Kubernetes déclarés par Kustomize
+kubernetes-observability-deploy: otel-gateway-kubernetes-remove otel-edge-client-keys-apply otel-kafka-credentials-apply ## Appliquer les objets Kustomize de la plateforme et la stack opentelemetry-kube-stack
 	@# Le gabarit d'un Job est immuable : le recréer applique la liste de topics versionnée.
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete job otel-telemetry-topics --ignore-not-found
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) wait --for=condition=complete job/otel-telemetry-topics --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/otel-kubernetes-cluster daemonset/otel-kubernetes
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/otel-kubernetes-cluster --timeout=180s
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
+	@$(MAKE) otel-kube-stack-deploy
+
+otel-kube-stack-template: ## Générer le rendu du chart opentelemetry-kube-stack sans l'appliquer
+	@$(HELM) template $(OTEL_KUBE_STACK_RELEASE) opentelemetry-kube-stack \
+		--repo $(OTEL_KUBE_STACK_CHART_REPO) --version $(OTEL_KUBE_STACK_CHART_VERSION) \
+		--namespace $(K8S_NAMESPACE) --values $(OTEL_KUBE_STACK_VALUES) >/dev/null
+
+otel-kube-stack-deploy: otel-kubernetes-legacy-remove ## Installer l'opérateur, les collecteurs Kubernetes et l'Instrumentation Java (opentelemetry-kube-stack)
+	@$(HELM) upgrade --install $(OTEL_KUBE_STACK_RELEASE) opentelemetry-kube-stack \
+		--repo $(OTEL_KUBE_STACK_CHART_REPO) --version $(OTEL_KUBE_STACK_CHART_VERSION) \
+		--namespace $(K8S_NAMESPACE) --values $(OTEL_KUBE_STACK_VALUES) --wait --timeout 5m
+	@# Les collecteurs sont créés par l'opérateur après l'installation du chart.
+	@for i in $$(seq 1 60); do \
+	  $(KUBECTL) -n $(K8S_NAMESPACE) get daemonset/$(OTEL_KUBE_STACK_RELEASE)-daemon-collector deployment/$(OTEL_KUBE_STACK_RELEASE)-cluster-collector >/dev/null 2>&1 && break; \
+	  sleep 2; \
+	done
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/$(OTEL_KUBE_STACK_RELEASE)-daemon-collector --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/$(OTEL_KUBE_STACK_RELEASE)-cluster-collector --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) get instrumentation/$(OTEL_KUBE_STACK_RELEASE) >/dev/null
+
+otel-kubernetes-legacy-remove: ## Supprimer les collecteurs Kustomize et la configuration d'agent remplacés par opentelemetry-kube-stack
+	@$(KUBECTL) -n $(K8S_NAMESPACE) delete daemonset/otel-kubernetes deployment/otel-kubernetes-cluster configmap/otel-kafka-config serviceaccount/otel-collector serviceaccount/otel-cluster-collector --ignore-not-found
+	@$(KUBECTL) delete clusterrolebinding/otel-collector clusterrolebinding/otel-cluster-collector clusterrole/otel-collector clusterrole/otel-cluster-collector --ignore-not-found
+	@$(KUBECTL) -n $(APP_NAMESPACE) delete configmap order-service-otel-config inventory-service-otel-config restock-service-otel-config --ignore-not-found
+	@$(KUBECTL) -n $(APP_NAMESPACE) delete secret otel-edge-client-keys --ignore-not-found
+	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) delete configmap demo-api-otel-config --ignore-not-found
+	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) delete secret otel-edge-client-keys --ignore-not-found
+
+otel-instrumentation-verify: ## Vérifier que l'opérateur OTel a injecté l'agent Java dans les pods applicatifs
+	@set -euo pipefail; status=0; \
+	for target in $(APP_NAMESPACE)/order-service $(APP_NAMESPACE)/inventory-service $(APP_NAMESPACE)/restock-service $(DEMO_API_NAMESPACE)/demo-api; do \
+	  namespace="$${target%%/*}"; name="$${target##*/}"; \
+	  pod="$$( $(KUBECTL) -n "$$namespace" get pods -l app.kubernetes.io/name="$$name" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' )"; \
+	  init="$$( $(KUBECTL) -n "$$namespace" get pod "$$pod" -o jsonpath='{.spec.initContainers[*].name}' )"; \
+	  endpoint="$$( $(KUBECTL) -n "$$namespace" get pod "$$pod" -o jsonpath='{.spec.containers[0].env[?(@.name=="OTEL_EXPORTER_OTLP_ENDPOINT")].value}' )"; \
+	  if echo "$$init" | grep -q opentelemetry-auto-instrumentation-java && echo "$$endpoint" | grep -q '$(OTEL_KUBE_STACK_RELEASE)-daemon-collector'; then \
+	    echo "OK   $$target : agent injecté, export vers $$endpoint"; \
+	  else \
+	    echo "KO   $$target : agent non injecté (init=$$init, endpoint=$$endpoint)" >&2; status=1; \
+	  fi; \
+	done; exit $$status
 
 otel-gateway-relocate: otel-gateway-vm-provision otel-gateway-kubernetes-bascule ## Basculer le Gateway OTLP de Kubernetes vers le backend OTEL
 
@@ -712,7 +747,7 @@ otel-backend-vm-status: ## Vérifier le collecteur backend OTel exécuté sur ot
 otel-backend-kubernetes-bascule:
 	@$(KUBECTL) apply -k $(ARCH_ROOT)/platform/kubernetes/overlays/local
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete deployment,service otel-kafka-exporter --ignore-not-found
-	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/otel-kubernetes --timeout=180s
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/$(OTEL_KUBE_STACK_RELEASE)-daemon-collector --timeout=180s
 	@$(MAKE) otel-backend-vm-status
 
 otel-backend-kubernetes-switch: otel-backend-kubernetes-bascule ## Retirer l'ancien exporteur Kubernetes après validation du backend OTel

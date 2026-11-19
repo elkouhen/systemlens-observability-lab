@@ -5,10 +5,6 @@ resources:
   - ../base
 images:
   - name: demo-api
-    newTag: 1.1.1
-configMapGenerator:
-  - name: demo-api-otel-config
-    files:
-      - otel.properties=otel/demo-api.properties
+    newTag: 1.1.2
 patches:
   - path: otel-instrumentation.yaml

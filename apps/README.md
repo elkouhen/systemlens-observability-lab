@@ -12,7 +12,8 @@ communs. L’application est raccordée à l’architecture d’observabilité a
 
 [`demo-api/README.md`](demo-api/README.md) décrit l'API de démonstration :
 un hello world qui forme la plateforme `demo` et produit traces, logs et
-métriques JVM par le seul agent Java OTel.
+métriques JVM par le seul agent Java OTel, injecté par l'opérateur de
+`opentelemetry-kube-stack` (ADR-019).
 
 Pour intégrer une nouvelle application Java dans les chaînes APM et OTel
 (traces, métriques et logs), suivre [Ajouter une application Java observée](ADDING_APPLICATION.md) ;

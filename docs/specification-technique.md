@@ -108,7 +108,8 @@ les topics de la plateforme de la VM jusqu’au Collector backend.
 | Domaine | Source versionnée |
 | --- | --- |
 | Architecture et manifests Kubernetes | `architecture/platform/kubernetes/` |
-| Collecteurs et buffer Kafka | `architecture/platform/kubernetes/base/observability/otel-kafka.yaml` |
+| Opérateur, collecteurs Kubernetes et Instrumentation Java | `architecture/platform/helm/opentelemetry-kube-stack-values.yaml` (ADR-019) |
+| Topics métier Kafka | `architecture/platform/kubernetes/base/observability/otel-telemetry-topics.yaml` |
 | Instrumentation applicative | `kubernetes/apps/supermarket-demo/default/otel-instrumentation.yaml` |
 | Provisionnement des VM | `architecture/ansible/` |
 | Configuration EDOT VM et intégrations Elastic | `architecture/ansible/roles/elastic_agent/` et `architecture/platform/elk/fleet/` |

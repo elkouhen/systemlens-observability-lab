@@ -33,7 +33,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-          image: order-service:1.1.6
+          image: order-service:1.1.7
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -123,7 +123,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-          image: inventory-service:1.1.6
+          image: inventory-service:1.1.7
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -209,7 +209,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-          image: restock-service:1.1.6
+          image: restock-service:1.1.7
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

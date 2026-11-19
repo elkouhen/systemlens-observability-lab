@@ -8,29 +8,36 @@ Ce guide décrit l'ajout d'une application Java Spring Boot à la chaîne
 d'observabilité du lab. Le chemin des signaux est le suivant :
 
 ```text
-application Java → agent Java OTel → Collecteur Edge → Kafka → Collector backend → Elasticsearch (OTel natif)
+application Java → agent Java OTel injecté → collecteur daemon otel-kube-stack
+  → Collecteur Edge → Kafka → Collector backend → Elasticsearch (OTel natif)
 ```
 
-L'agent Java OTel produit les traces et les logs, Micrometer les métriques
-applicatives. Les logs sont OTel natifs, sans format ECS (ADR-012).
+L'agent Java OTel, injecté par l'opérateur du chart
+`opentelemetry-kube-stack` (ADR-019), produit les traces et les logs,
+Micrometer les métriques applicatives. Le collecteur daemon du nœud pose les
+attributs Kubernetes et transmet à l'Edge. Les logs sont OTel natifs, sans format ECS (ADR-012).
 Le Collecteur Edge reçoit l'OTLP, choisit le topic Kafka de la plateforme
 du namespace et pose le dataset ; le Collector backend lit la plateforme et
 l'environnement dans le nom du topic (ADR-015).
 
 L'application `apps/demo-api` est l'exemple minimal de ce guide : un seul
 service, sa plateforme `demo`, ses manifests sous `kubernetes/apps/demo-api/`.
-Sans Micrometer, elle laisse l'agent exporter aussi les métriques JVM
-(`otel.metrics.exporter=otlp`), au format sémantique OTel. Toutes les
+Sans Micrometer, elle laisse l'agent exporter les métriques JVM
+(`OTEL_METRICS_EXPORTER=otlp`, posé par l'Instrumentation), au format
+sémantique OTel. Toutes les
 métriques, celles de l'agent comme celles de Micrometer, sont indexées en
 mapping OTel natif dans `metrics-<dataset>.otel-<environnement>` (ADR-018).
 
 ## Préparer l'application
 
-L'image doit contenir l'agent Java OpenTelemetry et démarrer la JVM avec
-`-javaagent:/opt/opentelemetry-javaagent.jar` dans son `ENTRYPOINT`. C'est le
-seul agent d'instrumentation : ne pas ajouter l'agent Java Elastic APM. Le
-`Dockerfile` de `supermarket-demo` est la référence du dépôt ; chaque cible
-d'image y fixe aussi `OTEL_SERVICE_NAME` pour une exécution hors Kubernetes.
+L'image ne contient pas d'agent : l'`ENTRYPOINT` lance seulement
+`java -jar`. L'opérateur OpenTelemetry injecte l'agent Java OpenTelemetry au
+démarrage du pod (init container `opentelemetry-auto-instrumentation-java`
+et `JAVA_TOOL_OPTIONS`). C'est le seul agent d'instrumentation : ne pas
+ajouter l'agent Java Elastic APM ni de `-javaagent`, qui attacherait l'agent
+deux fois. Le `Dockerfile` de `supermarket-demo` est la référence du dépôt ;
+chaque cible d'image fixe `OTEL_SERVICE_NAME` pour une exécution hors
+Kubernetes.
 
 Les logs passent par l'agent : son instrumentation Logback exporte chaque
 log en OTLP, avec le `trace_id` et le `span_id` du span courant. Ne pas
@@ -38,54 +45,58 @@ configurer de format structuré (`logging.structured.format.console`) ni
 d'appender d'export : stdout garde le texte par défaut de Spring Boot, lu par
 `kubectl logs` mais pas collecté.
 
-## Déclarer les variables Kubernetes
+## Annoter le Deployment
 
-Le patch `otel-instrumentation.yaml` de l'overlay configure l'agent sans
-l'attacher une seconde fois. Il monte un fichier `otel.properties` généré par
-Kustomize (`otel.service.name`, `otel.service.version`, endpoint OTLP du
-collecteur Edge, exporteurs) et ajoute :
+Le patch `otel-instrumentation.yaml` de l'overlay ajoute deux annotations au
+gabarit de pod :
+
+```yaml
+spec:
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack
+        resource.opentelemetry.io/service.version: "1.0.0"
+```
+
+La première demande l'injection de l'agent décrit par le CR
+`Instrumentation` `elastic-stack/otel-kube-stack`
+(`architecture/platform/helm/opentelemetry-kube-stack-values.yaml`). Ce CR
+porte la configuration commune : version de l'agent, endpoint du collecteur
+daemon, exporteurs OTLP des traces, métriques et logs, et options Logback.
+La seconde garde `service.version` sur la version applicative, au lieu du tag
+de l'image. `service.name` vient du nom du Deployment.
+
+Une application qui exporte ses métriques par Micrometer OTLP pointe vers le
+même collecteur :
 
 ```yaml
 env:
-  - name: OTEL_JAVAAGENT_CONFIGURATION_FILE
-    value: /opt/opentelemetry/otel.properties
-  - name: OTEL_EDGE_KEY
-    valueFrom:
-      secretKeyRef:
-        name: otel-edge-client-keys
-        key: otel-kubernetes-cluster
-  - name: OTEL_EXPORTER_OTLP_HEADERS
-    value: Authorization=Bearer $(OTEL_EDGE_KEY)
-  - name: OTEL_RESOURCE_ATTRIBUTES
-    value: service.name=my-service,k8s.namespace.name=h0tl-supermarche-app
+  - name: MANAGEMENT_OTLP_METRICS_EXPORT_URL
+    value: http://otel-kube-stack-daemon-collector.elastic-stack.svc.cluster.local:4318/v1/metrics
 ```
 
-Le patch réel complète `OTEL_RESOURCE_ATTRIBUTES` avec le pod et le nœud,
-fournis par la Downward API. Ces attributs forment la ressource des traces,
-des métriques et des logs : `k8s.namespace.name` choisit la plateforme.
-L'application ne déclare ni sa plateforme ni son environnement : le
-collecteur Edge pose `k8s.cluster.name` et `deployment.environment.name`
-depuis l'entrée du namespace dans `otel_edge_namespace_routes`
+L'application ne déclare ni attribut Kubernetes, ni clé Edge, ni plateforme,
+ni environnement. Le collecteur daemon pose `k8s.namespace.name`,
+`k8s.pod.name`, `k8s.pod.uid`, `k8s.node.name`, `k8s.deployment.name`,
+`host.name` (le nœud) et `service.node.name` (le pod) par `k8sattributes`,
+puis transmet à l'Edge avec sa propre clé. `k8s.namespace.name` choisit la
+plateforme : le collecteur Edge pose `k8s.cluster.name` et
+`deployment.environment.name` depuis l'entrée du namespace dans
+`otel_edge_namespace_routes`
 (`architecture/ansible/inventory/group_vars/otel_edge_nodes.yml`) et écrase
 toute valeur envoyée. Un namespace inconnu de l'Edge est rejeté : un nouveau
 namespace applicatif demande donc une nouvelle entrée.
 
-Le fichier `otel.properties` active l'export des logs :
+Les options Logback de l'Instrumentation
+(`OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_KEY_VALUE_PAIR_ATTRIBUTES`,
+`..._EXPERIMENTAL_LOG_ATTRIBUTES`) transforment les paires SLF4J
+`addKeyValue` en attributs du log (`event.action`, `business.units_sold`) et
+ajoutent `thread.name` et `thread.id`.
 
-```properties
-otel.logs.exporter=otlp
-otel.instrumentation.logback-appender.experimental.capture-key-value-pair-attributes=true
-otel.instrumentation.logback-appender.experimental-log-attributes=true
-```
-
-La deuxième ligne transforme les paires SLF4J `addKeyValue` en attributs du
-log (`event.action`, `business.units_sold`) ; la troisième ajoute
-`thread.name` et `thread.id`. La clé du collecteur Edge reste dans le secret
-`otel-edge-client-keys`, créé par `make otel-edge-client-keys-apply` ; ne
-jamais l'inscrire dans un manifest ou dans Git.
-
-Ne pas ajouter `-javaagent` dans `JAVA_TOOL_OPTIONS` : l'agent serait attaché
-deux fois, par l'`ENTRYPOINT` et par cette variable.
+Après le déploiement, `make otel-instrumentation-verify` vérifie que l'agent
+est injecté et exporte vers le daemon. Un pod démarré avant l'opérateur, ou
+pendant une indisponibilité du webhook, démarre sans agent : le redémarrer.
 
 Une exception traitée par un `@ExceptionHandler` n'atteint pas
 l'instrumentation servlet de l'agent et ne produit pas d'erreur APM, même si
@@ -197,12 +208,14 @@ appliquer `make otel-edge-vm-provision`.
 
 ## Application sans agent OTel
 
-Le DaemonSet `otel-kubernetes` ne collecte plus les fichiers des pods : une
+Le collecteur daemon `otel-kube-stack` ne collecte pas les fichiers des pods : une
 application Java exporte ses logs par l'agent, ce qui évite les doublons.
 Pour une application d'un autre namespace qui ne peut écrire que sur stdout,
-rétablir dans `architecture/platform/kubernetes/base/observability/otel-kafka.yaml` :
+ajouter au collecteur `daemon` de
+`architecture/platform/helm/opentelemetry-kube-stack-values.yaml` :
 
-- le montage `hostPath` `/var/log/pods` (lecture seule) du DaemonSet ;
+- le montage `hostPath` `/var/log/pods` (lecture seule), par `volumes` et
+  `volumeMounts` ;
 - un receiver `filelog` limité à ce namespace, avec l'opérateur `container` :
 
   ```yaml
@@ -214,12 +227,11 @@ rétablir dans `architecture/platform/kubernetes/base/observability/otel-kafka.y
       - type: container
   ```
 
-- un pipeline `logs` : `filelog/kubernetes` → `memory_limiter`,
-  `resource/environment`, `resource/edge-source`, `batch` → `otlp/edge`.
+- un pipeline `logs/files` : `filelog/kubernetes` → `memory_limiter`,
+  `batch` → `otlp/edge`, sans `resource/edge-source`.
 
 L'opérateur `container` tire `k8s.namespace.name` et `k8s.pod.name` du chemin
-du fichier ; l'Edge route alors ces logs selon le namespace, ou vers
-`otel-logs-homologation`. Ne jamais
+du fichier ; l'Edge route alors ces logs selon le namespace. Ne jamais
 inclure `h0tl-supermarche-app` ni `elastic-stack`. Appliquer ensuite
 `make kubernetes-validate`, puis `make kubernetes-observability-deploy`.
 

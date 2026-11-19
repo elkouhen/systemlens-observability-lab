@@ -5,12 +5,18 @@ métriques vers Elastic.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP → Edge → Kafka `otel-traces-supermarche-homologation` | Collector backend (`elasticapm`) → Elasticsearch en OTel natif (ADR-018) |
-| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → Edge → Kafka `otel-logs-supermarche-homologation` | Collector backend → Elasticsearch |
-| Métriques applicatives | Micrometer OTLP | OTLP → Edge → Kafka `otel-metrics-supermarche-homologation` | Collector backend → Elasticsearch |
-| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry (scopes `io.opentelemetry.*`) | OTLP → Edge → Kafka `otel-metrics-<plateforme>-homologation` | Collector backend → Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet `kubeletstats`, Deployment `k8s_cluster` | OTLP → Edge → Kafka `otel-metrics-k3s-homologation` | Collector backend → Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry injecté par l'opérateur (ADR-019) | OTLP → daemon `otel-kube-stack` → Edge → Kafka `otel-traces-supermarche-homologation` | Collector backend (`elasticapm`) → Elasticsearch en OTel natif (ADR-018) |
+| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP → daemon `otel-kube-stack` → Edge → Kafka `otel-logs-supermarche-homologation` | Collector backend → Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP → daemon `otel-kube-stack` → Edge → Kafka `otel-metrics-supermarche-homologation` | Collector backend → Elasticsearch |
+| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry (scopes `io.opentelemetry.*`) | OTLP → daemon `otel-kube-stack` → Edge → Kafka `otel-metrics-<plateforme>-homologation` | Collector backend → Elasticsearch |
+| Métriques Kubernetes | Collecteurs EDOT `opentelemetry-kube-stack` : daemon `kubeletstats`, cluster `k8s_cluster` | OTLP → Edge → Kafka `otel-metrics-k3s-homologation` | Collector backend → Elasticsearch |
 | Logs et métriques VM | Elastic Agent en mode EDOT | OTLP → Edge → Kafka `otel-<signal>-<plateforme>-homologation` | Collector backend → Elasticsearch |
+
+Les collecteurs Kubernetes et l'agent Java sont déployés par le chart
+`opentelemetry-kube-stack` (ADR-019). Le collecteur daemon reçoit l'OTLP des
+pods de son nœud, pose les attributs `k8s.*` par `k8sattributes`, puis
+transmet à l'Edge sans le marqueur `otel.edge.source` : l'Edge route ces
+signaux par `k8s.namespace.name` vers la plateforme du namespace.
 
 Kafka absorbe les pics entre les producteurs et le Collector backend. Chaque
 plateforme a ses trois topics `otel-{logs,metrics,traces}-<plateforme>-<environnement>`
@@ -45,7 +51,8 @@ parallèle.
 ## Contrôles
 
 ```bash
-kubectl -n elastic-stack get deployment,daemonset,pods
+kubectl -n elastic-stack get opentelemetrycollector,instrumentation,deployment,daemonset,pods
+make otel-instrumentation-verify
 make otel-config-validate
 make otel-validation
 make otel-routing-verify
@@ -55,7 +62,7 @@ vagrant ssh supermarket-middleware-01 -c 'sudo /opt/Elastic/Agent/elastic-agent 
 
 ## Sources IaC
 
-- Collecteurs Kubernetes : [`otel-kafka.yaml`](../architecture/platform/kubernetes/base/observability/otel-kafka.yaml) ;
-- instrumentation applicative : [`otel-instrumentation.yaml`](../kubernetes/apps/supermarket-demo/default/otel-instrumentation.yaml) ;
+- Collecteurs Kubernetes et Instrumentation Java : [`opentelemetry-kube-stack-values.yaml`](../architecture/platform/helm/opentelemetry-kube-stack-values.yaml) ;
+- annotations d'injection : [`otel-instrumentation.yaml`](../kubernetes/apps/supermarket-demo/default/otel-instrumentation.yaml) ;
 - configuration EDOT VM : [`elastic-agent.yml.j2`](../architecture/ansible/roles/elastic_agent/templates/elastic-agent.yml.j2) ;
 - Collecteur Edge : [`otel-edge.yaml.j2`](../architecture/ansible/roles/otel_edge/templates/otel-edge.yaml.j2).

@@ -5,23 +5,11 @@ resources:
   - ../base
 images:
   - name: order-service
-    newTag: 1.1.6
+    newTag: 1.1.7
   - name: inventory-service
-    newTag: 1.1.6
+    newTag: 1.1.7
   - name: restock-service
-    newTag: 1.1.6
-generatorOptions:
-  disableNameSuffixHash: true
-configMapGenerator:
-  - name: order-service-otel-config
-    files:
-      - otel.properties=otel/order-service.properties
-  - name: inventory-service-otel-config
-    files:
-      - otel.properties=otel/inventory-service.properties
-  - name: restock-service-otel-config
-    files:
-      - otel.properties=otel/restock-service.properties
+    newTag: 1.1.7
 patches:
   - path: data-endpoints.yaml
   - path: otel-instrumentation.yaml

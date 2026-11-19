@@ -1,0 +1,356 @@
+# Valeurs du chart open-telemetry/opentelemetry-kube-stack (ADR-019).
+# Version du chart : OTEL_KUBE_STACK_CHART_VERSION dans le Makefile.
+# Release : otel-kube-stack, namespace elastic-stack.
+#
+# Le chart déploie l'opérateur OpenTelemetry, deux OpenTelemetryCollector
+# (daemon, cluster) et le CR Instrumentation qui injecte l'agent Java dans les
+# pods annotés. Les presets du chart sont désactivés : la configuration des
+# collecteurs est écrite en entier ici, pour garder visibles le marqueur
+# otel.edge.source et la séparation des pipelines lus par le routage de
+# l'Edge (ADR-015).
+#
+# Chemins :
+#   kubelet (kubeletstats) → daemon → OTLP Edge, marqueur kubernetes → plateforme k3s
+#   API Kubernetes (k8s_cluster) → cluster → OTLP Edge, marqueur kubernetes → plateforme k3s
+#   agent Java injecté, Micrometer OTLP → daemon (pipelines apps, k8sattributes)
+#     → OTLP Edge sans marqueur → plateforme du namespace (supermarche, demo)
+
+clusterName: k3s-01
+
+# Les noms de composants restent ceux d'EDOT 9.5.4 (kubeletstats,
+# k8sattributes) : le chart ne les réécrit pas dans leur forme récente.
+rewriteDeprecatedComponentNames: false
+
+crds:
+  installOtel: true
+  # Aucun ServiceMonitor/PodMonitor n'est utilisé dans le lab.
+  installPrometheus: false
+
+opentelemetry-operator:
+  enabled: true
+  manager:
+    # Image par défaut des collecteurs gérés par l'opérateur : EDOT (ADR-014).
+    collectorImage:
+      repository: docker.elastic.co/elastic-agent/elastic-otel-collector
+      tag: "9.5.4"
+  admissionWebhooks:
+    # Webhook d'injection : sans lui un pod démarre sans agent. Ignore évite
+    # de bloquer les déploiements ; make otel-instrumentation-verify contrôle
+    # l'injection effective.
+    failurePolicy: Ignore
+    # Pas de cert-manager dans le lab : le chart génère le certificat du
+    # webhook une fois, sans le régénérer à chaque helm upgrade.
+    certManager:
+      enabled: false
+    autoGenerateCert:
+      enabled: true
+      recreate: false
+
+collectors:
+  daemon:
+    enabled: true
+    mode: daemonset
+    # Pas de receiver prometheus ajouté par le chart.
+    scrape_configs_file: ""
+    image:
+      repository: docker.elastic.co/elastic-agent/elastic-otel-collector
+      tag: "9.5.4"
+    presets:
+      logsCollection: {enabled: false}
+      kubeletMetrics: {enabled: false}
+      hostMetrics: {enabled: false}
+      kubernetesAttributes: {enabled: false}
+      kubernetesEvents: {enabled: false}
+      clusterMetrics: {enabled: false}
+      resourceDetection:
+        env: {enabled: false}
+        k8s_api: {enabled: false}
+    securityContext:
+      runAsUser: 0
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests: {cpu: 100m, memory: 512Mi}
+      limits: {cpu: 1, memory: 768Mi}
+    env:
+      - name: K8S_CLUSTER_NAME
+        value: k3s-01
+      - name: OTEL_EDGE_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: otel-edge-client-keys
+            key: otel-kubernetes
+    config:
+      # Ce collecteur ne lit pas les fichiers de logs des pods : les
+      # applications Java exportent leurs logs en OTLP par l'agent injecté
+      # (ADR-012). Les métriques de l'hôte viennent de l'agent EDOT de la VM
+      # k3s-01 (ADR-015).
+      extensions:
+        health_check:
+          endpoint: 0.0.0.0:13133
+      receivers:
+        # Signaux des applications : agent Java injecté (traces, logs,
+        # métriques JVM/HTTP) et Micrometer OTLP (métriques métier).
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+        # Télémétrie interne du collecteur, lue sur son propre endpoint
+        # Prometheus toutes les 30 s (ADR-013).
+        prometheus/internal:
+          config:
+            scrape_configs:
+              - job_name: otel-kubernetes
+                scrape_interval: 30s
+                static_configs:
+                  - targets: [127.0.0.1:8888]
+        kubeletstats:
+          auth_type: serviceAccount
+          collection_interval: 15s
+          # Le nom Kubernetes du nœud n'est pas garanti résolvable depuis le
+          # réseau du pod. L'IP fournie par la Downward API (posée par le
+          # chart) atteint directement le kubelet du nœud.
+          endpoint: https://${env:OTEL_K8S_NODE_IP}:10250
+          insecure_skip_verify: true
+          node: ${env:OTEL_K8S_NODE_NAME}
+          k8s_api_config:
+            auth_type: serviceAccount
+          metric_groups: [node, pod, container, volume]
+          extra_metadata_labels: [container.id]
+          # Métriques optionnelles lues par les dashboards [Kubernetes OTel] ;
+          # émises uniquement pour les pods qui déclarent des limites.
+          metrics:
+            k8s.pod.cpu_limit_utilization:
+              enabled: true
+            k8s.pod.memory_limit_utilization:
+              enabled: true
+      processors:
+        # Processors par défaut du chart, non utilisés.
+        resourcedetection/env: null
+        resource/hostname: null
+        memory_limiter:
+          check_interval: 1s
+          limit_mib: 400
+          spike_limit_mib: 100
+        batch:
+          timeout: 1s
+          send_batch_size: 512
+        resource/k8s_cluster:
+          attributes:
+            - key: k8s.cluster.name
+              value: ${env:K8S_CLUSTER_NAME}
+              action: upsert
+            - key: host.name
+              value: ${env:OTEL_K8S_NODE_NAME}
+              action: upsert
+        # Marqueur lu puis supprimé par le collecteur Edge (ADR-015) : les
+        # métriques kubeletstats, y compris celles des pods applicatifs, vont
+        # dans la plateforme du cluster. Jamais posé sur les pipelines apps.
+        resource/edge-source:
+          attributes:
+            - key: otel.edge.source
+              value: kubernetes
+              action: upsert
+        # Attributs Kubernetes des signaux applicatifs, lus dans l'API pour
+        # les pods du nœud. k8s.namespace.name choisit la plateforme sur
+        # l'Edge (ADR-015). L'agent injecté pose déjà k8s.pod.uid ; la
+        # connexion couvre Micrometer.
+        k8sattributes/apps:
+          auth_type: serviceAccount
+          passthrough: false
+          filter:
+            node_from_env_var: OTEL_K8S_NODE_NAME
+          pod_association:
+            - sources:
+                - from: resource_attribute
+                  name: k8s.pod.uid
+            - sources:
+                - from: resource_attribute
+                  name: k8s.pod.ip
+            - sources:
+                - from: connection
+          extract:
+            metadata:
+              - k8s.namespace.name
+              - k8s.pod.name
+              - k8s.pod.uid
+              - k8s.node.name
+              - k8s.deployment.name
+              - k8s.replicaset.name
+              - container.image.name
+              - container.image.tag
+        # Contrat des traces OTel natives lu par l'UI APM (ADR-018,
+        # verify-dashboard-data.sh) : host.name est le nœud,
+        # service.node.name le pod.
+        resource/apps:
+          attributes:
+            - key: host.name
+              from_attribute: k8s.node.name
+              action: upsert
+            - key: service.node.name
+              from_attribute: k8s.pod.name
+              action: upsert
+      exporters:
+        # Exporteur par défaut du chart, non utilisé.
+        debug: null
+        otlp/edge:
+          endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
+          tls:
+            insecure: true
+          headers:
+            Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
+      service:
+        extensions: [health_check]
+        telemetry:
+          resource:
+            service.name: otel-kubernetes
+            deployment.environment.name: homologation
+          metrics:
+            level: normal
+            readers:
+              - pull:
+                  exporter:
+                    prometheus:
+                      host: 0.0.0.0
+                      port: 8888
+        pipelines:
+          # Pipelines par défaut du chart, remplacés par les pipelines apps.
+          traces: null
+          logs: null
+          metrics:
+            receivers: [kubeletstats, prometheus/internal]
+            processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
+            exporters: [otlp/edge]
+          traces/apps:
+            receivers: [otlp]
+            processors: [memory_limiter, k8sattributes/apps, resource/apps, batch]
+            exporters: [otlp/edge]
+          metrics/apps:
+            receivers: [otlp]
+            processors: [memory_limiter, k8sattributes/apps, resource/apps, batch]
+            exporters: [otlp/edge]
+          logs/apps:
+            receivers: [otlp]
+            processors: [memory_limiter, k8sattributes/apps, resource/apps, batch]
+            exporters: [otlp/edge]
+
+  cluster:
+    enabled: true
+    suffix: cluster
+    mode: deployment
+    replicas: 1
+    scrape_configs_file: ""
+    image:
+      repository: docker.elastic.co/elastic-agent/elastic-otel-collector
+      tag: "9.5.4"
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+    env:
+      - name: K8S_CLUSTER_NAME
+        value: k3s-01
+      - name: OTEL_EDGE_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: otel-edge-client-keys
+            key: otel-kubernetes-cluster
+    config:
+      extensions:
+        health_check:
+          endpoint: 0.0.0.0:13133
+      receivers:
+        k8s_cluster:
+          auth_type: serviceAccount
+          collection_interval: 15s
+          # Requis par les dashboards [Kubernetes OTel] pour calculer la
+          # saturation CPU et mémoire des nœuds.
+          allocatable_types_to_report: [cpu, memory]
+          # Requis par les dashboards [Kubernetes OTel] : pression mémoire
+          # des nœuds et raison du dernier arrêt des conteneurs.
+          node_conditions_to_report: [Ready, MemoryPressure]
+          resource_attributes:
+            k8s.container.status.last_terminated_reason:
+              enabled: true
+      processors:
+        memory_limiter:
+          check_interval: 1s
+          limit_mib: 200
+          spike_limit_mib: 50
+        batch:
+          timeout: 1s
+          send_batch_size: 256
+        resource/k8s_cluster:
+          attributes:
+            - key: k8s.cluster.name
+              value: ${env:K8S_CLUSTER_NAME}
+              action: upsert
+        # Marqueur lu puis supprimé par le collecteur Edge (ADR-015).
+        resource/edge-source:
+          attributes:
+            - key: otel.edge.source
+              value: kubernetes
+              action: upsert
+      exporters:
+        otlp/edge:
+          endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
+          tls:
+            insecure: true
+          headers:
+            Authorization: "Bearer ${env:OTEL_EDGE_API_KEY}"
+      service:
+        extensions: [health_check]
+        pipelines:
+          metrics:
+            receivers: [k8s_cluster]
+            processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
+            exporters: [otlp/edge]
+
+# Instrumentation Java injectée par l'opérateur dans les pods annotés
+# instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack
+# (ADR-019, remplace l'attachement par l'ENTRYPOINT d'ADR-008). Les pods
+# exportent vers le collecteur daemon, jamais directement vers l'Edge.
+instrumentation:
+  enabled: true
+  exporter:
+    endpoint: http://otel-kube-stack-daemon-collector.elastic-stack.svc.cluster.local:4318
+  propagators:
+    - tracecontext
+    - baggage
+  resource:
+    addK8sUIDAttributes: true
+  java:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.28.1
+    env:
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: http/protobuf
+      - name: OTEL_TRACES_EXPORTER
+        value: otlp
+      # Métriques de l'agent (sémantique OTel) : runtime JVM et HTTP. Les
+      # métriques métier restent émises par Micrometer OTLP ; le pont
+      # Micrometer de l'agent reste désactivé (défaut 2.x), sans double export.
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp
+      - name: OTEL_METRIC_EXPORT_INTERVAL
+        value: "15000"
+      - name: OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY
+        value: "true"
+      # Logs Logback exportés en OTLP natif, corrélés aux traces (ADR-012).
+      # Les paires clé-valeur SLF4J deviennent des attributs du log ;
+      # experimental-log-attributes ajoute thread.name et thread.id.
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp
+      - name: OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_KEY_VALUE_PAIR_ATTRIBUTES
+        value: "true"
+      - name: OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_LOG_ATTRIBUTES
+        value: "true"

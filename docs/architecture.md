@@ -62,11 +62,11 @@ et métriques en OTLP au Collecteur Edge avec Elastic Agent EDOT standalone.
 
 | Signal | Collecte | Transport | Destination |
 | --- | --- | --- | --- |
-| Traces applicatives | Agent Java OpenTelemetry | OTLP, Edge, Kafka `otel-traces-supermarche-homologation` | EDOT backend (`elasticapm`), Elasticsearch en OTel natif (ADR-018) |
-| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, Edge, Kafka `otel-logs-supermarche-homologation` | EDOT backend, Elasticsearch |
-| Métriques applicatives | Micrometer OTLP | OTLP, Edge, Kafka `otel-metrics-supermarche-homologation` | EDOT backend, Elasticsearch |
-| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry | OTLP, Edge, Kafka de la plateforme | EDOT backend, Elasticsearch |
-| Métriques Kubernetes | EDOT DaemonSet et Deployment | OTLP, Edge, Kafka `otel-metrics-k3s-homologation` | EDOT backend, Elasticsearch |
+| Traces applicatives | Agent Java OpenTelemetry injecté par l'opérateur | OTLP, daemon `otel-kube-stack`, Edge, Kafka `otel-traces-supermarche-homologation` | EDOT backend (`elasticapm`), Elasticsearch en OTel natif (ADR-018) |
+| Logs applicatifs | Agent Java OpenTelemetry (Logback) | OTLP, daemon `otel-kube-stack`, Edge, Kafka `otel-logs-supermarche-homologation` | EDOT backend, Elasticsearch |
+| Métriques applicatives | Micrometer OTLP | OTLP, daemon `otel-kube-stack`, Edge, Kafka `otel-metrics-supermarche-homologation` | EDOT backend, Elasticsearch |
+| Métriques runtime de l'agent (JVM, HTTP) | Agent Java OpenTelemetry | OTLP, daemon `otel-kube-stack`, Edge, Kafka de la plateforme | EDOT backend, Elasticsearch |
+| Métriques Kubernetes | Collecteurs EDOT daemon et cluster de `opentelemetry-kube-stack` | OTLP, Edge, Kafka `otel-metrics-k3s-homologation` | EDOT backend, Elasticsearch |
 | Logs et métriques des VM | Elastic Agent EDOT standalone | OTLP, Edge, Kafka de la plateforme de la VM | EDOT backend, Elasticsearch |
 
 Les topics sont séparés par signal, par plateforme et par environnement :
@@ -92,7 +92,7 @@ tire les métriques agrégées de l'UI APM (ADR-018).
 | Composant | Responsabilité | Source de configuration |
 | --- | --- | --- |
 | `otel-edge-01` | Recevoir l’OTLP Kubernetes et VM puis publier dans Kafka | `architecture/ansible/roles/otel_edge/` |
-| EDOT DaemonSet | Collecter les métriques `kubeletstats` du nœud | `architecture/platform/kubernetes/base/observability/` |
+| Opérateur et collecteurs `opentelemetry-kube-stack` | Injecter l'agent Java ; collecter `kubeletstats` et `k8s_cluster` ; enrichir et relayer l'OTLP des pods vers l'Edge (ADR-019) | `architecture/platform/helm/opentelemetry-kube-stack-values.yaml` |
 | `supermarket-middleware-01` | Fournir Kafka, MongoDB et PostgreSQL | `architecture/ansible/` |
 | `otel-backend-01` | Consommer Kafka et exporter les signaux vers Elastic | `architecture/ansible/` |
 | `otel-edge-01` | Exposer les points d’entrée et héberger le Collecteur Edge | `architecture/ansible/` et `architecture/platform/kubernetes/` |

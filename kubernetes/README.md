@@ -6,7 +6,9 @@ de `supermarket-demo`.
 
 L'overlay par défaut ajoute le raccordement à l'architecture active :
 
-- `apps/supermarket-demo/default` : endpoint OTLP et instrumentation Java OTel.
+- `apps/supermarket-demo/default` et `apps/demo-api/default` : annotations
+  d'injection de l'agent Java par l'opérateur OpenTelemetry (ADR-019) et
+  endpoint Micrometer du collecteur daemon `otel-kube-stack`.
 
 Les manifests de la plateforme d'observabilité sont dans `architecture/platform`.
 

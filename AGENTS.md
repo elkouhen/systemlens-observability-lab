@@ -152,12 +152,15 @@ commandes de validation.
 - Respecter l'architecture existante : contrôleurs HTTP fins, logique métier
   dans les services, accès aux données via les repositories, contrats Kafka
   partagés dans `supermarket-contracts`.
-- Ne pas retirer l'instrumentation. Les trois services sont instrumentés
-  uniquement par l'agent Java OpenTelemetry, attaché par l'`ENTRYPOINT` du
-  Dockerfile ; toute évolution doit préserver les noms de services,
-  l'environnement et les dépendances observables.
+- Ne pas retirer l'instrumentation. Les services Java sont instrumentés
+  uniquement par l'agent Java OpenTelemetry, injecté par l'opérateur de
+  `opentelemetry-kube-stack` (annotation
+  `instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack`,
+  ADR-019) ; ne pas réintroduire l'agent dans les images ni de `-javaagent`.
+  Toute évolution doit préserver les noms de services, l'environnement et les
+  dépendances observables.
 - Les logs applicatifs sont OTel natifs : l'agent les exporte en OTLP
-  (`otel.logs.exporter=otlp`) avec `trace_id` et `span_id`, vers
+  (`OTEL_LOGS_EXPORTER=otlp` dans le CR Instrumentation) avec `trace_id` et `span_id`, vers
   `logs-supermarche.otel-homologation` (ADR-012). Ne pas réintroduire de
   format ECS sur stdout, de collecte des fichiers des pods applicatifs ni de
   mode de mapping ECS dans le collecteur backend.
@@ -168,8 +171,8 @@ commandes de validation.
   mvn verify
   ```
 
-- Les tags Docker `order-service:1.1.6`, `inventory-service:1.1.6` et
-  `restock-service:1.1.6` sont indépendants de la version Maven. Si un tag change, mettre à jour ensemble le
+- Les tags Docker `order-service:1.1.7`, `inventory-service:1.1.7` et
+  `restock-service:1.1.7` sont indépendants de la version Maven. Si un tag change, mettre à jour ensemble le
   `Makefile`, le Dockerfile et les manifests Kubernetes concernés, puis vérifier
   avec `make apps-build` lorsque Docker est disponible.
 

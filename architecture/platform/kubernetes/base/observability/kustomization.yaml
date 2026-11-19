@@ -4,4 +4,4 @@ resources:
   - namespace.yaml
   - elastic-vm-services.yaml
   - elastic-ingress.yaml
-  - otel-kafka.yaml
+  - otel-telemetry-topics.yaml

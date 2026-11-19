@@ -7,6 +7,10 @@ Accepted
 Amendé par [ADR-012](ADR-012-logs-otel-natifs-sans-ecs.md) : corrélation
 logs/traces.
 
+Remplacé en partie par [ADR-019](ADR-019-opentelemetry-kube-stack.md) :
+l'agent Java OpenTelemetry reste le seul agent, mais il est injecté par
+l'opérateur OpenTelemetry et n'est plus attaché par l'`ENTRYPOINT`.
+
 ## Date
 
 2026-11-02

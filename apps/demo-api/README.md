@@ -3,8 +3,9 @@
 API Spring Boot minimale, sans base de données ni Kafka, avec un point
 d'entrée par signal. Elle forme à elle seule la plateforme `demo` du lab (namespace
 `h0tl-demo-app`, ADR-015). Aucun code d'instrumentation : l'agent Java
-OpenTelemetry, attaché par l'`ENTRYPOINT`, produit les trois signaux, qui
-suivent le chemin agent → collecteur Edge → Kafka
+OpenTelemetry, injecté par l'opérateur de `opentelemetry-kube-stack`
+(ADR-019), produit les trois signaux, qui suivent le chemin agent →
+collecteur daemon `otel-kube-stack` → collecteur Edge → Kafka
 `otel-<signal>-demo-homologation` → collecteur backend → Elasticsearch, en
 OTel natif sans conversion ECS (ADR-018).
 
@@ -24,15 +25,17 @@ de l'UI APM pour un service Java OTel :
 | `jvm.thread.count` | Threads par `jvm.thread.state` et `jvm.thread.daemon` |
 | `jvm.class.count`, `jvm.class.loaded`, `jvm.class.unloaded` | Classes chargées |
 | `jvm.cpu.recent_utilization`, `jvm.cpu.time`, `jvm.cpu.count` | CPU du processus JVM |
-| `jvm.system.cpu.utilization`, `jvm.buffer.memory.used` | Expérimentales, activées par `otel.instrumentation.runtime-telemetry.emit-experimental-telemetry` |
+| `jvm.system.cpu.utilization`, `jvm.buffer.memory.used` | Expérimentales, activées par `OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY` |
 | `http.server.request.duration` | Histogramme des requêtes HTTP entrantes |
 
-La configuration de l'agent est dans
-`kubernetes/apps/demo-api/default/otel/demo-api.properties`
-(`otel.metrics.exporter=otlp`, `otel.metric.export.interval=15000`). Les trois
-signaux partent en OTLP gRPC sur le port `4317` du Service `otel-edge-vm`
-(`otel.exporter.otlp.protocol=grpc`). Les
-sondes Kubernetes sont TCP pour ne pas créer de transactions.
+La configuration de l'agent est commune aux applications Java : CR
+`Instrumentation` de `architecture/platform/helm/opentelemetry-kube-stack-values.yaml`
+(`OTEL_METRICS_EXPORTER=otlp`, `OTEL_METRIC_EXPORT_INTERVAL=15000`). Le patch
+`kubernetes/apps/demo-api/default/otel-instrumentation.yaml` n'ajoute que
+les annotations d'injection et de `service.version`. Les trois signaux
+partent en OTLP HTTP sur le port `4318` du Service
+`otel-kube-stack-daemon-collector`. Les sondes Kubernetes sont TCP pour ne
+pas créer de transactions.
 
 ## Data streams alimentés
 
@@ -51,9 +54,9 @@ sondes Kubernetes sont TCP pour ne pas créer de transactions.
   (`architecture/ansible/inventory/group_vars/otel_edge_nodes.yml`), puis
   `make otel-backend-vm-provision` (topics) et `make otel-edge-vm-provision`
   (table de routage). Sans cette déclaration, l'Edge rejette les signaux.
-- Docker pour construire l'image, le cluster k3s et le Secret
-  `otel-edge-client-keys` (`make otel-edge-client-keys-apply`, inclus dans
-  `make demo-api-deploy`).
+- Docker pour construire l'image, le cluster k3s et la stack
+  `opentelemetry-kube-stack` (`make otel-kube-stack-deploy`, incluse dans
+  `make kubernetes-observability-deploy`).
 
 ## Commandes
 
@@ -61,7 +64,7 @@ Depuis `architecture/` :
 
 ```bash
 make demo-api-test                # test Maven (Java 21)
-make demo-api-build               # image demo-api:1.1.1 avec l'agent Java OTel
+make demo-api-build               # image demo-api:1.1.2 (agent injecté par l'opérateur)
 make demo-api-import              # import de l'image dans k3s
 make demo-api-deploy              # applique kubernetes/apps/demo-api/default et attend le rollout
                                   # (build, import et déploiement sont inclus dans make deploy)
@@ -71,7 +74,7 @@ make demo-api-jvm-metrics-verify  # métriques JVM des 5 dernières minutes
 make demo-api-logs-follow
 ```
 
-`DEMO_API_IMAGE_TAG` fixe le tag de l'image (`1.1.1` par défaut) ; un tag est
+`DEMO_API_IMAGE_TAG` fixe le tag de l'image (`1.1.2` par défaut) ; un tag est
 immuable, en choisir un nouveau à chaque image, en cohérence avec
 `kubernetes/apps/demo-api/default/kustomization.yaml`.
 
@@ -101,7 +104,7 @@ apps/demo-api/
     HelloController.java        GET /api/hello, GET /api/fail
 kubernetes/apps/demo-api/
   base/                         namespace h0tl-demo-app, Deployment, Service
-  default/                      overlay : otel.properties, patch d'instrumentation
+  default/                      overlay : patch d'annotations d'injection de l'agent
 ```
 
 Le raccordement suit [`apps/ADDING_APPLICATION.md`](../ADDING_APPLICATION.md).

@@ -17,7 +17,7 @@ response="$(curl --fail --silent --show-error --insecure --resolve "${kibana_res
 count="$(jq '.saved_objects | length' <<<"${response}")"
 (( count == 11 )) || { printf 'Nombre inattendu de dashboards Kubernetes OTel : %s (attendu 11).\n' "${count}" >&2; exit 1; }
 
-# Champs optionnels activés dans les Collectors (otel-kafka.yaml) et lus par
+# Champs optionnels activés dans les Collectors (platform/helm/opentelemetry-kube-stack-values.yaml) et lus par
 # les dashboards du package : chacun doit être réellement alimenté.
 elasticsearch_url="${ELASTICSEARCH_URL:-http://elasticsearch.observability.test:9200}"
 elasticsearch_resolve="${ELASTICSEARCH_CURL_RESOLVE:-elasticsearch.observability.test:9200:192.168.33.40}"

@@ -33,11 +33,12 @@ le réassort asynchrone. Le Dockerfile produit une image pour chacun.
 ## Ordre de lecture
 
 1. `pom.xml` : agrégateur Maven et versions communes.
-2. `Dockerfile` : build multi-stage ; l'`ENTRYPOINT` des trois images de
-   service attache l'agent Java OpenTelemetry, seul agent d'instrumentation.
+2. `Dockerfile` : build multi-stage ; les trois images de service ne
+   contiennent pas d'agent, l'`ENTRYPOINT` lance `java -jar`.
 3. [`kubernetes/apps/supermarket-demo/`](../../kubernetes/apps/supermarket-demo/) : manifests Kubernetes communs et patch
-   `otel-instrumentation.yaml`, qui configure l'agent OTel des trois services
-   et les raccorde au collecteur Edge en OTLP.
+   `otel-instrumentation.yaml`, qui annote les trois pods pour que
+   l'opérateur OpenTelemetry y injecte l'agent Java (ADR-019) et pointe
+   Micrometer vers le collecteur daemon `otel-kube-stack`.
 4. `order-service/src/main/resources/application.yml`, puis la même
    configuration d'`inventory-service` : endpoints, Kafka, MongoDB,
    PostgreSQL et Actuator.
@@ -70,28 +71,29 @@ Le build Maven est figé sur `maven:3.9.9-eclipse-temurin-21` et les images
 d'exécution sur `eclipse-temurin:21.0.7_6-jre-noble`. Toute mise à jour doit
 être testée puis effectuée dans une modification dédiée.
 
-La version de l'agent OpenTelemetry est contrôlée par
-`OTEL_JAVA_AGENT_VERSION` lors de `make -C architecture apps-build`. Elle est intégrée
-dans chaque image applicative et n'est donc pas téléchargée au démarrage des
-Pods. Sa configuration est embarquée dans `otel/*.properties` et chargée par
-`JAVA_TOOL_OPTIONS` dans l'overlay Kubernetes architecture. Les variables
-`MANAGEMENT_OTLP_*` restent dans Kubernetes car elles configurent l'exporteur
-Micrometer de Spring Boot, distinct de l'agent Java.
+L'agent Java OpenTelemetry n'est pas dans les images : sa version
+(`autoinstrumentation-java:2.28.1`) et sa configuration commune (exporteurs,
+endpoint, options Logback) sont dans le CR `Instrumentation` de
+`architecture/platform/helm/opentelemetry-kube-stack-values.yaml`.
+L'opérateur l'injecte au démarrage des pods annotés ; changer de version ne
+demande qu'un `make otel-kube-stack-deploy` puis `make apps-restart`. Les
+variables `MANAGEMENT_OTLP_*` restent dans Kubernetes car elles configurent
+l'exporteur Micrometer de Spring Boot, distinct de l'agent Java.
 
 Les consommateurs Kafka conservent aussi un mapping de compatibilité pour
 l'ancien nom de classe `io.systemlens.supermarket.contract.OrderPlaced`. Les
 messages déjà présents dans `supermarket.order.placed` peuvent ainsi être
 désérialisés avec le contrat généré actuel, sans suppression du topic.
 
-Le tag des images Docker (`order-service:1.1.6` / `inventory-service:1.1.6` /
-`restock-service:1.1.6`,
+Le tag des images Docker (`order-service:1.1.7` / `inventory-service:1.1.7` /
+`restock-service:1.1.7`,
 fixé dans `Makefile` et le manifest Kubernetes de `architecture/`) est géré indépendamment
 de `<version>` dans les `pom.xml` (actuellement `1.0.0`, partagée par les trois
 modules Maven). Le tag Docker identifie une itération de l'image de
 démonstration ; la version Maven identifie une itération du code Java. Un tag
 Docker est immuable : choisir un nouveau `APP_IMAGE_TAG` à chaque image. Par
-exemple, `make apps-build APP_IMAGE_TAG=1.1.6`, puis
-`make images-import apps-deploy APP_IMAGE_TAG=1.1.6`. La cible de déploiement
+exemple, `make apps-build APP_IMAGE_TAG=1.1.7`, puis
+`make images-import apps-deploy APP_IMAGE_TAG=1.1.7`. La cible de déploiement
 met explicitement à jour l'image des Deployments et attend leur rollout.
 
 ## Graphe d'architecture Java
