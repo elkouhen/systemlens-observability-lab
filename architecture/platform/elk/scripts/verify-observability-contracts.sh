@@ -175,9 +175,14 @@ if [[ "${mode}" == schema ]]; then
     failures=1
   fi
 
+  # Les erreurs APM (attributes.processor.event: error, event.name:
+  # exception) sont produites par le processeur elasticapm du backend à
+  # partir des exceptions des spans (ADR-018) : elles n'ont ni severity_text
+  # ni body et ne sont pas des logs applicatifs.
   otel_log_missing_query="$(jq -cn --arg window "${window}" '{
     query: {bool: {
       filter: [{range: {"@timestamp": {gte: ("now-" + $window)}}}],
+      must_not: [{term: {"attributes.processor.event": "error"}}],
       should: [
         {bool: {must_not: [{exists: {field: "severity_text"}}]}},
         {bool: {must_not: [{exists: {field: "body.text"}}]}},
