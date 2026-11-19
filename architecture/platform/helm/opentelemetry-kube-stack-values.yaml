@@ -17,9 +17,9 @@
 
 clusterName: k3s-01
 
-# Les noms de composants restent ceux d'EDOT 9.5.4 (kubeletstats,
-# k8sattributes) : le chart ne les réécrit pas dans leur forme récente.
-rewriteDeprecatedComponentNames: false
+# Les composants sont nommés dans leur forme courante (kubelet_stats,
+# k8s_attributes, otlp_grpc), sans alias déprécié : EDOT 9.5.4 (collector
+# v0.159) les accepte et le chart n'a rien à réécrire.
 
 crds:
   installOtel: true
@@ -109,7 +109,7 @@ collectors:
                 scrape_interval: 30s
                 static_configs:
                   - targets: [127.0.0.1:8888]
-        kubeletstats:
+        kubelet_stats:
           auth_type: serviceAccount
           collection_interval: 15s
           # Le nom Kubernetes du nœud n'est pas garanti résolvable depuis le
@@ -160,7 +160,7 @@ collectors:
         # les pods du nœud. k8s.namespace.name choisit la plateforme sur
         # l'Edge (ADR-015). L'agent injecté pose déjà k8s.pod.uid ; la
         # connexion couvre Micrometer.
-        k8sattributes/apps:
+        k8s_attributes/apps:
           auth_type: serviceAccount
           passthrough: false
           filter:
@@ -198,7 +198,7 @@ collectors:
       exporters:
         # Exporteur par défaut du chart, non utilisé.
         debug: null
-        otlp/edge:
+        otlp_grpc/edge:
           endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
           tls:
             insecure: true
@@ -223,21 +223,21 @@ collectors:
           traces: null
           logs: null
           metrics:
-            receivers: [kubeletstats, prometheus/internal]
+            receivers: [kubelet_stats, prometheus/internal]
             processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
-            exporters: [otlp/edge]
+            exporters: [otlp_grpc/edge]
           traces/apps:
             receivers: [otlp]
-            processors: [memory_limiter, k8sattributes/apps, resource/apps, batch]
-            exporters: [otlp/edge]
+            processors: [memory_limiter, k8s_attributes/apps, resource/apps, batch]
+            exporters: [otlp_grpc/edge]
           metrics/apps:
             receivers: [otlp]
-            processors: [memory_limiter, k8sattributes/apps, resource/apps, batch]
-            exporters: [otlp/edge]
+            processors: [memory_limiter, k8s_attributes/apps, resource/apps, batch]
+            exporters: [otlp_grpc/edge]
           logs/apps:
             receivers: [otlp]
-            processors: [memory_limiter, k8sattributes/apps, resource/apps, batch]
-            exporters: [otlp/edge]
+            processors: [memory_limiter, k8s_attributes/apps, resource/apps, batch]
+            exporters: [otlp_grpc/edge]
 
   cluster:
     enabled: true
@@ -302,7 +302,7 @@ collectors:
               value: kubernetes
               action: upsert
       exporters:
-        otlp/edge:
+        otlp_grpc/edge:
           endpoint: http://otel-edge-vm.elastic-stack.svc.cluster.local:4317
           tls:
             insecure: true
@@ -314,7 +314,7 @@ collectors:
           metrics:
             receivers: [k8s_cluster]
             processors: [memory_limiter, resource/k8s_cluster, resource/edge-source, batch]
-            exporters: [otlp/edge]
+            exporters: [otlp_grpc/edge]
 
 # Instrumentation Java injectée par l'opérateur dans les pods annotés
 # instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack

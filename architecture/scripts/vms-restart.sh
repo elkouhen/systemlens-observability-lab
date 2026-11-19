@@ -22,7 +22,16 @@ for node in "${nodes[@]}"; do
       printf 'Redémarrage de %s\n' "${node}"
       "${vagrant_bin}" reload "${node}" --no-provision
       ;;
-    stopped|poweroff|aborted|saved)
+    saved)
+      # Vagrant refuse de reprendre une VM sauvegardée dont la redirection
+      # SSH a été corrigée automatiquement à sa création (« forwarded port
+      # ... already in use ») : l'état sauvegardé est restauré directement
+      # par VirtualBox, avec ses redirections existantes.
+      machine_id_file="${architecture_root}/.vagrant/machines/${node}/virtualbox/id"
+      printf 'Reprise de %s (état : saved)\n' "${node}"
+      VBoxManage startvm "$(cat "${machine_id_file}")" --type headless
+      ;;
+    stopped|poweroff|aborted)
       printf 'Démarrage de %s (état : %s)\n' "${node}" "${state}"
       "${vagrant_bin}" up "${node}" --no-provision
       ;;

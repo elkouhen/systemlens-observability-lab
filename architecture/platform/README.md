@@ -70,6 +70,14 @@ opentelemetrycollector` affiche `otel-kube-stack-daemon` et
 pour les quatre services Java. Un pod créé avant l'opérateur doit être
 redémarré pour recevoir l'agent.
 
+Le certificat du webhook de l'opérateur est généré par le chart pour
+365 jours et conservé à chaque `helm upgrade` (`autoGenerateCert.recreate:
+false`). `make otel-operator-cert-status` affiche sa date d'expiration ;
+avant cette date, `make otel-operator-cert-renew` le régénère, redémarre
+l'opérateur et affiche la nouvelle expiration. Un certificat expiré ne
+bloque pas les déploiements (`failurePolicy: Ignore`) mais les pods
+démarrent alors sans agent.
+
 Les dashboards `[Kubernetes OTel]` du package `kubernetes_otel` lisent quatre
 champs optionnels activés dans `helm/opentelemetry-kube-stack-values.yaml` : `k8s.pod.cpu_limit_utilization`
 et `k8s.pod.memory_limit_utilization` (`kubeletstats`, uniquement pour les pods

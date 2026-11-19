@@ -129,7 +129,11 @@ sont créés par le rôle `otel_backend` ; le Job Kubernetes
 
 La cible `make vms-restart` redémarre séquentiellement les cinq VM
 (`supermarket-middleware-01`, `otel-backend-01`, `otel-edge-01`, `elk-01` et `k3s-01`) sans
-reprovisionnement. Une VM arrêtée est démarrée avec `--no-provision`. Le script
+reprovisionnement. Une VM arrêtée est démarrée avec `--no-provision`. Une VM
+sauvegardée (`saved`) est reprise par `VBoxManage startvm --type headless` :
+Vagrant refuse de la reprendre lorsque sa redirection SSH a été corrigée
+automatiquement à la création (« forwarded port ... already in use »). Après
+une sauvegarde des VM, exécuter `make vms-restart` avant `make vms-start`. Le script
 affiche l’état Vagrant final pour permettre de vérifier que chaque VM est
 `running`.
 

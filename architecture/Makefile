@@ -83,7 +83,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
 	otel-validation kubernetes-observability-deploy otel-gateway-kubernetes-remove metrics-chain-restart \
-	otel-kube-stack-template otel-kube-stack-deploy otel-kubernetes-legacy-remove otel-instrumentation-verify \
+	otel-kube-stack-template otel-kube-stack-deploy otel-kubernetes-legacy-remove otel-instrumentation-verify otel-operator-cert-status otel-operator-cert-renew \
 	otel-edge-client-keys-apply otel-edge-vm-provision elastic-agent-vm-provision elastic-agent-backend-provision \
 	middleware-vm-provision \
 	vms-up vms-restart vms-destroy deploy deploy-post elasticsearch-ready kibana-ready apm-kibana-role-apply \
@@ -707,6 +707,21 @@ otel-kube-stack-deploy: otel-kubernetes-legacy-remove ## Installer l'opérateur,
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status daemonset/$(OTEL_KUBE_STACK_RELEASE)-daemon-collector --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/$(OTEL_KUBE_STACK_RELEASE)-cluster-collector --timeout=180s
 	@$(KUBECTL) -n $(K8S_NAMESPACE) get instrumentation/$(OTEL_KUBE_STACK_RELEASE) >/dev/null
+
+OTEL_OPERATOR_CERT_SECRET ?= $(OTEL_KUBE_STACK_RELEASE)-opentelemetry-operator-controller-manager-service-cert
+
+otel-operator-cert-status: ## Afficher l'expiration du certificat du webhook de l'opérateur OTel (généré pour 365 jours)
+	@$(KUBECTL) -n $(K8S_NAMESPACE) get secret $(OTEL_OPERATOR_CERT_SECRET) -o jsonpath='{.data.tls\.crt}' \
+		| base64 --decode | openssl x509 -noout -enddate
+
+otel-operator-cert-renew: ## Régénérer le certificat du webhook de l'opérateur OTel puis redémarrer l'opérateur
+	@$(HELM) upgrade --install $(OTEL_KUBE_STACK_RELEASE) opentelemetry-kube-stack \
+		--repo $(OTEL_KUBE_STACK_CHART_REPO) --version $(OTEL_KUBE_STACK_CHART_VERSION) \
+		--namespace $(K8S_NAMESPACE) --values $(OTEL_KUBE_STACK_VALUES) \
+		--set opentelemetry-operator.admissionWebhooks.autoGenerateCert.recreate=true --wait --timeout 5m
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout restart deployment/$(OTEL_KUBE_STACK_RELEASE)-opentelemetry-operator
+	@$(KUBECTL) -n $(K8S_NAMESPACE) rollout status deployment/$(OTEL_KUBE_STACK_RELEASE)-opentelemetry-operator --timeout=180s
+	@$(MAKE) --no-print-directory otel-operator-cert-status
 
 otel-kubernetes-legacy-remove: ## Supprimer les collecteurs Kustomize et la configuration d'agent remplacés par opentelemetry-kube-stack
 	@$(KUBECTL) -n $(K8S_NAMESPACE) delete daemonset/otel-kubernetes deployment/otel-kubernetes-cluster configmap/otel-kafka-config serviceaccount/otel-collector serviceaccount/otel-cluster-collector --ignore-not-found

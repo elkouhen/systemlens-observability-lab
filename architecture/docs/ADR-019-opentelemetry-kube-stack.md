@@ -42,9 +42,9 @@ namespace `elastic-stack`) déploie, depuis
 | `Instrumentation` `otel-kube-stack` | Agent Java `autoinstrumentation-java:2.28.1`, exporteurs, logs Logback, endpoint du daemon |
 
 - Les collecteurs utilisent l'image EDOT `elastic-otel-collector:9.5.4`
-  (ADR-014). Les presets du chart sont désactivés et la réécriture des noms
-  de composants (`rewriteDeprecatedComponentNames`) aussi : la configuration
-  reste écrite en entier dans les values.
+  (ADR-014). Les presets du chart sont désactivés : la configuration reste
+  écrite en entier dans les values, avec les noms courants des composants
+  (`kubelet_stats`, `k8s_attributes`, `otlp_grpc`), sans alias déprécié.
 - Une application s'instrumente par deux annotations de pod :
   `instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack`
   et `resource.opentelemetry.io/service.version`. Son image ne contient plus
@@ -78,6 +78,9 @@ namespace `elastic-stack`) déploie, depuis
 - Si le webhook de l'opérateur ne répond pas, un pod démarre sans agent
   (`failurePolicy: Ignore`). `make otel-instrumentation-verify` contrôle
   l'injection effective.
+- Le certificat du webhook est généré par le chart, valable 365 jours, et
+  conservé d'un `helm upgrade` à l'autre. `make otel-operator-cert-renew` le
+  régénère ; `make otel-operator-cert-status` affiche son expiration.
 - Si le daemon d'un nœud est indisponible, les signaux applicatifs de ce
   nœud ne partent plus vers l'Edge.
 - Une image lancée hors Kubernetes n'est pas instrumentée ; seul Micrometer
