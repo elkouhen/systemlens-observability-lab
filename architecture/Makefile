@@ -20,7 +20,7 @@ APP_IMAGE_TAG ?= 1.1.7
 # API de démonstration hello world (apps/demo-api), plateforme demo.
 DEMO_API_MANIFEST_ROOT ?= ../kubernetes/apps/demo-api
 DEMO_API_NAMESPACE ?= h0tl-demo-app
-DEMO_API_IMAGE_TAG ?= 1.1.2
+DEMO_API_IMAGE_TAG ?= 1.2.0
 DEMO_API_PATH ?= /api/hello?name=lab
 # Chart open-telemetry/opentelemetry-kube-stack : opérateur, collecteurs
 # Kubernetes et injection de l'agent Java (ADR-019). La version de l'agent
@@ -78,7 +78,7 @@ HELP_TARGETS := help architecture-status credentials-show credentials-generate c
 	otel-validate retention-validate retention-deploy retention-verify \
 	stock-show middleware-vm-provision k3s-vm-provision order-service-logs-follow inventory-service-logs-follow restock-service-logs-follow
 
-.PHONY: demo-api-test demo-api-build demo-api-import demo-api-deploy demo-api-call demo-api-jvm-metrics-verify demo-api-logs-follow help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
+.PHONY: demo-api-test demo-api-build demo-api-import demo-api-deploy demo-api-call demo-api-jvm-metrics-verify demo-api-app-metrics-verify demo-api-logs-follow help architecture-status c4-pages-build credentials-show credentials-generate cluster-info platform-status kubernetes-status java-version-verify apps-build apps-test command-center-build images-import kubernetes-validate ansible-validate otel-config-validate otel-routing-verify elastic-version-validate slides elastic-stack-deploy otel-elasticsearch-credentials-apply \
 	elk-deploy kibana-fleet-config-deploy fleet-assets-deploy fleet-prerequisites fleet-registry-ready fleet-server-start fleet-opamp-enable apm-data-view-deploy business-dashboard-deploy business-dashboard-replace apps-deploy fleet-sync \
 	observability-policies-validate observability-policies-deploy ansible-deploy time-sync-verify \
 	postgresql-credentials-apply otel-kafka-credentials-apply mongodb-workload otel-gateway-vm-provision otel-gateway-vm-status otel-gateway-kubernetes-bascule otel-gateway-relocate otel-backend-vm-provision otel-backend-vm-status otel-backend-kubernetes-bascule otel-backend-relocate \
@@ -214,6 +214,16 @@ demo-api-jvm-metrics-verify: ## Vérifier les métriques JVM OTel natives de dem
 	   if [ "$$count" -gt 0 ]; then echo "OK   $$metric : $$count documents"; else echo "KO   $$metric : aucun document" >&2; status=1; fi; \
 	 done; \
 	 exit $$status
+
+demo-api-app-metrics-verify: ## Vérifier la métrique applicative demo_api.calls (appels ok/ko cumulés, 5 dernières minutes)
+	@set -euo pipefail; es_password="$${ELASTICSEARCH_PASSWORD:-$$( $(KUBECTL) -n $(K8S_NAMESPACE) get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode )}"; \
+	 test -n "$$es_password" || { echo 'ELASTICSEARCH_PASSWORD requis pour la vérification.' >&2; exit 1; }; \
+	 result="$$(curl --fail --silent --show-error --insecure --resolve '$(ELASTICSEARCH_CURL_RESOLVE)' \
+	   -u "elastic:$$es_password" -H 'Content-Type: application/json' \
+	   '$(ELASTICSEARCH_URL)/metrics-demo.otel-*/_search' \
+	   --data '{"size":0,"query":{"bool":{"filter":[{"term":{"resource.attributes.service.name":"demo-api"}},{"exists":{"field":"metrics.demo_api.calls"}},{"range":{"@timestamp":{"gte":"now-5m"}}}]}},"aggs":{"outcome":{"terms":{"field":"attributes.outcome"},"aggs":{"route":{"terms":{"field":"attributes.http.route"},"aggs":{"calls":{"max":{"field":"metrics.demo_api.calls"}}}}}}}}')"; \
+	 printf '%s' "$$result" | jq -r '.aggregations.outcome.buckets[] as $$o | $$o.route.buckets[] | "\($$o.key)\t\(.key)\t\(.calls.value)"' \
+	   | awk -F '\t' 'BEGIN { print "outcome  route         appels cumulés" } { printf "%-8s %-13s %d\n", $$1, $$2, $$3; n++ } END { if (n == 0) { print "KO   demo_api.calls : aucun document" > "/dev/stderr"; exit 1 } }'
 
 demo-api-logs-follow: ## Suivre les logs de demo-api
 	@$(KUBECTL) -n $(DEMO_API_NAMESPACE) logs -f deployment/demo-api

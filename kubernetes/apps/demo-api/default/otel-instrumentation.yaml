@@ -15,4 +15,4 @@ spec:
     metadata:
       annotations:
         instrumentation.opentelemetry.io/inject-java: elastic-stack/otel-kube-stack
-        resource.opentelemetry.io/service.version: "1.1.0"
+        resource.opentelemetry.io/service.version: "1.2.0"

@@ -25,7 +25,7 @@ RUN mvn --batch-mode package -DskipTests
 FROM eclipse-temurin:21.0.7_6-jre-noble AS demo-api
 
 WORKDIR /app
-COPY --from=build /workspace/target/demo-api-1.1.0.jar application.jar
+COPY --from=build /workspace/target/demo-api-1.2.0.jar application.jar
 ENV OTEL_SERVICE_NAME=demo-api
 USER 10001
 EXPOSE 3010
